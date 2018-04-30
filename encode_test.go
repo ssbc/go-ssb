@@ -84,13 +84,9 @@ func tSimple(t *testing.T, i int) []byte {
 		t.Logf("%s", testMessages[i].Bytes)
 		t.Fatalf("json.Unmarshal failed: %s", err)
 	}
-
 	encoded, err := EncodeSimple(smsg)
 	if err != nil {
 		t.Fatalf("json.Unmarshal failed: %s", err)
-	}
-	if t.Failed() {
-		t.Logf("simple:\n%s", encoded)
 	}
 	return encoded
 }
@@ -104,10 +100,7 @@ func TestPreserveOrder(t *testing.T) {
 func tPresve(t *testing.T, i int) []byte {
 	encoded, err := EncodePreserveOrder(testMessages[i].Bytes)
 	if err != nil {
-		t.Fatalf("EncodePreserveOrder failed: %s", err)
-	}
-	if t.Failed() {
-		t.Logf("preserve:\n%s", encoded)
+		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
 	}
 	return encoded
 }
@@ -121,7 +114,6 @@ func TestCompareSimple(t *testing.T) {
 		o := string(testMessages[i].Bytes)
 		s := string(tSimple(t, i))
 		testdiff.StringIs(t, o, s)
-
 		if t.Failed() {
 			t.Logf("Seq:%d\n%s", i, diff.Diff(o, s))
 		}
@@ -137,9 +129,8 @@ func TestComparePreserve(t *testing.T) {
 		o := string(testMessages[i].Bytes)
 		p := string(tPresve(t, i))
 		testdiff.StringIs(t, o, p)
-
-		if t.Failed() {
-			t.Logf("Seq:%d\n%s", i, diff.Diff(o, p))
+		if d := diff.Diff(o, p); len(d) != 0 && t.Failed() {
+			t.Logf("Seq:%d\n%s", i, d)
 		}
 	}
 }
