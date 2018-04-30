@@ -72,25 +72,6 @@ func checkPanic(err error) {
 	}
 }
 
-func TestEncodeSimple(t *testing.T) {
-	for i := 1; i < 20; i++ {
-		tSimple(t, i)
-	}
-}
-
-func tSimple(t *testing.T, i int) []byte {
-	var smsg SignedMessage
-	if err := json.Unmarshal(testMessages[i].Bytes, &smsg); err != nil {
-		t.Logf("%s", testMessages[i].Bytes)
-		t.Fatalf("json.Unmarshal failed: %s", err)
-	}
-	encoded, err := EncodeSimple(smsg)
-	if err != nil {
-		t.Fatalf("json.Unmarshal failed: %s", err)
-	}
-	return encoded
-}
-
 func TestPreserveOrder(t *testing.T) {
 	for i := 1; i < 20; i++ {
 		tPresve(t, i)
@@ -103,21 +84,6 @@ func tPresve(t *testing.T, i int) []byte {
 		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
 	}
 	return encoded
-}
-
-func TestCompareSimple(t *testing.T) {
-	n := len(testMessages)
-	if testing.Short() {
-		n = 50
-	}
-	for i := 1; i < n; i++ {
-		o := string(testMessages[i].Bytes)
-		s := string(tSimple(t, i))
-		testdiff.StringIs(t, o, s)
-		if t.Failed() {
-			t.Logf("Seq:%d\n%s", i, diff.Diff(o, s))
-		}
-	}
 }
 
 func TestComparePreserve(t *testing.T) {

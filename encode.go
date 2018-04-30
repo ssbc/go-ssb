@@ -11,18 +11,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func EncodeSimple(i interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	err := enc.Encode(i)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.Trim(buf.Bytes(), "\n"), nil
-}
-
 func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	for {
 		t, err := dec.Token()
