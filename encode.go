@@ -109,8 +109,16 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 				}
 				isKey = true
 			case '[':
-				fmt.Fprint(b, "[\n")
-				if err := formatArray(depth+1, b, dec); err != nil {
+				fmt.Fprint(b, "[")
+				var d = depth + 1
+				if dec.More() {
+					fmt.Fprint(b, "\n")
+				} else {
+					// empty array. no spaces between [ and ]
+					// hint this to the next recurision by setting d=1, which will use depth-1
+					d = 1
+				}
+				if err := formatArray(d, b, dec); err != nil {
 					return errors.Wrapf(err, "formatObject(%d):decend failed", depth)
 				}
 				isKey = true
