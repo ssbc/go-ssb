@@ -13,8 +13,8 @@ import (
 )
 
 type testMessage struct {
-	Hash  string
-	Bytes []byte
+	Hash, Signature string
+	Input, Want     []byte
 }
 
 var testMessages []testMessage
@@ -24,43 +24,56 @@ func init() {
 	checkPanic(errors.Wrap(err, "could not find testdata - run 'node encode_test.js' to create it"))
 	defer r.Close()
 
-	if len(r.File)%2 != 0 {
-		checkPanic(errors.New("expecting two files per message"))
+	if len(r.File)%3 != 0 {
+		checkPanic(errors.New("expecting three files per message"))
 	}
 
-	testMessages = make([]testMessage, len(r.File)/2+1)
+	testMessages = make([]testMessage, len(r.File)/3+1)
 
 	seq := 1
-	for i := 0; i < len(r.File); i += 2 {
-		enc := r.File[i]
-		orig := r.File[i+1]
-
+	for i := 0; i < len(r.File); i += 3 {
+		full := r.File[i]
+		input := r.File[i+1]
+		want := r.File[i+2]
 		// check file structure assumption
-		if enc.Name != fmt.Sprintf("%05d.encoded", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.encoded' got %s", seq, enc.Name))
+		if want.Name != fmt.Sprintf("%05d.want", seq) {
+			checkPanic(errors.Errorf("unexpected file. wanted '%05d.want' got %s", seq, want.Name))
 		}
-
-		if orig.Name != fmt.Sprintf("%05d.orig", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.orig' got %s", seq, orig.Name))
+		if input.Name != fmt.Sprintf("%05d.input", seq) {
+			checkPanic(errors.Errorf("unexpected file. wanted '%05d.input' got %s", seq, input.Name))
 		}
-
+		if full.Name != fmt.Sprintf("%05d.full", seq) {
+			checkPanic(errors.Errorf("unexpected file. wanted '%05d.full' got %s", seq, full.Name))
+		}
 		// only need the hash of the _original_ for now
 		var origMsg struct {
-			Key string
+			Key   string
+			Value map[string]interface{}
 		}
-		origRC, err := orig.Open()
+		origRC, err := full.Open()
 		err = json.NewDecoder(origRC).Decode(&origMsg)
-		checkPanic(errors.Wrapf(err, "test(%d) - could not json decode orig", i))
+		checkPanic(errors.Wrapf(err, "test(%d) - could not json decode full", i))
 		testMessages[seq].Hash = origMsg.Key
+		sig, has := origMsg.Value["signature"]
+		if !has {
+			checkPanic(errors.Errorf("test(%d) - expected signature in value field", i))
+		}
+		testMessages[seq].Signature = sig.(string)
 
-		// copy encoded message
-		rc, err := enc.Open()
-		checkPanic(errors.Wrapf(err, "test(%d) - could not open data", i))
-		testMessages[seq].Bytes, err = ioutil.ReadAll(rc)
+		// copy input
+		rc, err := input.Open()
+		checkPanic(errors.Wrapf(err, "test(%d) - could not open wanted data", i))
+		testMessages[seq].Input, err = ioutil.ReadAll(rc)
 		checkPanic(errors.Wrapf(err, "test(%d) - could not read all data", i))
+		checkPanic(errors.Wrapf(rc.Close(), "test(%d) - could not close input reader", i))
+
+		// copy wanted output
+		rc, err = want.Open()
+		checkPanic(errors.Wrapf(err, "test(%d) - could not open wanted data", i))
+		testMessages[seq].Want, err = ioutil.ReadAll(rc)
+		checkPanic(errors.Wrapf(err, "test(%d) - could not read all wanted data", i))
 
 		// cleanup
-		checkPanic(errors.Wrapf(rc.Close(), "test(%d) - could not close reader #1", i))
 		checkPanic(errors.Wrapf(origRC.Close(), "test(%d) - could not close reader #2", i))
 		seq++
 	}
@@ -78,12 +91,12 @@ func TestPreserveOrder(t *testing.T) {
 	}
 }
 
-func tPresve(t *testing.T, i int) []byte {
-	encoded, err := EncodePreserveOrder(testMessages[i].Bytes)
+func tPresve(t *testing.T, i int) ([]byte, string) {
+	encoded, sig, err := EncodePreserveOrder(testMessages[i].Input)
 	if err != nil {
 		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
 	}
-	return encoded
+	return encoded, sig
 }
 
 func TestComparePreserve(t *testing.T) {
@@ -92,10 +105,12 @@ func TestComparePreserve(t *testing.T) {
 		n = 50
 	}
 	for i := 1; i < n; i++ {
-		o := string(testMessages[i].Bytes)
-		p := string(tPresve(t, i))
-		testdiff.StringIs(t, o, p)
-		if d := diff.Diff(o, p); len(d) != 0 && t.Failed() {
+		w := string(testMessages[i].Want)
+		pBytes, sig := tPresve(t, i)
+		p := string(pBytes)
+		testdiff.StringIs(t, testMessages[i].Signature, sig)
+		testdiff.StringIs(t, w, p)
+		if d := diff.Diff(w, p); len(d) != 0 && t.Failed() {
 			t.Logf("Seq:%d\n%s", i, d)
 		}
 	}

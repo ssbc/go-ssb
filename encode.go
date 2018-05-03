@@ -178,21 +178,26 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	return nil
 }
 
-func EncodePreserveOrder(b []byte) ([]byte, error) {
+func EncodePreserveOrder(b []byte) ([]byte, string, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	var buf bytes.Buffer
 	t, err := dec.Token()
 	if err != nil {
-		return nil, errors.Wrap(err, "message Encode: expected {")
+		return nil, "", errors.Wrap(err, "message Encode: expected {")
 	}
-
 	if v, ok := t.(json.Delim); !ok || v != '{' {
-		return nil, errors.Wrapf(err, "message Encode: wanted { got %v", t)
+		return nil, "", errors.Wrapf(err, "message Encode: wanted { got %v", t)
 	}
-
 	fmt.Fprint(&buf, "{\n")
 	if err := formatObject(1, &buf, dec); err != nil {
-		return nil, errors.Wrap(err, "message Encode: failed to format message as object")
+		return nil, "", errors.Wrap(err, "message Encode: failed to format message as object")
 	}
-	return bytes.Trim(buf.Bytes(), "\n"), nil
+	formatted := buf.Bytes()
+	matches := signatureRegexp.FindSubmatch(formatted)
+	if n := len(matches); n != 2 {
+		return nil, "", errors.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
+	}
+	sig := string(matches[1])
+	out := signatureRegexp.ReplaceAll(formatted, []byte{})
+	return bytes.Trim(out, "\n"), sig, nil
 }

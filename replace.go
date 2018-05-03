@@ -7,6 +7,8 @@ import (
 	"strconv"
 )
 
+var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
+
 // TODO: only handles TWO byte escaped sequences
 var unicodeRegexp = regexp.MustCompile(`\\[uU][0-9a-fA-F]{4,8}`)
 

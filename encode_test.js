@@ -25,14 +25,12 @@ ssbClient( (err, sbot) => {
       if (err) throw err 
     }),
     pull.drain((msg) => {
-      const e = encode(msg.value)
-      const h = "%" + hash(e)
-      if (h != msg.key) {
-	console.error(`hash different for seq:${msg.value.sequence}`)
-	process.exit(1)
-      }
-      zip.addFile(`${pad(msg.value.sequence,5)}.encoded`, e);
-      zip.addFile(`${pad(msg.value.sequence,5)}.orig`, JSON.stringify(msg));
+	  var copy = {...msg.value}
+	  delete(copy.signature)
+      const e = encode(copy)
+      zip.addFile(`${pad(msg.value.sequence,5)}.input`, encode(msg.value));
+      zip.addFile(`${pad(msg.value.sequence,5)}.want`, e);
+	  zip.addFile(`${pad(msg.value.sequence,5)}.full`, JSON.stringify(msg)); // with .key, etc
       i++
     },() => { // done
       sbot.close()
