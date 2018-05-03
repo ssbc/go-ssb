@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -38,6 +37,9 @@ func (s Signature) Raw() ([]byte, error) {
 func (s Signature) Verify(content []byte, r Ref) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
+		if r.Type != RefFeed {
+			return ErrInvalidRefType
+		}
 		if r.Algo != RefAlgoEd25519 {
 			return ErrInvalidSig
 		}
@@ -45,7 +47,6 @@ func (s Signature) Verify(content []byte, r Ref) error {
 		if rawkey == nil {
 			return nil
 		}
-
 		key := ed25519.PublicKey(rawkey)
 		b, err := s.Raw()
 		if err != nil {
@@ -55,6 +56,8 @@ func (s Signature) Verify(content []byte, r Ref) error {
 			return nil
 		}
 		return ErrInvalidSig
+	default:
+		return errors.Errorf("verify: unknown Algo")
 	}
 	return ErrInvalidSig
 }

@@ -39,7 +39,7 @@ type RefAlgo int
 
 func (ra RefAlgo) String() string {
 	switch ra {
-	case RefAlgoSha256:
+	case RefAlgoSHA256:
 		return "sha256"
 	case RefAlgoEd25519:
 		return "ed25519"
@@ -50,11 +50,12 @@ func (ra RefAlgo) String() string {
 
 const (
 	RefAlgoInvalid RefAlgo = iota
-	RefAlgoSha256
+	RefAlgoSHA256
 	RefAlgoEd25519
 )
 
 var (
+	ErrMalformedRef   = errors.New("Malformed Ref")
 	ErrInvalidRefType = errors.New("Invalid Ref Type")
 	ErrInvalidRefAlgo = errors.New("Invalid Ref Algo")
 	ErrInvalidSig     = errors.New("Invalid Signature")
@@ -69,10 +70,10 @@ func (r Ref) Raw() []byte {
 	return []byte(r.Data)
 }
 
-func ParseRef(ref string) (Ref, error) {
+func ParseRef(ref string) (*Ref, error) {
 	parts := strings.Split(strings.Trim(ref, "@%&"), ".")
 	if len(parts) != 2 {
-		return Ref{}, errors.Errorf("ssb ref: malformed type")
+		return nil, ErrMalformedRef
 	}
 	r := Ref{}
 	switch ref[0] {
@@ -83,19 +84,19 @@ func ParseRef(ref string) (Ref, error) {
 	case '&':
 		r.Type = RefBlob
 	default:
-		return Ref{}, errors.Errorf("ssb ref: unknown type")
+		return nil, ErrInvalidRefType
 	}
 	switch strings.ToLower(parts[1]) {
 	case "sha256":
-		r.Algo = RefAlgoSha256
+		r.Algo = RefAlgoSHA256
 	case "ed25519":
 		r.Algo = RefAlgoEd25519
 	default:
-		return Ref{}, errors.Errorf("ssb ref: unknown algo")
+		return nil, ErrInvalidRefAlgo
 	}
 	buf, err := base64.StdEncoding.DecodeString(parts[0])
 	r.Data = string(buf)
-	return r, errors.Wrap(err, "decode failed")
+	return &r, errors.Wrap(err, "decode failed")
 }
 
 func (r Ref) String() string {
@@ -104,11 +105,16 @@ func (r Ref) String() string {
 	}
 	return r.Type.String() + base64.StdEncoding.EncodeToString([]byte(r.Data)) + "." + r.Algo.String()
 }
-func (r Ref) MarshalText() (text []byte, err error) {
+
+func (r Ref) MarshalText() ([]byte, error) {
 	return []byte(r.String()), nil
 }
 
-func (r *Ref) UnmarshalText(text []byte) (err error) {
-	*r, err = ParseRef(string(text))
-	return
+func (r *Ref) UnmarshalText(text []byte) error {
+	newR, err := ParseRef(string(text))
+	if err != nil {
+		return err
+	}
+	*r = *newR
+	return nil
 }

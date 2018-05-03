@@ -178,7 +178,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	return nil
 }
 
-func EncodePreserveOrder(b []byte) ([]byte, string, error) {
+func EncodePreserveOrder(b []byte) ([]byte, Signature, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	var buf bytes.Buffer
 	t, err := dec.Token()
@@ -197,7 +197,7 @@ func EncodePreserveOrder(b []byte) ([]byte, string, error) {
 	if n := len(matches); n != 2 {
 		return nil, "", errors.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
 	}
-	sig := string(matches[1])
+	sig := Signature(matches[1])
 	out := signatureRegexp.ReplaceAll(formatted, []byte{})
 	return bytes.Trim(out, "\n"), sig, nil
 }

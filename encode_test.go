@@ -13,6 +13,7 @@ import (
 )
 
 type testMessage struct {
+	Author          *Ref
 	Hash, Signature string
 	Input, Want     []byte
 }
@@ -45,7 +46,8 @@ func init() {
 		if full.Name != fmt.Sprintf("%05d.full", seq) {
 			checkPanic(errors.Errorf("unexpected file. wanted '%05d.full' got %s", seq, full.Name))
 		}
-		// only need the hash of the _original_ for now
+
+		// get some data from the full message
 		var origMsg struct {
 			Key   string
 			Value map[string]interface{}
@@ -54,11 +56,19 @@ func init() {
 		err = json.NewDecoder(origRC).Decode(&origMsg)
 		checkPanic(errors.Wrapf(err, "test(%d) - could not json decode full", i))
 		testMessages[seq].Hash = origMsg.Key
+		// get sig
 		sig, has := origMsg.Value["signature"]
 		if !has {
 			checkPanic(errors.Errorf("test(%d) - expected signature in value field", i))
 		}
 		testMessages[seq].Signature = sig.(string)
+		// get author
+		a, has := origMsg.Value["author"]
+		if !has {
+			checkPanic(errors.Errorf("test(%d) - expected author in value field", i))
+		}
+		testMessages[seq].Author, err = ParseRef(a.(string))
+		checkPanic(errors.Wrapf(err, "test(%d) - expected valid author ref", i))
 
 		// copy input
 		rc, err := input.Open()
@@ -91,7 +101,7 @@ func TestPreserveOrder(t *testing.T) {
 	}
 }
 
-func tPresve(t *testing.T, i int) ([]byte, string) {
+func tPresve(t *testing.T, i int) ([]byte, Signature) {
 	encoded, sig, err := EncodePreserveOrder(testMessages[i].Input)
 	if err != nil {
 		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
@@ -108,7 +118,7 @@ func TestComparePreserve(t *testing.T) {
 		w := string(testMessages[i].Want)
 		pBytes, sig := tPresve(t, i)
 		p := string(pBytes)
-		testdiff.StringIs(t, testMessages[i].Signature, sig)
+		testdiff.StringIs(t, testMessages[i].Signature, string(sig))
 		testdiff.StringIs(t, w, p)
 		if d := diff.Diff(w, p); len(d) != 0 && t.Failed() {
 			t.Logf("Seq:%d\n%s", i, d)
