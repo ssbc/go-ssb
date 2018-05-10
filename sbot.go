@@ -1,99 +1,113 @@
 package sbot
 
 import (
+	"context"
 	"log"
 	"net"
-	"sync"
 
 	"cryptoscope.co/go/muxrpc"
+	"cryptoscope.co/go/netwrap"
+	"cryptoscope.co/go/secretstream"
+	"cryptoscope.co/go/secretstream/secrethandshake"
 	"github.com/pkg/errors"
 )
 
-// TODO: move halt stuff to new package curfew
-//       and add nesting helper types
-type HaltOpts struct {
-	// Force shutdown instead of doing it gracefully.
-	Force bool
-}
-
-type Haltable interface {
-	// Halt makes the callee shut down.
-	Halt(opts HaltOpts) error
-}
-
-type Repo interface {
-	// Path returns the absolute path, given a path relative to the repository root.
-	Path(name string) string
-}
-
 type Options struct {
-	Listener    net.Listener
+	ListenAddr  net.Addr
+	KeyPair     secrethandshake.EdKeyPair
+	AppKey	[]byte
 	MakeHandler func(net.Conn) muxrpc.Handler
 }
 
 type Node interface {
-	Haltable
-	Repo
-
-	Connect(addr net.Addr) error
-	Serve() error
+	Connect(ctx context.Context, addr net.Addr) error
+	Serve(ctx context.Context) error
 }
 
 type node struct {
 	opts Options
 
-	activeLock sync.Mutex
-	active     map[activeConn]struct{}
+	l            net.Listener
+	secretServer *secretstream.Server
+	secretClient *secretstream.Client
+	connTracker  ConnTracker
 }
 
-type activeConn struct {
-	// these are basically net.Addr's, but we take the .String() because that's better for map keys
-	Local, Remote string
+func NewNode(opts Options) (Node, error) {
+	n := &node{
+		opts:        opts,
+		connTracker: NewConnTracker(),
+	}
+
+	var err error
+	
+	n.secretClient, err = secretstream.NewClient(opts.KeyPair, opts.AppKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating secretstream.Client")
+	}
+
+	n.secretServer, err = secretstream.NewServer(opts.KeyPair, opts.AppKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating secretstream.Server")
+	}
+	
+	n.l, err = netwrap.Listen(n.opts.ListenAddr, n.secretServer.ListenerWrapper())
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating listener")
+	}
+	return n, nil
 }
 
-func toActiveConn(conn net.Conn) activeConn {
-	return activeConn{
-		Local:  conn.LocalAddr().String(),
-		Remote: conn.RemoteAddr().String(),
+func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
+	h := n.opts.MakeHandler(conn)
+	pkr := muxrpc.NewPacker(conn)
+
+	n.connTracker.OnAccept(conn)
+	defer n.connTracker.OnClose(conn)
+
+	edp := muxrpc.Handle(pkr, h)
+	go h.HandleConnect(ctx, edp)
+
+	srv := edp.(muxrpc.Server)
+	err := srv.Serve(ctx)
+	if err != nil {
+		log.Printf("error serving muxrpc session with peer %q: %s", conn.RemoteAddr(), err)
 	}
 }
 
-func NewNode(opts Options) Node {
-	return &node{
-		opts:   opts,
-		active: make(map[activeConn]struct{}),
-	}
-}
+func (n *node) Serve(ctx context.Context) error {
 
-func (n *node) Serve() error {
 	for {
-		c, err := n.opts.Listener.Accept()
+		conn, err := n.l.Accept()
 		if err != nil {
-			return errors.Wrap(err, "errors accepting connection")
+			return errors.Wrap(err, "error accepting connection")
 		}
+
+		go func() {
+			n.handleConnection(ctx, conn)
+		}()
+	}
+}
+
+func (n *node) Connect(ctx context.Context, addr net.Addr) error {
+	shsAddr := netwrap.GetAddr(addr, "shs-bs")
+	if shsAddr == nil {
+		return errors.New("expected an address containing an shs-bs addr")
 	}
 
-	h := n.opts.MakeHandler(c)
-	pkr := muxrpc.NewPacker(c)
+	var pubKey [32]byte
+	if shsAddr, ok := shsAddr.(secretstream.Addr); ok {
+		copy(pubKey[:], shsAddr.PubKey)
+	} else {
+		return errors.New("expected shs-bs address to be of type secretstream.Addr")
+	}
 
-	go func() {
-		func() {
-			n.activeLock.Lock()
-			defer n.activeLock.Unlock()
+	conn, err := netwrap.Dial(netwrap.GetAddr(addr,"tcp"), n.secretClient.ConnWrapper(pubKey))
+	if err != nil {
+		return errors.Wrap(err, "error dialing")
+	}
 
-			n.active[toActiveConn(conn)] = struct{}{}
-		}
+	n.handleConnection(ctx, conn)
 
-		defer func() {
-			n.activeLock.Lock()
-			defer n.activeLock.Unlock()
-
-			delete(n.active, toActiveConn(conn))
-		}()
-
-		err := Handle(pkr, h)
-		if err != nil {
-			log.Printf("error handling connection with peer %q: %s", conn.RemoteAddr(), err)
-		}
-	}()
+	return nil
 }
