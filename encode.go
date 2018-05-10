@@ -140,13 +140,8 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			if isKey {
 				fmt.Fprintf(b, "%s%q: ", strings.Repeat("  ", depth), v)
 			} else {
-				var buf bytes.Buffer
-				fmt.Fprintf(&buf, "%q", v)
-				// replace escaped unicode charachters
-				// this is a Go thing, done by %q
-				// but it also helps us to keep \n in the string
-				out := unicodeRegexp.ReplaceAllFunc(buf.Bytes(), unicodeReplace)
-				io.Copy(b, bytes.NewReader(out))
+				r := strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
+				fmt.Fprintf(b, `"%s"`, unicodeEscapeSome(r.Replace(v)))
 				if dec.More() {
 					fmt.Fprint(b, ",")
 				}

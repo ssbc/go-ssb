@@ -4,26 +4,21 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
-	"strconv"
+	"unicode/utf8"
 )
 
 var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
 
-// TODO: only handles TWO byte escaped sequences
-var unicodeRegexp = regexp.MustCompile(`\\[uU][0-9a-fA-F]{4,8}`)
-
-func unicodeReplace(b []byte) []byte {
-	low := bytes.ToLower(b)
-	if !bytes.HasPrefix(low, []byte("\\u")) {
-		return b
+func unicodeEscapeSome(s string) string {
+	var b bytes.Buffer
+	for i, r := range s {
+		if r < 20 {
+			// TODO: width for multibyte chars
+			runeValue, _ := utf8.DecodeRuneInString(s[i:])
+			fmt.Fprintf(&b, "\\u%04x", runeValue)
+		} else {
+			fmt.Fprintf(&b, "%c", r)
+		}
 	}
-	num, err := strconv.ParseInt(fmt.Sprintf("0x%s", low[2:]), 0, 32)
-	if err != nil {
-		fmt.Printf("WARNING: ssb unicodeReplace() failed: %s\n", err)
-		return []byte{}
-	}
-	//fmt.Printf("(%s) Got Num:%d\n", b, num)
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%c", num)
-	return buf.Bytes()
+	return b.String()
 }
