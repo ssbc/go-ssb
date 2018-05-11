@@ -22,7 +22,7 @@ func (edp *whoAmIEndpoint) WhoAmI(ctx context.Context) ([]byte, error) {
 	return key, nil
 }
 
-type whoAmI struct{
+type whoAmI struct {
 	PubKey []byte
 }
 

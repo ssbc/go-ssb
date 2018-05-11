@@ -50,7 +50,7 @@ func main() {
 		node sbot.Node
 		err  error
 	)
-	
+
 	keyPair, err := secrethandshake.GenEdKeyPair(rand.New(rand.NewSource(seed)))
 	if err != nil {
 		panic(err)

@@ -15,7 +15,7 @@ import (
 type Options struct {
 	ListenAddr  net.Addr
 	KeyPair     secrethandshake.EdKeyPair
-	AppKey	[]byte
+	AppKey      []byte
 	MakeHandler func(net.Conn) muxrpc.Handler
 }
 
@@ -40,7 +40,7 @@ func NewNode(opts Options) (Node, error) {
 	}
 
 	var err error
-	
+
 	n.secretClient, err = secretstream.NewClient(opts.KeyPair, opts.AppKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating secretstream.Client")
@@ -50,7 +50,7 @@ func NewNode(opts Options) (Node, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating secretstream.Server")
 	}
-	
+
 	n.l, err = netwrap.Listen(n.opts.ListenAddr, n.secretServer.ListenerWrapper())
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating listener")
@@ -102,7 +102,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.New("expected shs-bs address to be of type secretstream.Addr")
 	}
 
-	conn, err := netwrap.Dial(netwrap.GetAddr(addr,"tcp"), n.secretClient.ConnWrapper(pubKey))
+	conn, err := netwrap.Dial(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
 		return errors.Wrap(err, "error dialing")
 	}
