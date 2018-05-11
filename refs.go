@@ -56,7 +56,7 @@ func ParseRef(str string) (Ref, error) {
 
 		return &MessageRef{
 			Hash: raw,
-			Algo: RefAlgoEd25519,
+			Algo: RefAlgoSHA256,
 		}, nil
 	case "&":
 		if split[1] != "sha256" {
@@ -65,7 +65,7 @@ func ParseRef(str string) (Ref, error) {
 
 		return &BlobRef{
 			Hash: raw,
-			Algo: RefAlgoEd25519,
+			Algo: RefAlgoSHA256,
 		}, nil
 	}
 
