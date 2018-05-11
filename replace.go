@@ -7,7 +7,10 @@ import (
 	"unicode/utf8"
 )
 
-var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
+var (
+	signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
+	authorRegexp    = regexp.MustCompile(`"author": "(@[A-Za-z0-9/+=.]+.ed25519)"`)
+)
 
 func unicodeEscapeSome(s string) string {
 	var b bytes.Buffer

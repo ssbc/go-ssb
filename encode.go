@@ -75,9 +75,7 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			}
 			fmt.Fprintf(b, "\n")
 		}
-
 	}
-	return nil
 }
 
 func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
@@ -170,29 +168,33 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			isKey = !isKey
 		}
 	}
-	return nil
 }
 
-func EncodePreserveOrder(b []byte) ([]byte, Signature, error) {
+// EncodePreserveOrder pretty-prints byte slice b using json.Token izer
+// using two spaces like this to mimics JSON.stringify(....)
+// {
+//   "field": "val",
+//   "arr": [
+// 	"foo",
+// 	"bar"
+//   ],
+//   "obj": {}
+// }
+//
+// while preserving the order in which the keys appear
+func EncodePreserveOrder(b []byte) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	var buf bytes.Buffer
 	t, err := dec.Token()
 	if err != nil {
-		return nil, "", errors.Wrap(err, "message Encode: expected {")
+		return nil, errors.Wrap(err, "message Encode: expected {")
 	}
 	if v, ok := t.(json.Delim); !ok || v != '{' {
-		return nil, "", errors.Wrapf(err, "message Encode: wanted { got %v", t)
+		return nil, errors.Wrapf(err, "message Encode: wanted { got %v", t)
 	}
 	fmt.Fprint(&buf, "{\n")
 	if err := formatObject(1, &buf, dec); err != nil {
-		return nil, "", errors.Wrap(err, "message Encode: failed to format message as object")
+		return nil, errors.Wrap(err, "message Encode: failed to format message as object")
 	}
-	formatted := buf.Bytes()
-	matches := signatureRegexp.FindSubmatch(formatted)
-	if n := len(matches); n != 2 {
-		return nil, "", errors.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
-	}
-	sig := Signature(matches[1])
-	out := signatureRegexp.ReplaceAll(formatted, []byte{})
-	return bytes.Trim(out, "\n"), sig, nil
+	return bytes.Trim(buf.Bytes(), "\n"), nil
 }

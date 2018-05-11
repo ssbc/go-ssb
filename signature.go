@@ -34,7 +34,7 @@ func (s Signature) Raw() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(b64)
 }
 
-func (s Signature) Verify(content []byte, r Ref) error {
+func (s Signature) Verify(content []byte, r *Ref) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
 		if r.Type != RefFeed {

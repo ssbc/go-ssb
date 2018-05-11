@@ -29,8 +29,8 @@ ssbClient( (err, sbot) => {
 	  delete(copy.signature)
       const e = encode(copy)
       zip.addFile(`${pad(msg.value.sequence,5)}.input`, encode(msg.value));
-      zip.addFile(`${pad(msg.value.sequence,5)}.want`, e);
-	  zip.addFile(`${pad(msg.value.sequence,5)}.full`, JSON.stringify(msg)); // with .key, etc
+      zip.addFile(`${pad(msg.value.sequence,5)}.noSig`, e);
+      zip.addFile(`${pad(msg.value.sequence,5)}.full`, JSON.stringify(msg)); // with .key, etc
       i++
     },() => { // done
       sbot.close()

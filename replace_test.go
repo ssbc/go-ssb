@@ -5,17 +5,30 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+func TestFindAuthor(t *testing.T) {
+	a, r := assert.New(t), require.New(t)
+	tMsg := testMessages[1]
+
+	enc, err := EncodePreserveOrder(tMsg.Input)
+	r.NoError(err, "encode failed")
+
+	matches := authorRegexp.FindSubmatch(enc)
+	r.Len(matches, 2)
+	a.Equal(string(matches[1]), tMsg.Author.String())
+}
+
 func TestExtractSignature(t *testing.T) {
+	a, r := assert.New(t), require.New(t)
 	var input = []byte(`{"foo":"test","signature":"testSign"}`)
-	_, sign, err := EncodePreserveOrder(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sign != "testSign" {
-		t.Errorf("got unexpected signature: %s", sign)
-	}
+	enc, err := EncodePreserveOrder(input)
+	r.NoError(err, "encode failed")
+
+	_, sign, err := ExtractSignature(enc)
+	r.NoError(err, "extract sig failed")
+	a.Equal("testSign", sign)
 }
 
 func TestStripSignature(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 type testMessage struct {
 	Author          *Ref
 	Hash, Signature string
-	Input, Want     []byte
+	Input, NoSig    []byte
 }
 
 var testMessages []testMessage
@@ -35,10 +35,10 @@ func init() {
 	for i := 0; i < len(r.File); i += 3 {
 		full := r.File[i]
 		input := r.File[i+1]
-		want := r.File[i+2]
+		noSig := r.File[i+2]
 		// check file structure assumption
-		if want.Name != fmt.Sprintf("%05d.want", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.want' got %s", seq, want.Name))
+		if noSig.Name != fmt.Sprintf("%05d.noSig", seq) {
+			checkPanic(errors.Errorf("unexpected file. wanted '%05d.noSig' got %s", seq, noSig.Name))
 		}
 		if input.Name != fmt.Sprintf("%05d.input", seq) {
 			checkPanic(errors.Errorf("unexpected file. wanted '%05d.input' got %s", seq, input.Name))
@@ -78,9 +78,9 @@ func init() {
 		checkPanic(errors.Wrapf(rc.Close(), "test(%d) - could not close input reader", i))
 
 		// copy wanted output
-		rc, err = want.Open()
+		rc, err = noSig.Open()
 		checkPanic(errors.Wrapf(err, "test(%d) - could not open wanted data", i))
-		testMessages[seq].Want, err = ioutil.ReadAll(rc)
+		testMessages[seq].NoSig, err = ioutil.ReadAll(rc)
 		checkPanic(errors.Wrapf(err, "test(%d) - could not read all wanted data", i))
 
 		// cleanup
@@ -101,12 +101,12 @@ func TestPreserveOrder(t *testing.T) {
 	}
 }
 
-func tPresve(t *testing.T, i int) ([]byte, Signature) {
-	encoded, sig, err := EncodePreserveOrder(testMessages[i].Input)
+func tPresve(t *testing.T, i int) []byte {
+	encoded, err := EncodePreserveOrder(testMessages[i].Input)
 	if err != nil {
 		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
 	}
-	return encoded, sig
+	return encoded
 }
 
 func TestComparePreserve(t *testing.T) {
@@ -115,10 +115,10 @@ func TestComparePreserve(t *testing.T) {
 		n = 50
 	}
 	for i := 1; i < n; i++ {
-		w := string(testMessages[i].Want)
-		pBytes, sig := tPresve(t, i)
+		w := string(testMessages[i].Input)
+		pBytes := tPresve(t, i)
 		p := string(pBytes)
-		testdiff.StringIs(t, testMessages[i].Signature, string(sig))
+		//testdiff.StringIs(t, testMessages[i].Signature, string(sig))
 		testdiff.StringIs(t, w, p)
 		if d := diff.Diff(w, p); len(d) != 0 && t.Failed() {
 			t.Logf("Seq:%d\n%s", i, d)
