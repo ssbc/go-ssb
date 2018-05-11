@@ -7,6 +7,9 @@ type Plugin interface {
 	// format: name-1.0.2
 	Name() string
 
+	// Method returns the preferred method of the call
+	Method() muxrpc.Method
+
 	// Handler returns the muxrpc handler for the plugin
 	Handler(node Node) muxrpc.Handler
 
