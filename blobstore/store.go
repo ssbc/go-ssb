@@ -9,14 +9,24 @@ import (
 	"path"
 	"time"
 
-	"github.com/pkg/errors"
 	"cryptoscope.co/go/sbot"
+	"github.com/pkg/errors"
 )
 
-func New(basePath string) sbot.BlobStore {
+func New(basePath string) (sbot.BlobStore, error) {
+	err := os.MkdirAll(path.Join(basePath, "sha256"), 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "error making dir for hash sha256")
+	}
+
+	err = os.MkdirAll(path.Join(basePath, "tmp"), 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "error making tmp dir")
+	}
+
 	return &blobStore{
 		basePath: basePath,
-	}
+	}, nil
 }
 
 type blobStore struct {
@@ -47,7 +57,7 @@ func (store *blobStore) Get(ref *sbot.BlobRef) (io.Reader, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting path for ref %q", ref)
 	}
-	
+
 	return os.Open(blobPath)
 }
 
