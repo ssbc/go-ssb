@@ -4,6 +4,10 @@ import (
 	"os"
 	"path"
 
+	"cryptoscope.co/go/margaret"
+	"cryptoscope.co/go/margaret/codec/json"
+	"cryptoscope.co/go/margaret/framing/lengthprefixed"
+	"cryptoscope.co/go/margaret/offset"
 	"cryptoscope.co/go/secretstream/secrethandshake"
 	"github.com/pkg/errors"
 
@@ -26,6 +30,11 @@ func New(basePath string) (sbot.Repo, error) {
 		return nil, errors.Wrap(err, "error reading KeyPair")
 	}
 
+	r.log, err = r.getLog()
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening log")
+	}
+
 	return r, nil
 }
 
@@ -34,6 +43,7 @@ type repo struct {
 
 	blobStore sbot.BlobStore
 	keyPair   *secrethandshake.EdKeyPair
+	log margaret.Log
 }
 
 func (r *repo) getPath(rel string) string {
@@ -56,6 +66,25 @@ func (r *repo) getKeyPair() (*secrethandshake.EdKeyPair, error) {
 	}
 
 	return r.keyPair, nil
+}
+
+func (r *repo) getLog() (margaret.Log, error) {
+	if r.log != nil {
+		return r.log, nil
+	}
+
+	logFile, err := os.OpenFile(r.getPath("log"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening log file")
+	}
+
+	// TODO use proper log message type here
+	r.log = offset.NewOffsetLog(logFile, lengthprefixed.New32(8 * 1024), json.New(nil))
+	return r.log, nil
+}
+
+func (r *repo) Log() margaret.Log {
+	return r.log
 }
 
 func (r *repo) KeyPair() secrethandshake.EdKeyPair {
