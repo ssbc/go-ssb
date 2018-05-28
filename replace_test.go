@@ -17,18 +17,18 @@ func TestFindAuthor(t *testing.T) {
 
 	matches := authorRegexp.FindSubmatch(enc)
 	r.Len(matches, 2)
-	a.Equal(string(matches[1]), tMsg.Author.String())
+	a.Equal(string(matches[1]), tMsg.Author.Ref())
 }
 
 func TestExtractSignature(t *testing.T) {
-	a, r := assert.New(t), require.New(t)
+	r := require.New(t)
 	var input = []byte(`{"foo":"test","signature":"testSign"}`)
 	enc, err := EncodePreserveOrder(input)
 	r.NoError(err, "encode failed")
 
 	_, sign, err := ExtractSignature(enc)
 	r.NoError(err, "extract sig failed")
-	a.Equal("testSign", sign)
+	r.NotNil(sign)
 }
 
 func TestStripSignature(t *testing.T) {

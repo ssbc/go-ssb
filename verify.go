@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"io"
 
+	"cryptoscope.co/go/sbot"
 	"github.com/pkg/errors"
 )
 
@@ -21,7 +22,7 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	return out, sig, nil
 }
 
-func Verify(raw []byte) (*Ref, error) {
+func Verify(raw []byte) (*sbot.MessageRef, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssb: could not verify message")
@@ -37,12 +38,13 @@ func Verify(raw []byte) (*Ref, error) {
 		return nil, errors.Errorf("ssb: did not find author. Matches:%d", len(foundAuthor))
 	}
 
-	authorRef, err := ParseRef(string(foundAuthor[1]))
+	ref, err := sbot.ParseRef(string(foundAuthor[1]))
 	if err != nil {
 		return nil, errors.Wrap(err, "ssb: could not extract signature")
 	}
-	if authorRef.Type != RefFeed {
-		return nil, errors.Errorf("ssb: unexpected ref type for author: %d", authorRef.Type)
+	authorRef, ok := ref.(*sbot.FeedRef)
+	if !ok {
+		return nil, errors.Errorf("ssb: unexpected ref type for author: %T", ref)
 	}
 
 	if err := sig.Verify(woSig, authorRef); err != nil {
@@ -53,10 +55,9 @@ func Verify(raw []byte) (*Ref, error) {
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(enc))
 
-	msgHash, err := NewRef(RefMessage, h.Sum(nil), RefAlgoSHA256)
-	if err != nil {
-		return nil, errors.Wrap(err, "ssb: could not extract signature")
+	mr := sbot.MessageRef{
+		Hash: h.Sum(nil),
+		Algo: sbot.RefAlgoSHA256,
 	}
-
-	return &msgHash, nil
+	return &mr, nil
 }

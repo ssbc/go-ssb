@@ -1,6 +1,11 @@
 package ssb
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+
+	"cryptoscope.co/go/sbot"
+)
 
 type WhoamiReply struct {
 	ID string `json:"id"`
@@ -16,4 +21,13 @@ type CreateHistArgs struct {
 
 type RawSignedMessage struct {
 	json.RawMessage
+}
+
+type StoredMessage struct {
+	Author    sbot.FeedRef    // @... pubkey
+	Previous  sbot.MessageRef // %... message hashsha
+	Key       sbot.MessageRef // %... message hashsha
+	Sequence  uint
+	Timestamp time.Time
+	Raw       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
 }

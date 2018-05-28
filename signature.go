@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"cryptoscope.co/go/sbot"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ed25519"
 )
@@ -34,20 +35,13 @@ func (s Signature) Raw() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(b64)
 }
 
-func (s Signature) Verify(content []byte, r *Ref) error {
+func (s Signature) Verify(content []byte, r *sbot.FeedRef) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
-		if r.Type != RefFeed {
-			return ErrInvalidRefType
+		if r.Algo != sbot.RefAlgoEd25519 {
+			return errors.Errorf("sbot: invalid signature algorithm")
 		}
-		if r.Algo != RefAlgoEd25519 {
-			return ErrInvalidSig
-		}
-		rawkey := r.Raw()
-		if rawkey == nil {
-			return nil
-		}
-		key := ed25519.PublicKey(rawkey)
+		key := ed25519.PublicKey(r.ID)
 		b, err := s.Raw()
 		if err != nil {
 			return errors.Wrap(err, "verify: raw unpack failed")
@@ -55,9 +49,8 @@ func (s Signature) Verify(content []byte, r *Ref) error {
 		if ed25519.Verify(key, content, b) {
 			return nil
 		}
-		return ErrInvalidSig
+		return errors.Errorf("sbot: invalid signature")
 	default:
 		return errors.Errorf("verify: unknown Algo")
 	}
-	return ErrInvalidSig
 }

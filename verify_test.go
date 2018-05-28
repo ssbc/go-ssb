@@ -13,6 +13,6 @@ func TestVerify(t *testing.T) {
 	for i := 1; i < n; i++ {
 		hash, err := Verify(testMessages[i].Input)
 		r.NoError(err, "verify failed")
-		a.Equal(hash.String(), testMessages[i].Hash)
+		a.Equal(hash.Ref(), testMessages[i].Hash)
 	}
 }
