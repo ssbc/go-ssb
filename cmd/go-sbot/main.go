@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"strings"
@@ -16,6 +15,8 @@ import (
 	"cryptoscope.co/go/sbot"
 	"cryptoscope.co/go/secretstream"
 	"cryptoscope.co/go/secretstream/secrethandshake"
+	"github.com/cryptix/go/logging"
+	"github.com/pkg/errors"
 )
 
 type whoAmIEndpoint struct {
@@ -23,20 +24,32 @@ type whoAmIEndpoint struct {
 }
 
 var (
-	listenPort  int
+	listenAddr  string
 	connectAddr string
 	appKey      []byte
 	seed        int64
+
+	log        logging.Interface
+	checkFatal = logging.CheckFatal
 )
 
+func checkAndLog(err error) {
+	if err != nil {
+		log.Log("event", "error", "err", err)
+		// TODO: push panic writer to go/logging
+		fmt.Printf("Stack: %+v\n", err)
+	}
+}
+
 func init() {
+	logging.SetupLogging(nil)
+	log = logging.Logger("sbot")
+
 	var err error
 	appKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
-	if err != nil {
-		panic(err)
-	}
+	checkFatal(err)
 
-	flag.IntVar(&listenPort, "l", 8008, "port to listen on")
+	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.Int64Var(&seed, "seed", 42, "number to seed key generation (reproducible and insecure!)")
 	flag.StringVar(&connectAddr, "connect", "", "address to connect to after startup")
 
@@ -52,25 +65,24 @@ func main() {
 	)
 
 	keyPair, err := secrethandshake.GenEdKeyPair(rand.New(rand.NewSource(seed)))
-	if err != nil {
-		panic(err)
-	}
+	checkFatal(err)
 
 	rootHdlr := &muxrpc.HandlerMux{}
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{PubKey: keyPair.Public[:]})
 	rootHdlr.Register(muxrpc.Method{"connect"}, &connect{&node})
 
+	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+	checkFatal(err)
+
 	opts := sbot.Options{
-		ListenAddr:  &net.TCPAddr{Port: listenPort},
+		ListenAddr:  laddr,
 		KeyPair:     *keyPair,
 		AppKey:      appKey,
 		MakeHandler: func(net.Conn) muxrpc.Handler { return rootHdlr },
 	}
 
 	node, err = sbot.NewNode(opts)
-	if err != nil {
-		panic(err)
-	}
+	checkFatal(err)
 
 	// initial peer specified on cli. this will go once we actually do stuff
 	if connectAddr != "" {
@@ -78,28 +90,18 @@ func main() {
 
 		tcpAddrStr := split[0]
 		tcpAddr, err := net.ResolveTCPAddr("tcp", tcpAddrStr)
-		if err != nil {
-			log.Printf("error resolving network address %q: %s\n", tcpAddrStr, err)
-			return
-		}
+		checkFatal(errors.Wrapf(err, "error resolving network address %s", tcpAddrStr))
 
 		hexPubKey := split[1]
 		pubKey, err := hex.DecodeString(hexPubKey)
-		if err != nil {
-			log.Printf("error decoding hex string %q: %s", hexPubKey, err)
-		}
+		checkFatal(errors.Wrapf(err, "error decoding hex string %q", hexPubKey))
+
 		ssAddr := secretstream.Addr{PubKey: pubKey}
-
 		err = node.Connect(ctx, netwrap.WrapAddr(tcpAddr, ssAddr))
-		if err != nil {
-			log.Printf("error connecting to %q: %s\n", connectAddr, err)
-			return
-		}
+		checkFatal(errors.Wrapf(err, "error connecting to %q", connectAddr))
 	}
 
-	fmt.Printf("serving key %x on %s\n", keyPair.Public, opts.ListenAddr)
+	log.Log("event", "serving", "key", fmt.Sprintf("%x", keyPair.Public), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
-	if err != nil {
-		panic(err)
-	}
+	checkFatal(err)
 }
