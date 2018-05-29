@@ -9,6 +9,7 @@ import (
 	"cryptoscope.co/go/netwrap"
 	"cryptoscope.co/go/secretstream"
 	"cryptoscope.co/go/secretstream/secrethandshake"
+	"github.com/agl/ed25519"
 	"github.com/pkg/errors"
 )
 
@@ -76,16 +77,14 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 }
 
 func (n *node) Serve(ctx context.Context) error {
-
 	for {
 		conn, err := n.l.Accept()
 		if err != nil {
 			return errors.Wrap(err, "error accepting connection")
 		}
-
-		go func() {
-			n.handleConnection(ctx, conn)
-		}()
+		go func(c net.Conn) {
+			n.handleConnection(ctx, c)
+		}(conn)
 	}
 }
 
@@ -95,7 +94,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.New("expected an address containing an shs-bs addr")
 	}
 
-	var pubKey [32]byte
+	var pubKey [ed25519.PublicKeySize]byte
 	if shsAddr, ok := shsAddr.(secretstream.Addr); ok {
 		copy(pubKey[:], shsAddr.PubKey)
 	} else {
@@ -108,6 +107,5 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	}
 
 	n.handleConnection(ctx, conn)
-
 	return nil
 }
