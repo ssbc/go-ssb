@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"math/rand"
 	"net"
+	"os/user"
+	"path/filepath"
 	"strings"
 
 	"cryptoscope.co/go/muxrpc"
@@ -27,7 +28,9 @@ var (
 	listenAddr  string
 	connectAddr string
 	appKey      []byte
-	seed        int64
+	secretFname string
+	localKey    *secrethandshake.EdKeyPair
+	localID     *sbot.FeedRef
 
 	log        logging.Interface
 	checkFatal = logging.CheckFatal
@@ -49,8 +52,13 @@ func init() {
 	appKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
 	checkFatal(err)
 
+	u, err := user.Current()
+	checkFatal(err)
+
+	defaultKeyFile := filepath.Join(u.HomeDir, ".ssb", "secret")
+
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
-	flag.Int64Var(&seed, "seed", 42, "number to seed key generation (reproducible and insecure!)")
+	flag.StringVar(&secretFname, "secret", defaultKeyFile, "number to seed key generation (reproducible and insecure!)")
 	flag.StringVar(&connectAddr, "connect", "", "address to connect to after startup")
 
 	flag.Parse()
@@ -64,11 +72,12 @@ func main() {
 		err  error
 	)
 
-	keyPair, err := secrethandshake.GenEdKeyPair(rand.New(rand.NewSource(seed)))
+	localKey, err = secrethandshake.LoadSSBKeyPair(secretFname)
 	checkFatal(err)
+	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
 	rootHdlr := &muxrpc.HandlerMux{}
-	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{PubKey: keyPair.Public[:]})
+	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{PubKey: localKey.Public[:]})
 	rootHdlr.Register(muxrpc.Method{"connect"}, &connect{&node})
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
@@ -76,7 +85,7 @@ func main() {
 
 	opts := sbot.Options{
 		ListenAddr:  laddr,
-		KeyPair:     *keyPair,
+		KeyPair:     *localKey,
 		AppKey:      appKey,
 		MakeHandler: func(net.Conn) muxrpc.Handler { return rootHdlr },
 	}
@@ -101,7 +110,7 @@ func main() {
 		checkFatal(errors.Wrapf(err, "error connecting to %q", connectAddr))
 	}
 
-	log.Log("event", "serving", "key", fmt.Sprintf("%x", keyPair.Public), "addr", opts.ListenAddr)
+	log.Log("event", "serving", "ID", localID.Ref(), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
 	checkFatal(err)
 }
