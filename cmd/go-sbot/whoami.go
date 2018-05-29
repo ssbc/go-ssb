@@ -4,44 +4,21 @@ import (
 	"context"
 
 	"cryptoscope.co/go/muxrpc"
+
 	"cryptoscope.co/go/sbot"
-	"github.com/pkg/errors"
 )
-
-func (edp *whoAmIEndpoint) WhoAmI(ctx context.Context) ([]byte, error) {
-	v, err := edp.Async(ctx, []byte{}, []string{"whoami"})
-	if err != nil {
-		return nil, errors.Wrap(err, "error doing async call")
-	}
-
-	key, ok := v.([]byte)
-	if !ok {
-		return nil, errors.Errorf("expected type %T, got %T", key, v)
-	}
-
-	return key, nil
-}
 
 type whoAmI struct {
 	I sbot.FeedRef
 }
 
 func (whoAmI) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	// TODO: retreive key from endpoint
-	log.Log("event", "incomming connect")
-
-	/* dont call back
-	remote := &whoAmIEndpoint{edp}
-	key, err := remote.WhoAmI(ctx)
-	checkAndLog(errors.Wrap(err, "error calling whoami on remote"))
-
-	if err == nil {
-		log.Log("event", "called whoami", "key", string(key))
-	}
-	*/
+	srv := edp.(muxrpc.Server)
+	log.Log("event", "onConnect", "handler", "whoami", "addr", srv.Remote())
 }
 
 func (wami whoAmI) HandleCall(ctx context.Context, req *muxrpc.Request) {
+	log.Log("event", "onCall", "handler", "connect", "args", req.Args, "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"

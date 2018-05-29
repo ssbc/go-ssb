@@ -65,7 +65,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 	n.connTracker.OnAccept(conn)
 	defer n.connTracker.OnClose(conn)
 
-	edp := muxrpc.Handle(pkr, h)
+	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 	go h.HandleConnect(ctx, edp)
 
 	srv := edp.(muxrpc.Server)
