@@ -72,8 +72,6 @@ func main() {
 	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
 	rootHdlr := &muxrpc.HandlerMux{}
-	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: *localID})
-	rootHdlr.Register(muxrpc.Method{"gossip"}, &connect{&node})
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
@@ -87,6 +85,9 @@ func main() {
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
+
+	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: *localID})
+	rootHdlr.Register(muxrpc.Method{"gossip"}, &gossip{node})
 
 	log.Log("event", "serving", "ID", localID.Ref(), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
