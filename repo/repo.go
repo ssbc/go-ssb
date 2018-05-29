@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/margaret/codec/json"
+	mjson "cryptoscope.co/go/margaret/codec/json"
 	"cryptoscope.co/go/margaret/framing/lengthprefixed"
 	"cryptoscope.co/go/margaret/offset"
 	"cryptoscope.co/go/secretstream/secrethandshake"
@@ -43,7 +43,7 @@ type repo struct {
 
 	blobStore sbot.BlobStore
 	keyPair   *secrethandshake.EdKeyPair
-	log margaret.Log
+	log       margaret.Log
 }
 
 func (r *repo) getPath(rel string) string {
@@ -75,7 +75,7 @@ func (r *repo) getLog() (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	r.log = offset.NewOffsetLog(logFile, lengthprefixed.New32(8 * 1024), json.New(nil))
+	r.log = offset.NewOffsetLog(logFile, lengthprefixed.New32(8*1024), mjson.New(nil))
 	return r.log, nil
 }
 
