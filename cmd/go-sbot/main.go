@@ -77,8 +77,8 @@ func main() {
 	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
 	rootHdlr := &muxrpc.HandlerMux{}
-	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{PubKey: localKey.Public[:]})
 	rootHdlr.Register(muxrpc.Method{"connect"}, &connect{&node})
+	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: *localID})
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)

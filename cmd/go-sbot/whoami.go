@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"cryptoscope.co/go/muxrpc"
+	"cryptoscope.co/go/sbot"
 	"github.com/pkg/errors"
 )
 
@@ -23,31 +23,32 @@ func (edp *whoAmIEndpoint) WhoAmI(ctx context.Context) ([]byte, error) {
 }
 
 type whoAmI struct {
-	PubKey []byte
+	I sbot.FeedRef
 }
 
 func (whoAmI) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	remote := &whoAmIEndpoint{edp}
-	fmt.Println("calling whoami")
-	key, err := remote.WhoAmI(ctx)
-	if err != nil {
-		fmt.Println(errors.Wrap(err, "error calling whoami on remote"))
-		return
-	}
+	// TODO: retreive key from endpoint
+	log.Log("event", "incomming connect")
 
-	fmt.Printf("connected to %x\n", key)
-	return
+	/* dont call back
+	remote := &whoAmIEndpoint{edp}
+	key, err := remote.WhoAmI(ctx)
+	checkAndLog(errors.Wrap(err, "error calling whoami on remote"))
+
+	if err == nil {
+		log.Log("event", "called whoami", "key", string(key))
+	}
+	*/
 }
 
 func (wami whoAmI) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	fmt.Println("incoming call")
-
-	err := req.Return(ctx, wami.PubKey)
-	if err != nil {
-		fmt.Println("error returning value:", err)
-		return
+	// TODO: push manifest check into muxrpc
+	if req.Type == "" {
+		req.Type = "async"
 	}
-
-	fmt.Printf("sending %x\n", wami.PubKey)
-	return
+	type ret struct {
+		ID string `json:"id"`
+	}
+	err := req.Return(ctx, ret{wami.I.Ref()})
+	checkAndLog(err)
 }
