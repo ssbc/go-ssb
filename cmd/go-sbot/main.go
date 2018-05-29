@@ -3,37 +3,32 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"net"
 	"os/user"
 	"path/filepath"
-	"strings"
 
 	"cryptoscope.co/go/muxrpc"
-	"cryptoscope.co/go/netwrap"
 	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/secretstream"
+	"cryptoscope.co/go/sbot/repo"
 	"cryptoscope.co/go/secretstream/secrethandshake"
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 )
 
-type whoAmIEndpoint struct {
-	muxrpc.Endpoint
-}
-
 var (
-	listenAddr  string
-	connectAddr string
-	appKey      []byte
-	secretFname string
-	localKey    *secrethandshake.EdKeyPair
-	localID     *sbot.FeedRef
+	// flags
+	listenAddr string
+	repoDir    string
 
+	// helper
 	log        logging.Interface
 	checkFatal = logging.CheckFatal
+
+	// juicy bits
+	appKey   []byte
+	localKey secrethandshake.EdKeyPair
+	localID  *sbot.FeedRef
 )
 
 func checkAndLog(err error) {
@@ -55,11 +50,8 @@ func init() {
 	u, err := user.Current()
 	checkFatal(err)
 
-	defaultKeyFile := filepath.Join(u.HomeDir, ".ssb", "secret")
-
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
-	flag.StringVar(&secretFname, "secret", defaultKeyFile, "number to seed key generation (reproducible and insecure!)")
-	flag.StringVar(&connectAddr, "connect", "", "address to connect to after startup")
+	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb"), "where to put the log and indexes")
 
 	flag.Parse()
 }
@@ -69,11 +61,14 @@ func main() {
 
 	var (
 		node sbot.Node
+		r    sbot.Repo
 		err  error
 	)
 
-	localKey, err = secrethandshake.LoadSSBKeyPair(secretFname)
+	r, err = repo.New(repoDir)
 	checkFatal(err)
+
+	localKey = r.KeyPair()
 	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
 	rootHdlr := &muxrpc.HandlerMux{}
@@ -85,30 +80,13 @@ func main() {
 
 	opts := sbot.Options{
 		ListenAddr:  laddr,
-		KeyPair:     *localKey,
+		KeyPair:     localKey,
 		AppKey:      appKey,
 		MakeHandler: func(net.Conn) muxrpc.Handler { return rootHdlr },
 	}
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
-
-	// initial peer specified on cli. this will go once we actually do stuff
-	if connectAddr != "" {
-		split := strings.Split(connectAddr, "/")
-
-		tcpAddrStr := split[0]
-		tcpAddr, err := net.ResolveTCPAddr("tcp", tcpAddrStr)
-		checkFatal(errors.Wrapf(err, "error resolving network address %s", tcpAddrStr))
-
-		hexPubKey := split[1]
-		pubKey, err := hex.DecodeString(hexPubKey)
-		checkFatal(errors.Wrapf(err, "error decoding hex string %q", hexPubKey))
-
-		ssAddr := secretstream.Addr{PubKey: pubKey}
-		err = node.Connect(ctx, netwrap.WrapAddr(tcpAddr, ssAddr))
-		checkFatal(errors.Wrapf(err, "error connecting to %q", connectAddr))
-	}
 
 	log.Log("event", "serving", "ID", localID.Ref(), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
