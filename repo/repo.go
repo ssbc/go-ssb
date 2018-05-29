@@ -55,12 +55,8 @@ func (r *repo) getKeyPair() (*secrethandshake.EdKeyPair, error) {
 		return r.keyPair, nil
 	}
 
-	keyFile, err := os.Open(r.getPath("secret"))
-	if err != nil {
-		return nil, errors.Wrap(err, "error opening secret file")
-	}
-
-	r.keyPair, err = secrethandshake.GenEdKeyPair(keyFile)
+	var err error
+	r.keyPair, err = secrethandshake.LoadSSBKeyPair(r.getPath("secret"))
 	if err != nil {
 		return nil, errors.Wrap(err, "error building key pair")
 	}
