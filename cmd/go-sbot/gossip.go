@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
+	"cryptoscope.co/go/luigi"
 	"cryptoscope.co/go/muxrpc"
 	"cryptoscope.co/go/netwrap"
 	"cryptoscope.co/go/sbot"
 	"cryptoscope.co/go/secretstream"
+	"cryptoscope.co/go/ssb"
 	"github.com/pkg/errors"
 )
 
@@ -20,6 +23,42 @@ type gossip struct {
 func (c *gossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	srv := e.(muxrpc.Server)
 	log.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
+	shsID := netwrap.GetAddr(srv.Remote(), "shs-bs").(secretstream.Addr)
+	ref, err := sbot.ParseRef(shsID.String())
+	if err != nil {
+		log.Log("handleConnect", "sbot.ParseRef", "err", err)
+		return
+	}
+
+	var q = ssb.CreateHistArgs{false, false, ref.Ref(), 0}
+	source, err := e.Source(ctx, ssb.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	if err != nil {
+		log.Log("handleConnect", "createHistoryStream", "err", err)
+		return
+	}
+	i := 0
+
+	for {
+		start := time.Now()
+		v, err := source.Next(ctx)
+		if luigi.IsEOS(err) {
+			break
+		} else if err != nil {
+			log.Log("handleConnect", "createHistoryStream", "i", i, "err", err)
+			break
+		}
+
+		rmsg := v.(ssb.RawSignedMessage)
+
+		ref, err := ssb.Verify(rmsg.RawMessage)
+		if err != nil {
+			err = errors.Wrap(err, "simple Encode failed")
+			log.Log("handleConnect", "createHistoryStream", "i", i, "err", err)
+			break
+		}
+		log.Log("event", "verfied", "hist", i, "ref", ref.Ref(), "took", time.Since(start))
+		i++
+	}
 }
 
 func (c *gossip) HandleCall(ctx context.Context, req *muxrpc.Request) {
