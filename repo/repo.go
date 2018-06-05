@@ -75,8 +75,8 @@ func (r *repo) getLog() (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	r.log = offset.NewOffsetLog(logFile, lengthprefixed.New32(8*1024), mjson.New(nil))
-	return r.log, nil
+	r.log, err = offset.NewOffsetLog(logFile, lengthprefixed.New32(8*1024), mjson.New(nil))
+	return r.log, errors.Wrap(err, "failed to create log")
 }
 
 func (r *repo) Log() margaret.Log {
