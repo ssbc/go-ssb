@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"cryptoscope.co/go/muxrpc"
 
@@ -18,7 +19,7 @@ func (whoAmI) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 }
 
 func (wami whoAmI) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	log.Log("event", "onCall", "handler", "connect", "args", req.Args, "method", req.Method)
+	log.Log("event", "onCall", "handler", "connect", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"

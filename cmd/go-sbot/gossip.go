@@ -8,10 +8,9 @@ import (
 
 	"cryptoscope.co/go/muxrpc"
 	"cryptoscope.co/go/netwrap"
+	"cryptoscope.co/go/sbot"
 	"cryptoscope.co/go/secretstream"
 	"github.com/pkg/errors"
-
-	"cryptoscope.co/go/sbot"
 )
 
 type gossip struct {
@@ -26,15 +25,29 @@ func (c *gossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 func (c *gossip) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	log.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 
+	var closed bool
 	checkAndClose := func(err error) {
 		checkAndLog(err)
 		if err != nil {
+			closed = true
 			closeErr := req.Stream.CloseWithError(err)
 			checkAndLog(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
 		}
 	}
 
+	defer func() {
+		if !closed {
+			checkAndLog(errors.Wrapf(req.Stream.Close(), "gossip: error closing call: %s", req.Method))
+		}
+	}()
+
 	switch req.Method.String() {
+	case "gossip.ping":
+		if err := c.ping(ctx, req.Args); err != nil {
+			checkAndClose(errors.Wrap(err, "gossip.ping failed."))
+			return
+		}
+
 	case "gossip.connect":
 		if len(req.Args) != 1 {
 			// TODO: use secretstream
@@ -51,13 +64,17 @@ func (c *gossip) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		}
 
 		if err := c.connect(ctx, destString); err != nil {
-			err := errors.Wrap(err, "gossip.connect failed.")
-			checkAndClose(err)
+			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
 			return
 		}
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
 	}
+}
+
+func (g *gossip) ping(ctx context.Context, args []interface{}) error {
+	log.Log("event", "ping", "args", fmt.Sprintf("%v", args))
+	return errors.New("TODO")
 }
 
 func (g *gossip) connect(ctx context.Context, dest string) error {
