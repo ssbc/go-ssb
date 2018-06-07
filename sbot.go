@@ -61,7 +61,7 @@ func NewNode(opts Options) (Node, error) {
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 	h := n.opts.MakeHandler(conn)
-	pkr := muxrpc.NewPacker(conn)
+	pkr := muxrpc.NewPacker(conn) //codec.Wrap(logging.Logger("handleC"), conn))
 
 	n.connTracker.OnAccept(conn)
 	defer n.connTracker.OnClose(conn)

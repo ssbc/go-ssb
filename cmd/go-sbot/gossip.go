@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
+	"cryptoscope.co/go/librarian"
 	"cryptoscope.co/go/luigi"
+	"cryptoscope.co/go/margaret"
 	"cryptoscope.co/go/muxrpc"
 	"cryptoscope.co/go/netwrap"
 	"cryptoscope.co/go/sbot"
@@ -17,10 +20,110 @@ import (
 )
 
 type gossip struct {
+	I    sbot.FeedRef
 	Node sbot.Node
+	Repo sbot.Repo
+
+	// ugly hack
+	running sync.Mutex
+}
+
+func (g *gossip) fetchFeed(ctx context.Context, fr *sbot.FeedRef, e muxrpc.Endpoint) error {
+	latestIdxKey := librarian.Addr(fmt.Sprintf("latest:%s", fr.Ref()))
+	idx := g.Repo.GossipIndex()
+	latestObv, err := idx.Get(ctx, latestIdxKey)
+	if err != nil {
+		return errors.Wrapf(err, "idx latest failed")
+	}
+	latest, err := latestObv.Value()
+	if err != nil {
+		return errors.Wrapf(err, "failed to observe latest")
+	}
+
+	var latestSeq margaret.Seq
+	switch v := latest.(type) {
+	case librarian.UnsetValue:
+	case margaret.Seq:
+		latestSeq = v
+	}
+
+	var q = ssb.CreateHistArgs{false, false, fr.Ref(), latestSeq + 1, 100}
+	source, err := e.Source(ctx, ssb.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	if err != nil {
+		return errors.Wrapf(err, "createHistoryStream failed")
+	}
+
+	var more bool
+	start := time.Now()
+	for {
+		v, err := source.Next(ctx)
+		if luigi.IsEOS(err) {
+			break
+		} else if err != nil {
+			return errors.Wrapf(err, "failed to drain createHistoryStream logSeq:%d", latestSeq)
+		}
+
+		rmsg := v.(ssb.RawSignedMessage)
+
+		ref, dmsg, err := ssb.Verify(rmsg.RawMessage)
+		if err != nil {
+			return errors.Wrap(err, "simple Encode failed")
+		}
+		//log.Log("event", "got", "hist", dmsg.Sequence, "ref", ref.Ref())
+
+		// todo: check previous etc.. maybe we want a mapping sink here
+		_, err = g.Repo.Log().Append(ssb.StoredMessage{
+			Author:    dmsg.Author,
+			Previous:  dmsg.Previous,
+			Key:       *ref,
+			Sequence:  dmsg.Sequence,
+			Timestamp: time.Now(),
+			Raw:       rmsg.RawMessage,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "failed to append message (%s) Seq:%d", ref.Ref(), dmsg.Sequence)
+		}
+		more = true
+		latestSeq = dmsg.Sequence
+	} // hist drained
+
+	if !more {
+		return nil
+	}
+
+	if err := idx.Set(ctx, latestIdxKey, latestSeq); err != nil {
+		return errors.Wrapf(err, "failed to update sequence for author %s", fr.Ref())
+	}
+
+	f := func(ctx context.Context, sw margaret.SeqWrapper, idx librarian.SetterIndex) error {
+		seq := sw.Seq()
+		v := sw.Value()
+		smsg, ok := v.(ssb.StoredMessage)
+		if !ok {
+			return errors.Errorf("unexpected type: %T - wanted storedMsg", v)
+		}
+		addr := fmt.Sprintf("%s:%06d", smsg.Author.Ref(), smsg.Sequence)
+		err := idx.Set(ctx, librarian.Addr(addr), seq)
+		return errors.Wrapf(err, "failed to update idx for k:%s - v:%d", addr, seq)
+	}
+	sinkIdx := librarian.NewSinkIndex(f, idx)
+
+	src, err := g.Repo.Log().Query(sinkIdx.QuerySpec())
+	if err != nil {
+		return errors.Wrapf(err, "failed to construct index update query")
+	}
+	if err := luigi.Pump(ctx, sinkIdx, src); err != nil {
+		return errors.Wrap(err, "error pumping from queried src to SinkIndex")
+	}
+
+	log.Log("event", "verfied", "latest", latestSeq, "feedref", fr.Ref(), "took", time.Since(start))
+	return nil
 }
 
 func (c *gossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	c.running.Lock()
+	defer c.running.Unlock()
+
 	srv := e.(muxrpc.Server)
 	log.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
 	shsID := netwrap.GetAddr(srv.Remote(), "shs-bs").(secretstream.Addr)
@@ -30,34 +133,51 @@ func (c *gossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	var q = ssb.CreateHistArgs{false, false, ref.Ref(), 0}
-	source, err := e.Source(ctx, ssb.RawSignedMessage{}, []string{"createHistoryStream"}, q)
-	if err != nil {
-		log.Log("handleConnect", "createHistoryStream", "err", err)
+	fref, ok := ref.(*sbot.FeedRef)
+	if !ok {
+		log.Log("handleConnect", "notFeedRef", "r", shsID.String())
 		return
 	}
-	i := 0
 
-	for {
-		start := time.Now()
-		v, err := source.Next(ctx)
-		if luigi.IsEOS(err) {
-			break
-		} else if err != nil {
-			log.Log("handleConnect", "createHistoryStream", "i", i, "err", err)
-			break
-		}
+	if err := c.fetchFeed(ctx, fref, e); err != nil {
+		log.Log("handleConnect", "fetchFeed failed", "r", fref.Ref(), "err", err)
+		return
+	}
 
-		rmsg := v.(ssb.RawSignedMessage)
+	if err := c.fetchFeed(ctx, &c.I, e); err != nil {
+		log.Log("handleConnect", "fetchFeed failed", "r", c.I.Ref(), "err", err)
+		return
+	}
 
-		ref, err := ssb.Verify(rmsg.RawMessage)
+	kf, err := c.Repo.KnownFeeds()
+	if err != nil {
+		log.Log("handleConnect", "knownFeeds failed", "err", err)
+		return
+	}
+	/* lame init
+	kf["@f/6sQ6d2CMxRUhLpspgGIulDxDCwYD7DzFzPNr7u5AU=.ed25519"] = 0
+	kf["@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519"] = 0
+	kf["@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519"] = 0
+	*/
+
+	for feed, _ := range kf {
+		ref, err := sbot.ParseRef(feed)
 		if err != nil {
-			err = errors.Wrap(err, "simple Encode failed")
-			log.Log("handleConnect", "createHistoryStream", "i", i, "err", err)
-			break
+			log.Log("handleConnect", "ParseRef failed", "err", err)
+			return
 		}
-		log.Log("event", "verfied", "hist", i, "ref", ref.Ref(), "took", time.Since(start))
-		i++
+
+		fref, ok = ref.(*sbot.FeedRef)
+		if !ok {
+			log.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
+			return
+		}
+
+		err = c.fetchFeed(ctx, fref, e)
+		if err != nil {
+			log.Log("handleConnect", "knownFeeds failed", "err", err)
+			return
+		}
 	}
 }
 
@@ -82,7 +202,7 @@ func (c *gossip) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	switch req.Method.String() {
 	case "gossip.ping":
-		if err := c.ping(ctx, req.Args); err != nil {
+		if err := c.ping(ctx, req); err != nil {
 			checkAndClose(errors.Wrap(err, "gossip.ping failed."))
 			return
 		}
@@ -111,9 +231,10 @@ func (c *gossip) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	}
 }
 
-func (g *gossip) ping(ctx context.Context, args []interface{}) error {
-	log.Log("event", "ping", "args", fmt.Sprintf("%v", args))
-	return errors.New("TODO")
+func (g *gossip) ping(ctx context.Context, req *muxrpc.Request) error {
+	log.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
+	err := req.Stream.Pour(ctx, time.Now().Unix())
+	return errors.Wrap(err, "failed to pour ping")
 }
 
 func (g *gossip) connect(ctx context.Context, dest string) error {

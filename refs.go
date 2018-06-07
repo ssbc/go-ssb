@@ -1,6 +1,7 @@
 package sbot
 
 import (
+	"encoding"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -101,4 +102,50 @@ type FeedRef struct {
 
 func (ref *FeedRef) Ref() string {
 	return fmt.Sprintf("@%s.%s", base64.StdEncoding.EncodeToString(ref.ID), ref.Algo)
+}
+
+var (
+	_ encoding.TextMarshaler   = (*FeedRef)(nil)
+	_ encoding.TextUnmarshaler = (*FeedRef)(nil)
+)
+
+func (fr *FeedRef) MarshalText() (text []byte, err error) {
+	return []byte(fr.Ref()), nil
+}
+
+func (fr *FeedRef) UnmarshalText(text []byte) error {
+	ref, err := ParseRef(string(text))
+	if err != nil {
+		return errors.Wrap(err, "failed to parse ref")
+	}
+
+	newRef, ok := ref.(*FeedRef)
+	if !ok {
+		return errors.Errorf("feedRef: not a feed! %T", ref)
+	}
+	*fr = *newRef
+	return nil
+}
+
+var (
+	_ encoding.TextMarshaler   = (*MessageRef)(nil)
+	_ encoding.TextUnmarshaler = (*MessageRef)(nil)
+)
+
+func (mr *MessageRef) MarshalText() (text []byte, err error) {
+	return []byte(mr.Ref()), nil
+}
+
+func (mr *MessageRef) UnmarshalText(text []byte) error {
+	ref, err := ParseRef(string(text))
+	if err != nil {
+		return errors.Wrap(err, "failed to parse ref")
+	}
+
+	newRef, ok := ref.(*MessageRef)
+	if !ok {
+		return errors.Errorf("feedRef: not a feed! %T", ref)
+	}
+	*mr = *newRef
+	return nil
 }

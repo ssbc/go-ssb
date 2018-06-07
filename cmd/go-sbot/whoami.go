@@ -14,8 +14,8 @@ type whoAmI struct {
 }
 
 func (whoAmI) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	srv := edp.(muxrpc.Server)
-	log.Log("event", "onConnect", "handler", "whoami", "addr", srv.Remote())
+	//srv := edp.(muxrpc.Server)
+	//log.Log("event", "onConnect", "handler", "whoami", "addr", srv.Remote())
 }
 
 func (wami whoAmI) HandleCall(ctx context.Context, req *muxrpc.Request) {

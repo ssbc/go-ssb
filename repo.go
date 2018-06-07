@@ -1,8 +1,9 @@
 package sbot
 
 import (
-	"cryptoscope.co/go/secretstream/secrethandshake"
+	"cryptoscope.co/go/librarian"
 	"cryptoscope.co/go/margaret"
+	"cryptoscope.co/go/secretstream/secrethandshake"
 )
 
 type Repo interface {
@@ -10,4 +11,7 @@ type Repo interface {
 	Plugins() []Plugin
 	BlobStore() BlobStore
 	Log() margaret.Log
+	GossipIndex() librarian.SeqSetterIndex
+	KnownFeeds() (map[string]margaret.Seq, error) // cant use FeedRef as key..
+	FeedSeqs(FeedRef) ([]margaret.Seq, error)
 }

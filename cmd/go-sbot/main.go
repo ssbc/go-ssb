@@ -68,6 +68,22 @@ func main() {
 	r, err = repo.New(repoDir)
 	checkFatal(err)
 
+	m, err := r.KnownFeeds()
+	checkFatal(err)
+	//goon.Dump(m)
+	for author, seq := range m {
+		ref, err := sbot.ParseRef(author)
+		checkFatal(err)
+		fr := ref.(*sbot.FeedRef)
+
+		/*
+			seqs, err := r.FeedSeqs(*fr)
+			checkFatal(err)
+		*/
+
+		fmt.Printf("known FeedRef:%s %d\n", fr.Ref(), seq)
+	}
+
 	localKey = r.KeyPair()
 	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
@@ -87,7 +103,15 @@ func main() {
 	checkFatal(err)
 
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: *localID})
-	rootHdlr.Register(muxrpc.Method{"gossip"}, &gossip{node})
+	rootHdlr.Register(muxrpc.Method{"gossip"}, &gossip{
+		I:    *localID,
+		Node: node,
+		Repo: r,
+	})
+	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, &createHistStream{
+		I:    *localID,
+		Repo: r,
+	})
 
 	log.Log("event", "serving", "ID", localID.Ref(), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
