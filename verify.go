@@ -3,6 +3,7 @@ package ssb
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"io"
 
 	"cryptoscope.co/go/sbot"
@@ -22,42 +23,47 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	return out, sig, nil
 }
 
-func Verify(raw []byte) (*sbot.MessageRef, error) {
+func Verify(raw []byte) (*sbot.MessageRef, *DeserializedMessage, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb: could not verify message")
+		return nil, nil, errors.Wrap(err, "ssb: could not verify message")
 	}
 
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb: could not extract signature")
+		return nil, nil, errors.Wrap(err, "ssb: could not extract signature")
 	}
 
 	foundAuthor := authorRegexp.FindSubmatch(enc)
 	if len(foundAuthor) != 2 {
-		return nil, errors.Errorf("ssb: did not find author. Matches:%d", len(foundAuthor))
+		return nil, nil, errors.Errorf("ssb: did not find author. Matches:%d", len(foundAuthor))
 	}
 
 	ref, err := sbot.ParseRef(string(foundAuthor[1]))
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb: could not extract signature")
+		return nil, nil, errors.Wrap(err, "ssb: could not extract signature")
 	}
 	authorRef, ok := ref.(*sbot.FeedRef)
 	if !ok {
-		return nil, errors.Errorf("ssb: unexpected ref type for author: %T", ref)
+		return nil, nil, errors.Errorf("ssb: unexpected ref type for author: %T", ref)
 	}
 
 	if err := sig.Verify(woSig, authorRef); err != nil {
-		return nil, errors.Wrap(err, "ssb: could not verify message")
+		return nil, nil, errors.Wrap(err, "ssb: could not verify message")
 	}
 
 	// hash the message
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(enc))
 
+	// destroys it for the network protocl but makes it easier to access its values
+	var dmsg DeserializedMessage
+	if err := json.Unmarshal(enc, &dmsg); err != nil {
+		return nil, nil, errors.Wrap(err, "ssb: could not verify message")
+	}
 	mr := sbot.MessageRef{
 		Hash: h.Sum(nil),
 		Algo: sbot.RefAlgoSHA256,
 	}
-	return &mr, nil
+	return &mr, &dmsg, nil
 }
