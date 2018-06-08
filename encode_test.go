@@ -118,7 +118,7 @@ func tPresve(t *testing.T, i int) []byte {
 func TestComparePreserve(t *testing.T) {
 	n := len(testMessages)
 	if testing.Short() {
-		n = 50
+		n = min(50, n)
 	}
 	for i := 1; i < n; i++ {
 		w := string(testMessages[i].Input)

@@ -9,7 +9,10 @@ import (
 
 func TestSignatureVerify(t *testing.T) {
 	a, r := assert.New(t), require.New(t)
-	n := min(20, len(testMessages))
+	n := len(testMessages)
+	if testing.Short() {
+		n = min(50, n)
+	}
 	for i := 1; i < n; i++ {
 		enc, err := EncodePreserveOrder(testMessages[i].Input)
 		r.NoError(err, "encode failed")

@@ -28,7 +28,12 @@ ssbClient( (err, sbot) => {
 	  var copy = {...msg.value}
 	  delete(copy.signature)
       const e = encode(copy)
-      zip.addFile(`${pad(msg.value.sequence,5)}.input`, encode(msg.value));
+      const vInput = encode(msg.value)
+      const vInputHash = "%"+hash(vInput)
+      if (vInputHash !== msg.key) {
+        throw new Error("key missmatch: " + msg.key + ":" + vInputHash)
+      }
+      zip.addFile(`${pad(msg.value.sequence,5)}.input`, vInput); // this gets hashed! but it's not valid json.... >> new Buffer(vInput, "binary"));
       zip.addFile(`${pad(msg.value.sequence,5)}.noSig`, e);
       zip.addFile(`${pad(msg.value.sequence,5)}.full`, JSON.stringify(msg)); // with .key, etc
       i++
