@@ -1,0 +1,11 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "adm-zip": "rafaelc0sta/adm-zip#909bd609fcea32c25e217d06731d41e90c285397",
+    "pull-catch": "^1.0.0",
+    "pull-stream": "^3.6.7",
+    "ssb-client": "^4.5.7",
+    "ssb-feed": "^2.3.0",
+    "ssb-keys": "^7.0.15"
+  }
+}
