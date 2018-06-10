@@ -14,8 +14,8 @@ import (
 	"cryptoscope.co/go/muxrpc"
 	"cryptoscope.co/go/netwrap"
 	"cryptoscope.co/go/sbot"
+	"cryptoscope.co/go/sbot/message"
 	"cryptoscope.co/go/secretstream"
-	"cryptoscope.co/go/ssb"
 	"github.com/pkg/errors"
 )
 
@@ -47,8 +47,8 @@ func (g *gossip) fetchFeed(ctx context.Context, fr *sbot.FeedRef, e muxrpc.Endpo
 		latestSeq = v
 	}
 
-	var q = ssb.CreateHistArgs{false, false, fr.Ref(), latestSeq + 1, 100}
-	source, err := e.Source(ctx, ssb.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	var q = message.CreateHistArgs{false, false, fr.Ref(), latestSeq + 1, 100}
+	source, err := e.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "createHistoryStream failed")
 	}
@@ -63,16 +63,16 @@ func (g *gossip) fetchFeed(ctx context.Context, fr *sbot.FeedRef, e muxrpc.Endpo
 			return errors.Wrapf(err, "failed to drain createHistoryStream logSeq:%d", latestSeq)
 		}
 
-		rmsg := v.(ssb.RawSignedMessage)
+		rmsg := v.(message.RawSignedMessage)
 
-		ref, dmsg, err := ssb.Verify(rmsg.RawMessage)
+		ref, dmsg, err := message.Verify(rmsg.RawMessage)
 		if err != nil {
 			return errors.Wrap(err, "simple Encode failed")
 		}
 		//log.Log("event", "got", "hist", dmsg.Sequence, "ref", ref.Ref())
 
 		// todo: check previous etc.. maybe we want a mapping sink here
-		_, err = g.Repo.Log().Append(ssb.StoredMessage{
+		_, err = g.Repo.Log().Append(message.StoredMessage{
 			Author:    dmsg.Author,
 			Previous:  dmsg.Previous,
 			Key:       *ref,
@@ -95,10 +95,8 @@ func (g *gossip) fetchFeed(ctx context.Context, fr *sbot.FeedRef, e muxrpc.Endpo
 		return errors.Wrapf(err, "failed to update sequence for author %s", fr.Ref())
 	}
 
-	f := func(ctx context.Context, sw margaret.SeqWrapper, idx librarian.SetterIndex) error {
-		seq := sw.Seq()
-		v := sw.Value()
-		smsg, ok := v.(ssb.StoredMessage)
+	f := func(ctx context.Context, seq margaret.Seq, v interface{}, idx librarian.SetterIndex) error {
+		smsg, ok := v.(message.StoredMessage)
 		if !ok {
 			return errors.Errorf("unexpected type: %T - wanted storedMsg", v)
 		}

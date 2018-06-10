@@ -12,7 +12,7 @@ import (
 	"cryptoscope.co/go/margaret"
 	"cryptoscope.co/go/muxrpc"
 	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/ssb"
+	"cryptoscope.co/go/sbot/message"
 	"github.com/pkg/errors"
 )
 
@@ -47,7 +47,7 @@ func (hist createHistStream) HandleCall(ctx context.Context, req *muxrpc.Request
 	}()
 
 	qv := req.Args[0].(map[string]interface{})
-	var qry ssb.CreateHistArgs
+	var qry message.CreateHistArgs
 	err := mapstructure.Decode(qv, &qry)
 	if err != nil {
 		checkAndClose(errors.Wrap(err, "failed to decode qry map"))
@@ -68,7 +68,7 @@ func (hist createHistStream) HandleCall(ctx context.Context, req *muxrpc.Request
 	return
 }
 
-func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request, ref sbot.Ref, qry ssb.CreateHistArgs) error {
+func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request, ref sbot.Ref, qry message.CreateHistArgs) error {
 	latestObv, err := hist.Repo.GossipIndex().Get(ctx, librarian.Addr(fmt.Sprintf("latest:%s", ref.Ref())))
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest")
@@ -101,7 +101,7 @@ func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request,
 			if err != nil {
 				return errors.Wrapf(err, "load message %d", i)
 			}
-			stMsg := v.(ssb.StoredMessage)
+			stMsg := v.(message.StoredMessage)
 
 			type fuck struct{ json.RawMessage }
 			if err := req.Stream.Pour(ctx, fuck{stMsg.Raw}); err != nil {

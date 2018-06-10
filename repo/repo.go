@@ -14,12 +14,12 @@ import (
 	"cryptoscope.co/go/margaret/framing/lengthprefixed"
 	"cryptoscope.co/go/margaret/offset"
 	"cryptoscope.co/go/secretstream/secrethandshake"
-	"cryptoscope.co/go/ssb"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 
 	"cryptoscope.co/go/sbot"
 	"cryptoscope.co/go/sbot/blobstore"
+	"cryptoscope.co/go/sbot/message"
 )
 
 var _ sbot.Repo = (*repo)(nil)
@@ -153,7 +153,7 @@ func (r *repo) getLog() (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	r.log, err = offset.NewOffsetLog(logFile, lengthprefixed.New32(16*1024), msgpack.NewCodec(&ssb.StoredMessage{}))
+	r.log, err = offset.NewOffsetLog(logFile, lengthprefixed.New32(16*1024), msgpack.NewCodec(&message.StoredMessage{}))
 	return r.log, errors.Wrap(err, "failed to create log")
 }
 
