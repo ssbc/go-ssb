@@ -72,40 +72,41 @@ func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf(" %s:\t%s", encoding, string(out))
 
 	out = bytes.TrimPrefix(out, []byte("<Buffer "))
 	out = bytes.TrimSuffix(out, []byte(">\n"))
 	out = bytes.Replace(out, []byte(" "), []byte{}, -1)
+	t.Logf(" %s:\t%s", encoding, string(out))
 	return out
 }
 
 func TestInternalV8String(t *testing.T) {
 	r := require.New(t)
-	testStrs := []string{
-		"foo",
-		"···",
-		"Fabián",
-		"üäá",
-		"“SaneScript”",
-		"🄯řÿþŧį×",
+	type tcase struct {
+		in, want string
+	}
+	testStrs := []tcase{
+		{"foo", "666f6f"},
+		{"···", "b7b7b7"},
+		{"Fabián", "46616269e16e"},
+		{"üäá", "fce4e1"},
+		{"“SaneScript”", "1c53616e655363726970741d"},
+		{"🄯řÿþŧį×", "3c2f59fffe672fd7"},
 		// add more examples as needed
 	}
-	for i, v := range testStrs {
-		t.Logf("%02d: %s", i, v)
-		// todo: don't actually need node here.. :S
+	for _, v := range testStrs {
+		/* might to regnerate your assumptions?
 		u8 := getHexBytesFromNode(t, v, "utf8")
 		bin := getHexBytesFromNode(t, v, "binary")
 		r.Equal(fmt.Sprintf("%x", v), string(u8), "assuming we are dealing with utf8 on our side")
+		*/
 
-		want := string(bin)
-
-		got, err := internalV8Binary([]byte(v))
+		got, err := internalV8Binary([]byte(v.in))
 		r.NoError(err)
 		p := fmt.Sprintf("%x", got)
 
-		testdiff.StringIs(t, want, p)
-		if d := diff.Diff(want, p); len(d) != 0 {
+		testdiff.StringIs(t, v.want, p)
+		if d := diff.Diff(v.want, p); len(d) != 0 {
 			t.Logf("\n%s", d)
 		}
 	}
