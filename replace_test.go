@@ -2,8 +2,12 @@ package ssb
 
 import (
 	"bytes"
+	"fmt"
+	"os/exec"
 	"testing"
 
+	"github.com/catherinejones/testdiff"
+	"github.com/kylelemons/godebug/diff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -60,4 +64,49 @@ func TestUnicodeFind(t *testing.T) {
 	want := `Hello\u0001World`
 	out := unicodeEscapeSome(in)
 	assert.Equal(t, want, out)
+}
+
+func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {
+	cmd := exec.Command("node", "-e", fmt.Sprintf(`console.log(new Buffer("%s", "%s"))`, input, encoding))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf(" %s:\t%s", encoding, string(out))
+
+	out = bytes.TrimPrefix(out, []byte("<Buffer "))
+	out = bytes.TrimSuffix(out, []byte(">\n"))
+	out = bytes.Replace(out, []byte(" "), []byte{}, -1)
+	return out
+}
+
+func TestInternalV8String(t *testing.T) {
+	r := require.New(t)
+	testStrs := []string{
+		"foo",
+		"···",
+		"Fabián",
+		"üäá",
+		"“SaneScript”",
+		"🄯řÿþŧį×",
+		// add more examples as needed
+	}
+	for i, v := range testStrs {
+		t.Logf("%02d: %s", i, v)
+		// todo: don't actually need node here.. :S
+		u8 := getHexBytesFromNode(t, v, "utf8")
+		bin := getHexBytesFromNode(t, v, "binary")
+		r.Equal(fmt.Sprintf("%x", v), string(u8), "assuming we are dealing with utf8 on our side")
+
+		want := string(bin)
+
+		got, err := internalV8Binary([]byte(v))
+		r.NoError(err)
+		p := fmt.Sprintf("%x", got)
+
+		testdiff.StringIs(t, want, p)
+		if d := diff.Diff(want, p); len(d) != 0 {
+			t.Logf("\n%s", d)
+		}
+	}
 }

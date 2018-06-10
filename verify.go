@@ -52,9 +52,13 @@ func Verify(raw []byte) (*sbot.MessageRef, *DeserializedMessage, error) {
 		return nil, nil, errors.Wrap(err, "ssb: could not verify message")
 	}
 
+	v8warp, err := internalV8Binary(enc)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "ssb: could hash convert message")
+	}
 	// hash the message
 	h := sha256.New()
-	io.Copy(h, bytes.NewReader(enc))
+	io.Copy(h, bytes.NewReader(v8warp))
 
 	// destroys it for the network protocl but makes it easier to access its values
 	var dmsg DeserializedMessage
