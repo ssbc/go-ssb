@@ -1,4 +1,4 @@
-package ssb
+package message
 
 import (
 	"bytes"
