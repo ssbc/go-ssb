@@ -1,9 +1,9 @@
 package sbot
 
 import (
-	"cryptoscope.co/go/librarian"
-	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/secretstream/secrethandshake"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/secretstream/secrethandshake"
 )
 
 type Repo interface {

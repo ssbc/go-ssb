@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"cryptoscope.co/go/librarian"
-	"cryptoscope.co/go/luigi"
-	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/muxrpc"
-	"cryptoscope.co/go/netwrap"
-	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/sbot/message"
-	"cryptoscope.co/go/secretstream"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/secretstream"
 	"github.com/pkg/errors"
 )
 

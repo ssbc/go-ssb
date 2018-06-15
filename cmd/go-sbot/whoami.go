@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"cryptoscope.co/go/muxrpc"
+	"go.cryptoscope.co/muxrpc"
 
-	"cryptoscope.co/go/sbot"
+	"go.cryptoscope.co/sbot"
 )
 
 type whoAmI struct {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
-	"cryptoscope.co/go/librarian"
-	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/muxrpc"
-	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/sbot/message"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/message"
 	"github.com/pkg/errors"
 )
 

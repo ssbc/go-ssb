@@ -7,19 +7,19 @@ import (
 	"os"
 	"path"
 
-	"cryptoscope.co/go/librarian"
-	idxbadger "cryptoscope.co/go/librarian/badger"
-	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/margaret/codec/msgpack"
-	"cryptoscope.co/go/margaret/framing/lengthprefixed"
-	"cryptoscope.co/go/margaret/offset"
-	"cryptoscope.co/go/secretstream/secrethandshake"
+	"go.cryptoscope.co/librarian"
+	idxbadger "go.cryptoscope.co/librarian/badger"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/codec/msgpack"
+	"go.cryptoscope.co/margaret/framing/lengthprefixed"
+	"go.cryptoscope.co/margaret/offset"
+	"go.cryptoscope.co/secretstream/secrethandshake"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 
-	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/sbot/blobstore"
-	"cryptoscope.co/go/sbot/message"
+	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/sbot/message"
 )
 
 var _ sbot.Repo = (*repo)(nil)

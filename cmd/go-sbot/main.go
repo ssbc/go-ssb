@@ -9,10 +9,10 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"cryptoscope.co/go/muxrpc"
-	"cryptoscope.co/go/sbot"
-	"cryptoscope.co/go/sbot/repo"
-	"cryptoscope.co/go/secretstream/secrethandshake"
+	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/secretstream/secrethandshake"
 	"github.com/cryptix/go/logging"
 )
 

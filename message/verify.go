@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"cryptoscope.co/go/sbot"
+	"go.cryptoscope.co/sbot"
 	"github.com/pkg/errors"
 )
 

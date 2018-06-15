@@ -5,10 +5,10 @@ import (
 	"log"
 	"net"
 
-	"cryptoscope.co/go/muxrpc"
-	"cryptoscope.co/go/netwrap"
-	"cryptoscope.co/go/secretstream"
-	"cryptoscope.co/go/secretstream/secrethandshake"
+	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/secretstream/secrethandshake"
 	"github.com/agl/ed25519"
 	"github.com/pkg/errors"
 )

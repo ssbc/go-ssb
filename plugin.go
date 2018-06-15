@@ -1,6 +1,6 @@
 package sbot
 
-import "cryptoscope.co/go/muxrpc"
+import "go.cryptoscope.co/muxrpc"
 
 type Plugin interface {
 	// Name returns the name and version of the plugin.

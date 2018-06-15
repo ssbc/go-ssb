@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"cryptoscope.co/go/sbot"
+	"go.cryptoscope.co/sbot"
 	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"

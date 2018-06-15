@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"cryptoscope.co/go/margaret"
-	"cryptoscope.co/go/sbot"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/sbot"
 )
 
 type WhoamiReply struct {
