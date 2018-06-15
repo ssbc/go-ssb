@@ -7,6 +7,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/dgraph-io/badger"
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	idxbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
@@ -14,8 +16,6 @@ import (
 	"go.cryptoscope.co/margaret/framing/lengthprefixed"
 	"go.cryptoscope.co/margaret/offset"
 	"go.cryptoscope.co/secretstream/secrethandshake"
-	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
@@ -153,7 +153,7 @@ func (r *repo) getLog() (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	r.log, err = offset.NewOffsetLog(logFile, lengthprefixed.New32(16*1024), msgpack.NewCodec(&message.StoredMessage{}))
+	r.log, err = offset.New(logFile, lengthprefixed.New32(16*1024), msgpack.New(&message.StoredMessage{}))
 	return r.log, errors.Wrap(err, "failed to create log")
 }
 
