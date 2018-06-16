@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -54,47 +55,47 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	mykp := g.Repo.KeyPair()
-	if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
-		g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
+	kf, err := g.Repo.KnownFeeds()
+	if err != nil {
+		g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
 		return
 	}
-	/*
-		kf, err := g.Repo.KnownFeeds()
+
+	mykp := g.Repo.KeyPair()
+	_, hasOwn := kf[mykp.Id.Ref()]
+	if !hasOwn {
+		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
+			g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
+			return
+		}
+	}
+
+	for feed := range kf {
+		ref, err := sbot.ParseRef(feed)
+		if err != nil {
+			g.Info.Log("handleConnect", "ParseRef failed", "err", err)
+			return
+		}
+
+		fref, ok = ref.(*sbot.FeedRef)
+		if !ok {
+			g.Info.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
+			return
+		}
+
+		err = g.fetchFeed(ctx, *fref, e)
 		if err != nil {
 			g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
 			return
 		}
-		// lame init
-		// kf["@f/6sQ6d2CMxRUhLpspgGIulDxDCwYD7DzFzPNr7u5AU=.ed25519"] = 0
-		// kf["@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519"] = 0
-		// kf["@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519"] = 0
+	}
 
-		for feed := range kf {
-			ref, err := sbot.ParseRef(feed)
-			if err != nil {
-				g.Info.Log("handleConnect", "ParseRef failed", "err", err)
-				return
-			}
-
-			fref, ok = ref.(*sbot.FeedRef)
-			if !ok {
-				g.Info.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
-				return
-			}
-
-			err = g.fetchFeed(ctx, *fref, e)
-			if err != nil {
-				g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
-				return
-			}
-		}
-	*/
 }
 
 func (g *Handler) check(err error) {
 	if err != nil {
 		g.Info.Log("error", err)
+		debug.PrintStack()
 	}
 }
 

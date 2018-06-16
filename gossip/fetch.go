@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -33,22 +34,23 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		latestSeq = v
 	}
 	me := g.Repo.KeyPair()
-	g.Info.Log("dbg", "fetch", "continue", latestSeq, "ref", fr.Ref(), "me", me.Id.Ref())
+	info := log.With(g.Info, "remote", fr.Ref(), "me", me.Id.Ref())
+	info.Log("dbg", "fetch", "latest", latestSeq)
 
 	var q = message.CreateHistArgs{
 		Keys:  false,
 		Live:  false,
 		Id:    fr.Ref(),
 		Seq:   latestSeq + 1,
-		Limit: 100,
+		Limit: 1000,
 	}
+	start := time.Now()
 	source, err := e.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "createHistoryStream failed")
 	}
 
 	var more bool
-	start := time.Now()
 	for {
 		v, err := source.Next(ctx)
 		if luigi.IsEOS(err) {
@@ -62,7 +64,7 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		if err != nil {
 			return errors.Wrap(err, "simple Encode failed")
 		}
-		g.Info.Log("event", "got", "hist", dmsg.Sequence, "ref", ref.Ref())
+		//info.Log("dbg", "got message", "seq", dmsg.Sequence)
 
 		// todo: check previous etc.. maybe we want a mapping sink here
 		_, err = g.Repo.Log().Append(message.StoredMessage{
@@ -107,6 +109,6 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		return errors.Wrap(err, "error pumping from queried src to SinkIndex")
 	}
 
-	g.Info.Log("event", "verfied", "latest", latestSeq, "feedref", fr.Ref(), "took", time.Since(start))
+	info.Log("event", "verfied2updated", "latest", latestSeq, "took", time.Since(start))
 	return nil
 }
