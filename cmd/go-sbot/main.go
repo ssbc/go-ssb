@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/user"
 	"path/filepath"
+	"time"
 
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc"
@@ -110,6 +111,9 @@ func main() {
 	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
-	err = node.Serve(ctx)
-	checkFatal(err)
+	for {
+		err = node.Serve(ctx)
+		log.Log("event", "serve returned", "err", err)
+		time.Sleep(1 * time.Second)
+	}
 }
