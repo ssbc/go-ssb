@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -118,7 +119,7 @@ type repo struct {
 	basePath string
 
 	blobStore sbot.BlobStore
-	keyPair   *secrethandshake.EdKeyPair
+	keyPair   *sbot.KeyPair
 	log       margaret.Log
 	gossipIdx librarian.SeqSetterIndex
 	gossipKv  *badger.DB
@@ -128,15 +129,36 @@ func (r *repo) getPath(rel string) string {
 	return path.Join(r.basePath, rel)
 }
 
-func (r *repo) getKeyPair() (*secrethandshake.EdKeyPair, error) {
+func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 	if r.keyPair != nil {
 		return r.keyPair, nil
 	}
 
 	var err error
-	r.keyPair, err = secrethandshake.LoadSSBKeyPair(r.getPath("secret"))
+	secPath := r.getPath("secret")
+	r.keyPair, err = sbot.LoadKeyPair(secPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "error building key pair")
+		if !os.IsNotExist(errors.Cause(err)) {
+			return nil, errors.Wrap(err, "error opening key pair")
+		}
+		// generating new keypair
+		kp, err := secrethandshake.GenEdKeyPair(nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "error building key pair")
+		}
+		r.keyPair = &sbot.KeyPair{
+			Id:   sbot.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
+			Pair: *kp,
+		}
+		// TODO:
+		// keyFile, err := os.Create(secPath)
+		// if err != nil {
+		// 	return nil, errors.Wrap(err, "error creating secret file")
+		// }
+		// if err:=sbot.SaveKeyPair(keyFile);err != nil {
+		// 	return nil, errors.Wrap(err, "error saving secret file")
+		// }
+		log.Println("warning: save new keypair!")
 	}
 
 	return r.keyPair, nil
@@ -183,7 +205,7 @@ func (r *repo) Log() margaret.Log {
 	return r.log
 }
 
-func (r *repo) KeyPair() secrethandshake.EdKeyPair {
+func (r *repo) KeyPair() sbot.KeyPair {
 	return *r.keyPair
 }
 

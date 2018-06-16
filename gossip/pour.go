@@ -1,79 +1,35 @@
-package main
+package gossip
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/mitchellh/mapstructure"
-
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
-	"github.com/pkg/errors"
 )
 
-type createHistStream struct {
-	I    sbot.FeedRef
-	Repo sbot.Repo
-
-	// ugly hack
-	running sync.Mutex
-}
-
-func (createHistStream) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
-
-func (hist createHistStream) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	hist.running.Lock()
-	defer hist.running.Unlock()
-
-	var closed bool
-	checkAndClose := func(err error) {
-		checkAndLog(err)
-		if err != nil {
-			closed = true
-			closeErr := req.Stream.CloseWithError(err)
-			checkAndLog(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
-		}
-	}
-
-	defer func() {
-		if !closed {
-			checkAndLog(errors.Wrapf(req.Stream.Close(), "createHistStream: error closing call: %s", req.Method))
-		}
-	}()
-
+func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	qv := req.Args[0].(map[string]interface{})
 	var qry message.CreateHistArgs
-	err := mapstructure.Decode(qv, &qry)
-	if err != nil {
-		checkAndClose(errors.Wrap(err, "failed to decode qry map"))
-		return
+	if err := mapstructure.Decode(qv, &qry); err != nil {
+		return errors.Wrap(err, "failed#2 to decode qry map")
 	}
 
 	ref, err := sbot.ParseRef(qry.Id)
 	if err != nil {
-		checkAndClose(errors.Wrap(err, "illegal ref"))
-		return
+		return errors.Wrapf(err, "illegal ref: %s", qry.Id)
 	}
 
-	if err := hist.pushFeed(ctx, req, ref, qry); err != nil {
-		checkAndClose(errors.Wrapf(err, "failed to push feed %s", ref.Ref()))
-		return
-	}
-	checkAndLog(req.Stream.Close())
-	return
-}
-
-func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request, ref sbot.Ref, qry message.CreateHistArgs) error {
 	latestObv, err := hist.Repo.GossipIndex().Get(ctx, librarian.Addr(fmt.Sprintf("latest:%s", ref.Ref())))
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest")
 	}
-
 	latestV, err := latestObv.Value()
 	if err != nil {
 		return errors.Wrap(err, "failed to observ latest")
@@ -83,7 +39,7 @@ func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request,
 	case librarian.UnsetValue:
 	case margaret.Seq:
 		if qry.Seq >= v {
-			return nil
+			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}
 
 		fr := ref.(*sbot.FeedRef)
@@ -109,7 +65,7 @@ func (hist *createHistStream) pushFeed(ctx context.Context, req *muxrpc.Request,
 
 			}
 		}
-		fmt.Println("sent:", ref.Ref(), "from", qry.Seq, "rest:", len(rest))
+		hist.Info.Log("sent", ref.Ref(), "from", qry.Seq, "rest", len(rest))
 	}
-	return nil
+	return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 }

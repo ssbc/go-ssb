@@ -3,11 +3,10 @@ package sbot
 import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/secretstream/secrethandshake"
 )
 
 type Repo interface {
-	KeyPair() secrethandshake.EdKeyPair
+	KeyPair() KeyPair
 	Plugins() []Plugin
 	BlobStore() BlobStore
 	Log() margaret.Log

@@ -5,17 +5,16 @@ import (
 	"log"
 	"net"
 
+	"github.com/agl/ed25519"
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/secretstream/secrethandshake"
-	"github.com/agl/ed25519"
-	"github.com/pkg/errors"
 )
 
 type Options struct {
 	ListenAddr  net.Addr
-	KeyPair     secrethandshake.EdKeyPair
+	KeyPair     KeyPair
 	AppKey      []byte
 	MakeHandler func(net.Conn) muxrpc.Handler
 }
@@ -42,12 +41,12 @@ func NewNode(opts Options) (Node, error) {
 
 	var err error
 
-	n.secretClient, err = secretstream.NewClient(opts.KeyPair, opts.AppKey)
+	n.secretClient, err = secretstream.NewClient(opts.KeyPair.Pair, opts.AppKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating secretstream.Client")
 	}
 
-	n.secretServer, err = secretstream.NewServer(opts.KeyPair, opts.AppKey)
+	n.secretServer, err = secretstream.NewServer(opts.KeyPair.Pair, opts.AppKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating secretstream.Server")
 	}

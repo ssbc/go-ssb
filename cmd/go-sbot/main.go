@@ -9,11 +9,11 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/gossip"
 	"go.cryptoscope.co/sbot/repo"
-	"go.cryptoscope.co/secretstream/secrethandshake"
-	"github.com/cryptix/go/logging"
 )
 
 var (
@@ -27,8 +27,7 @@ var (
 
 	// juicy bits
 	appKey   []byte
-	localKey secrethandshake.EdKeyPair
-	localID  *sbot.FeedRef
+	localKey sbot.KeyPair
 )
 
 func checkAndLog(err error) {
@@ -85,7 +84,6 @@ func main() {
 	}
 
 	localKey = r.KeyPair()
-	localID = &sbot.FeedRef{ID: localKey.Public[:], Algo: "ed25519"}
 
 	rootHdlr := &muxrpc.HandlerMux{}
 
@@ -102,18 +100,16 @@ func main() {
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: *localID})
-	rootHdlr.Register(muxrpc.Method{"gossip"}, &gossip{
-		I:    *localID,
+	gossipHandler := &gossip.Handler{
 		Node: node,
 		Repo: r,
-	})
-	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, &createHistStream{
-		I:    *localID,
-		Repo: r,
-	})
+		Info: log,
+	}
+	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
+	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
+	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
 
-	log.Log("event", "serving", "ID", localID.Ref(), "addr", opts.ListenAddr)
+	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	err = node.Serve(ctx)
 	checkFatal(err)
 }
