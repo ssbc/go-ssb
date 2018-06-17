@@ -6,8 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/cryptix/go/logging"
@@ -33,9 +36,9 @@ var (
 
 func checkAndLog(err error) {
 	if err != nil {
-		log.Log("event", "error", "err", err)
-		// TODO: push panic writer to go/logging
-		fmt.Printf("Stack: %+v\n", err)
+		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -58,6 +61,7 @@ func init() {
 
 func main() {
 	ctx := context.Background()
+	ctx, shutdown := context.WithCancel(ctx)
 
 	var (
 		node sbot.Node
@@ -68,21 +72,35 @@ func main() {
 	r, err = repo.New(repoDir)
 	checkFatal(err)
 
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println("killed. shutting down")
+		shutdown()
+		checkFatal(r.Close())
+		time.Sleep(1 * time.Second)
+		os.Exit(0)
+	}()
+	logging.SetCloseChan(c)
+
 	m, err := r.KnownFeeds()
 	checkFatal(err)
-	//goon.Dump(m)
-	for author, seq := range m {
-		ref, err := sbot.ParseRef(author)
-		checkFatal(err)
-		fr := ref.(*sbot.FeedRef)
+	log.Log("event", "repo open", "feeds", len(m))
+	/*
+		goon.Dump(m)
 
-		/*
+		for author, seq := range m {
+			ref, err := sbot.ParseRef(author)
+			checkFatal(err)
+			fr := ref.(*sbot.FeedRef)
+
 			seqs, err := r.FeedSeqs(*fr)
 			checkFatal(err)
-		*/
 
-		fmt.Printf("known FeedRef:%s %d\n", fr.Ref(), seq)
-	}
+
+		}
+	*/
 
 	localKey = r.KeyPair()
 

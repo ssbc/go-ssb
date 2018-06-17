@@ -125,6 +125,10 @@ type repo struct {
 	gossipKv  *badger.DB
 }
 
+func (r repo) Close() error {
+	return errors.Wrap(r.gossipKv.Close(), "repo: failed to close gossipKV")
+}
+
 func (r *repo) getPath(rel string) string {
 	return path.Join(r.basePath, rel)
 }

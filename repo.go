@@ -1,11 +1,14 @@
 package sbot
 
 import (
+	"io"
+
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 )
 
 type Repo interface {
+	io.Closer
 	KeyPair() KeyPair
 	Plugins() []Plugin
 	BlobStore() BlobStore

@@ -27,6 +27,8 @@ func TestNew(t *testing.T) {
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.Seq(-1), seq)
 
+	r.NoError(repo.Close(), "failed to close repo")
+
 	if !t.Failed() {
 		os.RemoveAll(rpath)
 	}

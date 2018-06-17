@@ -82,7 +82,7 @@ type BlobRef struct {
 	Algo string
 }
 
-func (ref *BlobRef) Ref() string {
+func (ref BlobRef) Ref() string {
 	return fmt.Sprintf("&%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
 }
 
@@ -91,7 +91,7 @@ type MessageRef struct {
 	Algo string
 }
 
-func (ref *MessageRef) Ref() string {
+func (ref MessageRef) Ref() string {
 	return fmt.Sprintf("%%%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
 }
 
@@ -100,7 +100,7 @@ type FeedRef struct {
 	Algo string
 }
 
-func (ref *FeedRef) Ref() string {
+func (ref FeedRef) Ref() string {
 	return fmt.Sprintf("@%s.%s", base64.StdEncoding.EncodeToString(ref.ID), ref.Algo)
 }
 
