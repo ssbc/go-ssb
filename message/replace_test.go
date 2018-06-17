@@ -12,18 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFindAuthor(t *testing.T) {
-	a, r := assert.New(t), require.New(t)
-	tMsg := testMessages[1]
-
-	enc, err := EncodePreserveOrder(tMsg.Input)
-	r.NoError(err, "encode failed")
-
-	matches := authorRegexp.FindSubmatch(enc)
-	r.Len(matches, 2)
-	a.Equal(string(matches[1]), tMsg.Author.Ref())
-}
-
 func TestExtractSignature(t *testing.T) {
 	r := require.New(t)
 	var input = []byte(`{"foo":"test","signature":"testSign"}`)

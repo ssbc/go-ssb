@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"testing"
 
-	"go.cryptoscope.co/sbot"
 	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/sbot"
 )
 
 type testMessage struct {
@@ -93,6 +94,7 @@ func init() {
 		checkPanic(errors.Wrapf(origRC.Close(), "test(%d) - could not close reader #2", i))
 		seq++
 	}
+	log.Printf("loaded %d messages from testdata.zip", seq)
 }
 
 func checkPanic(err error) {

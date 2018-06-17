@@ -11,10 +11,7 @@ import (
 	"golang.org/x/text/transform"
 )
 
-var (
-	signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
-	authorRegexp    = regexp.MustCompile(`"author": "(@[A-Za-z0-9/+=.]+.ed25519)"`)
-)
+var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
 
 func unicodeEscapeSome(s string) string {
 	var b bytes.Buffer
