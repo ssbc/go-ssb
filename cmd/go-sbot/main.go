@@ -22,8 +22,9 @@ import (
 
 var (
 	// flags
-	listenAddr string
-	repoDir    string
+	flagPromisc bool
+	listenAddr  string
+	repoDir     string
 
 	// helper
 	log        logging.Interface
@@ -54,6 +55,7 @@ func init() {
 	checkFatal(err)
 
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.BoolVar(&flagPromisc, "promisc", false, "crawl all the feeds")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb"), "where to put the log and indexes")
 
 	flag.Parse()
@@ -97,8 +99,6 @@ func main() {
 
 			seqs, err := r.FeedSeqs(*fr)
 			checkFatal(err)
-
-
 		}
 	*/
 
@@ -120,9 +120,10 @@ func main() {
 	checkFatal(err)
 
 	gossipHandler := &gossip.Handler{
-		Node: node,
-		Repo: r,
-		Info: log,
+		Node:    node,
+		Repo:    r,
+		Info:    log,
+		Promisc: flagPromisc,
 	}
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
 	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)

@@ -6,7 +6,6 @@ import (
 	"net"
 	"runtime/debug"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cryptix/go/logging"
@@ -22,14 +21,10 @@ type Handler struct {
 	Repo sbot.Repo
 	Info logging.Interface
 
-	// ugly hack
-	running sync.Mutex
+	Promisc bool
 }
 
 func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	g.running.Lock()
-	defer g.running.Unlock()
-
 	srv := e.(muxrpc.Server)
 	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
 
@@ -69,8 +64,13 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 	}
-
+	n := len(kf)
+	if n > 20 { // DOS / doublecall bug
+		g.Info.Log("dbg", "shortening sync..", "n", n)
+		n = 20
+	}
 	for feed := range kf {
+
 		ref, err := sbot.ParseRef(feed)
 		if err != nil {
 			g.Info.Log("handleConnect", "ParseRef failed", "err", err)
@@ -88,8 +88,11 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
 			return
 		}
+		n--
+		if n == 0 {
+			return
+		}
 	}
-
 }
 
 func (g *Handler) check(err error) {
@@ -192,6 +195,7 @@ func (g *Handler) connect(ctx context.Context, dest string) error {
 	}
 
 	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: remoteFeed.ID})
+	g.Info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
 	err = g.Node.Connect(ctx, wrappedAddr)
 	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", addr)
 }
