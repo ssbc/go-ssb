@@ -71,7 +71,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 	srv := edp.(muxrpc.Server)
 	err := srv.Serve(ctx)
 	if err != nil {
-		log.Printf("error serving muxrpc session with peer %q: %s", conn.RemoteAddr(), err)
+		log.Printf("error serving muxrpc session with peer %s: %s", conn.RemoteAddr(), err)
 	}
 }
 
@@ -105,6 +105,8 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.Wrap(err, "error dialing")
 	}
 
-	n.handleConnection(ctx, conn)
+	go func(c net.Conn) {
+		n.handleConnection(ctx, c)
+	}(conn)
 	return nil
 }
