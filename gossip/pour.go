@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
@@ -15,18 +14,25 @@ import (
 )
 
 func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
+	// check & parse args
 	qv := req.Args[0].(map[string]interface{})
 	var qry message.CreateHistArgs
 	if err := mapstructure.Decode(qv, &qry); err != nil {
 		return errors.Wrap(err, "failed#2 to decode qry map")
 	}
-
 	ref, err := sbot.ParseRef(qry.Id)
 	if err != nil {
 		return errors.Wrapf(err, "illegal ref: %s", qry.Id)
 	}
+	feedRef, ok := ref.(*sbot.FeedRef)
+	if !ok {
+		return errors.Wrapf(err, "illegal ref type: %s", qry.Id)
+	}
 
-	latestObv, err := hist.Repo.GossipIndex().Get(ctx, librarian.Addr(fmt.Sprintf("latest:%s", ref.Ref())))
+	// check what we got
+	gossipIdx := hist.Repo.GossipIndex()
+	latestKey := librarian.Addr(fmt.Sprintf("latest:%s", ref.Ref()))
+	latestObv, err := gossipIdx.Get(ctx, latestKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest")
 	}
@@ -35,20 +41,20 @@ func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.Wrap(err, "failed to observ latest")
 	}
 
+	// act accordingly
 	switch v := latestV.(type) {
-	case librarian.UnsetValue:
+	case librarian.UnsetValue: // don't have the feed - nothing to do?
 	case margaret.Seq:
-		if qry.Seq >= v {
+		if qry.Seq >= v { // more than we got
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}
-
-		fr := ref.(*sbot.FeedRef)
-		seqs, err := hist.Repo.FeedSeqs(*fr)
+		// TODO: multilog
+		seqs, err := hist.Repo.FeedSeqs(*feedRef)
 		if err != nil {
 			return errors.Wrap(err, "failed to get internal seqs")
 		}
 		rest := seqs[qry.Seq-1:]
-		if len(rest) > 500 { // batch - slow but steady
+		if len(rest) > 150 { // batch - slow but steady
 			rest = rest[:150]
 		}
 		log := hist.Repo.Log()
@@ -58,9 +64,7 @@ func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 				return errors.Wrapf(err, "load message %d", i)
 			}
 			stMsg := v.(message.StoredMessage)
-
-			type fuck struct{ json.RawMessage }
-			if err := req.Stream.Pour(ctx, fuck{stMsg.Raw}); err != nil {
+			if err := req.Stream.Pour(ctx, message.RawSignedMessage{stMsg.Raw}); err != nil {
 				return errors.Wrap(err, "failed to pour msg to remote peer")
 
 			}

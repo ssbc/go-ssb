@@ -15,7 +15,9 @@ import (
 	"go.cryptoscope.co/sbot/message"
 )
 
+// fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpoint) error {
+	// check our latest
 	latestIdxKey := librarian.Addr(fmt.Sprintf("latest:%s", fr.Ref()))
 	idx := g.Repo.GossipIndex()
 	latestObv, err := idx.Get(ctx, latestIdxKey)
@@ -26,13 +28,13 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	if err != nil {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
-
 	var latestSeq margaret.Seq
 	switch v := latest.(type) {
 	case librarian.UnsetValue:
 	case margaret.Seq:
 		latestSeq = v
 	}
+
 	// me := g.Repo.KeyPair()
 	startSeq := latestSeq
 	info := log.With(g.Info, "remote", fr.Ref(), "latest", startSeq) //, "me", me.Id.Ref())
@@ -49,8 +51,9 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
-	// info.Log("event", "start sync")
-	var more bool
+	// info.Log("debug", "start sync")
+
+	var more bool // did we append anything or was this an empty source
 	for {
 		v, err := source.Next(ctx)
 		if luigi.IsEOS(err) {
@@ -58,13 +61,13 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		} else if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s:%d): failed to drain", fr.Ref(), latestSeq)
 		}
-		rmsg := v.(message.RawSignedMessage)
 
+		rmsg := v.(message.RawSignedMessage)
 		ref, dmsg, err := message.Verify(rmsg.RawMessage)
 		if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s:%d): simple Encode failed", fr.Ref(), latestSeq)
 		}
-		//info.Log("dbg", "got message", "seq", dmsg.Sequence)
+		// info.Log("debug", "got message", "seq", dmsg.Sequence)
 
 		// todo: check previous etc.. maybe we want a mapping sink here
 		_, err = g.Repo.Log().Append(message.StoredMessage{
@@ -83,10 +86,11 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	} // hist drained
 
 	if !more {
-		// info.Log("event", "up2date", "took", time.Since(start))
+		// info.Log("debug", "up2date", "took", time.Since(start))
 		return nil
 	}
 
+	// update indicies
 	if err := idx.Set(ctx, latestIdxKey, latestSeq); err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s): failed to update sequence %d", fr.Ref(), latestSeq)
 	}
@@ -94,7 +98,7 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	f := func(ctx context.Context, seq margaret.Seq, v interface{}, idx librarian.SetterIndex) error {
 		smsg, ok := v.(message.StoredMessage)
 		if !ok {
-			return errors.Errorf("fetchFeed(%s): unexpected type: %T - wanted storedMsg", fr.Ref(), v)
+			return errors.Errorf("fetchFeed(%s): unexpected type in index update: %T - wanted storedMsg", fr.Ref(), v)
 		}
 		addr := fmt.Sprintf("%s:%06d", smsg.Author.Ref(), smsg.Sequence)
 		err := idx.Set(ctx, librarian.Addr(addr), seq)
