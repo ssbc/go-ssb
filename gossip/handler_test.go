@@ -16,70 +16,63 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
 )
 
-func TestReplicate(t *testing.T) {
+func loadTestDataPeer(t *testing.T, repopath string) sbot.Repo {
 	r := require.New(t)
-	a := assert.New(t)
+	repo, err := repo.New(repopath)
+	r.NoError(err, "failed to load testData repo")
+	r.NotNil(repo.KeyPair())
+	return repo
+}
 
-	// persisted test data
-	srcRepo, err := repo.New("testdata/replicate1")
-	r.NoError(err, "failed to create srcRepo")
-	srcKp := srcRepo.KeyPair()
-	r.NotNil(srcKp)
-
-	// new target repo
+func makeEmptyPeer(t *testing.T) (sbot.Repo, string) {
+	r := require.New(t)
 	dstPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 	dstRepo, err := repo.New(dstPath)
-	r.NoError(err, "failed to create dstRepo")
-	dstKp := dstRepo.KeyPair()
-	r.NotNil(dstKp)
+	r.NoError(err, "failed to create emptyRepo")
+	r.NotNil(dstRepo.KeyPair())
+	return dstRepo, dstPath
+}
 
-	// check full & empty
-	srcKf, err := srcRepo.KnownFeeds()
-	r.NoError(err, "failed to get known feeds from source")
-	r.Len(srcKf, 1)
-	r.Equal(margaret.Seq(3), srcKf[srcKp.Id.Ref()])
+func connectAndServe(t *testing.T, alice, bob sbot.Repo, tout time.Duration) <-chan struct{} {
+	r := require.New(t)
+	keyAlice := alice.KeyPair()
+	keyBob := bob.KeyPair()
 
-	dstKf, err := dstRepo.KnownFeeds()
-	r.NoError(err, "failed to get known feeds from source")
-	r.Len(dstKf, 0)
-
-	// construct transfer
 	p1, p2 := net.Pipe()
-	infologSrc, _ := logtest.KitLogger("srcRepo", t)
+	infoAlice, _ := logtest.KitLogger("alice", t)
+	infoBob, _ := logtest.KitLogger("bob", t)
 	tc1 := testConn{
-		Reader:      p1,
-		WriteCloser: p1,
-		conn:        p1,
-		local:       srcKp.Pair.Public[:],
-		remote:      dstKp.Pair.Public[:],
+		Reader: p1, WriteCloser: p1, conn: p1,
+		local:  keyAlice.Pair.Public[:],
+		remote: keyBob.Pair.Public[:],
 	}
-	pkr1 := muxrpc.NewPacker(tc1) //codec.Wrap(infologSrc, tc1))
-
-	infologDst, _ := logtest.KitLogger("dstRepo", t)
 	tc2 := testConn{
-		Reader:      p2,
-		WriteCloser: p2,
-		conn:        p2,
-		local:       dstKp.Pair.Public[:],
-		remote:      srcKp.Pair.Public[:],
+		Reader: p2, WriteCloser: p2, conn: p2,
+		local:  keyBob.Pair.Public[:],
+		remote: keyAlice.Pair.Public[:],
 	}
-	pkr2 := muxrpc.NewPacker(tc2) //codec.Wrap(infologDst, tc2))
+	var rwc1, rwc2 io.ReadWriteCloser = tc1, tc2
+	/* logs every muxrpc packet
+	if testing.Verbose() {
+		rwc1 = codec.Wrap(infoAlice, rwc1)
+		rwc2 = codec.Wrap(infoBob, rwc2)
+	}
+	*/
+	pkr1, pkr2 := muxrpc.NewPacker(rwc1), muxrpc.NewPacker(rwc2)
 
 	// create handlers
-	h1 := Handler{Repo: srcRepo, Info: infologSrc}
-	h2 := Handler{Repo: dstRepo, Info: infologDst}
-
-	a.Equal(tc1.LocalAddr().String(), tc2.RemoteAddr().String())
-	a.Equal(tc2.LocalAddr().String(), tc1.RemoteAddr().String())
+	h1 := Handler{Repo: alice, Info: infoAlice}
+	h2 := Handler{Repo: bob, Info: infoBob}
 
 	// serve
-	rpc1 := muxrpc.HandleWithRemote(pkr1, &h1, tc2.LocalAddr())
-	rpc2 := muxrpc.HandleWithRemote(pkr2, &h2, tc1.LocalAddr())
+	rpc1 := muxrpc.HandleWithRemote(pkr1, &h1, tc1.RemoteAddr())
+	rpc2 := muxrpc.HandleWithRemote(pkr2, &h2, tc2.RemoteAddr())
 
 	ctx := context.Background()
 	var wg sync.WaitGroup
@@ -97,21 +90,46 @@ func TestReplicate(t *testing.T) {
 	}()
 
 	// wait TODO: close handling
-	time.Sleep(2 * time.Second)
-	r.NoError(rpc1.Terminate())
-	r.NoError(rpc2.Terminate())
+	done := make(chan struct{})
+	go func() {
+		time.Sleep(tout)
+		r.NoError(rpc1.Terminate())
+		r.NoError(rpc2.Terminate())
+		wg.Wait()
+		close(done)
+	}()
+
+	return done
+}
+
+func TestReplicate(t *testing.T) {
+	r := assert.New(t)
+
+	srcRepo := loadTestDataPeer(t, "testdata/replicate1")
+	dstRepo, dstPath := makeEmptyPeer(t)
+
+	// check full & empty
+	srcKf, err := srcRepo.KnownFeeds()
+	r.NoError(err, "failed to get known feeds from source")
+	r.Len(srcKf, 1)
+	r.Equal(margaret.Seq(3), srcKf[srcRepo.KeyPair().Id.Ref()])
+	dstKf, err := dstRepo.KnownFeeds()
+	r.NoError(err, "failed to get known feeds from source")
+	r.Len(dstKf, 0)
+
+	// do the dance
+	done := connectAndServe(t, srcRepo, dstRepo, 3*time.Second)
+	<-done
 
 	// check data ended up on the target
 	afterkf, err := dstRepo.KnownFeeds()
 	r.NoError(err)
 	r.Len(afterkf, 1)
-	r.Equal(margaret.Seq(3), afterkf[srcKp.Id.Ref()])
+	r.Equal(margaret.Seq(3), afterkf[srcRepo.KeyPair().Id.Ref()])
 
-	seqs, err := dstRepo.FeedSeqs(srcKp.Id)
+	seqs, err := dstRepo.FeedSeqs(srcRepo.KeyPair().Id)
 	r.NoError(err)
 	r.Len(seqs, 3)
-
-	wg.Wait()
 
 	if !t.Failed() {
 		os.RemoveAll(dstPath)
