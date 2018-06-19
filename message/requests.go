@@ -14,11 +14,13 @@ type WhoamiReply struct {
 
 type CreateHistArgs struct {
 	//map[keys:false id:@Bqm7bG4qvlnWh3BEBFSj2kDr+     30+mUU3hRgrikE2+xc=.ed25519 seq:20 live:true
-	Keys  bool             `json:"keys"`
-	Live  bool             `json:"live"`
-	Id    string           `json:"id"`
-	Seq   margaret.BaseSeq `json:"seq"`
-	Limit margaret.BaseSeq `json:"limit"`
+	Keys    bool   `json:"keys"`
+	Values  bool   `json:"values"`
+	Live    bool   `json:"live"`
+	Id      string `json:"id"`
+	Seq     int64  `json:"seq"`
+	Limit   int64  `json:"limit"`
+	Reverse bool   `json:"reverse"`
 }
 
 type RawSignedMessage struct {

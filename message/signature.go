@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"go.cryptoscope.co/sbot"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/sbot"
 	"golang.org/x/crypto/ed25519"
 )
 

@@ -40,7 +40,7 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		Keys:  false,
 		Live:  false,
 		Id:    fr.Ref(),
-		Seq:   latestSeq + 1,
+		Seq:   int64(latestSeq + 1),
 		Limit: 1000,
 	}
 	start := time.Now()

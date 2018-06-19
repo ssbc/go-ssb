@@ -9,8 +9,8 @@ import (
 	"path"
 	"time"
 
-	"go.cryptoscope.co/sbot"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/sbot"
 )
 
 func New(basePath string) (sbot.BlobStore, error) {

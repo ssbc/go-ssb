@@ -49,8 +49,8 @@ func (h *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		// 	}
 		// }
 	case margaret.BaseSeq:
-		if qry.Seq >= v { // more than we got
-			return errors.Wrap(req.Stream.Close(), "failed to close")
+		if qry.Seq >= int64(v) { // more than we got
+			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}
 
 		seqs, err := drainAllSeqs(ctx, userLog)
