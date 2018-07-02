@@ -28,10 +28,10 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	if err != nil {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
-	var latestSeq margaret.Seq
+	var latestSeq margaret.BaseSeq
 	switch v := latest.(type) {
 	case librarian.UnsetValue:
-	case margaret.Seq:
+	case margaret.BaseSeq:
 		latestSeq = v
 	}
 

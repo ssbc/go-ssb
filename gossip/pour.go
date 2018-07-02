@@ -45,12 +45,12 @@ func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	switch v := latestV.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
 		if hist.Promisc {
-			err := gossipIdx.Set(ctx, latestKey, margaret.Seq(0))
+			err := gossipIdx.Set(ctx, latestKey, margaret.BaseSeq(0))
 			if err != nil {
 				return errors.Wrap(err, "failed to set unknown key")
 			}
 		}
-	case margaret.Seq:
+	case margaret.BaseSeq:
 		if qry.Seq >= v { // more than we got
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}

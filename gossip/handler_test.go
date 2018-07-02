@@ -112,7 +112,7 @@ func TestReplicate(t *testing.T) {
 	srcKf, err := srcRepo.KnownFeeds()
 	r.NoError(err, "failed to get known feeds from source")
 	r.Len(srcKf, 1)
-	r.Equal(margaret.Seq(3), srcKf[srcRepo.KeyPair().Id.Ref()])
+	r.Equal(margaret.BaseSeq(3), srcKf[srcRepo.KeyPair().Id.Ref()])
 	dstKf, err := dstRepo.KnownFeeds()
 	r.NoError(err, "failed to get known feeds from source")
 	r.Len(dstKf, 0)
@@ -125,7 +125,7 @@ func TestReplicate(t *testing.T) {
 	afterkf, err := dstRepo.KnownFeeds()
 	r.NoError(err)
 	r.Len(afterkf, 1)
-	r.Equal(margaret.Seq(3), afterkf[srcRepo.KeyPair().Id.Ref()])
+	r.Equal(margaret.BaseSeq(3), afterkf[srcRepo.KeyPair().Id.Ref()])
 
 	seqs, err := dstRepo.FeedSeqs(srcRepo.KeyPair().Id)
 	r.NoError(err)

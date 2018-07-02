@@ -52,8 +52,8 @@ func New(basePath string) (sbot.Repo, error) {
 	return r, nil
 }
 
-func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.Seq, error) {
-	var seqs []margaret.Seq
+func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.BaseSeq, error) {
+	var seqs []margaret.BaseSeq
 	err := r.gossipKv.View(func(txn *badger.Txn) error {
 		itr := txn.NewIterator(badger.DefaultIteratorOptions)
 		var buf bytes.Buffer
@@ -67,7 +67,7 @@ func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.Seq, error) {
 				return errors.Wrap(err, "failed to do value copy?!")
 			}
 
-			var seq margaret.Seq
+			var seq margaret.BaseSeq
 			err = json.Unmarshal(v, &seq)
 			// todo dynamic marshaller
 			if err != nil {
@@ -84,8 +84,8 @@ func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.Seq, error) {
 	return seqs, nil
 }
 
-func (r *repo) KnownFeeds() (map[string]margaret.Seq, error) {
-	m := make(map[string]margaret.Seq)
+func (r *repo) KnownFeeds() (map[string]margaret.BaseSeq, error) {
+	m := make(map[string]margaret.BaseSeq)
 	err := r.gossipKv.View(func(txn *badger.Txn) error {
 		itr := txn.NewIterator(badger.DefaultIteratorOptions)
 		prefix := []byte("latest:")
@@ -97,7 +97,7 @@ func (r *repo) KnownFeeds() (map[string]margaret.Seq, error) {
 				return errors.Wrap(err, "failed to do value copy?!")
 			}
 
-			var seq margaret.Seq
+			var seq margaret.BaseSeq
 			err = json.Unmarshal(v, &seq)
 			// todo dynamic marshaller
 			if err != nil {
@@ -197,7 +197,7 @@ func (r *repo) initGossipIndex() error {
 	if err != nil {
 		return errors.Wrap(err, "db/idx: badger failed to open")
 	}
-	r.gossipIdx = idxbadger.NewIndex(r.gossipKv, margaret.Seq(-2))
+	r.gossipIdx = idxbadger.NewIndex(r.gossipKv, margaret.BaseSeq(-2))
 	return nil
 }
 

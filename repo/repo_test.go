@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 	l := repo.Log()
 	seq, err := l.Seq().Value()
 	r.NoError(err, "failed to get log seq")
-	r.Equal(margaret.Seq(-1), seq)
+	r.Equal(margaret.BaseSeq(-1), seq)
 
 	r.NoError(repo.Close(), "failed to close repo")
 
