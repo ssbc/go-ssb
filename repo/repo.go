@@ -75,7 +75,7 @@ func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.BaseSeq, error) {
 			}
 			seqs = append(seqs, seq)
 		}
-
+		itr.Close()
 		return nil
 	})
 	if err != nil {
@@ -106,7 +106,7 @@ func (r *repo) KnownFeeds() (map[string]margaret.BaseSeq, error) {
 
 			m[string(bytes.TrimPrefix(k, prefix))] = seq
 		}
-
+		itr.Close()
 		return nil
 	})
 	if err != nil {
