@@ -13,8 +13,11 @@ import (
 	"go.cryptoscope.co/sbot/message"
 )
 
-func (h *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
+func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	// check & parse args
+	if len(req.Args) < 1 {
+		return errors.New("not enough arguments, expecting feed id")
+	}
 	qv := req.Args[0].(map[string]interface{})
 	var qry message.CreateHistArgs
 	if err := mapstructure.Decode(qv, &qry); err != nil {

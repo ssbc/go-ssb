@@ -17,8 +17,10 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/plugins/gossip"
+	"go.cryptoscope.co/sbot/plugins/whoami"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
 )
@@ -112,7 +114,7 @@ func main() {
 
 	localKey = r.KeyPair()
 
-	rootHdlr := &muxrpc.HandlerMux{}
+	pmgr := sbot.NewPluginManager()
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
@@ -147,22 +149,16 @@ func main() {
 			}
 
 			// TODO: check remote key is in friend-graph distance
-			return rootHdlr, nil
+			return pmgr.MakeHandler(conn)
 		},
 	}
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	gossipHandler := &gossip.Handler{
-		Node:    node,
-		Repo:    r,
-		Info:    log,
-		Promisc: flagPromisc,
-	}
-	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
-	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
-	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, IgnoreConnectHandler{gossipHandler})
+	pmgr.Register(whoami.New(r))                             // whoami
+	pmgr.Register(gossip.New(r, node, flagPromisc, log))     // gossip.*
+	pmgr.Register(gossip.NewHist(r, node, flagPromisc, log)) // createHistoryStream
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {

@@ -18,7 +18,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 )
 
-type Handler struct {
+type handler struct {
 	Node sbot.Node
 	Repo sbot.Repo
 	Info logging.Interface
@@ -26,8 +26,7 @@ type Handler struct {
 	Promisc bool
 }
 
-func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-
+func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	srv := e.(muxrpc.Server)
 	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
 
@@ -107,14 +106,14 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	*/
 }
 
-func (g *Handler) check(err error) {
+func (g *handler) check(err error) {
 	if err != nil {
 		g.Info.Log("error", err)
 		debug.PrintStack()
 	}
 }
 
-func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
+func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 
 	var closed bool
@@ -176,7 +175,7 @@ func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	}
 }
 
-func (g *Handler) ping(ctx context.Context, req *muxrpc.Request) error {
+func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
 	g.Info.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
 	for i := 0; i < 2; i++ {
 		err := req.Stream.Pour(ctx, time.Now().Unix())
@@ -188,7 +187,7 @@ func (g *Handler) ping(ctx context.Context, req *muxrpc.Request) error {
 	return req.Stream.CloseWithError(errors.New("TODO:dos0day"))
 }
 
-func (g *Handler) connect(ctx context.Context, dest string) error {
+func (g *handler) connect(ctx context.Context, dest string) error {
 	splitted := strings.Split(dest, ":")
 	if n := len(splitted); n != 3 {
 		return errors.Errorf("gossip.connect: bad request. expected 3 parts, got %d", n)

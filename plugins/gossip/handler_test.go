@@ -69,8 +69,8 @@ func connectAndServe(t *testing.T, alice, bob sbot.Repo, tout time.Duration) <-c
 	pkr1, pkr2 := muxrpc.NewPacker(rwc1), muxrpc.NewPacker(rwc2)
 
 	// create handlers
-	h1 := Handler{Repo: alice, Info: infoAlice}
-	h2 := Handler{Repo: bob, Info: infoBob}
+	h1 := handler{Repo: alice, Info: infoAlice}
+	h2 := handler{Repo: bob, Info: infoBob}
 
 	// serve
 	rpc1 := muxrpc.HandleWithRemote(pkr1, &h1, tc1.RemoteAddr())
