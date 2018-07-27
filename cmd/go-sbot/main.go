@@ -18,7 +18,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/gossip"
+	"go.cryptoscope.co/sbot/plugins/gossip"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
 )
