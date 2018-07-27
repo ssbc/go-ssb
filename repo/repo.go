@@ -1,20 +1,22 @@
 package repo
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	"context"
 	"log"
 	"os"
 	"path"
+	"time"
 
+	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
-	idxbadger "go.cryptoscope.co/librarian/badger"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/framing/lengthprefixed"
+	"go.cryptoscope.co/margaret/multilog"
+	multibadger "go.cryptoscope.co/margaret/multilog/badger"
 	"go.cryptoscope.co/margaret/offset"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 
@@ -25,10 +27,15 @@ import (
 
 var _ sbot.Repo = (*repo)(nil)
 
+var check = logging.CheckFatal
+
+// New creates a new repository value, it opens the keypair and database from basePath if it is already existing
 func New(basePath string) (sbot.Repo, error) {
 	r := &repo{basePath: basePath}
 
 	var err error
+	var ctx = context.TODO() // TODO: pass in from main() to bind to signal handling shutdown
+	ctx, r.shutdown = context.WithCancel(ctx)
 
 	r.blobStore, err = r.getBlobStore()
 	if err != nil {
@@ -40,93 +47,66 @@ func New(basePath string) (sbot.Repo, error) {
 		return nil, errors.Wrap(err, "error reading KeyPair")
 	}
 
-	r.log, err = r.getLog()
+	r.rootLog, err = r.getRootLog()
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening log")
 	}
 
-	if err := r.initGossipIndex(); err != nil {
+	if err := r.getUserFeeds(); err != nil {
 		return nil, errors.Wrap(err, "error opening gossip index")
 	}
+
+	go func() {
+		// TODO: resume..!
+		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true))
+		check(err)
+
+		update := func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+			msg, ok := value.(message.StoredMessage)
+			if !ok {
+				return errors.Errorf("error casting message. got type %T", value)
+			}
+
+			authorLog, err := mlog.Get(librarian.Addr(msg.Author.ID))
+			if err != nil {
+				return errors.Wrap(err, "error opening sublog")
+			}
+
+			if _, err := authorLog.Append(seq); err != nil {
+				return errors.Wrap(err, "error appending new author message")
+			}
+
+			return nil
+		}
+
+		idxSink := multilog.NewSink(r.userFeeds, update)
+		err = luigi.Pump(ctx, idxSink, src)
+		if err != context.Canceled {
+			log.Println(errors.Wrap(err, "userFeeds idx pump failed"))
+		}
+	}()
 
 	return r, nil
 }
 
-func (r *repo) FeedSeqs(fr sbot.FeedRef) ([]margaret.BaseSeq, error) {
-	var seqs []margaret.BaseSeq
-	err := r.gossipKv.View(func(txn *badger.Txn) error {
-		itr := txn.NewIterator(badger.DefaultIteratorOptions)
-		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "%s:", fr.Ref())
-		prefix := buf.Bytes()
-		for itr.Seek(prefix); itr.ValidForPrefix(prefix); itr.Next() {
-			item := itr.Item()
-			//k := item.Key()
-			v, err := item.Value()
-			if err != nil {
-				return errors.Wrap(err, "failed to do value copy?!")
-			}
-
-			var seq margaret.BaseSeq
-			err = json.Unmarshal(v, &seq)
-			// todo dynamic marshaller
-			if err != nil {
-				return errors.Wrap(err, "error unmarshaling using json marshaler")
-			}
-			seqs = append(seqs, seq)
-		}
-		itr.Close()
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to iterate prefixes")
-	}
-	return seqs, nil
-}
-
-func (r *repo) KnownFeeds() (map[string]margaret.BaseSeq, error) {
-	m := make(map[string]margaret.BaseSeq)
-	err := r.gossipKv.View(func(txn *badger.Txn) error {
-		itr := txn.NewIterator(badger.DefaultIteratorOptions)
-		prefix := []byte("latest:")
-		for itr.Seek(prefix); itr.ValidForPrefix(prefix); itr.Next() {
-			item := itr.Item()
-			k := item.Key()
-			v, err := item.Value()
-			if err != nil {
-				return errors.Wrap(err, "failed to do value copy?!")
-			}
-
-			var seq margaret.BaseSeq
-			err = json.Unmarshal(v, &seq)
-			// todo dynamic marshaller
-			if err != nil {
-				return errors.Wrap(err, "error unmarshaling using json marshaler")
-			}
-
-			m[string(bytes.TrimPrefix(k, prefix))] = seq
-		}
-		itr.Close()
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to iterate prefixes")
-	}
-	return m, nil
-}
-
 type repo struct {
+	shutdown func()
 	basePath string
 
 	blobStore sbot.BlobStore
 	keyPair   *sbot.KeyPair
-	log       margaret.Log
-	gossipIdx librarian.SeqSetterIndex
-	gossipKv  *badger.DB
+	rootLog   margaret.Log
+
+	userKV    *badger.DB
+	userFeeds multilog.MultiLog
 }
 
 func (r repo) Close() error {
-	return errors.Wrap(r.gossipKv.Close(), "repo: failed to close gossipKV")
+	r.shutdown()
+	// FIXME: does shutdown block..?
+	// would be good to get back some kind of _all done without a problem_
+	time.Sleep(1 * time.Second)
+	return errors.Wrap(r.userKV.Close(), "repo: failed to close userKV")
 }
 
 func (r *repo) getPath(rel string) string {
@@ -168,9 +148,9 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 	return r.keyPair, nil
 }
 
-func (r *repo) getLog() (margaret.Log, error) {
-	if r.log != nil {
-		return r.log, nil
+func (r *repo) getRootLog() (margaret.Log, error) {
+	if r.rootLog != nil {
+		return r.rootLog, nil
 	}
 
 	logFile, err := os.OpenFile(r.getPath("log"), os.O_CREATE|os.O_RDWR, 0600)
@@ -179,13 +159,18 @@ func (r *repo) getLog() (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	r.log, err = offset.New(logFile, lengthprefixed.New32(16*1024), msgpack.New(&message.StoredMessage{}))
-	return r.log, errors.Wrap(err, "failed to create log")
+	// FIXME: 16kB because some messages are even larger than 12kB - even though the limit is supposed to be 8kb
+	r.rootLog, err = offset.New(logFile, lengthprefixed.New32(16*1024), msgpack.New(&message.StoredMessage{}))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create rootLog")
+	}
+
+	return r.rootLog, nil
 }
 
-func (r *repo) initGossipIndex() error {
+func (r *repo) getUserFeeds() error {
 	var err error
-	if r.gossipIdx != nil {
+	if r.userFeeds != nil {
 		return nil
 	}
 
@@ -193,20 +178,20 @@ func (r *repo) initGossipIndex() error {
 	opts := badger.DefaultOptions
 	opts.Dir = r.getPath("gossipBadger.keys")
 	opts.ValueDir = opts.Dir // we have small values in this one r.getPath("gossipBadger.values")
-	r.gossipKv, err = badger.Open(opts)
+	r.userKV, err = badger.Open(opts)
 	if err != nil {
 		return errors.Wrap(err, "db/idx: badger failed to open")
 	}
-	r.gossipIdx = idxbadger.NewIndex(r.gossipKv, margaret.BaseSeq(-2))
+	r.userFeeds = multibadger.New(r.userKV, msgpack.New(&message.StoredMessage{}))
 	return nil
 }
 
-func (r *repo) GossipIndex() librarian.SeqSetterIndex {
-	return r.gossipIdx
+func (r *repo) UserFeeds() multilog.MultiLog {
+	return r.userFeeds
 }
 
-func (r *repo) Log() margaret.Log {
-	return r.log
+func (r *repo) RootLog() margaret.Log {
+	return r.rootLog
 }
 
 func (r *repo) KeyPair() sbot.KeyPair {

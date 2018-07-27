@@ -3,8 +3,8 @@ package sbot
 import (
 	"io"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 )
 
 type Repo interface {
@@ -12,8 +12,6 @@ type Repo interface {
 	KeyPair() KeyPair
 	Plugins() []Plugin
 	BlobStore() BlobStore
-	Log() margaret.Log
-	GossipIndex() librarian.SeqSetterIndex
-	KnownFeeds() (map[string]margaret.BaseSeq, error) // cant use FeedRef as key..
-	FeedSeqs(FeedRef) ([]margaret.BaseSeq, error)
+	RootLog() margaret.Log        // the main log which contains all the feeds of individual users
+	UserFeeds() multilog.MultiLog // use .Get(feedRef) to get a sublog just for that user
 }
