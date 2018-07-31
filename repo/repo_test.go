@@ -28,8 +28,6 @@ var (
 
 // TODO: generate proper test feeds with matching previous etc
 func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
-	// tm = new(testMessage)
-
 	pVal, _ := quick.Value(reflect.TypeOf(tm.Previous), rand)
 	keyVal, _ := quick.Value(reflect.TypeOf(tm.Key), rand)
 	seqVal, _ := quick.Value(reflect.TypeOf(tm.Sequence), rand)
@@ -48,7 +46,7 @@ func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
 	tm.Previous = pVal.Interface().(sbot.MessageRef)
 	tm.Key = keyVal.Interface().(sbot.MessageRef)
 	tm.Sequence = seqVal.Interface().(margaret.BaseSeq)
-	tm.Timestamp = time.Unix(timeVal.Int(), 0)
+	tm.Timestamp = time.Unix(timeVal.Int()%9999, 0)
 
 	return reflect.ValueOf(&tm)
 }
@@ -88,7 +86,7 @@ func TestMakeSomeMessages(t *testing.T) {
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
 
-	rand := rand.New(rand.NewSource(99))
+	rand := rand.New(rand.NewSource(42))
 	refT := reflect.TypeOf(testMessage{})
 
 	const n = 90

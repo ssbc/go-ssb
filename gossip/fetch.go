@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -18,13 +17,11 @@ import (
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpoint) error {
 	// check our latest
-	latestIdxKey := librarian.Addr(fmt.Sprintf("latest:%s", fr.Ref()))
-	idx := g.Repo.GossipIndex()
-	latestObv, err := idx.Get(ctx, latestIdxKey)
+	userLog, err := g.Repo.UserFeeds().Get(librarian.Addr(fr.ID))
 	if err != nil {
-		return errors.Wrapf(err, "idx latest failed")
+		return errors.Wrapf(err, "failed to open sublog for user")
 	}
-	latest, err := latestObv.Value()
+	latest, err := userLog.Seq().Value()
 	if err != nil {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
@@ -32,7 +29,7 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	switch v := latest.(type) {
 	case librarian.UnsetValue:
 	case margaret.BaseSeq:
-		latestSeq = v
+		latestSeq = v // TODO +1? sublog is 0-init while ssb chains start at 1
 	}
 
 	// me := g.Repo.KeyPair()
@@ -53,7 +50,6 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	}
 	// info.Log("debug", "start sync")
 
-	var more bool // did we append anything or was this an empty source
 	for {
 		v, err := source.Next(ctx)
 		if luigi.IsEOS(err) {
@@ -70,10 +66,10 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		// info.Log("debug", "got message", "seq", dmsg.Sequence)
 
 		// todo: check previous etc.. maybe we want a mapping sink here
-		_, err = g.Repo.Log().Append(message.StoredMessage{
-			Author:    dmsg.Author,
-			Previous:  dmsg.Previous,
-			Key:       *ref,
+		_, err = g.Repo.RootLog().Append(message.StoredMessage{
+			Author:    &dmsg.Author,
+			Previous:  &dmsg.Previous,
+			Key:       ref,
 			Sequence:  dmsg.Sequence,
 			Timestamp: time.Now(),
 			Raw:       rmsg.RawMessage,
@@ -81,38 +77,8 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 		if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s): failed to append message(%s:%d)", fr.Ref(), ref.Ref(), dmsg.Sequence)
 		}
-		more = true
 		latestSeq = dmsg.Sequence
 	} // hist drained
-
-	if !more {
-		// info.Log("debug", "up2date", "took", time.Since(start))
-		return nil
-	}
-
-	// update indicies
-	if err := idx.Set(ctx, latestIdxKey, latestSeq); err != nil {
-		return errors.Wrapf(err, "fetchFeed(%s): failed to update sequence %d", fr.Ref(), latestSeq)
-	}
-
-	f := func(ctx context.Context, seq margaret.Seq, v interface{}, idx librarian.SetterIndex) error {
-		smsg, ok := v.(message.StoredMessage)
-		if !ok {
-			return errors.Errorf("fetchFeed(%s): unexpected type in index update: %T - wanted storedMsg", fr.Ref(), v)
-		}
-		addr := fmt.Sprintf("%s:%06d", smsg.Author.Ref(), smsg.Sequence)
-		err := idx.Set(ctx, librarian.Addr(addr), seq)
-		return errors.Wrapf(err, "fetchFeed(%s): failed to update idx for k:%s - v:%d", fr.Ref(), addr, seq)
-	}
-	sinkIdx := librarian.NewSinkIndex(f, idx)
-
-	src, err := g.Repo.Log().Query(sinkIdx.QuerySpec())
-	if err != nil {
-		return errors.Wrapf(err, "fetchFeed(%s): failed to construct index update query", fr.Ref())
-	}
-	if err := luigi.Pump(ctx, sinkIdx, src); err != nil {
-		return errors.Wrapf(err, "fetchFeed(%s): error pumping from queried src to SinkIndex", fr.Ref())
-	}
 
 	info.Log("event", "verfied2updated", "new", latestSeq-startSeq, "took", time.Since(start))
 	return nil

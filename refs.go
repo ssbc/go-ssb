@@ -109,16 +109,19 @@ var (
 	_ encoding.TextUnmarshaler = (*FeedRef)(nil)
 )
 
-func (fr *FeedRef) MarshalText() (text []byte, err error) {
+func (fr *FeedRef) MarshalText() ([]byte, error) {
 	return []byte(fr.Ref()), nil
 }
 
 func (fr *FeedRef) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*fr = FeedRef{}
+		return nil
+	}
 	ref, err := ParseRef(string(text))
 	if err != nil {
 		return errors.Wrap(err, "failed to parse ref")
 	}
-
 	newRef, ok := ref.(*FeedRef)
 	if !ok {
 		return errors.Errorf("feedRef: not a feed! %T", ref)
@@ -132,19 +135,25 @@ var (
 	_ encoding.TextUnmarshaler = (*MessageRef)(nil)
 )
 
-func (mr *MessageRef) MarshalText() (text []byte, err error) {
+func (mr *MessageRef) MarshalText() ([]byte, error) {
+	if len(mr.Hash) == 0 {
+		return []byte{}, nil
+	}
 	return []byte(mr.Ref()), nil
 }
 
 func (mr *MessageRef) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*mr = MessageRef{}
+		return nil
+	}
 	ref, err := ParseRef(string(text))
 	if err != nil {
 		return errors.Wrap(err, "failed to parse ref")
 	}
-
 	newRef, ok := ref.(*MessageRef)
 	if !ok {
-		return errors.Errorf("feedRef: not a feed! %T", ref)
+		return errors.Errorf("msgRef: not a message! %T", ref)
 	}
 	*mr = *newRef
 	return nil

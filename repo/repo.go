@@ -182,7 +182,7 @@ func (r *repo) getUserFeeds() error {
 	if err != nil {
 		return errors.Wrap(err, "db/idx: badger failed to open")
 	}
-	r.userFeeds = multibadger.New(r.userKV, msgpack.New(&message.StoredMessage{}))
+	r.userFeeds = multibadger.New(r.userKV, msgpack.New(margaret.BaseSeq(0)))
 	return nil
 }
 

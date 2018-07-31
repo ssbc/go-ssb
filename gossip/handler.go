@@ -10,6 +10,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
@@ -50,49 +51,51 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	kf, err := g.Repo.KnownFeeds()
-	if err != nil {
-		g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
-		return
-	}
-
+	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
-	_, hasOwn := kf[mykp.Id.Ref()]
+	hasOwn := userFeeds.Has(librarian.Addr(mykp.Id.ID))
 	if !hasOwn {
 		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
 			g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
 			return
 		}
 	}
-	n := len(kf)
-	if n > 20 { // DOS / doublecall bug
-		g.Info.Log("dbg", "shortening sync..", "n", n)
-		n = 20
-	}
-	for feed := range kf {
 
-		ref, err := sbot.ParseRef(feed)
+	/*
 		if err != nil {
-			g.Info.Log("handleConnect", "ParseRef failed", "err", err)
+			g.Info.Log("handleConnect", "userFeeds failed", "err", err)
 			return
 		}
+		n := len(kf)
+		if n > 20 { // DOS / doublecall bug
+			g.Info.Log("dbg", "shortening sync..", "n", n)
+			n = 20
+		}
+		for feed := range kf {
 
-		fref, ok = ref.(*sbot.FeedRef)
-		if !ok {
-			g.Info.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
-			return
-		}
+			ref, err := sbot.ParseRef(feed)
+			if err != nil {
+				g.Info.Log("handleConnect", "ParseRef failed", "err", err)
+				return
+			}
 
-		err = g.fetchFeed(ctx, *fref, e)
-		if err != nil {
-			g.Info.Log("handleConnect", "knownFeeds failed", "err", err)
-			return
+			fref, ok = ref.(*sbot.FeedRef)
+			if !ok {
+				g.Info.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
+				return
+			}
+
+			err = g.fetchFeed(ctx, *fref, e)
+			if err != nil {
+				g.Info.Log("handleConnect", "fetchFeed failed", "err", err)
+				return
+			}
+			n--
+			if n == 0 {
+				return
+			}
 		}
-		n--
-		if n == 0 {
-			return
-		}
-	}
+	*/
 }
 
 func (g *Handler) check(err error) {
@@ -103,7 +106,8 @@ func (g *Handler) check(err error) {
 }
 
 func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	// debug.PrintStack()
 
 	var closed bool
 	checkAndClose := func(err error) {
@@ -122,6 +126,7 @@ func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	}()
 
 	switch req.Method.String() {
+
 	case "createHistoryStream":
 		if req.Type != "source" {
 			checkAndClose(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
@@ -156,6 +161,7 @@ func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
 			return
 		}
+
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
 	}
@@ -170,7 +176,7 @@ func (g *Handler) ping(ctx context.Context, req *muxrpc.Request) error {
 		}
 		time.Sleep(time.Second)
 	}
-	return req.Stream.Close()
+	return req.Stream.CloseWithError(errors.New("TODO:dos0day"))
 }
 
 func (g *Handler) connect(ctx context.Context, dest string) error {

@@ -16,7 +16,7 @@ type Options struct {
 	ListenAddr  net.Addr
 	KeyPair     KeyPair
 	AppKey      []byte
-	MakeHandler func(net.Conn) muxrpc.Handler
+	MakeHandler func(net.Conn) (muxrpc.Handler, error)
 }
 
 type Node interface {
@@ -59,18 +59,20 @@ func NewNode(opts Options) (Node, error) {
 }
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
-	h := n.opts.MakeHandler(conn)
-	pkr := muxrpc.NewPacker(conn) //codec.Wrap(logging.Logger("handleC"), conn))
-
 	n.connTracker.OnAccept(conn)
 	defer n.connTracker.OnClose(conn)
 
+	h, err := n.opts.MakeHandler(conn)
+	if err != nil {
+		log.Printf("error creating muxrpc handler for peer %s: %s", conn.RemoteAddr(), err)
+		return
+	}
+
+	pkr := muxrpc.NewPacker(conn) //codec.Wrap(logging.Logger("handleC"), conn))
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
-	go h.HandleConnect(ctx, edp)
 
 	srv := edp.(muxrpc.Server)
-	err := srv.Serve(ctx)
-	if err != nil {
+	if err := srv.Serve(ctx); err != nil {
 		log.Printf("error serving muxrpc session with peer %s: %s", conn.RemoteAddr(), err)
 	}
 }

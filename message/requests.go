@@ -26,9 +26,9 @@ type RawSignedMessage struct {
 }
 
 type StoredMessage struct {
-	Author    sbot.FeedRef    // @... pubkey
-	Previous  sbot.MessageRef // %... message hashsha
-	Key       sbot.MessageRef // %... message hashsha
+	Author    *sbot.FeedRef    // @... pubkey
+	Previous  *sbot.MessageRef // %... message hashsha
+	Key       *sbot.MessageRef // %... message hashsha
 	Sequence  margaret.BaseSeq
 	Timestamp time.Time
 	Raw       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why

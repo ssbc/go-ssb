@@ -2,18 +2,18 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
 )
 
-func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
+func (h *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	// check & parse args
 	qv := req.Args[0].(map[string]interface{})
 	var qry message.CreateHistArgs
@@ -30,52 +30,81 @@ func (hist *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	}
 
 	// check what we got
-	gossipIdx := hist.Repo.GossipIndex()
-	latestKey := librarian.Addr(fmt.Sprintf("latest:%s", ref.Ref()))
-	latestObv, err := gossipIdx.Get(ctx, latestKey)
+	userLog, err := h.Repo.UserFeeds().Get(librarian.Addr(feedRef.ID))
 	if err != nil {
-		return errors.Wrap(err, "failed to get latest")
+		return errors.Wrapf(err, "failed to open sublog for user")
 	}
-	latestV, err := latestObv.Value()
+	latest, err := userLog.Seq().Value()
 	if err != nil {
-		return errors.Wrap(err, "failed to observ latest")
+		return errors.Wrapf(err, "failed to observe latest")
 	}
 
 	// act accordingly
-	switch v := latestV.(type) {
+	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
-		if hist.Promisc {
-			err := gossipIdx.Set(ctx, latestKey, margaret.BaseSeq(0))
-			if err != nil {
-				return errors.Wrap(err, "failed to set unknown key")
-			}
-		}
+		// if h.Promisc {
+		// 	err := gossipIdx.Set(ctx, latestKey, margaret.BaseSeq(0))
+		// 	if err != nil {
+		// 		return errors.Wrap(err, "failed to set unknown key")
+		// 	}
+		// }
 	case margaret.BaseSeq:
 		if qry.Seq >= v { // more than we got
-			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
+			return errors.Wrap(req.Stream.Close(), "failed to close")
 		}
-		// TODO: multilog
-		seqs, err := hist.Repo.FeedSeqs(*feedRef)
+
+		seqs, err := drainAllSeqs(ctx, userLog)
 		if err != nil {
-			return errors.Wrap(err, "failed to get internal seqs")
+			return errors.Wrap(err, "failed to load sequences in rootLog")
 		}
+
 		rest := seqs[qry.Seq-1:]
 		if len(rest) > 150 { // batch - slow but steady
 			rest = rest[:150]
 		}
-		log := hist.Repo.Log()
+		log := h.Repo.RootLog()
 		for i, rSeq := range rest {
 			v, err := log.Get(rSeq)
 			if err != nil {
 				return errors.Wrapf(err, "load message %d", i)
 			}
-			stMsg := v.(message.StoredMessage)
-			if err := req.Stream.Pour(ctx, message.RawSignedMessage{stMsg.Raw}); err != nil {
+			stMsg, ok := v.(*message.StoredMessage)
+			if !ok {
+				return errors.Errorf("wrong message type. expected *message.StoredMessage - got %T", latest)
+			}
+			if err := req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: stMsg.Raw}); err != nil {
 				return errors.Wrap(err, "failed to pour msg to remote peer")
 
 			}
 		}
-		hist.Info.Log("sent", ref.Ref(), "from", qry.Seq, "rest", len(rest))
+		h.Info.Log("sent", ref.Ref(), "from", qry.Seq, "rest", len(rest))
+	default:
+		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}
 	return errors.Wrap(req.Stream.Close(), "pour: failed to close")
+}
+
+func drainAllSeqs(ctx context.Context, log margaret.Log) ([]margaret.Seq, error) {
+	src, err := log.Query()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create luigi src")
+	}
+
+	var seqs []margaret.Seq
+	for {
+		v, err := src.Next(ctx)
+		if luigi.IsEOS(err) {
+			break
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create luigi src")
+		}
+		s, ok := v.(margaret.BaseSeq)
+		if !ok {
+			return nil, errors.Errorf("wrong value type in index. expected BaseSeq - got %T", v)
+		}
+
+		seqs = append(seqs, s)
+	}
+	return seqs, nil
 }

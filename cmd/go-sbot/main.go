@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -14,10 +13,13 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/gossip"
 	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/secretstream"
 )
 
 var (
@@ -77,8 +79,8 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
-		fmt.Println("killed. shutting down")
+		sig := <-c
+		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
 		shutdown()
 		checkFatal(r.Close())
 		time.Sleep(1 * time.Second)
@@ -86,9 +88,7 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	m, err := r.KnownFeeds()
-	checkFatal(err)
-	log.Log("event", "repo open", "feeds", len(m))
+	log.Log("event", "repo open", "feeds", len(r.UserFeeds().List()))
 	/*
 		goon.Dump(m)
 
@@ -109,11 +109,36 @@ func main() {
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
 
+	var peerWhitelist = map[string]bool{ // TODO: add yours here - see below
+		"@38N97KFM3f9MBFBVE/9HwQsECm6G/AmGqViG8joZQ44=.ed25519": true,
+	}
+
 	opts := sbot.Options{
-		ListenAddr:  laddr,
-		KeyPair:     localKey,
-		AppKey:      appKey,
-		MakeHandler: func(net.Conn) muxrpc.Handler { return rootHdlr },
+		ListenAddr: laddr,
+		KeyPair:    localKey,
+		AppKey:     appKey,
+		MakeHandler: func(conn net.Conn) (muxrpc.Handler, error) {
+			addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
+			if addr == nil {
+				return nil, errors.New("expected an address containing an shs-bs addr")
+			}
+
+			secstreamAddr, ok := addr.(secretstream.Addr)
+			if !ok {
+				return nil, errors.Errorf("unexpected shs-bs addr type: %T", addr)
+			}
+			fr := sbot.FeedRef{
+				Algo: "ed25519",
+				ID:   secstreamAddr.PubKey,
+			}
+
+			if ok := peerWhitelist[fr.Ref()]; !ok {
+				return nil, errors.New("sbot: not whitelisted - peer locked down for testing")
+			}
+
+			// TODO: check remote key is in friend-graph distance
+			return rootHdlr, nil
+		},
 	}
 
 	node, err = sbot.NewNode(opts)
@@ -126,13 +151,13 @@ func main() {
 		Promisc: flagPromisc,
 	}
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
-	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
+	// rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
 	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
 		err = node.Serve(ctx)
-		log.Log("event", "serve returned", "err", err)
+		log.Log("event", "sbot node.Serve returned", "err", err)
 		time.Sleep(1 * time.Second)
 	}
 }
