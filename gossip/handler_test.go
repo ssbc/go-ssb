@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
@@ -113,8 +114,12 @@ func TestReplicate(t *testing.T) {
 
 	// check full & empty
 	srcID := srcRepo.KeyPair().Id
-	r.True(srcMlog.Has(librarian.Addr(srcID.ID)))
-	r.False(dstMlog.Has(librarian.Addr(srcID.ID)))
+	has, err := multilog.Has(srcMlog, librarian.Addr(srcID.ID))
+	r.NoError(err)
+	r.True(has)
+	has, err = multilog.Has(dstMlog, librarian.Addr(srcID.ID))
+	r.NoError(err)
+	r.False(has)
 	/*
 		seqVal, err := srcLog.Seq().Value()
 		r.NoError(err, "")

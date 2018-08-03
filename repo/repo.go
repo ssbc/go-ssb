@@ -33,10 +33,10 @@ var check = logging.CheckFatal
 func New(basePath string) (sbot.Repo, error) {
 	r := &repo{basePath: basePath}
 
-	var err error
-	var ctx = context.TODO() // TODO: pass in from main() to bind to signal handling shutdown
-	ctx, r.shutdown = context.WithCancel(ctx)
+	r.ctx = context.TODO() // TODO: pass in from main() to bind to signal handling shutdown
+	r.ctx, r.shutdown = context.WithCancel(r.ctx)
 
+	var err error
 	r.blobStore, err = r.getBlobStore()
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating blob store")
@@ -56,40 +56,11 @@ func New(basePath string) (sbot.Repo, error) {
 		return nil, errors.Wrap(err, "error opening gossip index")
 	}
 
-	go func() {
-		// TODO: resume..!
-		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true))
-		check(err)
-
-		update := func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
-			msg, ok := value.(message.StoredMessage)
-			if !ok {
-				return errors.Errorf("error casting message. got type %T", value)
-			}
-
-			authorLog, err := mlog.Get(librarian.Addr(msg.Author.ID))
-			if err != nil {
-				return errors.Wrap(err, "error opening sublog")
-			}
-
-			if _, err := authorLog.Append(seq); err != nil {
-				return errors.Wrap(err, "error appending new author message")
-			}
-
-			return nil
-		}
-
-		idxSink := multilog.NewSink(r.userFeeds, update)
-		err = luigi.Pump(ctx, idxSink, src)
-		if err != context.Canceled {
-			log.Println(errors.Wrap(err, "userFeeds idx pump failed"))
-		}
-	}()
-
 	return r, nil
 }
 
 type repo struct {
+	ctx      context.Context
 	shutdown func()
 	basePath string
 
@@ -176,13 +147,49 @@ func (r *repo) getUserFeeds() error {
 
 	// badger + librarian as index
 	opts := badger.DefaultOptions
-	opts.Dir = r.getPath("gossipBadger.keys")
+	opts.Dir = r.getPath("userFeeds.badger")
 	opts.ValueDir = opts.Dir // we have small values in this one r.getPath("gossipBadger.values")
 	r.userKV, err = badger.Open(opts)
 	if err != nil {
 		return errors.Wrap(err, "db/idx: badger failed to open")
 	}
 	r.userFeeds = multibadger.New(r.userKV, msgpack.New(margaret.BaseSeq(0)))
+
+	idxStateFile, err := os.OpenFile(r.getPath("userFeedsState.json"), os.O_CREATE|os.O_RDWR, 0700)
+	if err != nil {
+		return errors.Wrap(err, "error opening gossip state file")
+	}
+
+	update := func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+		msg, ok := value.(message.StoredMessage)
+		if !ok {
+			return errors.Errorf("error casting message. got type %T", value)
+		}
+
+		authorLog, err := mlog.Get(librarian.Addr(msg.Author.ID))
+		if err != nil {
+			return errors.Wrap(err, "error opening sublog")
+		}
+
+		sublogSeq, err := authorLog.Append(seq)
+		if err != nil {
+			return errors.Wrap(err, "error appending new author message")
+		}
+		log.Printf("indexed %s:%d as %d", msg.Author.Ref(), msg.Sequence, sublogSeq)
+		return nil
+	}
+	idxSink := multilog.NewSink(idxStateFile, r.userFeeds, update)
+
+	go func() {
+		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), idxSink.QuerySpec())
+		check(err)
+
+		err = luigi.Pump(r.ctx, idxSink, src)
+		if err != context.Canceled {
+			check(errors.Wrap(err, "userFeeds index pump failed"))
+		}
+	}()
+
 	return nil
 }
 

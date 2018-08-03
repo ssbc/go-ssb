@@ -42,5 +42,10 @@ func (ct *connTracker) OnClose(conn net.Conn) {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 
+	// this should be done by packer
+	// if err := conn.Close(); err != nil {
+	// 	log.Println("connTracker: failed to close connection:", err)
+	// }
+
 	delete(ct.active, toActiveConn(conn))
 }

@@ -6,11 +6,13 @@ import (
 	"net"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
@@ -23,9 +25,25 @@ type Handler struct {
 	Info logging.Interface
 
 	Promisc bool
+
+	lock          sync.RWMutex
+	currentCaller sbot.Ref
 }
 
 func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	g.lock.RLock()
+	if g.currentCaller != nil {
+		g.Info.Log("event", "busy error", "msg", "sorry - already busy", "currCaller", g.currentCaller.Ref())
+		e.Terminate()
+		return
+	}
+	g.lock.RUnlock()
+	g.lock.Lock()
+	defer func() {
+		g.currentCaller = nil
+		g.lock.Unlock()
+	}()
+
 	srv := e.(muxrpc.Server)
 	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
 
@@ -39,7 +57,9 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "sbot.ParseRef", "err", err)
 		return
 	}
+	g.currentCaller = ref
 
+	/* fetch calling feed
 	fref, ok := ref.(*sbot.FeedRef)
 	if !ok {
 		g.Info.Log("handleConnect", "notFeedRef", "r", shsID.String())
@@ -50,11 +70,18 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "fetchFeed remote failed", "r", fref.Ref(), "err", err)
 		return
 	}
+	*/
 
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
-	hasOwn := userFeeds.Has(librarian.Addr(mykp.Id.ID))
+	hasOwn, err := multilog.Has(userFeeds, librarian.Addr(mykp.Id.ID))
+	if err != nil {
+		g.Info.Log("handleConnect", "multilog.Has(userFeeds,myID)", "err", err)
+		return
+	}
+
 	if !hasOwn {
+		g.Info.Log("handleConnect", "oops - dont have my own feed. requesting")
 		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
 			g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
 			return
@@ -106,7 +133,7 @@ func (g *Handler) check(err error) {
 }
 
 func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// debug.PrintStack()
 
 	var closed bool

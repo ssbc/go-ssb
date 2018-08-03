@@ -88,19 +88,22 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	log.Log("event", "repo open", "feeds", len(r.UserFeeds().List()))
-	/*
-		goon.Dump(m)
+	feeds, err := r.UserFeeds().List()
+	checkFatal(err)
+	log.Log("event", "repo open", "feeds", len(feeds))
+	for _, author := range feeds {
+		subLog, err := r.UserFeeds().Get(author)
+		checkFatal(err)
 
-		for author, seq := range m {
-			ref, err := sbot.ParseRef(author)
-			checkFatal(err)
-			fr := ref.(*sbot.FeedRef)
+		currSeq, err := subLog.Seq().Value()
+		checkFatal(err)
 
-			seqs, err := r.FeedSeqs(*fr)
-			checkFatal(err)
+		authorRef := sbot.FeedRef{
+			Algo: "ed25519",
+			ID:   []byte(author),
 		}
-	*/
+		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq)
+	}
 
 	localKey = r.KeyPair()
 
@@ -111,7 +114,9 @@ func main() {
 
 	var peerWhitelist = map[string]bool{ // TODO: add yours here - see below
 		"@38N97KFM3f9MBFBVE/9HwQsECm6G/AmGqViG8joZQ44=.ed25519": true,
+		"@uOReuhnb9+mPi5RnTbKMKRr3r87cK+aOg8lFXV/SBPU=.ed25519": true,
 	}
+	peerWhitelist[localKey.Id.Ref()] = true // allow self
 
 	opts := sbot.Options{
 		ListenAddr: laddr,
@@ -151,7 +156,7 @@ func main() {
 		Promisc: flagPromisc,
 	}
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
-	// rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
+	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
 	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
