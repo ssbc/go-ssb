@@ -6,7 +6,6 @@ import (
 	"net"
 	"runtime/debug"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cryptix/go/logging"
@@ -25,24 +24,9 @@ type Handler struct {
 	Info logging.Interface
 
 	Promisc bool
-
-	lock          sync.RWMutex
-	currentCaller sbot.Ref
 }
 
 func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	g.lock.RLock()
-	if g.currentCaller != nil {
-		g.Info.Log("event", "busy error", "msg", "sorry - already busy", "currCaller", g.currentCaller.Ref())
-		e.Terminate()
-		return
-	}
-	g.lock.RUnlock()
-	g.lock.Lock()
-	defer func() {
-		g.currentCaller = nil
-		g.lock.Unlock()
-	}()
 
 	srv := e.(muxrpc.Server)
 	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
@@ -57,7 +41,6 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "sbot.ParseRef", "err", err)
 		return
 	}
-	g.currentCaller = ref
 
 	// fetch calling feed
 	fref, ok := ref.(*sbot.FeedRef)
