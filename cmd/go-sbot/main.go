@@ -19,11 +19,24 @@ import (
 	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/sbot/plugins/blobs"
 	"go.cryptoscope.co/sbot/plugins/gossip"
 	"go.cryptoscope.co/sbot/plugins/whoami"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
+
+	// debug
+	"net/http"
+	_ "net/http/pprof"
 )
+
+func startHTTPServer() {
+	err := http.ListenAndServe("localhost:6078", nil)
+	if err != nil {
+		panic(err)
+	}
+}
 
 var (
 	// flags
@@ -49,6 +62,8 @@ func checkAndLog(err error) {
 }
 
 func init() {
+	go startHTTPServer() // debug
+
 	logging.SetupLogging(nil)
 	log = logging.Logger("sbot")
 
@@ -61,7 +76,7 @@ func init() {
 
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.BoolVar(&flagPromisc, "promisc", false, "crawl all the feeds")
-	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb"), "where to put the log and indexes")
+	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
 	flag.Parse()
 }
@@ -122,6 +137,10 @@ func main() {
 	var peerWhitelist = map[string]bool{ // TODO: add yours here - see below
 		"@38N97KFM3f9MBFBVE/9HwQsECm6G/AmGqViG8joZQ44=.ed25519": true,
 		"@uOReuhnb9+mPi5RnTbKMKRr3r87cK+aOg8lFXV/SBPU=.ed25519": true,
+		"@Q7a4cAeHiezNbBFAuZZxDG3jugCgOfhpUHqLJBSD2mQ=.ed25519": true,
+		"@So2yhYGA2ZOwRh2043whISASD+55PL1P9+peIy/qbj8=.ed25519": true, // heropunch
+		"@DTNmX+4SjsgZ7xyDh5xxmNtFqa6pWi5Qtw7cE8aR9TQ=.ed25519": true, // wx.larpa.net
+		"@WndnBREUvtFVF14XYEq01icpt91753bA+nVycEJIAX4=.ed25519": true, // t4l3.net
 	}
 	peerWhitelist[localKey.Id.Ref()] = true // allow self
 
@@ -156,7 +175,11 @@ func main() {
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
+	bs := r.BlobStore()
+	wm := blobstore.NewWantManager(bs)
+
 	pmgr.Register(whoami.New(r))                         // whoami
+	pmgr.Register(blobs.New(bs, wm))                     // blobs
 	pmgr.Register(gossip.New(r, node, flagPromisc, log)) // gossip.*
 	pmgr.Register(gossip.NewHist(r, node, log))          // createHistoryStream
 

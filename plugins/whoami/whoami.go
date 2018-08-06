@@ -61,7 +61,7 @@ func (handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 	//log.Log("event", "onConnect", "handler", "whoami", "addr", srv.Remote())
 }
 
-func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
+func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	log.Log("event", "onCall", "handler", "connect", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {

@@ -97,8 +97,8 @@ func (g *handler) check(err error) {
 	}
 }
 
-func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	//g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	if req.Type == "" {
 		req.Type = "async"
 	}

@@ -239,7 +239,7 @@ func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 	h.log.Log("event", "onConnect", "addr", srv.Remote())
 }
 
-func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
+func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	h.log.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 }
 

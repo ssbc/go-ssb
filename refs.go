@@ -4,9 +4,13 @@ import (
 	"encoding"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
 )
 
 const (
@@ -157,4 +161,45 @@ func (mr *MessageRef) UnmarshalText(text []byte) error {
 	}
 	*mr = *newRef
 	return nil
+}
+
+func (br *BlobRef) MarshalText() ([]byte, error) {
+	return []byte(br.Ref()), nil
+}
+
+func (br *BlobRef) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*br = BlobRef{}
+		return nil
+	}
+	ref, err := ParseRef(string(text))
+	if err != nil {
+		return errors.Wrap(err, "failed to parse ref")
+	}
+	newRef, ok := ref.(*BlobRef)
+	if !ok {
+		return errors.Errorf("blobRef: not a blob! %T", ref)
+	}
+	*br = *newRef
+	return nil
+}
+
+func GetFeedRefFromAddr(addr net.Addr) (*FeedRef, error) {
+	addr = netwrap.GetAddr(addr, secretstream.NetworkString)
+	if addr == nil {
+		return nil, errors.New("no shs-bs address found")
+	}
+
+	ssAddr := addr.(secretstream.Addr)
+	ref, err := ParseRef(ssAddr.String())
+	if err != nil {
+		return nil, errors.Wrap(err, "ref parse error")
+	}
+
+	fr, ok := ref.(*FeedRef)
+	if !ok {
+		return nil, fmt.Errorf("expected a %T but got a %v", fr, ref)
+	}
+
+	return fr, nil
 }
