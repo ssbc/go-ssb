@@ -112,9 +112,7 @@ func main() {
 
 	localKey = r.KeyPair()
 
-	// TODO: cleanup OnConnect call handling when registring one handler under two names (gossip.* and createFeatStream)
-	rootHdlr := new(muxrpc.Handler)
-	//rootHdlr := &muxrpc.HandlerMux{}
+	rootHdlr := &muxrpc.HandlerMux{}
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
@@ -149,24 +147,22 @@ func main() {
 			}
 
 			// TODO: check remote key is in friend-graph distance
-			return *rootHdlr, nil
+			return rootHdlr, nil
 		},
 	}
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	*rootHdlr = &gossip.Handler{
+	gossipHandler := &gossip.Handler{
 		Node:    node,
 		Repo:    r,
 		Info:    log,
 		Promisc: flagPromisc,
 	}
-	/*
-		rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
-		rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
-		rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
-	*/
+	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
+	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
+	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
