@@ -162,7 +162,7 @@ func main() {
 	}
 	rootHdlr.Register(muxrpc.Method{"whoami"}, whoAmI{I: localKey.Id})
 	rootHdlr.Register(muxrpc.Method{"gossip"}, gossipHandler)
-	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, gossipHandler)
+	rootHdlr.Register(muxrpc.Method{"createHistoryStream"}, IgnoreConnectHandler{gossipHandler})
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
@@ -171,3 +171,7 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 }
+
+type IgnoreConnectHandler struct{ muxrpc.Handler }
+
+func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
