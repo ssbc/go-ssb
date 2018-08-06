@@ -149,16 +149,16 @@ func main() {
 			}
 
 			// TODO: check remote key is in friend-graph distance
-			return pmgr.MakeHandler(conn)
+			return pmgr.MakeHandler(conn), nil
 		},
 	}
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	pmgr.Register(whoami.New(r))                             // whoami
-	pmgr.Register(gossip.New(r, node, flagPromisc, log))     // gossip.*
-	pmgr.Register(gossip.NewHist(r, node, flagPromisc, log)) // createHistoryStream
+	pmgr.Register(whoami.New(r))                         // whoami
+	pmgr.Register(gossip.New(r, node, flagPromisc, log)) // gossip.*
+	pmgr.Register(gossip.NewHist(r, node, log))          // createHistoryStream
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
@@ -167,7 +167,3 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 }
-
-type IgnoreConnectHandler struct{ muxrpc.Handler }
-
-func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}

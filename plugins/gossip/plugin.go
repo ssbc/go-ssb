@@ -1,19 +1,14 @@
 package gossip
 
 import (
+	"context"
+
 	"github.com/cryptix/go/logging"
-
 	"go.cryptoscope.co/muxrpc"
-
 	"go.cryptoscope.co/sbot"
 )
 
-func New(
-	repo sbot.Repo,
-	node sbot.Node,
-	promisc bool,
-	log logging.Interface,
-) sbot.Plugin {
+func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sbot.Plugin {
 	return plugin{
 		&handler{
 			Node:    node,
@@ -24,20 +19,17 @@ func New(
 	}
 }
 
-func NewHist(
-	repo sbot.Repo,
-	node sbot.Node,
-	promisc bool,
-	log logging.Interface,
-) sbot.Plugin {
+type IgnoreConnectHandler struct{ muxrpc.Handler }
+
+func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
+
+func NewHist(repo sbot.Repo, node sbot.Node, log logging.Interface) sbot.Plugin {
 	return histPlugin{
-		plugin{
-			&handler{
-				Node:    node,
-				Repo:    repo,
-				Promisc: promisc,
-				Info:    log,
-			},
+		&handler{
+			Node:    node,
+			Repo:    repo,
+			Promisc: false,
+			Info:    log,
 		},
 	}
 }
@@ -57,9 +49,15 @@ func (p plugin) Handler() muxrpc.Handler {
 }
 
 type histPlugin struct {
-	sbot.Plugin
+	h *handler
 }
+
+func (hp histPlugin) Name() string { return "gossip" }
 
 func (histPlugin) Method() muxrpc.Method {
 	return muxrpc.Method{"createHistoryStream"}
+}
+
+func (hp histPlugin) Handler() muxrpc.Handler {
+	return IgnoreConnectHandler{hp.h}
 }
