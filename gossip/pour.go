@@ -68,9 +68,9 @@ func (h *Handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			if err != nil {
 				return errors.Wrapf(err, "load message %d", i)
 			}
-			stMsg, ok := v.(*message.StoredMessage)
+			stMsg, ok := v.(message.StoredMessage)
 			if !ok {
-				return errors.Errorf("wrong message type. expected *message.StoredMessage - got %T", latest)
+				return errors.Errorf("wrong message type. expected %T - got %T", stMsg, v)
 			}
 			if err := req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: stMsg.Raw}); err != nil {
 				return errors.Wrap(err, "failed to pour msg to remote peer")

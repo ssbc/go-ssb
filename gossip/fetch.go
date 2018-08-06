@@ -29,7 +29,7 @@ func (g *Handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, e muxrpc.Endpo
 	switch v := latest.(type) {
 	case librarian.UnsetValue:
 	case margaret.BaseSeq:
-		latestSeq = v // TODO +1? sublog is 0-init while ssb chains start at 1
+		latestSeq = v + 1 // sublog is 0-init while ssb chains start at 1
 	}
 
 	// me := g.Repo.KeyPair()

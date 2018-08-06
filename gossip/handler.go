@@ -59,7 +59,7 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	}
 	g.currentCaller = ref
 
-	/* fetch calling feed
+	// fetch calling feed
 	fref, ok := ref.(*sbot.FeedRef)
 	if !ok {
 		g.Info.Log("handleConnect", "notFeedRef", "r", shsID.String())
@@ -70,7 +70,6 @@ func (g *Handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "fetchFeed remote failed", "r", fref.Ref(), "err", err)
 		return
 	}
-	*/
 
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
@@ -134,7 +133,6 @@ func (g *Handler) check(err error) {
 
 func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
-	// debug.PrintStack()
 
 	var closed bool
 	checkAndClose := func(err error) {
@@ -188,6 +186,7 @@ func (g *Handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
 			return
 		}
+		g.check(req.Return(ctx, "connected"))
 
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))

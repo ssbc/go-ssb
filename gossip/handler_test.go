@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
@@ -114,34 +115,37 @@ func TestReplicate(t *testing.T) {
 
 	// check full & empty
 	srcID := srcRepo.KeyPair().Id
-	has, err := multilog.Has(srcMlog, librarian.Addr(srcID.ID))
+	srcMlogAddr := librarian.Addr(srcID.ID)
+	has, err := multilog.Has(srcMlog, srcMlogAddr)
 	r.NoError(err)
-	r.True(has)
-	has, err = multilog.Has(dstMlog, librarian.Addr(srcID.ID))
+	r.True(has, "source should have the testLog")
+	has, err = multilog.Has(dstMlog, srcMlogAddr)
 	r.NoError(err)
-	r.False(has)
-	/*
-		seqVal, err := srcLog.Seq().Value()
-		r.NoError(err, "")
+	r.False(has, "destination should not have the testLog already")
 
-		r.Equal(margaret.BaseSeq(3), x)
-		r.NoError(err, "failed to get known feeds from source")
-		r.Len(dstKf, 0)
+	testLog, err := srcMlog.Get(srcMlogAddr)
+	r.NoError(err, "failed to get sublog")
+	seqVal, err := testLog.Seq().Value()
+	r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
 
-		// do the dance
-		done := connectAndServe(t, srcRepo, dstRepo, 3*time.Second)
-		<-done
+	// do the dance
+	done := connectAndServe(t, srcRepo, dstRepo, 3*time.Second)
+	<-done
 
-		// check data ended up on the target
-		afterkf, err := dstRepo.KnownFeeds()
-		r.NoError(err)
-		r.Len(afterkf, 1)
-		r.Equal(margaret.BaseSeq(3), afterkf[srcRepo.KeyPair().Id.Ref()])
+	t.Log("after gossip")
 
-		seqs, err := dstRepo.FeedSeqs(srcRepo.KeyPair().Id)
-		r.NoError(err)
-		r.Len(seqs, 3)
-	*/
+	// check data ended up on the target
+	has, err = multilog.Has(dstMlog, srcMlogAddr)
+	r.NoError(err)
+	r.True(has, "destination should now have the testLog already")
+
+	dstTestLog, err := dstMlog.Get(srcMlogAddr)
+	r.NoError(err, "failed to get sublog")
+	seqVal, err = dstTestLog.Seq().Value()
+	r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
+
 	if !t.Failed() {
 		os.RemoveAll(dstPath)
 	}
