@@ -193,6 +193,12 @@ func initClient(ctx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error dialing")
 	}
+	/* coming soon:
+	conn, err := net.Dial("unix", "/home/cryptix/.ssb/socket")
+	if err != nil {
+		return errors.Wrap(err, "error dialing unix sock")
+	}
+	*/
 	var rwc io.ReadWriteCloser = conn
 	// logs every muxrpc packet
 	if ctx.Bool("verbose") {

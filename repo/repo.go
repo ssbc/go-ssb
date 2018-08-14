@@ -171,11 +171,11 @@ func (r *repo) getUserFeeds() error {
 			return errors.Wrap(err, "error opening sublog")
 		}
 
-		sublogSeq, err := authorLog.Append(seq)
+		_, err = authorLog.Append(seq)
 		if err != nil {
 			return errors.Wrap(err, "error appending new author message")
 		}
-		log.Printf("indexed %s:%d as %d", msg.Author.Ref(), msg.Sequence, sublogSeq)
+		//log.Printf("indexed %s:%d as %d", msg.Author.Ref(), msg.Sequence, sublogSeq)
 		return nil
 	}
 	idxSink := multilog.NewSink(idxStateFile, r.userFeeds, update)

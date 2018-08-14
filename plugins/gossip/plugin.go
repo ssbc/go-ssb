@@ -19,10 +19,6 @@ func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sb
 	}
 }
 
-type IgnoreConnectHandler struct{ muxrpc.Handler }
-
-func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
-
 func NewHist(repo sbot.Repo, node sbot.Node, log logging.Interface) sbot.Plugin {
 	return histPlugin{
 		&handler{
@@ -57,6 +53,10 @@ func (hp histPlugin) Name() string { return "gossip" }
 func (histPlugin) Method() muxrpc.Method {
 	return muxrpc.Method{"createHistoryStream"}
 }
+
+type IgnoreConnectHandler struct{ muxrpc.Handler }
+
+func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 func (hp histPlugin) Handler() muxrpc.Handler {
 	return IgnoreConnectHandler{hp.h}
