@@ -130,9 +130,8 @@ func TestReplicate(t *testing.T) {
 	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
 
 	// do the dance
-	done := connectAndServe(t, srcRepo, dstRepo, 3*time.Second)
+	done := connectAndServe(t, srcRepo, dstRepo, 2*time.Second)
 	<-done
-
 	t.Log("after gossip")
 
 	// check data ended up on the target
@@ -141,6 +140,18 @@ func TestReplicate(t *testing.T) {
 	r.True(has, "destination should now have the testLog already")
 
 	dstTestLog, err := dstMlog.Get(srcMlogAddr)
+	r.NoError(err, "failed to get sublog")
+	seqVal, err = dstTestLog.Seq().Value()
+	r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
+
+	// do the dance - again.
+	// should not get more messages
+	done = connectAndServe(t, srcRepo, dstRepo, 1*time.Second)
+	<-done
+	t.Log("after gossip#2")
+
+	dstTestLog, err = dstMlog.Get(srcMlogAddr)
 	r.NoError(err, "failed to get sublog")
 	seqVal, err = dstTestLog.Seq().Value()
 	r.NoError(err, "failed to aquire current sequence of test sublog")

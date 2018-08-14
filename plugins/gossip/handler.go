@@ -52,6 +52,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "fetchFeed remote failed", "r", fref.Ref(), "err", err)
 		return
 	}
+	g.Info.Log("fetchFeed", "done calle", "ref", fref.Ref())
 
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
@@ -67,43 +68,26 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
 			return
 		}
+		g.Info.Log("fetchFeed", "done self")
 	}
 
-	/*
+	ufaddrs, err := userFeeds.List()
+	if err != nil {
+		g.Info.Log("handleConnect", "userFeeds listing failed", "err", err)
+		return
+	}
+	for i, addr := range ufaddrs {
+		userRef := sbot.FeedRef{
+			Algo: "ed25519",
+			ID:   []byte(addr),
+		}
+		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
-			g.Info.Log("handleConnect", "userFeeds failed", "err", err)
+			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "i", i)
 			return
 		}
-		n := len(kf)
-		if n > 20 { // DOS / doublecall bug
-			g.Info.Log("dbg", "shortening sync..", "n", n)
-			n = 20
-		}
-		for feed := range kf {
-
-			ref, err := sbot.ParseRef(feed)
-			if err != nil {
-				g.Info.Log("handleConnect", "ParseRef failed", "err", err)
-				return
-			}
-
-			fref, ok = ref.(*sbot.FeedRef)
-			if !ok {
-				g.Info.Log("handleConnect", "caset failed", "type", fmt.Sprintf("%T", ref))
-				return
-			}
-
-			err = g.fetchFeed(ctx, *fref, e)
-			if err != nil {
-				g.Info.Log("handleConnect", "fetchFeed failed", "err", err)
-				return
-			}
-			n--
-			if n == 0 {
-				return
-			}
-		}
-	*/
+		g.Info.Log("fetchFeed", "done list", "ref", userRef.Ref())
+	}
 }
 
 func (g *handler) check(err error) {
@@ -114,7 +98,10 @@ func (g *handler) check(err error) {
 }
 
 func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	//g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	if req.Type == "" {
+		req.Type = "async"
+	}
 
 	var closed bool
 	checkAndClose := func(err error) {
