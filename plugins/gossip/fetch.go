@@ -34,10 +34,14 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 	case librarian.UnsetValue:
 	case margaret.BaseSeq:
 		latestSeq = v + 1 // sublog is 0-init while ssb chains start at 1
-		if v > 0 {
-			msgV, err := g.Repo.RootLog().Get(v)
+		if v >= 0 {
+			rootLogValue, err := userLog.Get(v)
 			if err != nil {
-				return errors.Wrapf(err, "failed retreive ")
+				return errors.Wrapf(err, "failed to look up root seq for latest user sublog")
+			}
+			msgV, err := g.Repo.RootLog().Get(rootLogValue.(margaret.Seq))
+			if err != nil {
+				return errors.Wrapf(err, "failed retreive stored message")
 			}
 			var ok bool
 			latestMsg, ok = msgV.(message.StoredMessage)
@@ -85,10 +89,15 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 
 		if latestSeq > 1 {
 			if bytes.Compare(latestMsg.Key.Hash, dmsg.Previous.Hash) != 0 {
-				return errors.Wrapf(err, "fetchFeed(%s:%d): previous compare failed", fr.Ref(), latestSeq)
+				return errors.Errorf("fetchFeed(%s:%d): previous compare failed expected:%s incoming:%s",
+					fr.Ref(),
+					latestSeq,
+					latestMsg.Key.Ref(),
+					dmsg.Previous.Ref(),
+				)
 			}
 			if latestMsg.Sequence+1 != dmsg.Sequence {
-				return errors.Wrapf(err, "fetchFeed(%s:%d): next.seq != curr.seq+1", fr.Ref(), latestSeq)
+				return errors.Errorf("fetchFeed(%s:%d): next.seq != curr.seq+1", fr.Ref(), latestSeq)
 			}
 		}
 

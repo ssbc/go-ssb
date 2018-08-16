@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"go.cryptoscope.co/margaret"
@@ -34,6 +35,10 @@ type StoredMessage struct {
 	Sequence  margaret.BaseSeq
 	Timestamp time.Time
 	Raw       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
+}
+
+func (sm StoredMessage) String() string {
+	return fmt.Sprintf("msg(%s) %s", sm.Author.Ref(), sm.Key.Ref())
 }
 
 type DeserializedMessage struct {

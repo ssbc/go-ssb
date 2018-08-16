@@ -27,7 +27,6 @@ func checkAndLog(err error) {
 }
 
 func init() {
-	logging.SetupLogging(nil)
 	log = logging.Logger("whoami")
 }
 
