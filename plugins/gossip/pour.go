@@ -42,6 +42,8 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
 
+	// h.Info.Log("event", "pour req", "ref", feedRef.Ref(), "has", latest, "want", qry.Seq)
+
 	// act accordingly
 	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
@@ -80,7 +82,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 
 			}
 		}
-		h.Info.Log("sent", ref.Ref(), "from", qry.Seq, "rest", len(rest))
+		h.Info.Log("poured", ref.Ref(), "from", qry.Seq, "rest", len(rest))
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}

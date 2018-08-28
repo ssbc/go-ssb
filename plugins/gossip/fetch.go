@@ -57,21 +57,21 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 
 	// me := g.Repo.KeyPair()
 	startSeq := latestSeq
-	info := log.With(g.Info, "remote", fr.Ref(), "latest", startSeq) //, "me", me.Id.Ref())
+	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", me.Id.Ref())
 
 	var q = message.CreateHistArgs{
 		Keys:  false,
 		Live:  false,
 		Id:    fr.Ref(),
 		Seq:   int64(latestSeq + 1),
-		Limit: 25,
+		Limit: 500,
 	}
 	start := time.Now()
 	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
-	//info.Log("debug", "start sync")
+	// info.Log("debug", "called createHistoryStream", "qry", fmt.Sprintf("%v", q))
 
 	for {
 		v, err := source.Next(ctx)
@@ -101,7 +101,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 			}
 		}
 
-		// info.Log("debug", "got message", "seq", dmsg.Sequence)
+		// info.Log("debug", "new message", "seq", dmsg.Sequence)
 
 		nextMsg := message.StoredMessage{
 			Author:    &dmsg.Author,

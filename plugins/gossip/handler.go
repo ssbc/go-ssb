@@ -27,22 +27,22 @@ type handler struct {
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	srv := e.(muxrpc.Server)
-	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", srv.Remote())
+	remote := e.(muxrpc.Server).Remote()
+	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", remote)
 
-	shsID, ok := netwrap.GetAddr(srv.Remote(), "shs-bs").(secretstream.Addr)
+	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
 	if !ok {
-		return
-	}
-
-	ref, err := sbot.ParseRef(shsID.String())
-	if err != nil {
-		g.Info.Log("handleConnect", "sbot.ParseRef", "err", err)
 		return
 	}
 
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
+
+	remoteRef := sbot.FeedRef{
+		Algo: "ed25519",
+		ID:   remoteAddr.PubKey,
+	}
+
 	hasOwn, err := multilog.Has(userFeeds, librarian.Addr(mykp.Id.ID))
 	if err != nil {
 		g.Info.Log("handleConnect", "multilog.Has(userFeeds,myID)", "err", err)
@@ -58,25 +58,19 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("fetchFeed", "done self")
 	}
 
-	fref, ok := ref.(*sbot.FeedRef)
-	if !ok {
-		g.Info.Log("handleConnect", "notFeedRef", "ref", shsID.String())
-		return
-	}
-
-	hasCallee, err := multilog.Has(userFeeds, librarian.Addr(fref.ID))
+	hasCallee, err := multilog.Has(userFeeds, librarian.Addr(remoteRef.ID))
 	if err != nil {
-		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", fref.Ref(), "err", err)
+		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
 		return
 	}
 
 	if !hasCallee {
 		g.Info.Log("handleConnect", "oops - dont have calling feed. requesting")
-		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
-			g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", fref.Ref(), "err", err)
+		if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
+			g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", remoteRef.Ref(), "err", err)
 			return
 		}
-		g.Info.Log("fetchFeed", "done callee", "ref", fref.Ref())
+		g.Info.Log("fetchFeed", "done callee", "ref", remoteRef.Ref())
 	}
 
 	ufaddrs, err := userFeeds.List()
