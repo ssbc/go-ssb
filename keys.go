@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/keks/nocomment"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 )
@@ -22,8 +23,6 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 	}
 	defer f.Close()
 
-	// TODO: f | grep -v '^#'
-
 	var sbotKey struct {
 		Curve   string  `json:"curve"`
 		ID      FeedRef `json:"id"`
@@ -31,7 +30,7 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 		Public  string  `json:"public"`
 	}
 
-	if err := json.NewDecoder(f).Decode(&sbotKey); err != nil {
+	if err := json.NewDecoder(nocomment.NewReader(f)).Decode(&sbotKey); err != nil {
 		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: json decoding of %q failed.", fname)
 	}
 
