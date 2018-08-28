@@ -23,7 +23,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 )
 
-func loadTestDataPeer(t *testing.T, repopath string) sbot.Repo {
+func loadTestDataPeer(t testing.TB, repopath string) sbot.Repo {
 	r := require.New(t)
 	repo, err := repo.New(repopath)
 	r.NoError(err, "failed to load testData repo")
@@ -31,7 +31,7 @@ func loadTestDataPeer(t *testing.T, repopath string) sbot.Repo {
 	return repo
 }
 
-func makeEmptyPeer(t *testing.T) (sbot.Repo, string) {
+func makeEmptyPeer(t testing.TB) (sbot.Repo, string) {
 	r := require.New(t)
 	dstPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
@@ -41,7 +41,8 @@ func makeEmptyPeer(t *testing.T) (sbot.Repo, string) {
 	return dstRepo, dstPath
 }
 
-func connectAndServe(t *testing.T, alice, bob sbot.Repo, tout time.Duration) <-chan struct{} {
+func connectAndServe(t testing.TB, alice, bob sbot.Repo) <-chan struct{} {
+	start := time.Now()
 	r := require.New(t)
 	keyAlice := alice.KeyPair()
 	keyBob := bob.KeyPair()
@@ -76,7 +77,18 @@ func connectAndServe(t *testing.T, alice, bob sbot.Repo, tout time.Duration) <-c
 	rpc1 := muxrpc.HandleWithRemote(pkr1, &h1, tc1.RemoteAddr())
 	rpc2 := muxrpc.HandleWithRemote(pkr2, &h2, tc2.RemoteAddr())
 
-	ctx := context.Background()
+	var hdone sync.WaitGroup
+	hdone.Add(2)
+	h1.hanlderDone = func() {
+		t.Log("h1 done", time.Since(start))
+		hdone.Done()
+	}
+	h2.hanlderDone = func() {
+		t.Log("h2 done", time.Since(start))
+		hdone.Done()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -91,75 +103,106 @@ func connectAndServe(t *testing.T, alice, bob sbot.Repo, tout time.Duration) <-c
 		wg.Done()
 	}()
 
-	// wait TODO: close handling
-	done := make(chan struct{})
+	final := make(chan struct{})
 	go func() {
-		time.Sleep(tout)
-		r.NoError(rpc1.Terminate())
-		r.NoError(rpc2.Terminate())
+		hdone.Wait()
+		// TODO: would be nice to use cancel to make the serves exit bout
+		cancel()
+		rpc1.Terminate()
+		rpc2.Terminate()
 		wg.Wait()
-		close(done)
+		close(final)
 	}()
 
-	return done
+	return final
 }
 
 func TestReplicate(t *testing.T) {
 	r := assert.New(t)
 
-	srcRepo := loadTestDataPeer(t, "testdata/replicate1")
-	dstRepo, dstPath := makeEmptyPeer(t)
-
-	srcMlog := srcRepo.UserFeeds()
-	dstMlog := dstRepo.UserFeeds()
-
-	// check full & empty
-	srcID := srcRepo.KeyPair().Id
-	srcMlogAddr := librarian.Addr(srcID.ID)
-	has, err := multilog.Has(srcMlog, srcMlogAddr)
-	r.NoError(err)
-	r.True(has, "source should have the testLog")
-	has, err = multilog.Has(dstMlog, srcMlogAddr)
-	r.NoError(err)
-	r.False(has, "destination should not have the testLog already")
-
-	testLog, err := srcMlog.Get(srcMlogAddr)
-	r.NoError(err, "failed to get sublog")
-	seqVal, err := testLog.Seq().Value()
-	r.NoError(err, "failed to aquire current sequence of test sublog")
-	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
-
-	// do the dance
-	done := connectAndServe(t, srcRepo, dstRepo, 2*time.Second)
-	<-done
-	t.Log("after gossip")
-
-	// check data ended up on the target
-	has, err = multilog.Has(dstMlog, srcMlogAddr)
-	r.NoError(err)
-	r.True(has, "destination should now have the testLog already")
-
-	dstTestLog, err := dstMlog.Get(srcMlogAddr)
-	r.NoError(err, "failed to get sublog")
-	seqVal, err = dstTestLog.Seq().Value()
-	r.NoError(err, "failed to aquire current sequence of test sublog")
-	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
-
-	// do the dance - again.
-	// should not get more messages
-	done = connectAndServe(t, srcRepo, dstRepo, 1*time.Second)
-	<-done
-	t.Log("after gossip#2")
-
-	dstTestLog, err = dstMlog.Get(srcMlogAddr)
-	r.NoError(err, "failed to get sublog")
-	seqVal, err = dstTestLog.Seq().Value()
-	r.NoError(err, "failed to aquire current sequence of test sublog")
-	r.Equal(margaret.BaseSeq(2), seqVal, "wrong sequence value on testlog")
-
-	if !t.Failed() {
-		os.RemoveAll(dstPath)
+	type tcase struct {
+		path string
+		has  margaret.BaseSeq
+		pki  string
 	}
+	for i, tc := range []tcase{
+		{"testdata/replicate1", 2, "@Z9VZfAWEFjNyo2SfuPu6dkbarqalYELwARCE4nKXyY0=.ed25519"},
+		{"testdata/longTestRepo", 225, "@83JEFNo7j/kO0qrIrsCQ+h3xf7c+5Qrc0lGWJTSXrW8=.ed25519"},
+	} {
+		t.Log("test run", i, tc.path)
+		srcRepo := loadTestDataPeer(t, tc.path)
+		dstRepo, dstPath := makeEmptyPeer(t)
+
+		srcMlog := srcRepo.UserFeeds()
+		dstMlog := dstRepo.UserFeeds()
+
+		// check full & empty
+		srcID := srcRepo.KeyPair().Id
+		r.Equal(tc.pki, srcID.Ref())
+		srcMlogAddr := librarian.Addr(srcID.ID)
+		has, err := multilog.Has(srcMlog, srcMlogAddr)
+		r.NoError(err)
+		r.True(has, "source should have the testLog")
+		has, err = multilog.Has(dstMlog, srcMlogAddr)
+		r.NoError(err)
+		r.False(has, "destination should not have the testLog already")
+
+		testLog, err := srcMlog.Get(srcMlogAddr)
+		r.NoError(err, "failed to get sublog")
+		seqVal, err := testLog.Seq().Value()
+		r.NoError(err, "failed to aquire current sequence of test sublog")
+		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+
+		// do the dance
+		done := connectAndServe(t, srcRepo, dstRepo)
+		<-done
+		t.Log("after gossip")
+
+		// check data ended up on the target
+		has, err = multilog.Has(dstMlog, srcMlogAddr)
+		r.NoError(err)
+		r.True(has, "destination should now have the testLog already")
+
+		dstTestLog, err := dstMlog.Get(srcMlogAddr)
+		r.NoError(err, "failed to get sublog")
+		seqVal, err = dstTestLog.Seq().Value()
+		r.NoError(err, "failed to aquire current sequence of test sublog")
+		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+
+		// do the dance - again.
+		// should not get more messages
+		done = connectAndServe(t, srcRepo, dstRepo)
+		<-done
+		t.Log("after gossip#2")
+
+		dstTestLog, err = dstMlog.Get(srcMlogAddr)
+		r.NoError(err, "failed to get sublog")
+		seqVal, err = dstTestLog.Seq().Value()
+		r.NoError(err, "failed to aquire current sequence of test sublog")
+		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+
+		srcRepo.Close()
+		dstRepo.Close()
+		if !t.Failed() {
+			os.RemoveAll(dstPath)
+		}
+	}
+}
+
+func BenchmarkReplicate(b *testing.B) {
+	srcRepo := loadTestDataPeer(b, "testdata/longTestRepo")
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+
+		dstRepo, _ := makeEmptyPeer(b)
+
+		// do the dance
+		done := connectAndServe(b, srcRepo, dstRepo)
+		<-done
+		// dstRepo.Close()
+		// os.RemoveAll(dstPath)
+	}
+	srcRepo.Close()
 }
 
 type testConn struct {

@@ -24,24 +24,19 @@ type handler struct {
 	Info logging.Interface
 
 	Promisc bool
+
+	hanlderDone func()
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	defer func() {
+		g.hanlderDone()
+	}()
 	remote := e.(muxrpc.Server).Remote()
 	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", remote)
 
-	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
-	if !ok {
-		return
-	}
-
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
-
-	remoteRef := sbot.FeedRef{
-		Algo: "ed25519",
-		ID:   remoteAddr.PubKey,
-	}
 
 	hasOwn, err := multilog.Has(userFeeds, librarian.Addr(mykp.Id.ID))
 	if err != nil {
@@ -58,6 +53,15 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("fetchFeed", "done self")
 	}
 
+	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
+	if !ok {
+		return
+	}
+
+	remoteRef := sbot.FeedRef{
+		Algo: "ed25519",
+		ID:   remoteAddr.PubKey,
+	}
 	hasCallee, err := multilog.Has(userFeeds, librarian.Addr(remoteRef.ID))
 	if err != nil {
 		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
@@ -90,6 +94,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 		g.Info.Log("fetchFeed", "done list", "ref", userRef.Ref())
 	}
+
 }
 
 func (g *handler) check(err error) {

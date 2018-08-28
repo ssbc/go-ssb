@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
@@ -76,7 +75,7 @@ func (r repo) Close() error {
 	r.shutdown()
 	// FIXME: does shutdown block..?
 	// would be good to get back some kind of _all done without a problem_
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	return errors.Wrap(r.userKV.Close(), "repo: failed to close userKV")
 }
 

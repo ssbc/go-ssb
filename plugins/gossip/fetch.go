@@ -64,7 +64,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 		Live:  false,
 		Id:    fr.Ref(),
 		Seq:   int64(latestSeq + 1),
-		Limit: 500,
+		Limit: 125,
 	}
 	start := time.Now()
 	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
@@ -122,5 +122,6 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 	} // hist drained
 
 	info.Log("event", "verfied2updated", "new", latestSeq-startSeq, "took", time.Since(start))
+
 	return nil
 }

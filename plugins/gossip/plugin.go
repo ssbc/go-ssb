@@ -11,10 +11,11 @@ import (
 func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sbot.Plugin {
 	return plugin{
 		&handler{
-			Node:    node,
-			Repo:    repo,
-			Promisc: promisc,
-			Info:    log,
+			Node:        node,
+			Repo:        repo,
+			Promisc:     promisc,
+			Info:        log,
+			hanlderDone: func() {},
 		},
 	}
 }
@@ -22,10 +23,11 @@ func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sb
 func NewHist(repo sbot.Repo, node sbot.Node, log logging.Interface) sbot.Plugin {
 	return histPlugin{
 		&handler{
-			Node:    node,
-			Repo:    repo,
-			Promisc: false,
-			Info:    log,
+			Node:        node,
+			Repo:        repo,
+			Promisc:     false,
+			Info:        log,
+			hanlderDone: func() {},
 		},
 	}
 }
