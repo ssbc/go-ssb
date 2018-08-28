@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"path"
@@ -10,6 +11,7 @@ import (
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
@@ -69,6 +71,9 @@ type repo struct {
 
 	userKV    *badger.DB
 	userFeeds multilog.MultiLog
+
+	contactsKV  *badger.DB
+	contactsIdx librarian.SeqSetterIndex
 }
 
 func (r repo) Close() error {
@@ -159,7 +164,7 @@ func (r *repo) getUserFeeds() error {
 		return errors.Wrap(err, "error opening gossip state file")
 	}
 
-	update := func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+	userFeedSink := multilog.NewSink(idxStateFile, r.userFeeds, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		msg, ok := value.(message.StoredMessage)
 		if !ok {
 			return errors.Errorf("error casting message. got type %T", value)
@@ -176,20 +181,100 @@ func (r *repo) getUserFeeds() error {
 		}
 		//log.Printf("indexed %s:%d as %d", msg.Author.Ref(), msg.Sequence, sublogSeq)
 		return nil
-	}
-	idxSink := multilog.NewSink(idxStateFile, r.userFeeds, update)
+	})
 
 	go func() {
-		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), idxSink.QuerySpec())
-		check(err)
+		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), userFeedSink.QuerySpec())
+		check(errors.Wrap(err, ""))
 
-		err = luigi.Pump(r.ctx, idxSink, src)
+		err = luigi.Pump(r.ctx, userFeedSink, src)
 		if err != context.Canceled {
 			check(errors.Wrap(err, "userFeeds index pump failed"))
 		}
 	}()
 
+	contactsOpts := badger.DefaultOptions
+	contactsOpts.Dir = r.getPath("contacts.badger")
+	contactsOpts.ValueDir = contactsOpts.Dir // we have small values in this one r.getPath("gossipBadger.values")
+	r.contactsKV, err = badger.Open(contactsOpts)
+	if err != nil {
+		return errors.Wrap(err, "db/idx: badger failed to open")
+	}
+
+	r.contactsIdx = libbadger.NewIndex(r.contactsKV, 0)
+	contactsUpdate := func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+		msg := val.(message.StoredMessage)
+		var dmsg message.DeserializedMessage
+		err := json.Unmarshal(msg.Raw, &dmsg)
+		if err != nil {
+			return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
+		}
+
+		var c sbot.Contact
+		err = json.Unmarshal(dmsg.Content, &c)
+		if err != nil {
+			if sbot.IsWrongTypeErr(err) {
+				return nil
+			}
+			return errors.Wrap(err, "db/idx contacts: direct to contact failed")
+		}
+
+		addr := append(dmsg.Author.ID, ':')
+		addr = append(addr, c.Contact.ID...)
+		switch {
+		case c.Following:
+			err = idx.Set(ctx, librarian.Addr(addr), 1)
+		case c.Blocking:
+			err = idx.Set(ctx, librarian.Addr(addr), 0)
+		default:
+			err = idx.Delete(ctx, librarian.Addr(addr))
+		}
+		if err != nil {
+			return errors.Wrapf(err, "db/idx contacts: failed to update index. %+v", c)
+		}
+
+		return err
+	}
+	contactsSink := librarian.NewSinkIndex(contactsUpdate, r.contactsIdx)
+	go func() {
+		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), contactsSink.QuerySpec())
+		check(err)
+
+		err = luigi.Pump(r.ctx, contactsSink, src)
+		if err != context.Canceled {
+			check(errors.Wrap(err, "userFeeds index pump failed"))
+		}
+	}()
 	return nil
+}
+
+func (r *repo) IsFollowing(fr *sbot.FeedRef) ([]*sbot.FeedRef, error) {
+	var friends []*sbot.FeedRef
+	err := r.contactsKV.View(func(txn *badger.Txn) error {
+		iter := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iter.Close()
+
+		prefix := append(fr.ID, ':')
+
+		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
+			it := iter.Item()
+			k := it.Key()
+			c := sbot.FeedRef{
+				Algo: "ed25519",
+				ID:   k[33:],
+			}
+			v, err := it.Value()
+			if err != nil {
+				return errors.Wrap(err, "friends: counldnt get idx value")
+			}
+			if len(v) >= 1 && v[0] == '1' {
+				friends = append(friends, &c)
+			}
+		}
+		return nil
+	})
+
+	return friends, err
 }
 
 func (r *repo) UserFeeds() multilog.MultiLog {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +81,8 @@ func TestWantManager(t *testing.T) {
 					a.NoError(delBlobStore(), "error deleting blob store directory")
 				}
 			}()
-			wmgr := NewWantManager(bs)
+			log, _ := logtest.KitLogger(t.Name(), t)
+			wmgr := NewWantManager(log, bs)
 
 			for _, str := range tc.localBlobs {
 				bs.Put(strings.NewReader(str))

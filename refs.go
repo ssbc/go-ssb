@@ -122,16 +122,21 @@ func (fr *FeedRef) UnmarshalText(text []byte) error {
 		*fr = FeedRef{}
 		return nil
 	}
-	ref, err := ParseRef(string(text))
+	newRef, err := ParseFeedRef(string(text))
+	*fr = *newRef
+	return err
+}
+
+func ParseFeedRef(s string) (*FeedRef, error) {
+	ref, err := ParseRef(s)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse ref")
+		return nil, errors.Wrap(err, "failed to parse ref")
 	}
 	newRef, ok := ref.(*FeedRef)
 	if !ok {
-		return errors.Errorf("feedRef: not a feed! %T", ref)
+		return nil, errors.Errorf("feedRef: not a feed! %T", ref)
 	}
-	*fr = *newRef
-	return nil
+	return newRef, nil
 }
 
 var (

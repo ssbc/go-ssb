@@ -43,13 +43,9 @@ func checkAndLog(err error) {
 	}
 }
 
-func init() {
-	logging.SetupLogging(nil)
-	log = logging.Logger("blobs")
-}
-
 func New(bs sbot.BlobStore, wm sbot.WantManager) sbot.Plugin {
 	rootHdlr := muxrpc.HandlerMux{}
+	log = logging.Logger("blobs")
 
 	rootHdlr.Register(muxrpc.Method{"blobs", "get"}, getHandler{bs})
 	rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{bs})

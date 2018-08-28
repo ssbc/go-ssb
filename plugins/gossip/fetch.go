@@ -60,11 +60,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", me.Id.Ref())
 
 	var q = message.CreateHistArgs{
-		Keys:  false,
-		Live:  false,
 		Id:    fr.Ref(),
 		Seq:   int64(latestSeq + 1),
-		Limit: 125,
+		Limit: -1,
 	}
 	start := time.Now()
 	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)

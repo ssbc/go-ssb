@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -90,11 +91,36 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
 			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "i", i)
-			return
+			continue
 		}
 		g.Info.Log("fetchFeed", "done list", "ref", userRef.Ref())
 	}
 
+	follows, err := g.Repo.IsFollowing(&mykp.Id)
+	if err != nil {
+		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
+		return
+	}
+	for i, addr := range follows {
+		if !isIn(ufaddrs, addr) {
+			g.Info.Log("fetchFeed", "adding from follows list", "ref", addr.Ref(), "i", i)
+			err = g.fetchFeed(ctx, *addr, e)
+			if err != nil {
+				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "i", i)
+				return
+			}
+		}
+
+	}
+}
+
+func isIn(list []librarian.Addr, a *sbot.FeedRef) bool {
+	for _, el := range list {
+		if bytes.Compare([]byte(el), a.ID) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *handler) check(err error) {

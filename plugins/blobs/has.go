@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/pkg/errors"
 
@@ -46,12 +45,12 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	has := true
 
-	perr, ok := errors.Cause(err).(*os.PathError)
-	if ok && perr.Err == syscall.ENOENT {
+	if os.IsNotExist(errors.Cause(err)) {
 		has = false
 	} else if err != nil {
-		err = req.Stream.CloseWithError(errors.New("error looking up blob"))
-		checkAndLog(errors.Wrap(err, "error closing stream with error"))
+		err = errors.Wrap(err, "error looking up blob")
+		err = req.Stream.CloseWithError(err)
+		checkAndLog(err)
 		return
 	}
 

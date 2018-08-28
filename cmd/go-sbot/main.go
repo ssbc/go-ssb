@@ -124,7 +124,10 @@ func main() {
 			Algo: "ed25519",
 			ID:   []byte(author),
 		}
-		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "has", has)
+		f, err := r.IsFollowing(&authorRef)
+		checkFatal(err)
+		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
+
 	}
 
 	localKey = r.KeyPair()
@@ -176,7 +179,7 @@ func main() {
 	checkFatal(err)
 
 	bs := r.BlobStore()
-	wm := blobstore.NewWantManager(bs)
+	wm := blobstore.NewWantManager(log, bs)
 
 	pmgr.Register(whoami.New(r))                         // whoami
 	pmgr.Register(blobs.New(bs, wm))                     // blobs

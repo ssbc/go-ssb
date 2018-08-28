@@ -17,8 +17,6 @@ import (
 	"go.cryptoscope.co/sbot"
 )
 
-var log logging.Interface
-
 func dump(v interface{}) {
 	if msg, ok := v.(WantMsg); ok {
 		v = &msg
@@ -35,14 +33,11 @@ func dump(v interface{}) {
 	goon.Dump(v)
 }
 
-func init() {
-	log = logging.Logger("blobstore")
-}
-
-func NewWantManager(bs sbot.BlobStore) sbot.WantManager {
+func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
 	wmgr := &wantManager{
 		bs:    bs,
 		wants: make(map[string]int64),
+		info:  log,
 	}
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
@@ -73,6 +68,8 @@ type wantManager struct {
 	wantSink luigi.Sink
 
 	l sync.Mutex
+
+	info logging.Interface
 }
 
 func (wmgr *wantManager) Wants(ref *sbot.BlobRef) bool {
@@ -153,7 +150,7 @@ func (proc *wantProc) init() {
 
 				m := map[string]int64{notif.Ref.Ref(): sz}
 				err = proc.out.Pour(ctx, m)
-				log.Log("event", "createWants.Out", "cause", "changesnotification")
+				proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
 				dump(m)
 				return errors.Wrap(err, "errors pouring into sink")
 			}
@@ -170,10 +167,10 @@ func (proc *wantProc) init() {
 	}
 
 	err := proc.out.Pour(context.TODO(), proc.wmgr.wants)
-	log.Log("event", "createWants.Out", "cause", "initial wants")
+	proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
 	dump(proc.wmgr.wants)
 	if err != nil {
-		log.Log("event", "wantProc.init/Pour", "err", err.Error())
+		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
 }
 
@@ -183,7 +180,7 @@ func (proc *wantProc) Close() error {
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
-	log.Log("event", "createWants.In", "cause", "got called")
+	proc.wmgr.info.Log("event", "createWants.In", "cause", "got called")
 	dump(v)
 	proc.l.Lock()
 	defer proc.l.Unlock()
@@ -210,19 +207,19 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 				go func(ref *sbot.BlobRef) {
 					src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
 					if err != nil {
-						log.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
 						return
 					}
 
 					r := muxrpc.NewSourceReader(src)
 					newBr, err := proc.bs.Put(r)
 					if err != nil {
-						log.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
 						return
 					}
 
 					if newBr.Ref() != ref.Ref() {
-						log.Log("event", "blob fetch err", "actualRef", newBr.Ref(), "expectedRef", ref.Ref(), "error", "ref did not match expected ref")
+						proc.wmgr.info.Log("event", "blob fetch err", "actualRef", newBr.Ref(), "expectedRef", ref.Ref(), "error", "ref did not match expected ref")
 						return
 					}
 				}(w.Ref)

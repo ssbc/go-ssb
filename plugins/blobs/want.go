@@ -46,7 +46,6 @@ func (h wantHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 	err = errors.Wrap(err, "error wanting blob reference")
 	checkAndLog(errors.Wrap(req.Return(ctx, err), "error returning error"))
 
-	err = req.Stream.Close()
 	err = errors.Wrap(err, "error closing stream")
 	checkAndLog(errors.Wrap(req.Return(ctx, err), "error returning error"))
 }
