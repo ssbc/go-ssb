@@ -41,19 +41,6 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	// fetch calling feed
-	fref, ok := ref.(*sbot.FeedRef)
-	if !ok {
-		g.Info.Log("handleConnect", "notFeedRef", "r", shsID.String())
-		return
-	}
-
-	if err := g.fetchFeed(ctx, *fref, e); err != nil {
-		g.Info.Log("handleConnect", "fetchFeed remote failed", "r", fref.Ref(), "err", err)
-		return
-	}
-	g.Info.Log("fetchFeed", "done calle", "ref", fref.Ref())
-
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
 	hasOwn, err := multilog.Has(userFeeds, librarian.Addr(mykp.Id.ID))
@@ -69,6 +56,27 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 		g.Info.Log("fetchFeed", "done self")
+	}
+
+	fref, ok := ref.(*sbot.FeedRef)
+	if !ok {
+		g.Info.Log("handleConnect", "notFeedRef", "ref", shsID.String())
+		return
+	}
+
+	hasCallee, err := multilog.Has(userFeeds, librarian.Addr(fref.ID))
+	if err != nil {
+		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", fref.Ref(), "err", err)
+		return
+	}
+
+	if !hasCallee {
+		g.Info.Log("handleConnect", "oops - dont have calling feed. requesting")
+		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
+			g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", fref.Ref(), "err", err)
+			return
+		}
+		g.Info.Log("fetchFeed", "done callee", "ref", fref.Ref())
 	}
 
 	ufaddrs, err := userFeeds.List()
