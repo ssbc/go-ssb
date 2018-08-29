@@ -3,7 +3,6 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 
@@ -139,7 +138,7 @@ func (proc *wantProc) init() {
 			defer proc.l.Unlock()
 
 			notif := v.(sbot.BlobStoreNotification)
-			fmt.Println("wantProc received notification from blobstore:", notif.Op, notif.Ref.Ref())
+			proc.wmgr.info.Log("event", "wantProc notification", "op", notif.Op, "ref", notif.Ref.Ref())
 			_, ok := proc.remoteWants[notif.Ref.Ref()]
 			if ok {
 				sz, err := proc.bs.Size(notif.Ref)
