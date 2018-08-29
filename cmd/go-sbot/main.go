@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -14,9 +15,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
@@ -24,7 +23,6 @@ import (
 	"go.cryptoscope.co/sbot/plugins/gossip"
 	"go.cryptoscope.co/sbot/plugins/whoami"
 	"go.cryptoscope.co/sbot/repo"
-	"go.cryptoscope.co/secretstream"
 
 	// debug
 	"net/http"
@@ -135,40 +133,53 @@ func main() {
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
 
-	var peerWhitelist = map[string]bool{ // TODO: add yours here - see below
-		"@38N97KFM3f9MBFBVE/9HwQsECm6G/AmGqViG8joZQ44=.ed25519": true,
-		"@uOReuhnb9+mPi5RnTbKMKRr3r87cK+aOg8lFXV/SBPU=.ed25519": true,
-		"@Q7a4cAeHiezNbBFAuZZxDG3jugCgOfhpUHqLJBSD2mQ=.ed25519": true,
-		"@So2yhYGA2ZOwRh2043whISASD+55PL1P9+peIy/qbj8=.ed25519": true, // heropunch
-		"@DTNmX+4SjsgZ7xyDh5xxmNtFqa6pWi5Qtw7cE8aR9TQ=.ed25519": true, // wx.larpa.net
-		"@WndnBREUvtFVF14XYEq01icpt91753bA+nVycEJIAX4=.ed25519": true, // t4l3.net
-	}
-	peerWhitelist[localKey.Id.Ref()] = true // allow self
-
 	opts := sbot.Options{
 		ListenAddr: laddr,
 		KeyPair:    localKey,
 		AppKey:     appKey,
 		MakeHandler: func(conn net.Conn) (muxrpc.Handler, error) {
-			addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
-			if addr == nil {
-				return nil, errors.New("expected an address containing an shs-bs addr")
+			remote, err := sbot.GetFeedRefFromAddr(conn.RemoteAddr())
+			if err != nil {
+				return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
 			}
 
-			secstreamAddr, ok := addr.(secretstream.Addr)
-			if !ok {
-				return nil, errors.Errorf("unexpected shs-bs addr type: %T", addr)
+			// TODO: cache me in tandem with indexing
+			timeGraph := time.Now()
+
+			fg, err := r.Makegraph()
+			if err != nil {
+				return nil, errors.Wrap(err, "MakeHandler: failed to make friendgraph")
 			}
-			fr := sbot.FeedRef{
-				Algo: "ed25519",
-				ID:   secstreamAddr.PubKey,
+			timeDijkstra := time.Now()
+
+			distLookup, err := fg.MakeDijkstra(&localKey.Id)
+			if err != nil {
+				return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
+			}
+			timeLookup := time.Now()
+
+			fpath, d := distLookup.Dist(remote)
+			timeDone := time.Now()
+
+			log.Log("event", "disjkstra",
+				"nodes", fg.Nodes(),
+
+				"total", timeDone.Sub(timeGraph),
+				"lookup", timeDone.Sub(timeLookup),
+				"mkGraph", timeDijkstra.Sub(timeGraph),
+				"mkSearch", timeLookup.Sub(timeDijkstra),
+
+				"dist", d,
+				"hops", len(fpath),
+				"path", fmt.Sprint(fpath),
+
+				"remote", remote,
+			)
+
+			if d < 0 && len(fpath) < 3 {
+				return nil, errors.Errorf("sbot: peer not in reach. d:%f", d)
 			}
 
-			if ok := peerWhitelist[fr.Ref()]; !ok {
-				return nil, errors.New("sbot: not whitelisted - peer locked down for testing")
-			}
-
-			// TODO: check remote key is in friend-graph distance
 			return pmgr.MakeHandler(conn), nil
 		},
 	}
