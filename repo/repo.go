@@ -216,10 +216,11 @@ func (r *repo) getUserFeeds() error {
 		var c sbot.Contact
 		err = json.Unmarshal(dmsg.Content, &c)
 		if err != nil {
-			if sbot.IsWrongTypeErr(err) {
+			if sbot.IsMessageUnusable(err) {
 				return nil
 			}
-			return errors.Wrap(err, "db/idx contacts: direct to contact failed")
+			log.Println("repo contact skip msg warning:", err)
+			return nil
 		}
 
 		addr := append(dmsg.Author.ID, ':')

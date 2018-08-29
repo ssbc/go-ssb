@@ -48,8 +48,9 @@ func (r *repo) Makegraph() (*Graph, error) {
 
 			to := sbot.FeedRef{
 				Algo: "ed25519",
-				ID:   k[32:],
+				ID:   k[33:],
 			}
+
 			v, err := it.Value()
 			if err != nil {
 				return errors.Wrap(err, "friends: counldnt get idx value")
@@ -74,7 +75,11 @@ func (r *repo) Makegraph() (*Graph, error) {
 			if len(v) >= 1 && v[0] == '1' {
 				w = 1
 			} else {
-				w = -1
+				w = math.Inf(1)
+			}
+			if nFrom.ID() == nTo.ID() {
+				fmt.Printf("skipping self: %s\n", from.Ref())
+				continue
 			}
 			edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}
 			dg.SetWeightedEdge(edg)

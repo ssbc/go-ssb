@@ -138,46 +138,53 @@ func main() {
 		KeyPair:    localKey,
 		AppKey:     appKey,
 		MakeHandler: func(conn net.Conn) (muxrpc.Handler, error) {
-			remote, err := sbot.GetFeedRefFromAddr(conn.RemoteAddr())
-			if err != nil {
-				return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
-			}
+			if len(feeds) != 0 { // trust on first use
+				remote, err := sbot.GetFeedRefFromAddr(conn.RemoteAddr())
+				if err != nil {
+					return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
+				}
 
-			// TODO: cache me in tandem with indexing
-			timeGraph := time.Now()
+				// TODO: cache me in tandem with indexing
+				timeGraph := time.Now()
 
-			fg, err := r.Makegraph()
-			if err != nil {
-				return nil, errors.Wrap(err, "MakeHandler: failed to make friendgraph")
-			}
-			timeDijkstra := time.Now()
+				fg, err := r.Makegraph()
+				if err != nil {
+					return nil, errors.Wrap(err, "MakeHandler: failed to make friendgraph")
+				}
+				timeDijkstra := time.Now()
 
-			distLookup, err := fg.MakeDijkstra(&localKey.Id)
-			if err != nil {
-				return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
-			}
-			timeLookup := time.Now()
+				if fg.IsFollowing(&localKey.Id, remote) {
+					// quick skip direct follow
+					return pmgr.MakeHandler(conn), nil
+				}
 
-			fpath, d := distLookup.Dist(remote)
-			timeDone := time.Now()
+				distLookup, err := fg.MakeDijkstra(&localKey.Id)
+				if err != nil {
+					return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
+				}
+				timeLookup := time.Now()
 
-			log.Log("event", "disjkstra",
-				"nodes", fg.Nodes(),
+				fpath, d := distLookup.Dist(remote)
+				timeDone := time.Now()
 
-				"total", timeDone.Sub(timeGraph),
-				"lookup", timeDone.Sub(timeLookup),
-				"mkGraph", timeDijkstra.Sub(timeGraph),
-				"mkSearch", timeLookup.Sub(timeDijkstra),
+				log.Log("event", "disjkstra",
+					"nodes", fg.Nodes(),
 
-				"dist", d,
-				"hops", len(fpath),
-				"path", fmt.Sprint(fpath),
+					"total", timeDone.Sub(timeGraph),
+					"lookup", timeDone.Sub(timeLookup),
+					"mkGraph", timeDijkstra.Sub(timeGraph),
+					"mkSearch", timeLookup.Sub(timeDijkstra),
 
-				"remote", remote,
-			)
+					"dist", d,
+					"hops", len(fpath),
+					"path", fmt.Sprint(fpath),
 
-			if d < 0 && len(fpath) < 3 {
-				return nil, errors.Errorf("sbot: peer not in reach. d:%f", d)
+					"remote", remote,
+				)
+
+				if d < 0 && len(fpath) < 3 {
+					return nil, errors.Errorf("sbot: peer not in reach. d:%f", d)
+				}
 			}
 
 			return pmgr.MakeHandler(conn), nil

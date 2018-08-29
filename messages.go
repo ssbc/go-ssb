@@ -7,9 +7,26 @@ import (
 	"github.com/pkg/errors"
 )
 
-func IsWrongTypeErr(err error) bool {
+func IsMessageUnusable(err error) bool {
 	_, is := errors.Cause(err).(ErrWrongType)
+	if is {
+		return true
+	}
+	_, is = errors.Cause(err).(ErrMalfromedMsg)
 	return is
+}
+
+type ErrMalfromedMsg struct {
+	reason string
+	m      map[string]interface{}
+}
+
+func (emm ErrMalfromedMsg) Error() string {
+	s := "ErrMalfromedMsg: " + emm.reason
+	if emm.m != nil {
+		s += fmt.Sprintf("%+v", emm.m)
+	}
+	return s
 }
 
 type ErrWrongType struct {
@@ -40,7 +57,7 @@ func (c *Contact) UnmarshalJSON(b []byte) error {
 
 	t, ok := potential["type"].(string)
 	if !ok {
-		return errors.Errorf("contact: no type on message")
+		return ErrMalfromedMsg{"contact: no type on message", nil}
 	}
 
 	if t != "contact" {
@@ -49,7 +66,12 @@ func (c *Contact) UnmarshalJSON(b []byte) error {
 
 	newC := new(Contact)
 
-	newC.Contact, err = ParseFeedRef(potential["contact"].(string))
+	contact, ok := potential["contact"].(string)
+	if !ok {
+		return ErrMalfromedMsg{"contact: no string contact field on type:contact", potential}
+	}
+
+	newC.Contact, err = ParseFeedRef(contact)
 	if err != nil {
 		return errors.Wrap(err, "contact: map stage failed")
 	}

@@ -92,9 +92,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
 			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "i", i)
-			continue
 		}
-		g.Info.Log("fetchFeed", "done list", "ref", userRef.Ref())
 	}
 
 	follows, err := g.Repo.IsFollowing(&mykp.Id)
@@ -108,10 +106,8 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			err = g.fetchFeed(ctx, *addr, e)
 			if err != nil {
 				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "i", i)
-				return
 			}
 		}
-
 	}
 }
 

@@ -119,7 +119,8 @@ func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.End
 		latestMsg = nextMsg
 	} // hist drained
 
-	info.Log("event", "verfied2updated", "new", latestSeq-startSeq, "took", time.Since(start))
-
+	if n := latestSeq - startSeq; n > 0 {
+		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
+	}
 	return nil
 }
