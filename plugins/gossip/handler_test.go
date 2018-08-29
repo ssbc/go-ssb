@@ -18,12 +18,11 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
 )
 
-func loadTestDataPeer(t testing.TB, repopath string) sbot.Repo {
+func loadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 	r := require.New(t)
 	repo, err := repo.New(repopath)
 	r.NoError(err, "failed to load testData repo")
@@ -31,7 +30,7 @@ func loadTestDataPeer(t testing.TB, repopath string) sbot.Repo {
 	return repo
 }
 
-func makeEmptyPeer(t testing.TB) (sbot.Repo, string) {
+func makeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	r := require.New(t)
 	dstPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
@@ -41,7 +40,7 @@ func makeEmptyPeer(t testing.TB) (sbot.Repo, string) {
 	return dstRepo, dstPath
 }
 
-func connectAndServe(t testing.TB, alice, bob sbot.Repo) <-chan struct{} {
+func connectAndServe(t testing.TB, alice, bob repo.Interface) <-chan struct{} {
 	start := time.Now()
 	r := require.New(t)
 	keyAlice := alice.KeyPair()
