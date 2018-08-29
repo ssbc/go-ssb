@@ -1,7 +1,6 @@
 package blobstore
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -233,98 +232,26 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 type WantMsg []want
 
 func (msg *WantMsg) UnmarshalJSON(data []byte) error {
-	r := bytes.NewBuffer(data)
-	dec := json.NewDecoder(r)
-
-	type pState int
-	const (
-		begin pState = iota
-		expRef
-		expDist
-		expEnd
-		expEOF
-	)
-
-	var (
-		state pState
-		next  want
-	)
-
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			if err == io.EOF {
-				if state == expEOF {
-					return nil
-				}
-
-				return errors.New("unexpected end of file")
-			}
-
-			return err
-		}
-
-		if state == expEOF {
-			return errors.New("expected EOF but read data")
-		}
-
-		switch state {
-		case begin:
-			del, ok := tok.(json.Delim)
-			if !ok {
-				return errors.Errorf("expected delimiter { but got %v", tok)
-			}
-			if del.String() != "{" {
-				return errors.Errorf("expected delimiter { but got %v", tok)
-			}
-
-			state = expRef
-		case expRef:
-			str, ok := tok.(string)
-			if !ok {
-				return errors.Errorf("expected blob reference string but got %v", tok)
-			}
-
-			ref, err := sbot.ParseRef(str)
-			if err != nil {
-				return errors.Wrap(err, "error parsing blob reference")
-			}
-
-			br, ok := ref.(*sbot.BlobRef)
-			if !ok {
-				return errors.Errorf("expected *sbot.BlobRef but got %T", ref)
-			}
-
-			next.Ref = br
-			state = expDist
-		case expDist:
-			fDist, ok := tok.(float64)
-			if !ok {
-				return errors.Errorf("expected blob distance float64 but got %v", tok)
-			}
-
-			next.Dist = int64(fDist)
-			*msg = append(*msg, next)
-
-			if dec.More() {
-				state = expRef
-			} else {
-				state = expEnd
-			}
-		case expEnd:
-			del, ok := tok.(json.Delim)
-			if !ok {
-				return errors.Errorf("expected delimiter } but got %v", tok)
-			}
-			if del.String() != "}" {
-				return errors.Errorf("expected delimiter } but got %v", tok)
-			}
-
-			state = expEOF
-		default:
-			panic("undefined state in blobs.wantMsg.UnmarshalJSON with data\n" + string(data))
-		}
+	var wantsMap map[string]int64
+	err := json.Unmarshal(data, &wantsMap)
+	if err != nil {
+		return errors.Wrap(err, "WantMsg: error parsing into map")
 	}
-
+	var wants []want
+	for ref, dist := range wantsMap {
+		ref, err := sbot.ParseRef(ref)
+		if err != nil {
+			return errors.Wrap(err, "error parsing blob reference")
+		}
+		br, ok := ref.(*sbot.BlobRef)
+		if !ok {
+			return errors.Errorf("expected *sbot.BlobRef but got %T", ref)
+		}
+		wants = append(wants, want{
+			Ref:  br,
+			Dist: dist,
+		})
+	}
+	*msg = wants
 	return nil
 }
