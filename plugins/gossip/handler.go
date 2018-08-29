@@ -16,12 +16,13 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
 )
 
 type handler struct {
 	Node sbot.Node
-	Repo sbot.Repo
+	Repo repo.Interface
 	Info logging.Interface
 
 	Promisc bool

@@ -6,9 +6,10 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/repo"
 )
 
-func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sbot.Plugin {
+func New(repo repo.Interface, node sbot.Node, promisc bool, log logging.Interface) sbot.Plugin {
 	return plugin{
 		&handler{
 			Node:        node,
@@ -20,7 +21,7 @@ func New(repo sbot.Repo, node sbot.Node, promisc bool, log logging.Interface) sb
 	}
 }
 
-func NewHist(repo sbot.Repo, node sbot.Node, log logging.Interface) sbot.Plugin {
+func NewHist(repo repo.Interface, node sbot.Node, log logging.Interface) sbot.Plugin {
 	return histPlugin{
 		&handler{
 			Node:        node,

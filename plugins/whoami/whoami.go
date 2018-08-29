@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/sbot/repo"
 
 	"go.cryptoscope.co/sbot"
 )
@@ -26,11 +27,7 @@ func checkAndLog(err error) {
 	}
 }
 
-func init() {
-	log = logging.Logger("whoami")
-}
-
-func New(n sbot.Repo) sbot.Plugin {
+func New(n repo.Interface) sbot.Plugin {
 	return plugin{handler{I: n.KeyPair().Id}}
 }
 

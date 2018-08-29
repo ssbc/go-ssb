@@ -87,7 +87,7 @@ func main() {
 
 	var (
 		node sbot.Node
-		r    sbot.Repo
+		r    repo.Interface
 		err  error
 	)
 
@@ -111,9 +111,6 @@ func main() {
 	checkFatal(err)
 	log.Log("event", "repo open", "feeds", len(feeds))
 	for _, author := range feeds {
-		has, err := multilog.Has(uf, author)
-		checkFatal(err)
-
 		subLog, err := uf.Get(author)
 		checkFatal(err)
 
@@ -126,6 +123,7 @@ func main() {
 		}
 		f, err := r.IsFollowing(&authorRef)
 		checkFatal(err)
+
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
 
 	}

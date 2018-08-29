@@ -26,12 +26,12 @@ import (
 	"go.cryptoscope.co/sbot/message"
 )
 
-var _ sbot.Repo = (*repo)(nil)
+var _ Interface = (*repo)(nil)
 
 var check = logging.CheckFatal
 
 // New creates a new repository value, it opens the keypair and database from basePath if it is already existing
-func New(basePath string) (sbot.Repo, error) {
+func New(basePath string) (Interface, error) {
 	r := &repo{basePath: basePath}
 
 	r.ctx = context.TODO() // TODO: pass in from main() to bind to signal handling shutdown
