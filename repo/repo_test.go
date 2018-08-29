@@ -47,7 +47,7 @@ func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
 	tm.Key = keyVal.Interface().(*sbot.MessageRef)
 	tm.Sequence = seqVal.Interface().(margaret.BaseSeq)
 	tm.Timestamp = time.Unix(timeVal.Int()%9999, 0)
-
+	tm.Raw = []byte(`{"content":{"type":"testdata"}}`)
 	return reflect.ValueOf(&tm)
 }
 

@@ -81,6 +81,9 @@ func (r repo) Close() error {
 	// FIXME: does shutdown block..?
 	// would be good to get back some kind of _all done without a problem_
 	// time.Sleep(1 * time.Second)
+	if err := r.contactsKV.Close(); err != nil {
+		return errors.Wrap(r.userKV.Close(), "repo: failed to close contactsKV")
+	}
 	return errors.Wrap(r.userKV.Close(), "repo: failed to close userKV")
 }
 
