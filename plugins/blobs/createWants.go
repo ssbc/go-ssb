@@ -31,7 +31,7 @@ type createWantsHandler struct {
 func (h createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
 	ref, err := sbot.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting remote feed ref")
+		return nil, errors.Wrapf(err, "error getting remote feed ref from addr %#v", edp.Remote())
 	}
 
 	h.l.Lock()

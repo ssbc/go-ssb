@@ -20,6 +20,7 @@ func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	log.Log("event", "onCall", "handler", "get", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	defer log.Log("event", "onCall", "handler", "get-return", "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "source"
@@ -53,5 +54,6 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	_, err = io.Copy(w, r)
 	checkAndLog(errors.Wrap(err, "error sending blob"))
 
-	checkAndLog(errors.Wrap(req.Stream.Close(), "failed to close get stream"))
+	err = w.Close()
+	checkAndLog(errors.Wrap(err, "error closing blob output"))
 }

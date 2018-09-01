@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
@@ -64,15 +65,15 @@ func prepareConnectAndServe(t *testing.T, alice, bob repo.Interface) (muxrpc.Pac
 		remote: keyAlice.Pair.Public[:],
 	}
 
-	var rwc1, rwc2 io.ReadWriteCloser = tc1, tc2
+	var conn1, conn2 net.Conn = tc1, tc2
 
 	// logs every muxrpc packet
 	if testing.Verbose() {
-		rwc1 = codec.Wrap(infoAlice, rwc1)
-		rwc2 = codec.Wrap(infoBob, rwc2)
+		conn1 = codec.WrapConn(infoAlice, conn1)
+		conn2 = codec.WrapConn(infoBob, conn2)
 	}
 
-	return muxrpc.NewPacker(rwc1), muxrpc.NewPacker(rwc2), func(rpc1, rpc2 muxrpc.Endpoint) func() {
+	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), func(rpc1, rpc2 muxrpc.Endpoint) func() {
 		ctx := context.Background()
 		ctx, cancel := context.WithCancel(ctx)
 
@@ -92,9 +93,6 @@ func prepareConnectAndServe(t *testing.T, alice, bob repo.Interface) (muxrpc.Pac
 
 		return func() {
 			cancel()
-
-			// wait TODO: close handling
-			time.Sleep(10 * time.Second)
 
 			r.NoError(rpc1.Terminate())
 			r.NoError(rpc2.Terminate())
@@ -126,7 +124,7 @@ func TestReplicate(t *testing.T) {
 	pkr1, pkr2, serve := prepareConnectAndServe(t, srcRepo, dstRepo)
 
 	pi1 := New(srcBS, srcWM)
-	pi2 := New(dstBS, srcWM)
+	pi2 := New(dstBS, dstWM)
 
 	ref, err := srcBS.Put(strings.NewReader("testString"))
 	r.NoError(err, "error putting blob at src")
@@ -139,9 +137,16 @@ func TestReplicate(t *testing.T) {
 	dstBS.Changes().Register(
 		luigi.FuncSink(
 			func(ctx context.Context, v interface{}, doClose bool) error {
-				t.Log(v)
-				finish()
-				close(done)
+				n := v.(sbot.BlobStoreNotification)
+				if n.Op == sbot.BlobStoreOpPut {
+					if n.Ref.Ref() == ref.Ref() {
+						t.Log("received correct blob")
+						finish()
+						close(done)
+					} else {
+						t.Error("received unexpected blob:", n.Ref.Ref())
+					}
+				}
 				return nil
 			}))
 
@@ -162,7 +167,7 @@ func TestReplicate(t *testing.T) {
 	blobStr, err := ioutil.ReadAll(blob)
 	r.NoError(err, "failed to read blob")
 
-	r.Equal("testString", blobStr, "blob value mismatch")
+	r.Equal("testString", string(blobStr), "blob value mismatch")
 
 	if !t.Failed() {
 		os.RemoveAll(dstPath)
