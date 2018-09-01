@@ -8,7 +8,6 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
-	"github.com/shurcooL/go-goon"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -27,8 +26,6 @@ func dump(v interface{}) {
 		}
 		v = m
 	}
-
-	goon.Dump(v)
 }
 
 func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
@@ -225,7 +222,13 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		}
 	}
 
-	return errors.Wrap(proc.out.Pour(ctx, mOut), "error responding to wants")
+	// shut up if you don't have anything meaningful to add
+	if len(mOut) == 0 {
+		return nil
+	}
+
+	err := proc.out.Pour(ctx, mOut)
+	return errors.Wrap(err, "error responding to wants")
 }
 
 type WantMsg []want
