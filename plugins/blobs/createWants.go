@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -43,10 +42,6 @@ func (h createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) 
 		return src, nil
 	}
 
-	// don't make potentially long calls in the critical section
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	src, err = edp.Source(ctx, &blobstore.WantMsg{}, muxrpc.Method{"blobs", "createWants"})
 	if err != nil {
 		return nil, errors.Wrap(err, "error making source call")
@@ -67,9 +62,6 @@ func (h createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoi
 func (h createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "source"
-	}
 
 	src, err := h.getSource(ctx, edp)
 	if err != nil {

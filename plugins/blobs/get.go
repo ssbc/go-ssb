@@ -52,4 +52,6 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	w := muxrpc.NewSinkWriter(req.Stream)
 	_, err = io.Copy(w, r)
 	checkAndLog(errors.Wrap(err, "error sending blob"))
+
+	checkAndLog(errors.Wrap(req.Stream.Close(), "failed to close get stream"))
 }

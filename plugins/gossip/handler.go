@@ -7,6 +7,7 @@ import (
 	"net"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cryptix/go/logging"
@@ -26,6 +27,8 @@ type handler struct {
 	Info logging.Interface
 
 	Promisc bool
+
+	activeFetch sync.Map
 
 	hanlderDone func()
 }
@@ -102,7 +105,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	}
 	for i, addr := range follows {
 		if !isIn(ufaddrs, addr) {
-			g.Info.Log("fetchFeed", "adding from follows list", "ref", addr.Ref(), "i", i)
+			// g.Info.Log("fetchFeed", "adding from follows list", "ref", addr.Ref(), "i", i)
 			err = g.fetchFeed(ctx, *addr, e)
 			if err != nil {
 				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "i", i)
@@ -160,7 +163,7 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 			checkAndClose(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
-		return
+		g.check(req.Stream.Close())
 
 	case "gossip.ping":
 		if err := g.ping(ctx, req); err != nil {

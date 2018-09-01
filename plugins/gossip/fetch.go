@@ -18,7 +18,16 @@ import (
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *handler) fetchFeed(ctx context.Context, fr sbot.FeedRef, edp muxrpc.Endpoint) error {
 	// check our latest
-	userLog, err := g.Repo.UserFeeds().Get(librarian.Addr(fr.ID))
+	addr := librarian.Addr(fr.ID)
+	_, ok := g.activeFetch.Load(addr)
+	if ok {
+		return errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
+	}
+	g.activeFetch.Store(addr, true)
+	defer func() {
+		g.activeFetch.Delete(addr)
+	}()
+	userLog, err := g.Repo.UserFeeds().Get(addr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}

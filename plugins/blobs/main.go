@@ -52,10 +52,7 @@ func New(bs sbot.BlobStore, wm sbot.WantManager) sbot.Plugin {
 	rootHdlr.Register(muxrpc.Method{"blobs", "list"}, listHandler{bs})
 	rootHdlr.Register(muxrpc.Method{"blobs", "has"}, hasHandler{bs})
 	rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{bs})
-
-	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{
-		wm: wm,
-	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{wm: wm})
 	rootHdlr.Register(muxrpc.Method{"blobs", "createWants"}, createWantsHandler{
 		bs:      bs,
 		wm:      wm,

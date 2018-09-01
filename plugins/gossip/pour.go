@@ -64,8 +64,8 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		}
 
 		rest := seqs[qry.Seq-1:]
-		if len(rest) > 150 { // batch - slow but steady
-			rest = rest[:150]
+		if len(rest) > 500 { // batch - slow but steady
+			rest = rest[:500]
 		}
 		log := h.Repo.RootLog()
 		for i, rSeq := range rest {
