@@ -58,58 +58,36 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}
 
-		seqs, err := drainAllSeqs(ctx, userLog)
+		userSequences, err := userLog.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
 		if err != nil {
-			return errors.Wrap(err, "failed to load sequences in rootLog")
+			return errors.Wrapf(err, "illegal user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}
 
-		rest := seqs[qry.Seq-1:]
-		if len(rest) > 500 { // batch - slow but steady
-			rest = rest[:500]
-		}
-		log := h.Repo.RootLog()
-		for i, rSeq := range rest {
-			v, err := log.Get(rSeq)
+		sent := 0
+		rootLog := h.Repo.RootLog()
+		wrapSink := luigi.FuncSink(func(ctx context.Context, val interface{}, closed bool) error {
+			v, err := rootLog.Get(val.(margaret.Seq))
 			if err != nil {
-				return errors.Wrapf(err, "load message %d", i)
+				return errors.Wrapf(err, "failed to load message %v", val)
 			}
 			stMsg, ok := v.(message.StoredMessage)
 			if !ok {
 				return errors.Errorf("wrong message type. expected %T - got %T", stMsg, v)
 			}
 			if err := req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: stMsg.Raw}); err != nil {
-				return errors.Wrap(err, "failed to pour msg to remote peer")
-
+				return errors.Wrap(err, "failed to pour msg")
 			}
+			sent++
+			return nil
+		})
+
+		if err := luigi.Pump(ctx, wrapSink, userSequences); err != nil {
+			return errors.Wrap(err, "failed to pump messages to peer")
 		}
-		h.Info.Log("poured", ref.Ref(), "from", qry.Seq, "rest", len(rest))
+
+		h.Info.Log("poured", ref.Ref(), "from", qry.Seq, "sent", sent)
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}
 	return errors.Wrap(req.Stream.Close(), "pour: failed to close")
-}
-
-func drainAllSeqs(ctx context.Context, log margaret.Log) ([]margaret.Seq, error) {
-	src, err := log.Query()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create luigi src")
-	}
-
-	var seqs []margaret.Seq
-	for {
-		v, err := src.Next(ctx)
-		if luigi.IsEOS(err) {
-			break
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create luigi src")
-		}
-		s, ok := v.(margaret.BaseSeq)
-		if !ok {
-			return nil, errors.Errorf("wrong value type in index. expected BaseSeq - got %T", v)
-		}
-
-		seqs = append(seqs, s)
-	}
-	return seqs, nil
 }
