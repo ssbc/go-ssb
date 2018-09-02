@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
@@ -13,14 +14,15 @@ import (
 )
 
 type getHandler struct {
-	bs sbot.BlobStore
+	bs  sbot.BlobStore
+	log logging.Interface
 }
 
 func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	log.Log("event", "onCall", "handler", "get", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
-	defer log.Log("event", "onCall", "handler", "get-return", "method", req.Method)
+	h.log.Log("event", "onCall", "handler", "get", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	defer h.log.Log("event", "onCall", "handler", "get-return", "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "source"
@@ -39,7 +41,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	}
 
 	ref, err := sbot.ParseBlobRef(refStr)
-	checkAndLog(errors.Wrap(err, "error parsing blob reference"))
+	checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 	if err != nil {
 		return
 	}
@@ -47,14 +49,14 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	r, err := h.bs.Get(ref)
 	if err != nil {
 		err = req.Stream.CloseWithError(errors.New("do not have blob"))
-		checkAndLog(errors.Wrap(err, "error closing stream with error"))
+		checkAndLog(h.log, errors.Wrap(err, "error closing stream with error"))
 		return
 	}
 
 	w := muxrpc.NewSinkWriter(req.Stream)
 	_, err = io.Copy(w, r)
-	checkAndLog(errors.Wrap(err, "error sending blob"))
+	checkAndLog(h.log, errors.Wrap(err, "error sending blob"))
 
 	err = w.Close()
-	checkAndLog(errors.Wrap(err, "error closing blob output"))
+	checkAndLog(h.log, errors.Wrap(err, "error closing blob output"))
 }

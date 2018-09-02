@@ -32,10 +32,9 @@ blobs manifest.json except:
 var (
 	_      sbot.Plugin = plugin{} // compile-time type check
 	method             = muxrpc.Method{"blobs"}
-	log    logging.Interface
 )
 
-func checkAndLog(err error) {
+func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
 			panic(err)
@@ -43,27 +42,49 @@ func checkAndLog(err error) {
 	}
 }
 
-func New(bs sbot.BlobStore, wm sbot.WantManager) sbot.Plugin {
+func New(log logging.Interface, bs sbot.BlobStore, wm sbot.WantManager) sbot.Plugin {
 	rootHdlr := muxrpc.HandlerMux{}
-	log = logging.Logger("blobs")
 
-	rootHdlr.Register(muxrpc.Method{"blobs", "get"}, getHandler{bs})
-	rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{bs})
-	rootHdlr.Register(muxrpc.Method{"blobs", "list"}, listHandler{bs})
-	rootHdlr.Register(muxrpc.Method{"blobs", "has"}, hasHandler{bs})
-	rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{bs})
-	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{wm: wm})
-	rootHdlr.Register(muxrpc.Method{"blobs", "createWants"}, createWantsHandler{
+	rootHdlr.Register(muxrpc.Method{"blobs", "get"}, getHandler{
+		log: log,
+		bs:  bs,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{
+		log: log,
+		bs:  bs,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "list"}, listHandler{
+		log: log,
+		bs:  bs,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "has"}, hasHandler{
+		log: log,
+		bs:  bs,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{
+		log: log,
+		bs:  bs,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{
+		log: log,
+		wm:  wm,
+	})
+	rootHdlr.Register(muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
+		log:     log,
 		bs:      bs,
 		wm:      wm,
 		sources: make(map[string]luigi.Source),
 	})
 
-	return plugin{&rootHdlr}
+	return plugin{
+		h:   &rootHdlr,
+		log: log,
+	}
 }
 
 type plugin struct {
-	h muxrpc.Handler
+	h   muxrpc.Handler
+	log logging.Interface
 }
 
 func (plugin) Name() string { return "blobs" }

@@ -7,9 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	//"github.com/cryptix/go/logging/logtest"
-	"github.com/cryptix/go/logging"
+	//kitlog "github.com/go-kit/kit/log"
+	"github.com/cryptix/go/logging/logtest"
+	//"github.com/cryptix/go/logging"
 	"github.com/stretchr/testify/require"
+
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
@@ -24,22 +26,22 @@ func TestReplicate(t *testing.T) {
 	dstRepo, dstPath := test.MakeEmptyPeer(t)
 
 	srcBS := srcRepo.BlobStore()
-	//srcLog, _ := logtest.KitLogger("alice", t)
-	//srcLog := log.With(log.NewSyncLogger(log.NewLogfmtLogger(os.Stderr)), "node", "src/alice")
-	srcLog := logging.Logger("alice/src")
+	srcLog, _ := logtest.KitLogger("alice/src", t)
+	//srcLog = kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "src/alice")
+	//srcLog := logging.Logger("alice/src")
 	srcWM := blobstore.NewWantManager(srcLog, srcBS)
 
 	dstBS := dstRepo.BlobStore()
-	//dstLog, _ := logtest.KitLogger("bob", t)
-	//dstLog := log.With(log.NewSyncLogger(log.NewLogfmtLogger(os.Stderr)), "node", "dst/bob")
-	dstLog := logging.Logger("bob/dst")
+	dstLog, _ := logtest.KitLogger("bob/dst", t)
+	//dstLog = kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "dst/bob")
+	//dstLog := logging.Logger("bob/dst")
 	dstWM := blobstore.NewWantManager(dstLog, dstBS)
 
 	// do the dance
 	pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
-	pi1 := New(srcBS, srcWM)
-	pi2 := New(dstBS, dstWM)
+	pi1 := New(srcLog, srcBS, srcWM)
+	pi2 := New(dstLog, dstBS, dstWM)
 
 	ref, err := srcBS.Put(strings.NewReader("testString"))
 	r.NoError(err, "error putting blob at src")

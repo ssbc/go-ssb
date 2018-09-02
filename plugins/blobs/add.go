@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
@@ -12,13 +13,14 @@ import (
 )
 
 type addHandler struct {
-	bs sbot.BlobStore
+	bs  sbot.BlobStore
+	log logging.Interface
 }
 
 func (addHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	log.Log("event", "onCall", "handler", "add", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	h.log.Log("event", "onCall", "handler", "add", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "sink"
@@ -26,7 +28,7 @@ func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	r := muxrpc.NewSourceReader(req.Stream)
 	ref, err := h.bs.Put(r)
-	checkAndLog(errors.Wrap(err, "error putting blob"))
+	checkAndLog(h.log, errors.Wrap(err, "error putting blob"))
 
 	req.Return(ctx, ref)
 }

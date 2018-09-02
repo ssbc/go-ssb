@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"syscall"
 
+	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/luigi"
@@ -16,8 +18,9 @@ import (
 )
 
 type createWantsHandler struct {
-	bs sbot.BlobStore
-	wm sbot.WantManager
+	log logging.Interface
+	bs  sbot.BlobStore
+	wm  sbot.WantManager
 
 	// sources is a map if sources where the responses are read from.
 	sources map[string]luigi.Source
@@ -39,39 +42,49 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 
 	src, ok := h.sources[ref.Ref()]
 	if ok {
-		return src, nil
+		if src != nil {
+			return src, nil
+		}
+
+		h.log.Log("msg", "got a nil source from the map, ignoring and making new")
 	}
 
 	src, err = edp.Source(ctx, &blobstore.WantMsg{}, muxrpc.Method{"blobs", "createWants"})
 	if err != nil {
 		return nil, errors.Wrap(err, "error making source call")
 	}
+	if src == nil {
+		h.log.Log("msg", "got a nil source edp.Source, returning an error")
+		debug.PrintStack()
+		return nil, errors.New("could not make createWants call")
+	}
 
 	h.sources[ref.Ref()] = src
+	h.log.Log("method", "blobs.createWants", "function", "getSource", "evt", "putSource", "ref", ref.Ref())
 	return src, nil
 }
 
-func (h createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
+func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 	_, err := h.getSource(ctx, edp)
 	if err != nil {
-		log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
+		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
 		return
 	}
 }
 
-func (h createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+	h.log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
-		log.Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
+		h.log.Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
 		return
 	}
 
 	err = luigi.Pump(ctx, h.wm.CreateWants(ctx, req.Stream, edp), src)
 	if err != nil {
-		log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
+		h.log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
 		return
 	}
 }
@@ -80,6 +93,7 @@ type wantProcessor struct {
 	bs    sbot.BlobStore
 	wants *sync.Map
 	ch    chan map[string]int64
+	log   logging.Interface
 }
 
 func (proc wantProcessor) Pour(ctx context.Context, v interface{}) error {
@@ -106,13 +120,13 @@ func (proc wantProcessor) Pour(ctx context.Context, v interface{}) error {
 
 		f, ok := r.(*os.File)
 		if !ok {
-			checkAndLog(errors.Errorf("expected blob reader to be a file but it is a %T", r))
+			checkAndLog(proc.log, errors.Errorf("expected blob reader to be a file but it is a %T", r))
 			continue
 		}
 
 		fi, err := f.Stat()
 		if err != nil {
-			checkAndLog(errors.Wrap(err, "error getting stat on blob file"))
+			checkAndLog(proc.log, errors.Wrap(err, "error getting stat on blob file"))
 			continue
 		}
 

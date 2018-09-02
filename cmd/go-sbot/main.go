@@ -198,7 +198,7 @@ func main() {
 	wm := blobstore.NewWantManager(log, bs)
 
 	pmgr.Register(whoami.New(r))                         // whoami
-	pmgr.Register(blobs.New(bs, wm))                     // blobs
+	pmgr.Register(blobs.New(log, bs, wm))                     // blobs
 	pmgr.Register(gossip.New(r, node, flagPromisc, log)) // gossip.*
 	pmgr.Register(gossip.NewHist(r, node, log))          // createHistoryStream
 

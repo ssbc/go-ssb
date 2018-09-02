@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/cryptix/go/logging"
@@ -16,7 +17,7 @@ import (
 	"go.cryptoscope.co/sbot"
 )
 
-func dump(v interface{}, from string) {
+func dump(log logging.Interface, v interface{}, from string) {
 	var x interface{}
 	if msg, ok := v.(WantMsg); ok {
 		x = &msg
@@ -29,7 +30,10 @@ func dump(v interface{}, from string) {
 		}
 		x = m
 	}
-	fmt.Printf("%s:%s\n", from, goon.Sdump(x))
+
+	for _, str := range strings.Split(goon.Sdump(x), "\n") {
+		log.Log("from", from, "goon", strings.Replace(str, "\t", "  ", -1))
+	}
 }
 
 func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
@@ -150,7 +154,7 @@ func (proc *wantProc) init() {
 				m := map[string]int64{notif.Ref.Ref(): sz}
 				err = proc.out.Pour(ctx, m)
 				proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
-				dump(m, "out sink")
+				dump(proc.wmgr.info, m, "out sink")
 				return errors.Wrap(err, "errors pouring into sink")
 			}
 
@@ -167,7 +171,7 @@ func (proc *wantProc) init() {
 
 	err := proc.out.Pour(context.TODO(), proc.wmgr.wants)
 	proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
-	dump(proc.wmgr.wants, "after pour")
+	dump(proc.wmgr.info, proc.wmgr.wants, "after pour")
 	if err != nil {
 		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
@@ -179,8 +183,8 @@ func (proc *wantProc) Close() error {
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
-	proc.wmgr.info.Log("event", "createWants.In", "cause", "got called")
-	dump(v, "proc pour")
+	proc.wmgr.info.Log("event", "createWants.In", "cause", "received data")
+	dump(proc.wmgr.info, v, "proc pour")
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
@@ -203,6 +207,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 			mOut[w.Ref.Ref()] = s
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
+				proc.wmgr.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
 				go func(ref *sbot.BlobRef) {
 					src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
 					if err != nil {
