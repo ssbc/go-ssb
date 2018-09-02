@@ -3,20 +3,23 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
+	goon "github.com/shurcooL/go-goon"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
 )
 
-func dump(v interface{}) {
+func dump(v interface{}, from string) {
+	var x interface{}
 	if msg, ok := v.(WantMsg); ok {
-		v = &msg
+		x = &msg
 	}
 
 	if msg, ok := v.(*WantMsg); ok {
@@ -24,8 +27,9 @@ func dump(v interface{}) {
 		for _, w := range *msg {
 			m[w.Ref.Ref()] = w.Dist
 		}
-		v = m
+		x = m
 	}
+	fmt.Printf("%s:%s\n", from, goon.Sdump(x))
 }
 
 func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
@@ -146,7 +150,7 @@ func (proc *wantProc) init() {
 				m := map[string]int64{notif.Ref.Ref(): sz}
 				err = proc.out.Pour(ctx, m)
 				proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
-				dump(m)
+				dump(m, "out sink")
 				return errors.Wrap(err, "errors pouring into sink")
 			}
 
@@ -163,7 +167,7 @@ func (proc *wantProc) init() {
 
 	err := proc.out.Pour(context.TODO(), proc.wmgr.wants)
 	proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
-	dump(proc.wmgr.wants)
+	dump(proc.wmgr.wants, "after pour")
 	if err != nil {
 		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
@@ -176,7 +180,7 @@ func (proc *wantProc) Close() error {
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	proc.wmgr.info.Log("event", "createWants.In", "cause", "got called")
-	dump(v)
+	dump(v, "proc pour")
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
@@ -239,6 +243,7 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "WantMsg: error parsing into map")
 	}
+
 	var wants []want
 	for ref, dist := range wantsMap {
 		ref, err := sbot.ParseRef(ref)
@@ -255,5 +260,6 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 		})
 	}
 	*msg = wants
+	fmt.Printf("wants debug: %v\n", wants)
 	return nil
 }
