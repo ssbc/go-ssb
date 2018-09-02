@@ -168,6 +168,18 @@ func (mr *MessageRef) UnmarshalText(text []byte) error {
 	return nil
 }
 
+func ParseBlobRef(s string) (*BlobRef, error) {
+	ref, err := ParseRef(s)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse ref")
+	}
+	newRef, ok := ref.(*BlobRef)
+	if !ok {
+		return nil, errors.Errorf("blobRef: not a blob! %T", ref)
+	}
+	return newRef, nil
+}
+
 func (br *BlobRef) MarshalText() ([]byte, error) {
 	return []byte(br.Ref()), nil
 }
