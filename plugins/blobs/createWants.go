@@ -28,7 +28,7 @@ type createWantsHandler struct {
 
 // getSource looks if we have a source for that remote and, if not, make a
 // source call to get one.
-func (h createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
+func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
 	ref, err := sbot.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting remote feed ref from addr %#v", edp.Remote())
