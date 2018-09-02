@@ -31,10 +31,19 @@ var _ Interface = (*repo)(nil)
 var check = logging.CheckFatal
 
 // New creates a new repository value, it opens the keypair and database from basePath if it is already existing
-func New(basePath string) (Interface, error) {
+func New(basePath string, opts ...Option) (Interface, error) {
 	r := &repo{basePath: basePath}
 
-	r.ctx = context.TODO() // TODO: pass in from main() to bind to signal handling shutdown
+	for i, o := range opts {
+		err := o(r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "repo: failed to apply option %d", i)
+		}
+	}
+
+	if r.ctx == nil {
+		r.ctx = context.Background()
+	}
 	r.ctx, r.shutdown = context.WithCancel(r.ctx)
 
 	var err error
@@ -43,9 +52,11 @@ func New(basePath string) (Interface, error) {
 		return nil, errors.Wrap(err, "error creating blob store")
 	}
 
-	r.keyPair, err = r.getKeyPair()
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading KeyPair")
+	if r.keyPair == nil {
+		r.keyPair, err = r.getKeyPair()
+		if err != nil {
+			return nil, errors.Wrap(err, "error reading KeyPair")
+		}
 	}
 
 	r.rootLog, err = r.getRootLog()
@@ -246,7 +257,7 @@ func (r *repo) getUserFeeds() error {
 
 		err = luigi.Pump(r.ctx, contactsSink, src)
 		if err != context.Canceled {
-			check(errors.Wrap(err, "userFeeds index pump failed"))
+			check(errors.Wrap(err, "contacts index pump failed"))
 		}
 	}()
 	return nil
