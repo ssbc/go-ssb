@@ -1,9 +1,7 @@
 package gossip
 
 import (
-	"context"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"sync"
@@ -12,112 +10,14 @@ import (
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/sbot/plugins/test"
 	"go.cryptoscope.co/secretstream"
 )
-
-func loadTestDataPeer(t testing.TB, repopath string) repo.Interface {
-	r := require.New(t)
-	repo, err := repo.New(repopath)
-	r.NoError(err, "failed to load testData repo")
-	r.NotNil(repo.KeyPair())
-	return repo
-}
-
-func makeEmptyPeer(t testing.TB) (repo.Interface, string) {
-	r := require.New(t)
-	dstPath, err := ioutil.TempDir("", t.Name())
-	r.NoError(err)
-	dstRepo, err := repo.New(dstPath)
-	r.NoError(err, "failed to create emptyRepo")
-	r.NotNil(dstRepo.KeyPair())
-	return dstRepo, dstPath
-}
-
-func connectAndServe(t testing.TB, alice, bob repo.Interface) <-chan struct{} {
-	start := time.Now()
-	r := require.New(t)
-	keyAlice := alice.KeyPair()
-	keyBob := bob.KeyPair()
-
-	p1, p2 := net.Pipe()
-	infoAlice, _ := logtest.KitLogger("alice", t)
-	infoBob, _ := logtest.KitLogger("bob", t)
-	tc1 := testConn{
-		Reader: p1, WriteCloser: p1, conn: p1,
-		local:  keyAlice.Pair.Public[:],
-		remote: keyBob.Pair.Public[:],
-	}
-	tc2 := testConn{
-		Reader: p2, WriteCloser: p2, conn: p2,
-		local:  keyBob.Pair.Public[:],
-		remote: keyAlice.Pair.Public[:],
-	}
-	var rwc1, rwc2 io.ReadWriteCloser = tc1, tc2
-	/* logs every muxrpc packet
-	if testing.Verbose() {
-		rwc1 = codec.Wrap(infoAlice, rwc1)
-		rwc2 = codec.Wrap(infoBob, rwc2)
-	}
-	*/
-	pkr1, pkr2 := muxrpc.NewPacker(rwc1), muxrpc.NewPacker(rwc2)
-
-	// create handlers
-	h1 := handler{Repo: alice, Info: infoAlice}
-	h2 := handler{Repo: bob, Info: infoBob}
-
-	// serve
-	rpc1 := muxrpc.HandleWithRemote(pkr1, &h1, tc1.RemoteAddr())
-	rpc2 := muxrpc.HandleWithRemote(pkr2, &h2, tc2.RemoteAddr())
-
-	var hdone sync.WaitGroup
-	hdone.Add(2)
-	h1.hanlderDone = func() {
-		t.Log("h1 done", time.Since(start))
-		hdone.Done()
-	}
-	h2.hanlderDone = func() {
-		t.Log("h2 done", time.Since(start))
-		hdone.Done()
-	}
-
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		err := rpc1.(muxrpc.Server).Serve(ctx)
-		r.NoError(err, "rpc1 serve err")
-		wg.Done()
-	}()
-
-	go func() {
-		err := rpc2.(muxrpc.Server).Serve(ctx)
-		r.NoError(err, "rpc2 serve err")
-		wg.Done()
-	}()
-
-	final := make(chan struct{})
-	go func() {
-		hdone.Wait()
-		// TODO: would be nice to use cancel to make the serves exit buut cancel doesn't block
-		// need: index:ready waiter
-		time.Sleep(1 * time.Second)
-		cancel()
-		rpc1.Terminate()
-		rpc2.Terminate()
-		wg.Wait()
-		close(final)
-	}()
-
-	return final
-}
 
 func TestReplicate(t *testing.T) {
 	r := assert.New(t)
@@ -132,8 +32,12 @@ func TestReplicate(t *testing.T) {
 		{"testdata/longTestRepo", 225, "@83JEFNo7j/kO0qrIrsCQ+h3xf7c+5Qrc0lGWJTSXrW8=.ed25519"},
 	} {
 		t.Log("test run", i, tc.path)
-		srcRepo := loadTestDataPeer(t, tc.path)
-		dstRepo, dstPath := makeEmptyPeer(t)
+
+		infoAlice, _ := logtest.KitLogger("alice", t)
+		infoBob, _ := logtest.KitLogger("bob", t)
+
+		srcRepo := test.LoadTestDataPeer(t, tc.path)
+		dstRepo, dstPath := test.MakeEmptyPeer(t)
 
 		srcMlog := srcRepo.UserFeeds()
 		dstMlog := dstRepo.UserFeeds()
@@ -155,8 +59,36 @@ func TestReplicate(t *testing.T) {
 		r.NoError(err, "failed to aquire current sequence of test sublog")
 		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
 
+		start := time.Now()
 		// do the dance
-		done := connectAndServe(t, srcRepo, dstRepo)
+		pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
+
+		// create handlers
+		h1 := &handler{Repo: srcRepo, Info: infoAlice}
+		h2 := &handler{Repo: dstRepo, Info: infoBob}
+
+		rpc1 := muxrpc.Handle(pkr1, h1)
+		rpc2 := muxrpc.Handle(pkr2, h2)
+
+		var hdone sync.WaitGroup
+		hdone.Add(2)
+		h1.hanlderDone = func() {
+			t.Log("h1 done", time.Since(start))
+			hdone.Done()
+		}
+		h2.hanlderDone = func() {
+			t.Log("h2 done", time.Since(start))
+			hdone.Done()
+		}
+		var finish func()
+		done := make(chan struct{})
+		go func() {
+			hdone.Wait()
+			finish()
+			close(done)
+		}()
+
+		finish = serve(rpc1, rpc2)
 		<-done
 		t.Log("after gossip")
 
@@ -173,15 +105,15 @@ func TestReplicate(t *testing.T) {
 
 		// do the dance - again.
 		// should not get more messages
-		done = connectAndServe(t, srcRepo, dstRepo)
-		<-done
-		t.Log("after gossip#2")
+		// done = connectAndServe(t, srcRepo, dstRepo)
+		// <-done
+		// t.Log("after gossip#2")
 
-		dstTestLog, err = dstMlog.Get(srcMlogAddr)
-		r.NoError(err, "failed to get sublog")
-		seqVal, err = dstTestLog.Seq().Value()
-		r.NoError(err, "failed to aquire current sequence of test sublog")
-		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+		// dstTestLog, err = dstMlog.Get(srcMlogAddr)
+		// r.NoError(err, "failed to get sublog")
+		// seqVal, err = dstTestLog.Seq().Value()
+		// r.NoError(err, "failed to aquire current sequence of test sublog")
+		r.Equal(tc.has-1, seqVal, "wrong sequence value on testlog")
 
 		r.NoError(srcRepo.Close(), "failed to close src repo")
 		r.NoError(dstRepo.Close(), "failed to close dst repo")
@@ -192,15 +124,22 @@ func TestReplicate(t *testing.T) {
 }
 
 func BenchmarkReplicate(b *testing.B) {
-	srcRepo := loadTestDataPeer(b, "testdata/longTestRepo")
+	srcRepo := test.LoadTestDataPeer(b, "testdata/longTestRepo")
+	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
+
 	for n := 0; n < b.N; n++ {
 
-		dstRepo, _ := makeEmptyPeer(b)
+		dstRepo, _ := test.MakeEmptyPeer(b)
 
-		// do the dance
-		done := connectAndServe(b, srcRepo, dstRepo)
-		<-done
+		pkr1, pkr2, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
+		// create handlers
+		h1 := &handler{Repo: srcRepo, Info: bench}
+		h2 := &handler{Repo: dstRepo, Info: bench}
+
+		rpc1 := muxrpc.Handle(pkr1, h1)
+		rpc2 := muxrpc.Handle(pkr2, h2)
+		serve(rpc1, rpc2)
 		// dstRepo.Close()
 		// os.RemoveAll(dstPath)
 	}
