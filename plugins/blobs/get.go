@@ -30,20 +30,21 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
-	ref, err := sbot.ParseRef(req.Args[0].(string))
+	var refStr string
+	switch arg := req.Args[0].(type) {
+	case string:
+		refStr = arg
+	case map[string]interface{}:
+		refStr, _ = arg["key"].(string)
+	}
+
+	ref, err := sbot.ParseBlobRef(refStr)
 	checkAndLog(errors.Wrap(err, "error parsing blob reference"))
 	if err != nil {
 		return
 	}
 
-	br, ok := ref.(*sbot.BlobRef)
-	if !ok {
-		err = errors.Errorf("expected blob reference, got %T", ref)
-		checkAndLog(err)
-		return
-	}
-
-	r, err := h.bs.Get(br)
+	r, err := h.bs.Get(ref)
 	if err != nil {
 		err = req.Stream.CloseWithError(errors.New("do not have blob"))
 		checkAndLog(errors.Wrap(err, "error closing stream with error"))
