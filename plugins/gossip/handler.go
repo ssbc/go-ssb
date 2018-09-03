@@ -63,7 +63,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	remoteRef := sbot.FeedRef{
+	remoteRef := &sbot.FeedRef{
 		Algo: "ed25519",
 		ID:   remoteAddr.PubKey,
 	}
@@ -88,7 +88,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 	for i, addr := range ufaddrs {
-		userRef := sbot.FeedRef{
+		userRef := &sbot.FeedRef{
 			Algo: "ed25519",
 			ID:   []byte(addr),
 		}
@@ -98,7 +98,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	follows, err := g.Repo.IsFollowing(&mykp.Id)
+	follows, err := g.Repo.IsFollowing(mykp.Id)
 	if err != nil {
 		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return
@@ -106,7 +106,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	for i, addr := range follows {
 		if !isIn(ufaddrs, addr) {
 			// g.Info.Log("fetchFeed", "adding from follows list", "ref", addr.Ref(), "i", i)
-			err = g.fetchFeed(ctx, *addr, e)
+			err = g.fetchFeed(ctx, addr, e)
 			if err != nil {
 				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "i", i)
 			}

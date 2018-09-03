@@ -12,7 +12,7 @@ import (
 )
 
 type KeyPair struct {
-	Id   FeedRef
+	Id   *FeedRef
 	Pair secrethandshake.EdKeyPair
 }
 
@@ -24,10 +24,10 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 	defer f.Close()
 
 	var sbotKey struct {
-		Curve   string  `json:"curve"`
-		ID      FeedRef `json:"id"`
-		Private string  `json:"private"`
-		Public  string  `json:"public"`
+		Curve   string   `json:"curve"`
+		ID      *FeedRef `json:"id"`
+		Private string   `json:"private"`
+		Public  string   `json:"public"`
 	}
 
 	if err := json.NewDecoder(nocomment.NewReader(f)).Decode(&sbotKey); err != nil {

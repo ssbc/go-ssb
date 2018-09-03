@@ -153,12 +153,12 @@ func main() {
 				}
 				timeDijkstra := time.Now()
 
-				if fg.IsFollowing(&localKey.Id, remote) {
+				if fg.IsFollowing(localKey.Id, remote) {
 					// quick skip direct follow
 					return pmgr.MakeHandler(conn), nil
 				}
 
-				distLookup, err := fg.MakeDijkstra(&localKey.Id)
+				distLookup, err := fg.MakeDijkstra(localKey.Id)
 				if err != nil {
 					return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
 				}

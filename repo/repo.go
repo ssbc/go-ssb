@@ -120,7 +120,7 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 			return nil, errors.Wrap(err, "error building key pair")
 		}
 		r.keyPair = &sbot.KeyPair{
-			Id:   sbot.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
+			Id:   &sbot.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
 			Pair: *kp,
 		}
 		// TODO:
