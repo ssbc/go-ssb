@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 
@@ -195,12 +196,12 @@ func main() {
 	checkFatal(err)
 
 	bs := r.BlobStore()
-	wm := blobstore.NewWantManager(log, bs)
+	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 
 	pmgr.Register(whoami.New(r))                         // whoami
-	pmgr.Register(blobs.New(log, bs, wm))                     // blobs
-	pmgr.Register(gossip.New(r, node, flagPromisc, log)) // gossip.*
-	pmgr.Register(gossip.NewHist(r, node, log))          // createHistoryStream
+	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))       // blobs
+	pmgr.Register(gossip.New(r, node, flagPromisc, log))                        // gossip.*
+	pmgr.Register(gossip.NewHist(r, node, log))                                 // createHistoryStream
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
