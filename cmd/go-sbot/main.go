@@ -198,7 +198,7 @@ func main() {
 	bs := r.BlobStore()
 	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 
-	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "blobs"), localKey.Id)) // whoami
+	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), localKey.Id))          // whoami
 	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))       // blobs
 	pmgr.Register(gossip.New(r, node, flagPromisc, log))                        // gossip.*
 	pmgr.Register(gossip.NewHist(r, node, log))                                 // createHistoryStream
