@@ -9,7 +9,7 @@ import (
 	"go.cryptoscope.co/sbot/repo"
 )
 
-func New(repo repo.Interface, node sbot.Node, promisc bool, log logging.Interface) sbot.Plugin {
+func New(log logging.Interface, repo repo.Interface, node sbot.Node, promisc bool) sbot.Plugin {
 	return plugin{
 		&handler{
 			Node:        node,
@@ -21,7 +21,7 @@ func New(repo repo.Interface, node sbot.Node, promisc bool, log logging.Interfac
 	}
 }
 
-func NewHist(repo repo.Interface, node sbot.Node, log logging.Interface) sbot.Plugin {
+func NewHist(log logging.Interface, repo repo.Interface, node sbot.Node) sbot.Plugin {
 	return histPlugin{
 		&handler{
 			Node:        node,

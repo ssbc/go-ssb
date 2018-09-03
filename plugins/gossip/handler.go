@@ -38,7 +38,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.hanlderDone()
 	}()
 	remote := e.(muxrpc.Server).Remote()
-	g.Info.Log("event", "onConnect", "handler", "gossip", "addr", remote)
+	g.Info.Log("event", "onConnect", "addr", remote)
 
 	userFeeds := g.Repo.UserFeeds()
 	mykp := g.Repo.KeyPair()
@@ -131,7 +131,7 @@ func (g *handler) check(err error) {
 }
 
 func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// g.Info.Log("event", "onCall", "handler", "gossip", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	// g.Info.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	if req.Type == "" {
 		req.Type = "async"
 	}
