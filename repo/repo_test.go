@@ -9,9 +9,13 @@ import (
 	"testing/quick"
 	"time"
 
+	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
 )
@@ -53,15 +57,16 @@ func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
 
 func TestNew(t *testing.T) {
 	r := require.New(t)
+	l, _ := logtest.KitLogger(t.Name(), t)
 
 	rpath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 
-	repo, err := New(rpath)
+	repo, err := New(log.With(l, "module", "repo"), rpath)
 	r.NoError(err, "failed to create repo")
 
-	l := repo.RootLog()
-	seq, err := l.Seq().Value()
+	rl := repo.RootLog()
+	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq)
 
@@ -74,15 +79,16 @@ func TestNew(t *testing.T) {
 
 func TestMakeSomeMessages(t *testing.T) {
 	r := require.New(t)
+	l, _ := logtest.KitLogger(t.Name(), t)
 
 	rpath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 
-	repo, err := New(rpath)
+	repo, err := New(log.With(l, "module", "repo"), rpath)
 	r.NoError(err, "failed to create repo")
 
-	l := repo.RootLog()
-	seq, err := l.Seq().Value()
+	rl := repo.RootLog()
+	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
 
@@ -101,7 +107,7 @@ func TestMakeSomeMessages(t *testing.T) {
 		}
 		tmsg := v.Interface().(*testMessage)
 
-		_, err := l.Append(message.StoredMessage(*tmsg))
+		_, err := rl.Append(message.StoredMessage(*tmsg))
 		r.NoError(err, "failed to append testmsg %d", i)
 	}
 

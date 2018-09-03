@@ -10,17 +10,22 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
+	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot/repo"
 	"go.cryptoscope.co/secretstream"
+
+	"go.cryptoscope.co/sbot/repo"
 )
 
 func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 	r := require.New(t)
-	repo, err := repo.New(repopath)
+	l, _ := logtest.KitLogger(t.Name(), t)
+	repo, err := repo.New(log.With(l, "module", "repo"), repopath)
 	r.NoError(err, "failed to load testData repo")
 	r.NotNil(repo.KeyPair())
 	return repo
@@ -30,7 +35,8 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	r := require.New(t)
 	dstPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
-	dstRepo, err := repo.New(dstPath)
+	l, _ := logtest.KitLogger(t.Name(), t)
+	dstRepo, err := repo.New(log.With(l, "module", "repo"), dstPath)
 	r.NoError(err, "failed to create emptyRepo")
 	r.NotNil(dstRepo.KeyPair())
 	return dstRepo, dstPath

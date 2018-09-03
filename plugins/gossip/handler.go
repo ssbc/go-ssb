@@ -98,7 +98,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	follows, err := g.Repo.IsFollowing(mykp.Id)
+	follows, err := g.Repo.Builder().Follows(mykp.Id)
 	if err != nil {
 		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return

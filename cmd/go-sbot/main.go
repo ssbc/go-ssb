@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -15,11 +14,12 @@ import (
 
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
+
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/sbot/plugins/blobs"
 	"go.cryptoscope.co/sbot/plugins/gossip"
 	"go.cryptoscope.co/sbot/plugins/whoami"
@@ -90,7 +90,7 @@ func main() {
 		err  error
 	)
 
-	r, err = repo.New(repoDir)
+	r, err = repo.New(kitlog.With(log, "module", "repo"), repoDir)
 	checkFatal(err)
 
 	c := make(chan os.Signal)
@@ -120,11 +120,10 @@ func main() {
 			Algo: "ed25519",
 			ID:   []byte(author),
 		}
-		f, err := r.IsFollowing(&authorRef)
+		f, err := r.Builder().Follows(&authorRef)
 		checkFatal(err)
 
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
-
 	}
 
 	localKey = r.KeyPair()
@@ -134,62 +133,18 @@ func main() {
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 	checkFatal(err)
 
+	// TODO get rid of this. either add error to pluginmgr.MakeHandler or take it away from the Options.
+	errAdapter := func(mk func(net.Conn) muxrpc.Handler) func(net.Conn) (muxrpc.Handler, error) {
+		return func(conn net.Conn) (muxrpc.Handler, error) {
+			return mk(conn), nil
+		}
+	}
+
 	opts := sbot.Options{
-		ListenAddr: laddr,
-		KeyPair:    localKey,
-		AppKey:     appKey,
-		MakeHandler: func(conn net.Conn) (muxrpc.Handler, error) {
-			if len(feeds) != 0 { // trust on first use
-				remote, err := sbot.GetFeedRefFromAddr(conn.RemoteAddr())
-				if err != nil {
-					return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
-				}
-
-				// TODO: cache me in tandem with indexing
-				timeGraph := time.Now()
-
-				fg, err := r.Makegraph()
-				if err != nil {
-					return nil, errors.Wrap(err, "MakeHandler: failed to make friendgraph")
-				}
-				timeDijkstra := time.Now()
-
-				if fg.IsFollowing(localKey.Id, remote) {
-					// quick skip direct follow
-					return pmgr.MakeHandler(conn), nil
-				}
-
-				distLookup, err := fg.MakeDijkstra(localKey.Id)
-				if err != nil {
-					return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
-				}
-				timeLookup := time.Now()
-
-				fpath, d := distLookup.Dist(remote)
-				timeDone := time.Now()
-
-				log.Log("event", "disjkstra",
-					"nodes", fg.Nodes(),
-
-					"total", timeDone.Sub(timeGraph),
-					"lookup", timeDone.Sub(timeLookup),
-					"mkGraph", timeDijkstra.Sub(timeGraph),
-					"mkSearch", timeLookup.Sub(timeDijkstra),
-
-					"dist", d,
-					"hops", len(fpath),
-					"path", fmt.Sprint(fpath),
-
-					"remote", remote,
-				)
-
-				if d < 0 && len(fpath) < 3 {
-					return nil, errors.Errorf("sbot: peer not in reach. d:%f", d)
-				}
-			}
-
-			return pmgr.MakeHandler(conn), nil
-		},
+		ListenAddr:  laddr,
+		KeyPair:     localKey,
+		AppKey:      appKey,
+		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), r.Builder(), localKey.Id, 2, errAdapter(pmgr.MakeHandler)),
 	}
 
 	node, err = sbot.NewNode(opts)

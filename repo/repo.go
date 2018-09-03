@@ -2,16 +2,17 @@ package repo
 
 import (
 	"context"
-	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"path"
 
 	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
+	kitlog "github.com/go-kit/kit/log"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+
 	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
@@ -23,6 +24,7 @@ import (
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/sbot/message"
 )
 
@@ -31,8 +33,8 @@ var _ Interface = (*repo)(nil)
 var check = logging.CheckFatal
 
 // New creates a new repository value, it opens the keypair and database from basePath if it is already existing
-func New(basePath string, opts ...Option) (Interface, error) {
-	r := &repo{basePath: basePath}
+func New(log logging.Interface, basePath string, opts ...Option) (Interface, error) {
+	r := &repo{basePath: basePath, log: log}
 
 	for i, o := range opts {
 		err := o(r)
@@ -68,11 +70,27 @@ func New(basePath string, opts ...Option) (Interface, error) {
 		return nil, errors.Wrap(err, "error opening gossip index")
 	}
 
+	r.graphBuilder, err = graph.NewBuilder(kitlog.With(log, "module", "graph"), r.getPath("contacts.badger"))
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening contact graph builder")
+	}
+
+	go func() {
+		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), r.graphBuilder.QuerySpec())
+		check(err)
+
+		err = luigi.Pump(r.ctx, r.graphBuilder, src)
+		if err != context.Canceled {
+			check(errors.Wrap(err, "contacts index pump failed"))
+		}
+	}()
+
 	return r, nil
 }
 
 type repo struct {
 	ctx      context.Context
+	log      logging.Interface
 	shutdown func()
 	basePath string
 
@@ -83,8 +101,7 @@ type repo struct {
 	userKV    *badger.DB
 	userFeeds multilog.MultiLog
 
-	contactsKV  *badger.DB
-	contactsIdx librarian.SeqSetterIndex
+	graphBuilder graph.Builder
 }
 
 func (r repo) Close() error {
@@ -92,10 +109,18 @@ func (r repo) Close() error {
 	// FIXME: does shutdown block..?
 	// would be good to get back some kind of _all done without a problem_
 	// time.Sleep(1 * time.Second)
-	if err := r.contactsKV.Close(); err != nil {
-		return errors.Wrap(r.userKV.Close(), "repo: failed to close contactsKV")
+
+	var err error
+
+	if e := r.graphBuilder.Close(); err != nil {
+		err = multierror.Append(err, errors.Wrap(e, "repo: failed to close graph builder"))
 	}
-	return errors.Wrap(r.userKV.Close(), "repo: failed to close userKV")
+
+	if e := r.userKV.Close(); err != nil {
+		err = multierror.Append(err, errors.Wrap(e, "repo: failed to close userKV"))
+	}
+
+	return err
 }
 
 func (r *repo) getPath(rel string) string {
@@ -131,7 +156,7 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 		// if err:=sbot.SaveKeyPair(keyFile);err != nil {
 		// 	return nil, errors.Wrap(err, "error saving secret file")
 		// }
-		log.Println("warning: save new keypair!")
+		fmt.Println("warning: save new keypair!")
 	}
 
 	return r.keyPair, nil
@@ -207,89 +232,7 @@ func (r *repo) getUserFeeds() error {
 		}
 	}()
 
-	contactsOpts := badger.DefaultOptions
-	contactsOpts.Dir = r.getPath("contacts.badger")
-	contactsOpts.ValueDir = contactsOpts.Dir // we have small values in this one r.getPath("gossipBadger.values")
-	r.contactsKV, err = badger.Open(contactsOpts)
-	if err != nil {
-		return errors.Wrap(err, "db/idx: badger failed to open")
-	}
-
-	r.contactsIdx = libbadger.NewIndex(r.contactsKV, 0)
-	contactsUpdate := func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
-		msg := val.(message.StoredMessage)
-		var dmsg message.DeserializedMessage
-		err := json.Unmarshal(msg.Raw, &dmsg)
-		if err != nil {
-			return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
-		}
-
-		var c sbot.Contact
-		err = json.Unmarshal(dmsg.Content, &c)
-		if err != nil {
-			if sbot.IsMessageUnusable(err) {
-				return nil
-			}
-			log.Println("repo contact skip msg warning:", err)
-			return nil
-		}
-
-		addr := append(dmsg.Author.ID, ':')
-		addr = append(addr, c.Contact.ID...)
-		switch {
-		case c.Following:
-			err = idx.Set(ctx, librarian.Addr(addr), 1)
-		case c.Blocking:
-			err = idx.Set(ctx, librarian.Addr(addr), 0)
-		default:
-			err = idx.Delete(ctx, librarian.Addr(addr))
-		}
-		if err != nil {
-			return errors.Wrapf(err, "db/idx contacts: failed to update index. %+v", c)
-		}
-
-		return err
-	}
-	contactsSink := librarian.NewSinkIndex(contactsUpdate, r.contactsIdx)
-	go func() {
-		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), contactsSink.QuerySpec())
-		check(err)
-
-		err = luigi.Pump(r.ctx, contactsSink, src)
-		if err != context.Canceled {
-			check(errors.Wrap(err, "contacts index pump failed"))
-		}
-	}()
 	return nil
-}
-
-func (r *repo) IsFollowing(fr *sbot.FeedRef) ([]*sbot.FeedRef, error) {
-	var friends []*sbot.FeedRef
-	err := r.contactsKV.View(func(txn *badger.Txn) error {
-		iter := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer iter.Close()
-
-		prefix := append(fr.ID, ':')
-
-		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
-			it := iter.Item()
-			k := it.Key()
-			c := sbot.FeedRef{
-				Algo: "ed25519",
-				ID:   k[33:],
-			}
-			v, err := it.Value()
-			if err != nil {
-				return errors.Wrap(err, "friends: counldnt get idx value")
-			}
-			if len(v) >= 1 && v[0] == '1' {
-				friends = append(friends, &c)
-			}
-		}
-		return nil
-	})
-
-	return friends, err
 }
 
 func (r *repo) UserFeeds() multilog.MultiLog {
@@ -306,6 +249,10 @@ func (r *repo) KeyPair() sbot.KeyPair {
 
 func (r *repo) Plugins() []sbot.Plugin {
 	return nil
+}
+
+func (r *repo) Builder() graph.Builder {
+	return r.graphBuilder
 }
 
 func (r *repo) getBlobStore() (sbot.BlobStore, error) {
