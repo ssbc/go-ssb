@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot/repo"
 
 	"go.cryptoscope.co/sbot"
 )
@@ -16,10 +15,9 @@ import (
 var (
 	_      sbot.Plugin = plugin{} // compile-time type check
 	method             = muxrpc.Method{"whoami"}
-	log    logging.Interface
 )
 
-func checkAndLog(err error) {
+func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
 			panic(err)
@@ -27,8 +25,11 @@ func checkAndLog(err error) {
 	}
 }
 
-func New(n repo.Interface) sbot.Plugin {
-	return plugin{handler{I: n.KeyPair().Id}}
+func New(log logging.Interface, id *sbot.FeedRef) sbot.Plugin {
+	return plugin{handler{
+		log: log,
+		id:  id,
+	}}
 }
 
 type plugin struct {
@@ -50,16 +51,14 @@ func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
 }
 
 type handler struct {
-	I sbot.FeedRef
+	log logging.Interface
+	id  *sbot.FeedRef
 }
 
-func (handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	//srv := edp.(muxrpc.Server)
-	//log.Log("event", "onConnect", "handler", "whoami", "addr", srv.Remote())
-}
+func (handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	log.Log("event", "onCall", "handler", "connect", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	h.log.Log("event", "onCall", "handler", "connect", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"
@@ -67,8 +66,8 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	type ret struct {
 		ID string `json:"id"`
 	}
-	err := req.Return(ctx, ret{h.I.Ref()})
-	checkAndLog(err)
+	err := req.Return(ctx, ret{h.id.Ref()})
+	checkAndLog(h.log, err)
 }
 
 type endpoint struct {
