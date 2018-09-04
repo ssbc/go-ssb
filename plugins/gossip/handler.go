@@ -13,18 +13,22 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/secretstream"
 )
 
 type handler struct {
-	Node sbot.Node
-	Repo repo.Interface
-	Info logging.Interface
+	Node         sbot.Node
+	Id           *sbot.FeedRef
+	RootLog      margaret.Log
+	UserFeeds    multilog.MultiLog
+	GraphBuilder graph.Builder
+	Info         logging.Interface
 
 	Promisc bool
 
@@ -40,19 +44,16 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	remote := e.(muxrpc.Server).Remote()
 	g.Info.Log("event", "onConnect", "addr", remote)
 
-	userFeeds := g.Repo.UserFeeds()
-	mykp := g.Repo.KeyPair()
-
-	hasOwn, err := multilog.Has(userFeeds, librarian.Addr(mykp.Id.ID))
+	hasOwn, err := multilog.Has(g.UserFeeds, librarian.Addr(g.Id.ID))
 	if err != nil {
-		g.Info.Log("handleConnect", "multilog.Has(userFeeds,myID)", "err", err)
+		g.Info.Log("handleConnect", "multilog.Has(g.UserFeeds,myID)", "err", err)
 		return
 	}
 
 	if !hasOwn {
 		g.Info.Log("handleConnect", "oops - dont have my own feed. requesting")
-		if err := g.fetchFeed(ctx, mykp.Id, e); err != nil {
-			g.Info.Log("handleConnect", "my fetchFeed failed", "r", mykp.Id.Ref(), "err", err)
+		if err := g.fetchFeed(ctx, g.Id, e); err != nil {
+			g.Info.Log("handleConnect", "my fetchFeed failed", "r", g.Id.Ref(), "err", err)
 			return
 		}
 		g.Info.Log("fetchFeed", "done self")
@@ -67,7 +68,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		Algo: "ed25519",
 		ID:   remoteAddr.PubKey,
 	}
-	hasCallee, err := multilog.Has(userFeeds, librarian.Addr(remoteRef.ID))
+	hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
 	if err != nil {
 		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
 		return
@@ -82,9 +83,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("fetchFeed", "done callee", "ref", remoteRef.Ref())
 	}
 
-	ufaddrs, err := userFeeds.List()
+	ufaddrs, err := g.UserFeeds.List()
 	if err != nil {
-		g.Info.Log("handleConnect", "userFeeds listing failed", "err", err)
+		g.Info.Log("handleConnect", "UserFeeds listing failed", "err", err)
 		return
 	}
 	for i, addr := range ufaddrs {
@@ -98,7 +99,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	follows, err := g.Repo.Builder().Follows(mykp.Id)
+	follows, err := g.GraphBuilder.Follows(g.Id)
 	if err != nil {
 		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return

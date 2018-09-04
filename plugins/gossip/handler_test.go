@@ -40,10 +40,16 @@ func TestReplicate(t *testing.T) {
 		dstRepo, dstPath := test.MakeEmptyPeer(t)
 
 		srcMlog := srcRepo.UserFeeds()
+		srcID := srcRepo.KeyPair().Id
+		srcRootLog := srcRepo.RootLog()
+		srcGraphBuilder := srcRepo.Builder()
+
 		dstMlog := dstRepo.UserFeeds()
+		dstID := dstRepo.KeyPair().Id
+		dstRootLog := dstRepo.RootLog()
+		dstGraphBuilder := dstRepo.Builder()
 
 		// check full & empty
-		srcID := srcRepo.KeyPair().Id
 		r.Equal(tc.pki, srcID.Ref())
 		srcMlogAddr := librarian.Addr(srcID.ID)
 		has, err := multilog.Has(srcMlog, srcMlogAddr)
@@ -64,8 +70,20 @@ func TestReplicate(t *testing.T) {
 		pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
 		// create handlers
-		h1 := &handler{Repo: srcRepo, Info: infoAlice}
-		h2 := &handler{Repo: dstRepo, Info: infoBob}
+		h1 := &handler{
+			Id:           srcID,
+			RootLog:      srcRootLog,
+			UserFeeds:    srcMlog,
+			GraphBuilder: srcGraphBuilder,
+			Info:         infoAlice,
+		}
+		h2 := &handler{
+			Id:           dstID,
+			RootLog:      dstRootLog,
+			UserFeeds:    dstMlog,
+			GraphBuilder: dstGraphBuilder,
+			Info:         infoBob,
+		}
 
 		rpc1 := muxrpc.Handle(pkr1, h1)
 		rpc2 := muxrpc.Handle(pkr2, h2)
@@ -128,14 +146,35 @@ func BenchmarkReplicate(b *testing.B) {
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
+	srcMlog := srcRepo.UserFeeds()
+	srcID := srcRepo.KeyPair().Id
+	srcRootLog := srcRepo.RootLog()
+	srcGraphBuilder := srcRepo.Builder()
+
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
+		dstMlog := dstRepo.UserFeeds()
+		dstID := dstRepo.KeyPair().Id
+		dstRootLog := dstRepo.RootLog()
+		dstGraphBuilder := dstRepo.Builder()
 
 		pkr1, pkr2, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
 		// create handlers
-		h1 := &handler{Repo: srcRepo, Info: bench}
-		h2 := &handler{Repo: dstRepo, Info: bench}
+		h1 := &handler{
+			Id:           srcID,
+			RootLog:      srcRootLog,
+			UserFeeds:    srcMlog,
+			GraphBuilder: srcGraphBuilder,
+			Info:         bench,
+		}
+		h2 := &handler{
+			Id:           dstID,
+			RootLog:      dstRootLog,
+			UserFeeds:    dstMlog,
+			GraphBuilder: dstGraphBuilder,
+			Info:         bench,
+		}
 
 		rpc1 := muxrpc.Handle(pkr1, h1)
 		rpc2 := muxrpc.Handle(pkr2, h2)

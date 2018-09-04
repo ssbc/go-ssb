@@ -4,31 +4,38 @@ import (
 	"context"
 
 	"github.com/cryptix/go/logging"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/sbot/graph"
 )
 
-func New(log logging.Interface, repo repo.Interface, node sbot.Node, promisc bool) sbot.Plugin {
+func New(log logging.Interface, id *sbot.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node sbot.Node, promisc bool) sbot.Plugin {
 	return plugin{
 		&handler{
-			Node:        node,
-			Repo:        repo,
-			Promisc:     promisc,
-			Info:        log,
-			hanlderDone: func() {},
+			Node:         node,
+			Id:           id,
+			RootLog:      rootLog,
+			UserFeeds:    userFeeds,
+			GraphBuilder: graphBuilder,
+			Info:         log,
+			Promisc:      promisc,
+			hanlderDone:  func() {},
 		},
 	}
 }
 
-func NewHist(log logging.Interface, repo repo.Interface, node sbot.Node) sbot.Plugin {
+func NewHist(log logging.Interface, id *sbot.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node sbot.Node) sbot.Plugin {
 	return histPlugin{
 		&handler{
-			Node:        node,
-			Repo:        repo,
-			Promisc:     false,
-			Info:        log,
-			hanlderDone: func() {},
+			Node:         node,
+			Id:           id,
+			RootLog:      rootLog,
+			UserFeeds:    userFeeds,
+			GraphBuilder: graphBuilder,
+			Info:         log,
+			hanlderDone:  func() {},
 		},
 	}
 }

@@ -33,7 +33,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	}
 
 	// check what we got
-	userLog, err := h.Repo.UserFeeds().Get(librarian.Addr(feedRef.ID))
+	userLog, err := h.UserFeeds.Get(librarian.Addr(feedRef.ID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -64,9 +64,8 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		}
 
 		sent := 0
-		rootLog := h.Repo.RootLog()
 		wrapSink := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-			v, err := rootLog.Get(val.(margaret.Seq))
+			v, err := h.RootLog.Get(val.(margaret.Seq))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load message %v", val)
 			}

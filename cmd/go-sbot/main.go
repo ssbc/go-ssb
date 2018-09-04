@@ -150,13 +150,27 @@ func main() {
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	bs := r.BlobStore()
-	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+	var (
+		id           = r.KeyPair().Id
+		rootLog      = r.RootLog()
+		userFeeds    = r.UserFeeds()
+		graphBuilder = r.Builder()
+		bs           = r.BlobStore()
+		wm           = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+	)
 
-	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), localKey.Id))          // whoami
-	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))                 // blobs
-	pmgr.Register(gossip.New(kitlog.With(log, "plugin", "gossip"), r, node, flagPromisc)) // gossip.*
-	pmgr.Register(gossip.NewHist(kitlog.With(log, "plugin", "gossip/hist"), r, node))     // createHistoryStream
+	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), localKey.Id)) // whoami
+	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))        // blobs
+
+	// gossip.*
+	pmgr.Register(gossip.New(
+		kitlog.With(log, "plugin", "gossip"),
+		id, rootLog, userFeeds, graphBuilder, node, flagPromisc))
+
+	// createHistoryStream
+	pmgr.Register(gossip.NewHist(
+		kitlog.With(log, "plugin", "gossip/hist"),
+		id, rootLog, userFeeds, graphBuilder, node))
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {

@@ -27,7 +27,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *sbot.FeedRef, edp muxrpc.En
 	defer func() {
 		g.activeFetch.Delete(addr)
 	}()
-	userLog, err := g.Repo.UserFeeds().Get(addr)
+	userLog, err := g.UserFeeds.Get(addr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -48,7 +48,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *sbot.FeedRef, edp muxrpc.En
 			if err != nil {
 				return errors.Wrapf(err, "failed to look up root seq for latest user sublog")
 			}
-			msgV, err := g.Repo.RootLog().Get(rootLogValue.(margaret.Seq))
+			msgV, err := g.RootLog.Get(rootLogValue.(margaret.Seq))
 			if err != nil {
 				return errors.Wrapf(err, "failed retreive stored message")
 			}
@@ -64,9 +64,8 @@ func (g *handler) fetchFeed(ctx context.Context, fr *sbot.FeedRef, edp muxrpc.En
 		}
 	}
 
-	// me := g.Repo.KeyPair()
 	startSeq := latestSeq
-	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", me.Id.Ref())
+	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq, "me", g.Id.Ref())
 
 	var q = message.CreateHistArgs{
 		Id:    fr.Ref(),
@@ -119,7 +118,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *sbot.FeedRef, edp muxrpc.En
 			Raw:       rmsg.RawMessage,
 		}
 
-		_, err = g.Repo.RootLog().Append(nextMsg)
+		_, err = g.RootLog.Append(nextMsg)
 		if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s): failed to append message(%s:%d)", fr.Ref(), ref.Ref(), dmsg.Sequence)
 		}
