@@ -72,7 +72,7 @@ func TestStore(t *testing.T) {
 			iChangeSink int
 		)
 
-		changesSink := luigi.FuncSink(func(ctx context.Context, v interface{}, doClose bool) error {
+		changesSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			defer func() { iChangeSink++ }()
 			not, ok := v.(sbot.BlobStoreNotification)
 			if !ok {

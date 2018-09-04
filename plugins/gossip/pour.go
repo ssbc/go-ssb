@@ -65,7 +65,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 
 		sent := 0
 		rootLog := h.Repo.RootLog()
-		wrapSink := luigi.FuncSink(func(ctx context.Context, val interface{}, closed bool) error {
+		wrapSink := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
 			v, err := rootLog.Get(val.(margaret.Seq))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load message %v", val)

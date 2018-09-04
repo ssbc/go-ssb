@@ -53,7 +53,7 @@ func TestReplicate(t *testing.T) {
 	done := make(chan struct{})
 	dstBS.Changes().Register(
 		luigi.FuncSink(
-			func(ctx context.Context, v interface{}, doClose bool) error {
+			func(ctx context.Context, v interface{}, err error) error {
 				n := v.(sbot.BlobStoreNotification)
 				if n.Op == sbot.BlobStoreOpPut {
 					if n.Ref.Ref() == ref.Ref() {

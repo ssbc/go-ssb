@@ -45,7 +45,7 @@ func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
 
-	bs.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, doClose bool) error {
+	bs.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		wmgr.l.Lock()
 		defer wmgr.l.Unlock()
 
@@ -138,7 +138,7 @@ type wantProc struct {
 
 func (proc *wantProc) init() {
 	cancel := proc.bs.Changes().Register(
-		luigi.FuncSink(func(ctx context.Context, v interface{}, doClose bool) error {
+		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			proc.l.Lock()
 			defer proc.l.Unlock()
 
