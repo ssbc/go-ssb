@@ -23,6 +23,7 @@ import (
 	"go.cryptoscope.co/sbot/indexes"
 	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/test"
+	"go.cryptoscope.co/sbot/repo"
 )
 
 func TestReplicate(t *testing.T) {
@@ -44,13 +45,19 @@ func TestReplicate(t *testing.T) {
 		infoBob, _ := logtest.KitLogger("bob", t)
 
 		srcRepo := test.LoadTestDataPeer(t, tc.path)
+		srcID := srcRepo.KeyPair().Id
+
 		dstRepo, dstPath := test.MakeEmptyPeer(t)
+		dstID := dstRepo.KeyPair().Id
+
+		srcRootLog, err := repo.GetRootLog(srcRepo)
+		r.NoError(err, "error getting src root log")
 
 		srcMlog, _, srcMlogServe, err := multilogs.GetUserFeeds(srcRepo)
 		r.NoError(err, "error getting src userfeeds multilog")
 
 		go func() {
-			err := srcMlogServe(context.TODO(), srcRepo.RootLog())
+			err := srcMlogServe(context.TODO(), srcRootLog)
 			a.NoError(err, "error serving src user feeds multilog")
 		}()
 
@@ -58,28 +65,26 @@ func TestReplicate(t *testing.T) {
 		r.NoError(err, "error getting src contacts index")
 
 		go func() {
-			err := srcGraphBuilderServe(context.TODO(), srcRepo.RootLog())
+			err := srcGraphBuilderServe(context.TODO(), srcRootLog)
 			a.NoError(err, "error serving src contacts index")
 		}()
 
-		srcID := srcRepo.KeyPair().Id
-		srcRootLog := srcRepo.RootLog()
+		dstRootLog, err := repo.GetRootLog(dstRepo)
+		r.NoError(err, "error getting dst root log")
 
 		dstMlog, _, dstMlogServe, err := multilogs.GetUserFeeds(dstRepo)
 		r.NoError(err, "error getting dst userfeeds multilog")
 
 		go func() {
-			err := dstMlogServe(context.TODO(), dstRepo.RootLog())
+			err := dstMlogServe(context.TODO(), dstRootLog)
 			a.NoError(err, "error serving dst user feeds multilog")
 		}()
 
-		dstID := dstRepo.KeyPair().Id
-		dstRootLog := dstRepo.RootLog()
 		dstGraphBuilder, dstGraphBuilderServe, err := indexes.GetContacts(infoAlice, dstRepo)
 		r.NoError(err, "error getting dst contacts index")
 
 		go func() {
-			err := dstGraphBuilderServe(context.TODO(), dstRepo.RootLog())
+			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
 			a.NoError(err, "error serving dst contacts index")
 		}()
 
@@ -180,37 +185,38 @@ func BenchmarkReplicate(b *testing.B) {
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
+	srcRootLog, _ := repo.GetRootLog(srcRepo)
+
 	srcMlog, _, srcMlogServe, _ := multilogs.GetUserFeeds(srcRepo)
 
 	go func() {
-		err := srcMlogServe(context.TODO(), srcRepo.RootLog())
+		err := srcMlogServe(context.TODO(), srcRootLog)
 		b.Log("srcMlogServe error:", err)
 	}()
 
 	srcID := srcRepo.KeyPair().Id
-	srcRootLog := srcRepo.RootLog()
 	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.GetContacts(bench, srcRepo)
 
 	go func() {
-		err := srcGraphBuilderServe(context.TODO(), srcRepo.RootLog())
+		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
 		b.Log("srcGraphBuilderServe error:", err)
 	}()
 
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
+		dstRootLog, _ := repo.GetRootLog(dstRepo)
 		dstMlog, _, dstMlogServe, _ := multilogs.GetUserFeeds(dstRepo)
 
 		go func() {
-			err := dstMlogServe(context.TODO(), dstRepo.RootLog())
+			err := dstMlogServe(context.TODO(), dstRootLog)
 			b.Log("dstMlogServe error:", err)
 		}()
 		dstID := dstRepo.KeyPair().Id
-		dstRootLog := dstRepo.RootLog()
 		dstGraphBuilder, dstGraphBuilderServe, _ := indexes.GetContacts(bench, dstRepo)
 
 		go func() {
-			err := dstGraphBuilderServe(context.TODO(), dstRepo.RootLog())
+			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
 			b.Log("dstGraphBuilderServe error:", err)
 		}()
 

@@ -105,9 +105,10 @@ func main() {
 	ctx, shutdown := context.WithCancel(ctx)
 
 	var (
-		node sbot.Node
-		r    repo.Interface
-		err  error
+		node    sbot.Node
+		r       repo.Interface
+		rootLog margaret.Log
+		err     error
 
 		closers multiCloser
 	)
@@ -133,21 +134,23 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
+	rootLog, err = repo.GetRootLog(r)
+	checkFatal(err)
+
 	uf, _, serveUF, err := multilogs.GetUserFeeds(r)
 	checkFatal(err)
 	closers.addCloser(uf)
-	goThenLog(ctx, r.RootLog(), "userFeeds", serveUF)
+	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 
 	graphBuilder, serveContacts, err := indexes.GetContacts(kitlog.With(log, "index", "contacts"), r)
 	checkFatal(err)
 	closers.addCloser(graphBuilder)
-	goThenLog(ctx, r.RootLog(), "contacts", serveContacts)
+	goThenLog(ctx, rootLog, "contacts", serveContacts)
 
 	var (
-		id      = r.KeyPair().Id
-		rootLog = r.RootLog()
-		bs      = r.BlobStore()
-		wm      = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+		id = r.KeyPair().Id
+		bs = r.BlobStore()
+		wm = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 	)
 
 	feeds, err := uf.List()

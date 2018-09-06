@@ -3,7 +3,6 @@ package repo
 import (
 	"io"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/sbot"
 )
 
@@ -12,5 +11,4 @@ type Interface interface {
 	GetPath(...string) string
 	KeyPair() sbot.KeyPair
 	BlobStore() sbot.BlobStore
-	RootLog() margaret.Log // the main log which contains all the feeds of individual users
 }

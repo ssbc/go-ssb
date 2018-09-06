@@ -15,15 +15,12 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
-	"go.cryptoscope.co/margaret/framing/lengthprefixed"
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
-	"go.cryptoscope.co/margaret/offset"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
-	"go.cryptoscope.co/sbot/message"
 )
 
 var _ Interface = (*repo)(nil)
@@ -59,11 +56,6 @@ func New(log logging.Interface, basePath string, opts ...Option) (Interface, err
 		}
 	}
 
-	r.rootLog, err = r.getRootLog()
-	if err != nil {
-		return nil, errors.Wrap(err, "error opening log")
-	}
-
 	return r, nil
 }
 
@@ -75,7 +67,6 @@ type repo struct {
 
 	blobStore sbot.BlobStore
 	keyPair   *sbot.KeyPair
-	rootLog   margaret.Log
 }
 
 func (r repo) Close() error {
@@ -126,30 +117,6 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 	}
 
 	return r.keyPair, nil
-}
-
-func (r *repo) getRootLog() (margaret.Log, error) {
-	if r.rootLog != nil {
-		return r.rootLog, nil
-	}
-
-	logFile, err := os.OpenFile(r.GetPath("log"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, errors.Wrap(err, "error opening log file")
-	}
-
-	// TODO use proper log message type here
-	// FIXME: 16kB because some messages are even larger than 12kB - even though the limit is supposed to be 8kb
-	r.rootLog, err = offset.New(logFile, lengthprefixed.New32(16*1024), msgpack.New(&message.StoredMessage{}))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create rootLog")
-	}
-
-	return r.rootLog, nil
-}
-
-func (r *repo) RootLog() margaret.Log {
-	return r.rootLog
 }
 
 func (r *repo) KeyPair() sbot.KeyPair {
