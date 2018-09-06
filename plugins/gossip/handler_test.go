@@ -137,15 +137,15 @@ func TestReplicate(t *testing.T) {
 			t.Log("h2 done", time.Since(start))
 			hdone.Done()
 		}
-		var finish func()
+		finish := make(chan func())
 		done := make(chan struct{})
 		go func() {
 			hdone.Wait()
-			finish()
+			(<-finish)()
 			close(done)
 		}()
 
-		finish = serve(rpc1, rpc2)
+		finish <- serve(rpc1, rpc2)
 		<-done
 		t.Log("after gossip")
 
