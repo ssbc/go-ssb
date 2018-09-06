@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 	"go.cryptoscope.co/sbot/graph"
+	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/blobs"
 	"go.cryptoscope.co/sbot/plugins/gossip"
 	"go.cryptoscope.co/sbot/plugins/whoami"
@@ -126,7 +127,7 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	uf, _, serve, err := GetUserFeeds(r)
+	uf, _, serve, err := multilogs.GetUserFeeds(r)
 	checkFatal(err)
 	closers.addCloser(uf)
 	goThenLog(ctx, r.RootLog(), "userFeeds", serve)

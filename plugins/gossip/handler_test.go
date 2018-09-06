@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"context"
 	"io"
 	"net"
 	"os"
@@ -10,17 +11,21 @@ import (
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/test"
 	"go.cryptoscope.co/secretstream"
 )
 
 func TestReplicate(t *testing.T) {
-	r := assert.New(t)
+	a := assert.New(t)
+	r := require.New(t)
 
 	type tcase struct {
 		path string
@@ -39,12 +44,26 @@ func TestReplicate(t *testing.T) {
 		srcRepo := test.LoadTestDataPeer(t, tc.path)
 		dstRepo, dstPath := test.MakeEmptyPeer(t)
 
-		srcMlog := srcRepo.UserFeeds()
+		srcMlog, _, srcMlogServe, err := multilogs.GetUserFeeds(srcRepo)
+		r.NoError(err, "error getting src userfeeds multilog")
+
+		go func() {
+			err := srcMlogServe(context.TODO(), srcRepo.RootLog())
+			a.NoError(err, "error serving src user feeds multilog")
+		}()
+
 		srcID := srcRepo.KeyPair().Id
 		srcRootLog := srcRepo.RootLog()
 		srcGraphBuilder := srcRepo.Builder()
 
-		dstMlog := dstRepo.UserFeeds()
+		dstMlog, _, dstMlogServe, err := multilogs.GetUserFeeds(dstRepo)
+		r.NoError(err, "error getting dst userfeeds multilog")
+
+		go func() {
+			err := dstMlogServe(context.TODO(), dstRepo.RootLog())
+			a.NoError(err, "error serving dst user feeds multilog")
+		}()
+
 		dstID := dstRepo.KeyPair().Id
 		dstRootLog := dstRepo.RootLog()
 		dstGraphBuilder := dstRepo.Builder()
@@ -146,7 +165,13 @@ func BenchmarkReplicate(b *testing.B) {
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
-	srcMlog := srcRepo.UserFeeds()
+	srcMlog, _, srcMlogServe, _ := multilogs.GetUserFeeds(srcRepo)
+
+	go func() {
+		err := srcMlogServe(context.TODO(), srcRepo.RootLog())
+		b.Log("srcMlogServe error:", err)
+	}()
+
 	srcID := srcRepo.KeyPair().Id
 	srcRootLog := srcRepo.RootLog()
 	srcGraphBuilder := srcRepo.Builder()
@@ -154,7 +179,12 @@ func BenchmarkReplicate(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
-		dstMlog := dstRepo.UserFeeds()
+		dstMlog, _, dstMlogServe, _ := multilogs.GetUserFeeds(dstRepo)
+
+		go func() {
+			err := dstMlogServe(context.TODO(), dstRepo.RootLog())
+			b.Log("dstMlogServe error:", err)
+		}()
 		dstID := dstRepo.KeyPair().Id
 		dstRootLog := dstRepo.RootLog()
 		dstGraphBuilder := dstRepo.Builder()
