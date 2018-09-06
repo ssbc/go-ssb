@@ -49,7 +49,7 @@ func TestReplicate(t *testing.T) {
 	err = dstWM.Want(ref)
 	r.NoError(err, "error wanting blob at dst")
 
-	var finish func()
+	finish := make(chan func())
 	done := make(chan struct{})
 	dstBS.Changes().Register(
 		luigi.FuncSink(
@@ -58,7 +58,7 @@ func TestReplicate(t *testing.T) {
 				if n.Op == sbot.BlobStoreOpPut {
 					if n.Ref.Ref() == ref.Ref() {
 						t.Log("received correct blob")
-						finish()
+						(<-finish)()
 						close(done)
 					} else {
 						t.Error("received unexpected blob:", n.Ref.Ref())
@@ -71,7 +71,7 @@ func TestReplicate(t *testing.T) {
 	rpc1 := muxrpc.Handle(pkr1, pi1.Handler())
 	rpc2 := muxrpc.Handle(pkr2, pi2.Handler())
 
-	finish = serve(rpc1, rpc2)
+	finish <- serve(rpc1, rpc2)
 
 	<-done
 	t.Log("after blobs")
