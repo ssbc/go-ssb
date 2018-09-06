@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
@@ -66,11 +65,13 @@ func New(log logging.Interface, basePath string, opts ...Option) (Interface, err
 		return nil, errors.Wrap(err, "error opening log")
 	}
 
-	if err := r.getUserFeeds(); err != nil {
-		return nil, errors.Wrap(err, "error opening gossip index")
+	contactsPath := r.GetPath("indexes", "contacts", "db")
+	err = os.MkdirAll(contactsPath, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "error making contact module directory")
 	}
 
-	r.graphBuilder, err = graph.NewBuilder(kitlog.With(log, "module", "graph"), r.getPath("contacts.badger"))
+	r.graphBuilder, err = graph.NewBuilder(kitlog.With(log, "module", "graph"), contactsPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening contact graph builder")
 	}
@@ -98,9 +99,6 @@ type repo struct {
 	keyPair   *sbot.KeyPair
 	rootLog   margaret.Log
 
-	userKV    *badger.DB
-	userFeeds multilog.MultiLog
-
 	graphBuilder graph.Builder
 }
 
@@ -116,15 +114,11 @@ func (r repo) Close() error {
 		err = multierror.Append(err, errors.Wrap(e, "repo: failed to close graph builder"))
 	}
 
-	if e := r.userKV.Close(); err != nil {
-		err = multierror.Append(err, errors.Wrap(e, "repo: failed to close userKV"))
-	}
-
 	return err
 }
 
-func (r *repo) getPath(rel string) string {
-	return path.Join(r.basePath, rel)
+func (r *repo) GetPath(rel ...string) string {
+	return path.Join(append([]string{r.basePath}, rel...)...)
 }
 
 func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
@@ -133,7 +127,7 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 	}
 
 	var err error
-	secPath := r.getPath("secret")
+	secPath := r.GetPath("secret")
 	r.keyPair, err = sbot.LoadKeyPair(secPath)
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
@@ -167,7 +161,7 @@ func (r *repo) getRootLog() (margaret.Log, error) {
 		return r.rootLog, nil
 	}
 
-	logFile, err := os.OpenFile(r.getPath("log"), os.O_CREATE|os.O_RDWR, 0600)
+	logFile, err := os.OpenFile(r.GetPath("log"), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening log file")
 	}
@@ -180,63 +174,6 @@ func (r *repo) getRootLog() (margaret.Log, error) {
 	}
 
 	return r.rootLog, nil
-}
-
-func (r *repo) getUserFeeds() error {
-	var err error
-	if r.userFeeds != nil {
-		return nil
-	}
-
-	// badger + librarian as index
-	opts := badger.DefaultOptions
-	opts.Dir = r.getPath("userFeeds.badger")
-	opts.ValueDir = opts.Dir // we have small values in this one r.getPath("gossipBadger.values")
-	r.userKV, err = badger.Open(opts)
-	if err != nil {
-		return errors.Wrap(err, "db/idx: badger failed to open")
-	}
-	r.userFeeds = multibadger.New(r.userKV, msgpack.New(margaret.BaseSeq(0)))
-
-	idxStateFile, err := os.OpenFile(r.getPath("userFeedsState.json"), os.O_CREATE|os.O_RDWR, 0700)
-	if err != nil {
-		return errors.Wrap(err, "error opening gossip state file")
-	}
-
-	userFeedSink := multilog.NewSink(idxStateFile, r.userFeeds, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
-		msg, ok := value.(message.StoredMessage)
-		if !ok {
-			return errors.Errorf("error casting message. got type %T", value)
-		}
-
-		authorLog, err := mlog.Get(librarian.Addr(msg.Author.ID))
-		if err != nil {
-			return errors.Wrap(err, "error opening sublog")
-		}
-
-		_, err = authorLog.Append(seq)
-		if err != nil {
-			return errors.Wrap(err, "error appending new author message")
-		}
-		//log.Printf("indexed %s:%d as %d", msg.Author.Ref(), msg.Sequence, sublogSeq)
-		return nil
-	})
-
-	go func() {
-		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), userFeedSink.QuerySpec())
-		check(errors.Wrap(err, ""))
-
-		err = luigi.Pump(r.ctx, userFeedSink, src)
-		if err != context.Canceled {
-			check(errors.Wrap(err, "userFeeds index pump failed"))
-		}
-	}()
-
-	return nil
-}
-
-func (r *repo) UserFeeds() multilog.MultiLog {
-	return r.userFeeds
 }
 
 func (r *repo) RootLog() margaret.Log {
@@ -271,4 +208,52 @@ func (r *repo) getBlobStore() (sbot.BlobStore, error) {
 
 func (r *repo) BlobStore() sbot.BlobStore {
 	return r.blobStore
+}
+
+// GetMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
+//
+// Exposes the badger db for 100% hackability. This will go away in future versions!
+func GetMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
+	// badger + librarian as index
+	opts := badger.DefaultOptions
+
+	dbPath := r.GetPath("sublogs", name, "db")
+	err := os.MkdirAll(dbPath, 0700)
+	if err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+	}
+
+	opts.Dir = dbPath
+	opts.ValueDir = opts.Dir // we have small values in this one
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
+	}
+
+	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
+
+	statePath := r.GetPath("sublogs", name, "state.json")
+	idxStateFile, err := os.OpenFile(statePath, os.O_CREATE|os.O_RDWR, 0700)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "error opening state file")
+	}
+
+	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
+
+	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), mlogSink.QuerySpec())
+		if err != nil {
+			return errors.Wrap(err, "error querying rootLog for mlog")
+		}
+
+		err = luigi.Pump(ctx, mlogSink, src)
+		if err == context.Canceled {
+			return nil
+		}
+
+		return errors.Wrap(err, "error reading query for mlog")
+	}
+
+	return mlog, db, serve, nil
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/sbot"
@@ -60,6 +61,18 @@ func checkAndLog(err error) {
 	}
 }
 
+func goThenLog(ctx context.Context, l margaret.Log, name string, f func(context.Context, margaret.Log) error) {
+	go func() {
+		err := f(ctx, l)
+		if err == nil {
+			log.Log("event", "component terminated without error", "component", name)
+			return
+		}
+
+		log.Log("event", "component terminated", "component", name, "error", err)
+	}()
+}
+
 func init() {
 	go startHTTPServer() // debug
 
@@ -88,10 +101,15 @@ func main() {
 		node sbot.Node
 		r    repo.Interface
 		err  error
+
+		closers multiCloser
 	)
 
 	r, err = repo.New(kitlog.With(log, "module", "repo"), repoDir)
 	checkFatal(err)
+
+	// no lock needed yet because the goroutine is not started yet
+	closers.addCloser(r)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -99,15 +117,22 @@ func main() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
 		shutdown()
-		checkFatal(r.Close())
+
+		err := closers.Close()
+		checkAndLog(err)
+
 		time.Sleep(1 * time.Second)
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(c)
 
+	uf, _, serve, err := GetUserFeeds(r)
+	checkFatal(err)
+	closers.addCloser(uf)
+	goThenLog(ctx, r.RootLog(), "userFeeds", serve)
+
 	var (
 		id           = r.KeyPair().Id
-		uf           = r.UserFeeds()
 		rootLog      = r.RootLog()
 		graphBuilder = r.Builder()
 		bs           = r.BlobStore()
