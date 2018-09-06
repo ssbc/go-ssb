@@ -14,14 +14,19 @@ import (
 
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/codec/msgpack"
+	"go.cryptoscope.co/margaret/framing/lengthprefixed"
+	"go.cryptoscope.co/margaret/offset"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/sbot/indexes"
+	"go.cryptoscope.co/sbot/message"
 	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/blobs"
 	"go.cryptoscope.co/sbot/plugins/gossip"
@@ -208,4 +213,16 @@ func main() {
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		time.Sleep(1 * time.Second)
 	}
+}
+
+func GetRootLog(r repo.Interface) (margaret.Log, error) {
+	logFile, err := os.OpenFile(r.GetPath("log"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening log file")
+	}
+
+	// TODO use proper log message type here
+	// FIXME: 16kB because some messages are even larger than 12kB - even though the limit is supposed to be 8kb
+	rootLog, err := offset.New(logFile, lengthprefixed.New32(16*1024), msgpack.New(&message.StoredMessage{}))
+	return rootLog, errors.Wrap(err, "failed to create rootLog")
 }

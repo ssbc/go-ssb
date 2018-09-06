@@ -156,10 +156,6 @@ func (r *repo) KeyPair() sbot.KeyPair {
 	return *r.keyPair
 }
 
-func (r *repo) Plugins() []sbot.Plugin {
-	return nil
-}
-
 func (r *repo) getBlobStore() (sbot.BlobStore, error) {
 	if r.blobStore != nil {
 		return r.blobStore, nil
