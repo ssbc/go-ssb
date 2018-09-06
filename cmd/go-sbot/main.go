@@ -134,15 +134,15 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	rootLog, err = repo.GetRootLog(r)
+	rootLog, err = repo.OpenRootLog(r)
 	checkFatal(err)
 
-	uf, _, serveUF, err := multilogs.GetUserFeeds(r)
+	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
 	checkFatal(err)
 	closers.addCloser(uf)
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 
-	graphBuilder, serveContacts, err := indexes.GetContacts(kitlog.With(log, "index", "contacts"), r)
+	graphBuilder, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "index", "contacts"), r)
 	checkFatal(err)
 	closers.addCloser(graphBuilder)
 	goThenLog(ctx, rootLog, "contacts", serveContacts)

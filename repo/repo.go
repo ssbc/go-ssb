@@ -189,7 +189,7 @@ func GetMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, 
 	return mlog, db, serve, nil
 }
 
-func GetIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, func(context.Context, margaret.Log) error, error) {
+func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, func(context.Context, margaret.Log) error, error) {
 	pth := r.GetPath("indexes", name, "db")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
@@ -225,7 +225,7 @@ func GetIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIn
 	return idx, db, serve, nil
 }
 
-func GetBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, func(context.Context, margaret.Log) error, error) {
+func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, func(context.Context, margaret.Log) error, error) {
 	pth := r.GetPath("indexes", name, "db")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {

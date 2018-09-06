@@ -69,7 +69,7 @@ func TestNew(t *testing.T) {
 	repo, err := New(log.With(l, "module", "repo"), rpath)
 	r.NoError(err, "failed to create repo")
 
-	rl, err := GetRootLog(repo)
+	rl, err := OpenRootLog(repo)
 	r.NoError(err, "failed to open root log")
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
@@ -111,7 +111,7 @@ func TestMakeSomeMessages(t *testing.T) {
 	repo, err := New(log.With(l, "module", "repo"), rpath)
 	r.NoError(err, "failed to create repo")
 
-	rl, err := GetRootLog(repo)
+	rl, err := OpenRootLog(repo)
 	r.NoError(err, "failed to open root log")
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")

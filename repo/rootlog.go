@@ -13,7 +13,7 @@ import (
 	"go.cryptoscope.co/sbot/message"
 )
 
-func GetRootLog(r Interface) (margaret.Log, error) {
+func OpenRootLog(r Interface) (margaret.Log, error) {
 	logFile, err := os.OpenFile(r.GetPath("log"), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening log file")

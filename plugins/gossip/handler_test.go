@@ -50,10 +50,10 @@ func TestReplicate(t *testing.T) {
 		dstRepo, dstPath := test.MakeEmptyPeer(t)
 		dstID := dstRepo.KeyPair().Id
 
-		srcRootLog, err := repo.GetRootLog(srcRepo)
+		srcRootLog, err := repo.OpenRootLog(srcRepo)
 		r.NoError(err, "error getting src root log")
 
-		srcMlog, _, srcMlogServe, err := multilogs.GetUserFeeds(srcRepo)
+		srcMlog, _, srcMlogServe, err := multilogs.OpenUserFeeds(srcRepo)
 		r.NoError(err, "error getting src userfeeds multilog")
 
 		go func() {
@@ -61,7 +61,7 @@ func TestReplicate(t *testing.T) {
 			a.NoError(err, "error serving src user feeds multilog")
 		}()
 
-		srcGraphBuilder, srcGraphBuilderServe, err := indexes.GetContacts(infoAlice, srcRepo)
+		srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
 		r.NoError(err, "error getting src contacts index")
 
 		go func() {
@@ -69,10 +69,10 @@ func TestReplicate(t *testing.T) {
 			a.NoError(err, "error serving src contacts index")
 		}()
 
-		dstRootLog, err := repo.GetRootLog(dstRepo)
+		dstRootLog, err := repo.OpenRootLog(dstRepo)
 		r.NoError(err, "error getting dst root log")
 
-		dstMlog, _, dstMlogServe, err := multilogs.GetUserFeeds(dstRepo)
+		dstMlog, _, dstMlogServe, err := multilogs.OpenUserFeeds(dstRepo)
 		r.NoError(err, "error getting dst userfeeds multilog")
 
 		go func() {
@@ -80,7 +80,7 @@ func TestReplicate(t *testing.T) {
 			a.NoError(err, "error serving dst user feeds multilog")
 		}()
 
-		dstGraphBuilder, dstGraphBuilderServe, err := indexes.GetContacts(infoAlice, dstRepo)
+		dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
 		r.NoError(err, "error getting dst contacts index")
 
 		go func() {
@@ -185,9 +185,9 @@ func BenchmarkReplicate(b *testing.B) {
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
-	srcRootLog, _ := repo.GetRootLog(srcRepo)
+	srcRootLog, _ := repo.OpenRootLog(srcRepo)
 
-	srcMlog, _, srcMlogServe, _ := multilogs.GetUserFeeds(srcRepo)
+	srcMlog, _, srcMlogServe, _ := multilogs.OpenUserFeeds(srcRepo)
 
 	go func() {
 		err := srcMlogServe(context.TODO(), srcRootLog)
@@ -195,7 +195,7 @@ func BenchmarkReplicate(b *testing.B) {
 	}()
 
 	srcID := srcRepo.KeyPair().Id
-	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.GetContacts(bench, srcRepo)
+	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.OpenContacts(bench, srcRepo)
 
 	go func() {
 		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
@@ -205,15 +205,15 @@ func BenchmarkReplicate(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
-		dstRootLog, _ := repo.GetRootLog(dstRepo)
-		dstMlog, _, dstMlogServe, _ := multilogs.GetUserFeeds(dstRepo)
+		dstRootLog, _ := repo.OpenRootLog(dstRepo)
+		dstMlog, _, dstMlogServe, _ := multilogs.OpenUserFeeds(dstRepo)
 
 		go func() {
 			err := dstMlogServe(context.TODO(), dstRootLog)
 			b.Log("dstMlogServe error:", err)
 		}()
 		dstID := dstRepo.KeyPair().Id
-		dstGraphBuilder, dstGraphBuilderServe, _ := indexes.GetContacts(bench, dstRepo)
+		dstGraphBuilder, dstGraphBuilderServe, _ := indexes.OpenContacts(bench, dstRepo)
 
 		go func() {
 			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
