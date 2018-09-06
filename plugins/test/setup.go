@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
@@ -69,8 +69,8 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 
 	// logs every muxrpc packet
 	if testing.Verbose() {
-		conn1 = codec.WrapConn(infoAlice, conn1)
-		conn2 = codec.WrapConn(infoBob, conn2)
+		conn1 = debug.WrapConn(infoAlice, conn1)
+		conn2 = debug.WrapConn(infoBob, conn2)
 	}
 
 	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), func(rpc1, rpc2 muxrpc.Endpoint) func() {

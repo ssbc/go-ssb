@@ -21,7 +21,7 @@ import (
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
@@ -202,7 +202,7 @@ func initClient(ctx *cli.Context) error {
 	var rwc io.ReadWriteCloser = conn
 	// logs every muxrpc packet
 	if ctx.Bool("verbose") {
-		rwc = codec.Wrap(log, rwc)
+		rwc = debug.Wrap(log, rwc)
 	}
 	pkr = muxrpc.NewPacker(rwc)
 
