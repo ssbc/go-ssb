@@ -105,7 +105,15 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	uf := r.UserFeeds()
+	var (
+		id           = r.KeyPair().Id
+		uf           = r.UserFeeds()
+		rootLog      = r.RootLog()
+		graphBuilder = r.Builder()
+		bs           = r.BlobStore()
+		wm           = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+	)
+
 	feeds, err := uf.List()
 	checkFatal(err)
 	log.Log("event", "repo open", "feeds", len(feeds))
@@ -150,27 +158,18 @@ func main() {
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	var (
-		id           = r.KeyPair().Id
-		rootLog      = r.RootLog()
-		userFeeds    = r.UserFeeds()
-		graphBuilder = r.Builder()
-		bs           = r.BlobStore()
-		wm           = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
-	)
-
 	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), localKey.Id)) // whoami
 	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))        // blobs
 
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, userFeeds, graphBuilder, node, flagPromisc))
+		id, rootLog, uf, graphBuilder, node, flagPromisc))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, userFeeds, graphBuilder, node))
+		id, rootLog, uf, graphBuilder, node))
 
 	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
 	for {
