@@ -5,7 +5,6 @@ import (
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/graph"
 )
 
 type Interface interface {
@@ -15,5 +14,4 @@ type Interface interface {
 	Plugins() []sbot.Plugin
 	BlobStore() sbot.BlobStore
 	RootLog() margaret.Log // the main log which contains all the feeds of individual users
-	Builder() graph.Builder
 }

@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -10,11 +11,14 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
+	"github.com/dgraph-io/badger"
 	"github.com/go-kit/kit/log"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
@@ -77,6 +81,25 @@ func TestNew(t *testing.T) {
 	}
 }
 
+// getUserFeeds is a copy of multilogs.getUserFeeds. We can't use that here because that would be an import cycle.
+func getUserFeeds(r Interface) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
+	return GetMultiLog(r, "userFeeds", func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+		msg, ok := value.(message.StoredMessage)
+		if !ok {
+			return errors.Errorf("error casting message. got type %T", value)
+		}
+
+		authorID := msg.Author.ID
+		authorLog, err := mlog.Get(librarian.Addr(authorID))
+		if err != nil {
+			return errors.Wrap(err, "error opening sublog")
+		}
+
+		_, err = authorLog.Append(seq)
+		return errors.Wrap(err, "error appending new author message")
+	})
+}
+
 func TestMakeSomeMessages(t *testing.T) {
 	r := require.New(t)
 	l, _ := logtest.KitLogger(t.Name(), t)
@@ -91,6 +114,15 @@ func TestMakeSomeMessages(t *testing.T) {
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
+
+	userFeeds, _, userFeedsServe, err := getUserFeeds(repo)
+	r.NoError(err, "failed to get user feeds multilog")
+
+	go func() {
+		err := userFeedsServe(context.TODO(), rl)
+		r.NoError(err, "failed to pump log into userfeeds multilog")
+
+	}()
 
 	rand := rand.New(rand.NewSource(42))
 	refT := reflect.TypeOf(testMessage{})
@@ -121,7 +153,7 @@ func TestMakeSomeMessages(t *testing.T) {
 		testClaire.ID,
 	}
 	for _, testUser := range users {
-		subLog, err := repo.UserFeeds().Get(librarian.Addr(testUser))
+		subLog, err := userFeeds.Get(librarian.Addr(testUser))
 		r.NoError(err, "failed to get sublog for alice")
 		currSeq, err := subLog.Seq().Value()
 		r.NotEqual(margaret.SeqEmpty, currSeq)

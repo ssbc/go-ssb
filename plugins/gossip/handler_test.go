@@ -18,9 +18,11 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
+
+	"go.cryptoscope.co/sbot/indexes"
 	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/test"
-	"go.cryptoscope.co/secretstream"
 )
 
 func TestReplicate(t *testing.T) {
@@ -52,9 +54,16 @@ func TestReplicate(t *testing.T) {
 			a.NoError(err, "error serving src user feeds multilog")
 		}()
 
+		srcGraphBuilder, srcGraphBuilderServe, err := indexes.GetContacts(infoAlice, srcRepo)
+		r.NoError(err, "error getting src contacts index")
+
+		go func() {
+			err := srcGraphBuilderServe(context.TODO(), srcRepo.RootLog())
+			a.NoError(err, "error serving src contacts index")
+		}()
+
 		srcID := srcRepo.KeyPair().Id
 		srcRootLog := srcRepo.RootLog()
-		srcGraphBuilder := srcRepo.Builder()
 
 		dstMlog, _, dstMlogServe, err := multilogs.GetUserFeeds(dstRepo)
 		r.NoError(err, "error getting dst userfeeds multilog")
@@ -66,7 +75,13 @@ func TestReplicate(t *testing.T) {
 
 		dstID := dstRepo.KeyPair().Id
 		dstRootLog := dstRepo.RootLog()
-		dstGraphBuilder := dstRepo.Builder()
+		dstGraphBuilder, dstGraphBuilderServe, err := indexes.GetContacts(infoAlice, dstRepo)
+		r.NoError(err, "error getting dst contacts index")
+
+		go func() {
+			err := dstGraphBuilderServe(context.TODO(), dstRepo.RootLog())
+			a.NoError(err, "error serving dst contacts index")
+		}()
 
 		// check full & empty
 		r.Equal(tc.pki, srcID.Ref())
@@ -174,7 +189,12 @@ func BenchmarkReplicate(b *testing.B) {
 
 	srcID := srcRepo.KeyPair().Id
 	srcRootLog := srcRepo.RootLog()
-	srcGraphBuilder := srcRepo.Builder()
+	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.GetContacts(bench, srcRepo)
+
+	go func() {
+		err := srcGraphBuilderServe(context.TODO(), srcRepo.RootLog())
+		b.Log("srcGraphBuilderServe error:", err)
+	}()
 
 	for n := 0; n < b.N; n++ {
 
@@ -187,7 +207,12 @@ func BenchmarkReplicate(b *testing.B) {
 		}()
 		dstID := dstRepo.KeyPair().Id
 		dstRootLog := dstRepo.RootLog()
-		dstGraphBuilder := dstRepo.Builder()
+		dstGraphBuilder, dstGraphBuilderServe, _ := indexes.GetContacts(bench, dstRepo)
+
+		go func() {
+			err := dstGraphBuilderServe(context.TODO(), dstRepo.RootLog())
+			b.Log("dstGraphBuilderServe error:", err)
+		}()
 
 		pkr1, pkr2, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
 		// create handlers

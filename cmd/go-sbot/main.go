@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 	"go.cryptoscope.co/sbot/graph"
+	"go.cryptoscope.co/sbot/indexes"
 	"go.cryptoscope.co/sbot/multilogs"
 	"go.cryptoscope.co/sbot/plugins/blobs"
 	"go.cryptoscope.co/sbot/plugins/gossip"
@@ -127,17 +128,21 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	uf, _, serve, err := multilogs.GetUserFeeds(r)
+	uf, _, serveUF, err := multilogs.GetUserFeeds(r)
 	checkFatal(err)
 	closers.addCloser(uf)
-	goThenLog(ctx, r.RootLog(), "userFeeds", serve)
+	goThenLog(ctx, r.RootLog(), "userFeeds", serveUF)
+
+	graphBuilder, serveContacts, err := indexes.GetContacts(kitlog.With(log, "index", "contacts"), r)
+	checkFatal(err)
+	closers.addCloser(graphBuilder)
+	goThenLog(ctx, r.RootLog(), "contacts", serveContacts)
 
 	var (
-		id           = r.KeyPair().Id
-		rootLog      = r.RootLog()
-		graphBuilder = r.Builder()
-		bs           = r.BlobStore()
-		wm           = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+		id      = r.KeyPair().Id
+		rootLog = r.RootLog()
+		bs      = r.BlobStore()
+		wm      = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 	)
 
 	feeds, err := uf.List()
@@ -154,7 +159,7 @@ func main() {
 			Algo: "ed25519",
 			ID:   []byte(author),
 		}
-		f, err := r.Builder().Follows(&authorRef)
+		f, err := graphBuilder.Follows(&authorRef)
 		checkFatal(err)
 
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
@@ -178,7 +183,7 @@ func main() {
 		ListenAddr:  laddr,
 		KeyPair:     localKey,
 		AppKey:      appKey,
-		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), r.Builder(), localKey.Id, 2, errAdapter(pmgr.MakeHandler)),
+		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), graphBuilder, localKey.Id, 2, errAdapter(pmgr.MakeHandler)),
 	}
 
 	node, err = sbot.NewNode(opts)

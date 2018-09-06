@@ -42,19 +42,11 @@ type builder struct {
 	log log.Logger
 }
 
-func NewBuilder(log log.Logger, path string) (Builder, error) {
-	contactsOpts := badger.DefaultOptions
-	contactsOpts.Dir = path
-	contactsOpts.ValueDir = contactsOpts.Dir
-	contactsKV, err := badger.Open(contactsOpts)
-	if err != nil {
-		return nil, errors.Wrap(err, "db/idx: badger failed to open")
-	}
-
-	contactsIdx := libbadger.NewIndex(contactsKV, 0)
+func NewBuilder(log log.Logger, db *badger.DB) Builder {
+	contactsIdx := libbadger.NewIndex(db, 0)
 
 	return &builder{
-		kv:  contactsKV,
+		kv:  db,
 		idx: contactsIdx,
 		log: log,
 
@@ -92,8 +84,7 @@ func NewBuilder(log log.Logger, path string) (Builder, error) {
 
 			return err
 		}, contactsIdx),
-	}, nil
-
+	}
 }
 
 func (b *builder) Build() (*Graph, error) {

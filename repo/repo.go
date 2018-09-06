@@ -8,10 +8,10 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
+	"go.cryptoscope.co/librarian"
+	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
@@ -23,7 +23,6 @@ import (
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
-	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/sbot/message"
 )
 
@@ -65,27 +64,6 @@ func New(log logging.Interface, basePath string, opts ...Option) (Interface, err
 		return nil, errors.Wrap(err, "error opening log")
 	}
 
-	contactsPath := r.GetPath("indexes", "contacts", "db")
-	err = os.MkdirAll(contactsPath, 0700)
-	if err != nil {
-		return nil, errors.Wrap(err, "error making contact module directory")
-	}
-
-	r.graphBuilder, err = graph.NewBuilder(kitlog.With(log, "module", "graph"), contactsPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "error opening contact graph builder")
-	}
-
-	go func() {
-		src, err := r.rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), r.graphBuilder.QuerySpec())
-		check(err)
-
-		err = luigi.Pump(r.ctx, r.graphBuilder, src)
-		if err != context.Canceled {
-			check(errors.Wrap(err, "contacts index pump failed"))
-		}
-	}()
-
 	return r, nil
 }
 
@@ -98,8 +76,6 @@ type repo struct {
 	blobStore sbot.BlobStore
 	keyPair   *sbot.KeyPair
 	rootLog   margaret.Log
-
-	graphBuilder graph.Builder
 }
 
 func (r repo) Close() error {
@@ -109,10 +85,6 @@ func (r repo) Close() error {
 	// time.Sleep(1 * time.Second)
 
 	var err error
-
-	if e := r.graphBuilder.Close(); err != nil {
-		err = multierror.Append(err, errors.Wrap(e, "repo: failed to close graph builder"))
-	}
 
 	return err
 }
@@ -188,10 +160,6 @@ func (r *repo) Plugins() []sbot.Plugin {
 	return nil
 }
 
-func (r *repo) Builder() graph.Builder {
-	return r.graphBuilder
-}
-
 func (r *repo) getBlobStore() (sbot.BlobStore, error) {
 	if r.blobStore != nil {
 		return r.blobStore, nil
@@ -256,4 +224,75 @@ func GetMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, 
 	}
 
 	return mlog, db, serve, nil
+}
+
+func GetIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, func(context.Context, margaret.Log) error, error) {
+	pth := r.GetPath("indexes", name, "db")
+	err := os.MkdirAll(pth, 0700)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "error making index directory")
+	}
+
+	opts := badger.DefaultOptions
+	opts.Dir = pth
+	opts.ValueDir = opts.Dir
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
+	}
+
+	idx := libbadger.NewIndex(db, 0)
+	sinkidx := f(idx)
+
+	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
+		if err != nil {
+			return errors.Wrap(err, "error querying root log")
+		}
+
+		err = luigi.Pump(ctx, sinkidx, src)
+		if err == nil || err == context.Canceled {
+			return nil
+		}
+
+		return errors.Wrap(err, "contacts index pump failed")
+	}
+
+	return idx, db, serve, nil
+}
+
+func GetBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, func(context.Context, margaret.Log) error, error) {
+	pth := r.GetPath("indexes", name, "db")
+	err := os.MkdirAll(pth, 0700)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "error making index directory")
+	}
+
+	opts := badger.DefaultOptions
+	opts.Dir = pth
+	opts.ValueDir = opts.Dir
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
+	}
+
+	sinkidx := f(db)
+
+	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
+		if err != nil {
+			return errors.Wrap(err, "error querying root log")
+		}
+
+		err = luigi.Pump(ctx, sinkidx, src)
+		if err == nil || err == context.Canceled {
+			return nil
+		}
+
+		return errors.Wrap(err, "contacts index pump failed")
+	}
+
+	return db, sinkidx, serve, nil
 }
