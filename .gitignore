@@ -6,7 +6,7 @@ cmd/go-sbot/go-sbot
 cmd/sbotcli/sbotcli
 
 # ignore crash/test data
-cmd/go-sbot/panics
+**/panics/
 plugins/blobs/testdata
 plugins/gossip/testdata
 
