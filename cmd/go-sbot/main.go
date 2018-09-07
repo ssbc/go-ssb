@@ -129,7 +129,7 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	rootLog, err = repo.OpenRootLog(r)
+	rootLog, err = repo.OpenLog(r)
 	checkFatal(err)
 
 	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)

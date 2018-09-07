@@ -54,7 +54,7 @@ func TestReplicate(t *testing.T) {
 		r.NoError(err, "error opening dst key pair")
 		dstID := dstKeyPair.Id
 
-		srcRootLog, err := repo.OpenRootLog(srcRepo)
+		srcRootLog, err := repo.OpenLog(srcRepo)
 		r.NoError(err, "error getting src root log")
 
 		srcMlog, _, srcMlogServe, err := multilogs.OpenUserFeeds(srcRepo)
@@ -73,7 +73,7 @@ func TestReplicate(t *testing.T) {
 			a.NoError(err, "error serving src contacts index")
 		}()
 
-		dstRootLog, err := repo.OpenRootLog(dstRepo)
+		dstRootLog, err := repo.OpenLog(dstRepo)
 		r.NoError(err, "error getting dst root log")
 
 		dstMlog, _, dstMlogServe, err := multilogs.OpenUserFeeds(dstRepo)
@@ -189,7 +189,7 @@ func BenchmarkReplicate(b *testing.B) {
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
-	srcRootLog, _ := repo.OpenRootLog(srcRepo)
+	srcRootLog, _ := repo.OpenLog(srcRepo)
 
 	srcMlog, _, srcMlogServe, _ := multilogs.OpenUserFeeds(srcRepo)
 	wg.Add(1)
@@ -212,7 +212,7 @@ func BenchmarkReplicate(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
-		dstRootLog, _ := repo.OpenRootLog(dstRepo)
+		dstRootLog, _ := repo.OpenLog(dstRepo)
 		dstMlog, _, dstMlogServe, _ := multilogs.OpenUserFeeds(dstRepo)
 
 		wg.Add(1)

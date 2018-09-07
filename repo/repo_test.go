@@ -68,7 +68,7 @@ func TestNew(t *testing.T) {
 	_, err = OpenKeyPair(repo)
 	r.NoError(err, "failed to open key pair")
 
-	rl, err := OpenRootLog(repo)
+	rl, err := OpenLog(repo)
 	r.NoError(err, "failed to open root log")
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
@@ -109,7 +109,7 @@ func TestMakeSomeMessages(t *testing.T) {
 	_, err = OpenKeyPair(repo)
 	r.NoError(err, "failed to open key pair")
 
-	rl, err := OpenRootLog(repo)
+	rl, err := OpenLog(repo)
 	r.NoError(err, "failed to open root log")
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
