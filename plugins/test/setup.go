@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
-	"github.com/cryptix/go/logging/logtest"
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/muxrpc"
@@ -24,28 +22,29 @@ import (
 
 func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 	r := require.New(t)
-	l, _ := logtest.KitLogger(t.Name(), t)
-	repo, err := repo.New(log.With(l, "module", "repo"), repopath)
-	r.NoError(err, "failed to load testData repo")
-	r.NotNil(repo.KeyPair())
-	return repo
+	rp := repo.New(repopath)
+
+	kp, err := repo.OpenKeyPair(rp)
+	r.NoError(err, "error opening keypair")
+	r.NotNil(kp, "key pair is nil")
+	return rp
 }
 
 func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	r := require.New(t)
 	dstPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
-	l, _ := logtest.KitLogger(t.Name(), t)
-	dstRepo, err := repo.New(log.With(l, "module", "repo"), dstPath)
-	r.NoError(err, "failed to create emptyRepo")
-	r.NotNil(dstRepo.KeyPair())
+	dstRepo := repo.New(dstPath)
 	return dstRepo, dstPath
 }
 
 func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
-	keyAlice := alice.KeyPair()
-	keyBob := bob.KeyPair()
+	keyAlice, err := repo.OpenKeyPair(alice)
+	r.NoError(err, "error opening alice's key pair")
+
+	keyBob, err := repo.OpenKeyPair(bob)
+	r.NoError(err, "error opening bob's key pair")
 
 	p1, p2 := net.Pipe()
 

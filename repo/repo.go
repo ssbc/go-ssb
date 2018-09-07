@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path"
 
@@ -17,104 +16,26 @@ import (
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
-	"go.cryptoscope.co/secretstream/secrethandshake"
 
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 )
 
-var _ Interface = (*repo)(nil)
+var _ Interface = repo{}
 
 var check = logging.CheckFatal
 
 // New creates a new repository value, it opens the keypair and database from basePath if it is already existing
-func New(log logging.Interface, basePath string, opts ...Option) (Interface, error) {
-	r := &repo{basePath: basePath, log: log}
-
-	for i, o := range opts {
-		err := o(r)
-		if err != nil {
-			return nil, errors.Wrapf(err, "repo: failed to apply option %d", i)
-		}
-	}
-
-	if r.ctx == nil {
-		r.ctx = context.Background()
-	}
-	r.ctx, r.shutdown = context.WithCancel(r.ctx)
-
-	var err error
-	if r.keyPair == nil {
-		r.keyPair, err = r.getKeyPair()
-		if err != nil {
-			return nil, errors.Wrap(err, "error reading KeyPair")
-		}
-	}
-
-	return r, nil
+func New(basePath string) Interface {
+	return repo{basePath: basePath}
 }
 
 type repo struct {
-	ctx      context.Context
-	log      logging.Interface
-	shutdown func()
 	basePath string
-
-	keyPair *sbot.KeyPair
 }
 
-func (r repo) Close() error {
-	r.shutdown()
-	// FIXME: does shutdown block..?
-	// would be good to get back some kind of _all done without a problem_
-	// time.Sleep(1 * time.Second)
-
-	var err error
-
-	return err
-}
-
-func (r *repo) GetPath(rel ...string) string {
+func (r repo) GetPath(rel ...string) string {
 	return path.Join(append([]string{r.basePath}, rel...)...)
-}
-
-func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
-	if r.keyPair != nil {
-		return r.keyPair, nil
-	}
-
-	var err error
-	secPath := r.GetPath("secret")
-	r.keyPair, err = sbot.LoadKeyPair(secPath)
-	if err != nil {
-		if !os.IsNotExist(errors.Cause(err)) {
-			return nil, errors.Wrap(err, "error opening key pair")
-		}
-		// generating new keypair
-		kp, err := secrethandshake.GenEdKeyPair(nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "error building key pair")
-		}
-		r.keyPair = &sbot.KeyPair{
-			Id:   &sbot.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
-			Pair: *kp,
-		}
-		// TODO:
-		// keyFile, err := os.Create(secPath)
-		// if err != nil {
-		// 	return nil, errors.Wrap(err, "error creating secret file")
-		// }
-		// if err:=sbot.SaveKeyPair(keyFile);err != nil {
-		// 	return nil, errors.Wrap(err, "error saving secret file")
-		// }
-		fmt.Println("warning: save new keypair!")
-	}
-
-	return r.keyPair, nil
-}
-
-func (r *repo) KeyPair() sbot.KeyPair {
-	return *r.keyPair
 }
 
 // GetMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.

@@ -56,8 +56,7 @@ var (
 	checkFatal = logging.CheckFatal
 
 	// juicy bits
-	appKey   []byte
-	localKey sbot.KeyPair
+	appKey []byte
 )
 
 func checkAndLog(err error) {
@@ -113,11 +112,7 @@ func main() {
 		closers multiCloser
 	)
 
-	r, err = repo.New(kitlog.With(log, "module", "repo"), repoDir)
-	checkFatal(err)
-
-	// no lock needed yet because the goroutine is not started yet
-	closers.addCloser(r)
+	r = repo.New(repoDir)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -151,9 +146,10 @@ func main() {
 	checkFatal(err)
 	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 
-	var (
-		id = r.KeyPair().Id
-	)
+	keyPair, err := repo.OpenKeyPair(r)
+	checkFatal(err)
+
+	id := keyPair.Id
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -175,8 +171,6 @@ func main() {
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
 	}
 
-	localKey = r.KeyPair()
-
 	pmgr := sbot.NewPluginManager()
 
 	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
@@ -191,16 +185,16 @@ func main() {
 
 	opts := sbot.Options{
 		ListenAddr:  laddr,
-		KeyPair:     localKey,
+		KeyPair:     keyPair,
 		AppKey:      appKey,
-		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), graphBuilder, localKey.Id, 2, errAdapter(pmgr.MakeHandler)),
+		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), graphBuilder, id, 2, errAdapter(pmgr.MakeHandler)),
 	}
 
 	node, err = sbot.NewNode(opts)
 	checkFatal(err)
 
-	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), localKey.Id)) // whoami
-	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm))        // blobs
+	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), id))   // whoami
+	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)) // blobs
 
 	// gossip.*
 	pmgr.Register(gossip.New(
@@ -212,7 +206,7 @@ func main() {
 		kitlog.With(log, "plugin", "gossip/hist"),
 		id, rootLog, uf, graphBuilder, node))
 
-	log.Log("event", "serving", "ID", localKey.Id.Ref(), "addr", opts.ListenAddr)
+	log.Log("event", "serving", "ID", id.Ref(), "addr", opts.ListenAddr)
 	for {
 		err = node.Serve(ctx)
 		log.Log("event", "sbot node.Serve returned", "err", err)

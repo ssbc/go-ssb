@@ -14,7 +14,7 @@ import (
 
 type Options struct {
 	ListenAddr  net.Addr
-	KeyPair     KeyPair
+	KeyPair     *KeyPair
 	AppKey      []byte
 	MakeHandler func(net.Conn) (muxrpc.Handler, error)
 }

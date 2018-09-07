@@ -10,9 +10,7 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/dgraph-io/badger"
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -61,21 +59,20 @@ func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
 
 func TestNew(t *testing.T) {
 	r := require.New(t)
-	l, _ := logtest.KitLogger(t.Name(), t)
 
 	rpath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 
-	repo, err := New(log.With(l, "module", "repo"), rpath)
-	r.NoError(err, "failed to create repo")
+	repo := New(rpath)
+
+	_, err = OpenKeyPair(repo)
+	r.NoError(err, "failed to open key pair")
 
 	rl, err := OpenRootLog(repo)
 	r.NoError(err, "failed to open root log")
 	seq, err := rl.Seq().Value()
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq)
-
-	r.NoError(repo.Close(), "failed to close repo")
 
 	if !t.Failed() {
 		os.RemoveAll(rpath)
@@ -103,13 +100,14 @@ func getUserFeeds(r Interface) (multilog.MultiLog, *badger.DB, func(context.Cont
 
 func TestMakeSomeMessages(t *testing.T) {
 	r := require.New(t)
-	l, _ := logtest.KitLogger(t.Name(), t)
 
 	rpath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 
-	repo, err := New(log.With(l, "module", "repo"), rpath)
-	r.NoError(err, "failed to create repo")
+	repo := New(rpath)
+
+	_, err = OpenKeyPair(repo)
+	r.NoError(err, "failed to open key pair")
 
 	rl, err := OpenRootLog(repo)
 	r.NoError(err, "failed to open root log")
@@ -161,8 +159,6 @@ func TestMakeSomeMessages(t *testing.T) {
 		r.NotEqual(margaret.SeqEmpty, currSeq)
 		r.Equal(margaret.BaseSeq(n/3)-1, currSeq)
 	}
-
-	r.NoError(repo.Close(), "failed to close repo")
 
 	if t.Failed() {
 		t.Log("test repo at ", rpath)

@@ -45,10 +45,14 @@ func TestReplicate(t *testing.T) {
 		infoBob, _ := logtest.KitLogger("bob", t)
 
 		srcRepo := test.LoadTestDataPeer(t, tc.path)
-		srcID := srcRepo.KeyPair().Id
+		srcKeyPair, err := repo.OpenKeyPair(srcRepo)
+		r.NoError(err, "error opening src key pair")
+		srcID := srcKeyPair.Id
 
 		dstRepo, dstPath := test.MakeEmptyPeer(t)
-		dstID := dstRepo.KeyPair().Id
+		dstKeyPair, err := repo.OpenKeyPair(dstRepo)
+		r.NoError(err, "error opening dst key pair")
+		dstID := dstKeyPair.Id
 
 		srcRootLog, err := repo.OpenRootLog(srcRepo)
 		r.NoError(err, "error getting src root log")
@@ -172,8 +176,6 @@ func TestReplicate(t *testing.T) {
 		// r.NoError(err, "failed to aquire current sequence of test sublog")
 		r.Equal(tc.has-1, seqVal, "wrong sequence value on testlog")
 
-		r.NoError(srcRepo.Close(), "failed to close src repo")
-		r.NoError(dstRepo.Close(), "failed to close dst repo")
 		if !t.Failed() {
 			os.RemoveAll(dstPath)
 		}
@@ -181,6 +183,8 @@ func TestReplicate(t *testing.T) {
 }
 
 func BenchmarkReplicate(b *testing.B) {
+	var wg sync.WaitGroup
+
 	srcRepo := test.LoadTestDataPeer(b, "testdata/longTestRepo")
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
@@ -188,18 +192,21 @@ func BenchmarkReplicate(b *testing.B) {
 	srcRootLog, _ := repo.OpenRootLog(srcRepo)
 
 	srcMlog, _, srcMlogServe, _ := multilogs.OpenUserFeeds(srcRepo)
-
+	wg.Add(1)
 	go func() {
 		err := srcMlogServe(context.TODO(), srcRootLog)
 		b.Log("srcMlogServe error:", err)
+		wg.Done()
 	}()
 
-	srcID := srcRepo.KeyPair().Id
+	srcKeyPair, _ := repo.OpenKeyPair(srcRepo)
+	srcID := srcKeyPair.Id
 	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.OpenContacts(bench, srcRepo)
-
+	wg.Add(1)
 	go func() {
 		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
 		b.Log("srcGraphBuilderServe error:", err)
+		wg.Done()
 	}()
 
 	for n := 0; n < b.N; n++ {
@@ -208,16 +215,21 @@ func BenchmarkReplicate(b *testing.B) {
 		dstRootLog, _ := repo.OpenRootLog(dstRepo)
 		dstMlog, _, dstMlogServe, _ := multilogs.OpenUserFeeds(dstRepo)
 
+		wg.Add(1)
 		go func() {
 			err := dstMlogServe(context.TODO(), dstRootLog)
 			b.Log("dstMlogServe error:", err)
+			wg.Done()
 		}()
-		dstID := dstRepo.KeyPair().Id
+		dstKeyPair, _ := repo.OpenKeyPair(dstRepo)
+		dstID := dstKeyPair.Id
 		dstGraphBuilder, dstGraphBuilderServe, _ := indexes.OpenContacts(bench, dstRepo)
 
+		wg.Add(1)
 		go func() {
 			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
 			b.Log("dstGraphBuilderServe error:", err)
+			wg.Done()
 		}()
 
 		pkr1, pkr2, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
@@ -243,7 +255,7 @@ func BenchmarkReplicate(b *testing.B) {
 		// dstRepo.Close()
 		// os.RemoveAll(dstPath)
 	}
-	srcRepo.Close()
+	wg.Wait()
 }
 
 type testConn struct {
