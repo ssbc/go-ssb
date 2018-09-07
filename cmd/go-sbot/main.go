@@ -147,10 +147,12 @@ func main() {
 	closers.addCloser(graphBuilder)
 	goThenLog(ctx, rootLog, "contacts", serveContacts)
 
+	bs, err := repo.OpenBlobStore(r)
+	checkFatal(err)
+	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+
 	var (
 		id = r.KeyPair().Id
-		bs = r.BlobStore()
-		wm = blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
 	)
 
 	feeds, err := uf.List()

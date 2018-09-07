@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/blobstore"
 	"go.cryptoscope.co/sbot/plugins/test"
+	"go.cryptoscope.co/sbot/repo"
 )
 
 func TestReplicate(t *testing.T) {
@@ -25,13 +26,16 @@ func TestReplicate(t *testing.T) {
 	srcRepo, srcPath := test.MakeEmptyPeer(t)
 	dstRepo, dstPath := test.MakeEmptyPeer(t)
 
-	srcBS := srcRepo.BlobStore()
+	srcBS, err := repo.OpenBlobStore(srcRepo)
+	r.NoError(err, "error src opening blob store")
+
 	srcLog, _ := logtest.KitLogger("alice/src", t)
 	//srcLog = kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "src/alice")
 	//srcLog := logging.Logger("alice/src")
 	srcWM := blobstore.NewWantManager(srcLog, srcBS)
 
-	dstBS := dstRepo.BlobStore()
+	dstBS, err := repo.OpenBlobStore(dstRepo)
+	r.NoError(err, "error dst opening blob store")
 	dstLog, _ := logtest.KitLogger("bob/dst", t)
 	//dstLog = kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "dst/bob")
 	//dstLog := logging.Logger("bob/dst")

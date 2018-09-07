@@ -44,11 +44,6 @@ func New(log logging.Interface, basePath string, opts ...Option) (Interface, err
 	r.ctx, r.shutdown = context.WithCancel(r.ctx)
 
 	var err error
-	r.blobStore, err = r.getBlobStore()
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating blob store")
-	}
-
 	if r.keyPair == nil {
 		r.keyPair, err = r.getKeyPair()
 		if err != nil {
@@ -65,8 +60,7 @@ type repo struct {
 	shutdown func()
 	basePath string
 
-	blobStore sbot.BlobStore
-	keyPair   *sbot.KeyPair
+	keyPair *sbot.KeyPair
 }
 
 func (r repo) Close() error {
@@ -121,24 +115,6 @@ func (r *repo) getKeyPair() (*sbot.KeyPair, error) {
 
 func (r *repo) KeyPair() sbot.KeyPair {
 	return *r.keyPair
-}
-
-func (r *repo) getBlobStore() (sbot.BlobStore, error) {
-	if r.blobStore != nil {
-		return r.blobStore, nil
-	}
-
-	bs, err := blobstore.New(path.Join(r.basePath, "blobs"))
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating blob store")
-	}
-
-	r.blobStore = bs
-	return bs, nil
-}
-
-func (r *repo) BlobStore() sbot.BlobStore {
-	return r.blobStore
 }
 
 // GetMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
@@ -258,4 +234,9 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 	}
 
 	return db, sinkidx, serve, nil
+}
+
+func OpenBlobStore(r Interface) (sbot.BlobStore, error) {
+	bs, err := blobstore.New(r.GetPath("blobs"))
+	return bs, errors.Wrap(err, "error opening blob store")
 }
