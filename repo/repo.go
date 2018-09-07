@@ -38,10 +38,10 @@ func (r repo) GetPath(rel ...string) string {
 	return path.Join(append([]string{r.basePath}, rel...)...)
 }
 
-// GetMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
+// OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //
 // Exposes the badger db for 100% hackability. This will go away in future versions!
-func GetMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
+func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
 	// badger + librarian as index
 	opts := badger.DefaultOptions
 

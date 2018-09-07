@@ -81,7 +81,7 @@ func TestNew(t *testing.T) {
 
 // getUserFeeds is a copy of multilogs.getUserFeeds. We can't use that here because that would be an import cycle.
 func getUserFeeds(r Interface) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
-	return GetMultiLog(r, "userFeeds", func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+	return OpenMultiLog(r, "userFeeds", func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		msg, ok := value.(message.StoredMessage)
 		if !ok {
 			return errors.Errorf("error casting message. got type %T", value)
