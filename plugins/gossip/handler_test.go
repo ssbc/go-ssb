@@ -110,7 +110,7 @@ func TestReplicate(t *testing.T) {
 
 		start := time.Now()
 		// do the dance
-		pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
+		pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
 		// create handlers
 		h1 := &handler{
@@ -232,7 +232,7 @@ func BenchmarkReplicate(b *testing.B) {
 			wg.Done()
 		}()
 
-		pkr1, pkr2, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
+		pkr1, pkr2, _, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
 		// create handlers
 		h1 := &handler{
 			Id:           srcID,

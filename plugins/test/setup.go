@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging"
+	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/debug"
+	muxtest "go.cryptoscope.co/muxrpc/test"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
@@ -38,7 +39,7 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	return dstRepo, dstPath
 }
 
-func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
+func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
 	keyAlice, err := repo.OpenKeyPair(alice)
 	r.NoError(err, "error opening alice's key pair")
@@ -48,10 +49,10 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 
 	p1, p2 := net.Pipe()
 
-	//infoAlice, _ := logtest.KitLogger("alice", t)
-	//infoBob, _ := logtest.KitLogger("bob", t)
-	infoAlice := logging.Logger("alice/src")
-	infoBob := logging.Logger("bob/dst")
+	infoAlice, _ := logtest.KitLogger("alice", t)
+	infoBob, _ := logtest.KitLogger("bob", t)
+	//infoAlice := logging.Logger("alice/src")
+	//infoBob := logging.Logger("bob/dst")
 
 	tc1 := &TestConn{
 		Reader: p1, WriteCloser: p1, conn: p1,
@@ -72,7 +73,11 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 		conn2 = debug.WrapConn(infoBob, conn2)
 	}
 
-	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), func(rpc1, rpc2 muxrpc.Endpoint) func() {
+	var ts muxtest.Transcript
+
+	conn1 = muxtest.WrapConn(&ts, conn1)
+
+	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), &ts, func(rpc1, rpc2 muxrpc.Endpoint) func() {
 		ctx := context.Background()
 		ctx, cancel := context.WithCancel(ctx)
 
