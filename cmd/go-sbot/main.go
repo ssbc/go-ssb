@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
-	"net"
 	"os"
 	"os/signal"
 	"os/user"
@@ -13,25 +12,17 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/framing/lengthprefixed"
 	"go.cryptoscope.co/margaret/offset"
-	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/blobstore"
-	"go.cryptoscope.co/sbot/graph"
-	"go.cryptoscope.co/sbot/indexes"
+	ssb "go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/message"
-	"go.cryptoscope.co/sbot/multilogs"
-	"go.cryptoscope.co/sbot/plugins/blobs"
-	"go.cryptoscope.co/sbot/plugins/gossip"
-	"go.cryptoscope.co/sbot/plugins/whoami"
 	"go.cryptoscope.co/sbot/repo"
+	mksbot "go.cryptoscope.co/sbot/sbot"
 
 	// debug
 	"net/http"
@@ -67,18 +58,6 @@ func checkAndLog(err error) {
 	}
 }
 
-func goThenLog(ctx context.Context, l margaret.Log, name string, f func(context.Context, margaret.Log) error) {
-	go func() {
-		err := f(ctx, l)
-		if err == nil {
-			log.Log("event", "component terminated without error", "component", name)
-			return
-		}
-
-		log.Log("event", "component terminated", "component", name, "error", err)
-	}()
-}
-
 func init() {
 	go startHTTPServer() // debug
 
@@ -103,16 +82,14 @@ func main() {
 	ctx := context.Background()
 	ctx, shutdown := context.WithCancel(ctx)
 
-	var (
-		node    sbot.Node
-		r       repo.Interface
-		rootLog margaret.Log
-		err     error
+	sbot, err := mksbot.New(
+		mksbot.WithInfo(log),
+		mksbot.WithContext(ctx),
+		mksbot.WithAppKey(appKey),
+		mksbot.WithRepoPath(repoDir),
+		mksbot.WithListenAddr(listenAddr))
 
-		closers multiCloser
-	)
-
-	r = repo.New(repoDir)
+	checkFatal(err)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -121,7 +98,7 @@ func main() {
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
 		shutdown()
 
-		err := closers.Close()
+		err := sbot.Close()
 		checkAndLog(err)
 
 		time.Sleep(1 * time.Second)
@@ -129,27 +106,9 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	rootLog, err = repo.OpenLog(r)
-	checkFatal(err)
-
-	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
-	checkFatal(err)
-	closers.addCloser(uf)
-	goThenLog(ctx, rootLog, "userFeeds", serveUF)
-
-	graphBuilder, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "index", "contacts"), r)
-	checkFatal(err)
-	closers.addCloser(graphBuilder)
-	goThenLog(ctx, rootLog, "contacts", serveContacts)
-
-	bs, err := repo.OpenBlobStore(r)
-	checkFatal(err)
-	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
-
-	keyPair, err := repo.OpenKeyPair(r)
-	checkFatal(err)
-
-	id := keyPair.Id
+	id := sbot.KeyPair.Id
+	uf := sbot.UserFeeds
+	gb := sbot.GraphBuilder
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -161,54 +120,19 @@ func main() {
 		currSeq, err := subLog.Seq().Value()
 		checkFatal(err)
 
-		authorRef := sbot.FeedRef{
+		authorRef := ssb.FeedRef{
 			Algo: "ed25519",
 			ID:   []byte(author),
 		}
-		f, err := graphBuilder.Follows(&authorRef)
+		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
 
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
 	}
 
-	pmgr := sbot.NewPluginManager()
-
-	laddr, err := net.ResolveTCPAddr("tcp", listenAddr)
-	checkFatal(err)
-
-	// TODO get rid of this. either add error to pluginmgr.MakeHandler or take it away from the Options.
-	errAdapter := func(mk func(net.Conn) muxrpc.Handler) func(net.Conn) (muxrpc.Handler, error) {
-		return func(conn net.Conn) (muxrpc.Handler, error) {
-			return mk(conn), nil
-		}
-	}
-
-	opts := sbot.Options{
-		ListenAddr:  laddr,
-		KeyPair:     keyPair,
-		AppKey:      appKey,
-		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), graphBuilder, id, 2, errAdapter(pmgr.MakeHandler)),
-	}
-
-	node, err = sbot.NewNode(opts)
-	checkFatal(err)
-
-	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), id))   // whoami
-	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)) // blobs
-
-	// gossip.*
-	pmgr.Register(gossip.New(
-		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, graphBuilder, node, flagPromisc))
-
-	// createHistoryStream
-	pmgr.Register(gossip.NewHist(
-		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, graphBuilder, node))
-
-	log.Log("event", "serving", "ID", id.Ref(), "addr", opts.ListenAddr)
+	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
-		err = node.Serve(ctx)
+		err = sbot.Node.Serve(ctx)
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		time.Sleep(1 * time.Second)
 	}
