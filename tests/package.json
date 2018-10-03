@@ -1,0 +1,15 @@
+{
+  "name": "go-sbot-tests",
+  "version": "1.0.0",
+  "description": "tests between go and jsbot",
+  "main": "sbot.js",
+  "scripts": {
+    "test": "go test"
+  },
+  "author": "cryptix & keks",
+  "dependencies": {
+    "scuttlebot": "^12.2.0",
+    "ssb-blobs": "^1.1.5",
+    "ssb-keys": "^7.1.3"
+  }
+}

@@ -22,6 +22,7 @@ type Options struct {
 type Node interface {
 	Connect(ctx context.Context, addr net.Addr) error
 	Serve(ctx context.Context) error
+	GetListenAddr() net.Addr
 }
 
 type node struct {
@@ -111,4 +112,8 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		n.handleConnection(ctx, c)
 	}(conn)
 	return nil
+}
+
+func (n *node) GetListenAddr() net.Addr {
+	return n.l.Addr()
 }

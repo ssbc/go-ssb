@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"encoding/base64"
 	"net"
 	"os"
 	"os/user"
@@ -19,7 +20,7 @@ type Sbot struct {
 	listenAddr net.Addr
 	info       kitlog.Logger
 	rootCtx    context.Context
-	appKey     [32]byte
+	appKey     []byte
 	closers    multiCloser
 
 	UserFeeds    multilog.MultiLog
@@ -49,7 +50,7 @@ func WithAppKey(k []byte) Option {
 		if n := len(k); n != 32 {
 			return errors.Errorf("appKey: need 32 bytes got %d", n)
 		}
-		copy(s.appKey[:], k)
+		s.appKey = k
 		return nil
 	}
 }
@@ -84,6 +85,14 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 
 		s.repoPath = filepath.Join(u.HomeDir, ".ssb-go")
+	}
+
+	if s.appKey == nil {
+		ak, err := base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode default appkey")
+		}
+		s.appKey = ak
 	}
 
 	if s.listenAddr == nil {
