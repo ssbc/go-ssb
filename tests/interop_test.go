@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"testing"
@@ -13,7 +14,18 @@ import (
 	"go.cryptoscope.co/sbot/sbot"
 )
 
-func initInterop(t *testing.T, fname string) {
+func writeFile(t *testing.T, data string) string {
+	r := require.New(t)
+	f, err := ioutil.TempFile("", t.Name())
+	r.NoError(err)
+	_, err = fmt.Fprintf(f, "%s", data)
+	r.NoError(err)
+	err = f.Close()
+	r.NoError(err)
+	return f.Name()
+}
+
+func initInterop(t *testing.T, jsbefore, jsafter string) {
 	r := require.New(t)
 	ctx := context.Background()
 
@@ -40,7 +52,8 @@ func initInterop(t *testing.T, fname string) {
 		"TEST_NAME=" + t.Name(),
 		"TEST_BOB=" + sbot.KeyPair.Id.Ref(),
 		"TEST_GOADDR=" + netwrap.GetAddr(sbot.Node.GetListenAddr(), "tcp").String(),
-		"TEST_ACTIONS=" + fname,
+		"TEST_BEFORE=" + writeFile(t, jsbefore),
+		"TEST_AFTER=" + writeFile(t, jsafter),
 	}
 
 	r.NoError(cmd.Run(), "failed to init test js-sbot")
@@ -50,5 +63,5 @@ func initInterop(t *testing.T, fname string) {
 }
 
 func TestInteropFeeds(t *testing.T) {
-	initInterop(t, "/tmp/foo.js")
+	initInterop(t, `console.warn(sbot.blobs.has('foo', logMe))`, `console.warn(sbot.whoami())`)
 }

@@ -1,4 +1,5 @@
-const ssbKeys = require('ssb-keys')
+const { readFileSync } = require('fs')
+const { generate } = require('ssb-keys')
 
 const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/gossip'))
@@ -6,11 +7,19 @@ const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/logging'))
   .use(require('ssb-blobs'))
 
+
+function logMe() {
+  console.warn(arguments)
+}
+
 const testName = process.env['TEST_NAME']
 const testBob = process.env['TEST_BOB']
 const testAddr = process.env['TEST_GOADDR']
 
-const alice = ssbKeys.generate()
+const scriptBefore = readFileSync(process.env['TEST_BEFORE']).toString()
+const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
+
+const alice = generate()
 
 const sbot = createSbot({
   temp: testName,
@@ -20,11 +29,13 @@ const sbot = createSbot({
 
 console.log(alice.id)
 
+eval(scriptBefore)
+
 const to =`net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519','')}`
 console.warn('dialing:', to)
 sbot.connect(to, (err) => {
   if (err) throw err
-
+  eval(scriptAfter)
 })
 
 setTimeout(() => {
