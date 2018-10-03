@@ -276,7 +276,8 @@ func callCmd(ctx *cli.Context) error {
 		return errors.New("call: cmd can't be empty")
 	}
 	args := ctx.Args().Slice()
-	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method{cmd}, args)
+	v := strings.Split(cmd, ".")
+	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method(v), args)
 	if err != nil {
 		return errors.Wrapf(err, "%s: call failed.", cmd)
 	}
