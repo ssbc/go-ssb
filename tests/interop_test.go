@@ -5,12 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+	muxtest "go.cryptoscope.co/muxrpc/test"
 	"go.cryptoscope.co/netwrap"
 	ssb "go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/sbot"
@@ -27,19 +31,32 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string) *sbot.Sbot {
+func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) *sbot.Sbot {
 	r := require.New(t)
 	ctx := context.Background()
 
 	dir, err := ioutil.TempDir("", t.Name())
 	r.NoError(err, "failed to create testdir for repo")
+
+	// Choose you logger!
+	// use the "logtest" line if you want to log through calls to `t.Log`
+	// use the "NewLogfmtLogger" line if you want to log to stdout
+	// the test logger does not print anything if the command hangs, so you have an alternative
 	info, _ := logtest.KitLogger("go", t)
-	sbot, err := sbot.New(
+	//info := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+
+	// timestamps!
+	info = log.With(info, "ts", log.TimestampFormat(time.Now, "3:04:05.000"))
+
+	// prepend defaults
+	sbotOpts = append([]sbot.Option{
 		sbot.WithInfo(info),
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(dir),
 		sbot.WithContext(ctx),
-	)
+	}, sbotOpts...)
+
+	sbot, err := sbot.New(sbotOpts...)
 	r.NoError(err, "failed to init test go-sbot")
 	t.Logf("go-sbot: %s", sbot.KeyPair.Id.Ref())
 
@@ -59,7 +76,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string) *sbot.Sbot {
 		"TEST_AFTER=" + writeFile(t, jsafter),
 	}
 
-	r.NoError(cmd.Run(), "failed to init test js-sbot")
+	r.NoError(cmd.Start(), "failed to init test js-sbot")
 	t.Logf("JSbot: %s", b.String())
 
 	// time.Sleep(3 * time.Second)
@@ -97,6 +114,8 @@ func TestInteropBlobs(t *testing.T) {
 	testRef, err := ssb.ParseBlobRef("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256") // foobar
 	r.NoError(err)
 
+	tsChan := make(chan *muxtest.Transcript, 1)
+
 	s := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
@@ -111,7 +130,14 @@ func TestInteropBlobs(t *testing.T) {
 			function(err, has) {
 				t.true(has, "should have blob")
 				t.end(err)
-			})`)
+			})`,
+		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			var ts muxtest.Transcript
+
+			conn = muxtest.WrapConn(&ts, conn)
+			tsChan <- &ts
+			return conn, nil
+		}))
 
 	err = s.WantManager.Want(testRef)
 	r.NoError(err, ".Want() should not error")
@@ -124,4 +150,7 @@ func TestInteropBlobs(t *testing.T) {
 	foobar, err := ioutil.ReadAll(br)
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
+
+	// TODO wait for process to exit and print transcript
+	<-tsChan
 }
