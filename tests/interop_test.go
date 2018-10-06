@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,11 +30,11 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, <-chan struct{}) {
+func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, func()) {
+	t.Parallel()
 	r := require.New(t)
 	ctx := context.Background()
 
-	exited := make(chan struct{})
 	dir, err := ioutil.TempDir("", t.Name())
 	r.NoError(err, "failed to create testdir for repo")
 
@@ -69,10 +69,11 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		}
 	}()
 
-	pr, pw := io.Pipe()
 	cmd := exec.Command("node", "./sbot.js")
 	cmd.Stderr = logtest.Logger("js", t)
-	cmd.Stdout = pw
+	outrc, err := cmd.StdoutPipe()
+	r.NoError(err)
+
 	cmd.Env = []string{
 		"TEST_NAME=" + t.Name(),
 		"TEST_BOB=" + sbot.KeyPair.Id.Ref(),
@@ -84,24 +85,20 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
 	// var foo *int
-	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: nodejs exited", err)
-			// *foo = 3
-			// t.Fatal(err)
-			os.Exit(23)
-		}
-		// r.NoError(err, "js-sbot exited")
-		close(exited)
-	}()
+	var o sync.Once
+	cleanup := func() {
+		o.Do(func() {
+			err := cmd.Wait()
+			r.NoError(err, "js-sbot exited")
+		})
+	}
 
-	pubScanner := bufio.NewScanner(pr) // TODO muxrpc comms?
+	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
 	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
 
 	alice, err := ssb.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get alice key from JS process")
 	t.Logf("JS alice: %s", alice.Ref())
 
-	return sbot, alice, exited
+	return sbot, alice, cleanup
 }

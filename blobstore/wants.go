@@ -91,11 +91,11 @@ func (wmgr *wantManager) WantWithDist(ref *sbot.BlobRef, dist int64) error {
 	wmgr.info.Log("func", "WantWithDist", "dist", dist)
 	f, err := wmgr.bs.Get(ref)
 	if err == nil {
-		wmgr.info.Log("func", "WantWithDist", "blob available", true)
+		wmgr.info.Log("func", "WantWithDist", "available", true)
 		return f.(io.Closer).Close()
 	}
 
-	wmgr.info.Log("func", "WantWithDist", "blob available", false)
+	wmgr.info.Log("func", "WantWithDist", "available", false)
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 

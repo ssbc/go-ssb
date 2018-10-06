@@ -13,7 +13,7 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	s, alice, exited := initInterop(t, `
+	s, alice, wait := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -35,11 +35,11 @@ pull(
 	pull.collect(function(err, vals){
 		t.equal(n, vals.length)
 		t.end(err)
-		setTimeout(exit, 3000) // give go a chance to get this
+		setTimeout(exit, 1500) // give go a chance to get this
 	})
 )
 `)
-	<-exited // wait for js do be done
+	wait()
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -74,4 +74,5 @@ pull(
 		r.Equal(m.Content.Text, "foo")
 		r.Equal(m.Content.I, 50-i, "wrong I on msg: %d", i)
 	}
+	r.NoError(s.Close())
 }

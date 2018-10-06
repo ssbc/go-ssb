@@ -1,13 +1,14 @@
 package tests
 
 import (
+	"context"
 	"io/ioutil"
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	muxtest "go.cryptoscope.co/muxrpc/test"
 	ssb "go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/sbot"
@@ -18,7 +19,7 @@ func TestBlobToJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, exited := initInterop(t, `run()`,
+	s, _, wait := initInterop(t, `run()`,
 		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
 			t.true(has, "got blob")
 			t.end(err, "no err")
@@ -36,22 +37,24 @@ func TestBlobToJS(t *testing.T) {
 	r.NoError(err)
 	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
 
-	<-exited
+	wait()
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
+	r.NoError(s.Close())
 }
 
 func TestBlobFromJS(t *testing.T) {
 	r := require.New(t)
 
-	testRef, err := ssb.ParseBlobRef("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256") // foobar
+	const fooBarRef = "&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256"
+	testRef, err := ssb.ParseBlobRef(fooBarRef) // foobar
 	r.NoError(err)
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, exited := initInterop(t,
+	s, _, wait := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
@@ -65,20 +68,29 @@ func TestBlobFromJS(t *testing.T) {
 			function(err, has) {
 				t.true(has, "should have blob")
 				t.end(err)
-				setTimeout(exit, 3000)
+				setTimeout(exit, 1500)
 			})`,
 		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			var ts muxtest.Transcript
-
 			conn = muxtest.WrapConn(&ts, conn)
 			tsChan <- &ts
 			return conn, nil
 		}))
 
+	got := make(chan struct{})
+	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		defer close(got)
+		notif := v.(ssb.BlobStoreNotification)
+		t.Log(notif)
+		r.Equal(ssb.BlobStoreOp("put"), notif.Op)
+		r.Equal(fooBarRef, notif.Ref.Ref())
+		return err
+	}))
+
 	err = s.WantManager.Want(testRef)
 	r.NoError(err, ".Want() should not error")
 
-	time.Sleep(5 * time.Second)
+	<-got
 
 	br, err := s.BlobStore.Get(testRef)
 	r.NoError(err, "should have blob")
@@ -87,9 +99,10 @@ func TestBlobFromJS(t *testing.T) {
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
 
-	<-exited
+	wait()
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
+	r.NoError(s.Close())
 }
