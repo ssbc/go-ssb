@@ -140,7 +140,7 @@ type wantProc struct {
 }
 
 func (proc *wantProc) init() {
-	cancel := proc.bs.Changes().Register(
+	bsCancel := proc.bs.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			proc.l.Lock()
 			defer proc.l.Unlock()
@@ -164,9 +164,17 @@ func (proc *wantProc) init() {
 			return nil
 		}))
 
+	wmCancel := proc.wmgr.Register(
+		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+			w := v.(want)
+			proc.wmgr.info.Log("op", "sending want we now want", "want", w.Ref.Ref())
+			return proc.out.Pour(ctx, WantMsg{w})
+		}))
+
 	oldDone := proc.done
 	proc.done = func(next func()) {
-		cancel()
+		bsCancel()
+		wmCancel()
 		if oldDone != nil {
 			oldDone(nil)
 		}
