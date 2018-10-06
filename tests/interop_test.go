@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"testing"
-	// "time"
+	"time"
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/require"
@@ -76,17 +76,28 @@ for (var i = 10; i>0; i--) {
 
 func TestInteropBlobs(t *testing.T) {
 	r := require.New(t)
+
 	testRef, err := ssb.ParseBlobRef("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256") // foobar
 	r.NoError(err)
-	s := initInterop(t, `
-pull(
-	pull.values([Buffer.from("foobar")]),
-	sbot.blobs.add(logMe)
-	)
-`, `sbot.blobs.has("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256",logMe)`)
+
+	s := initInterop(t,
+		`pull(
+			pull.values([Buffer.from("foobar")]),
+			sbot.blobs.add(logMe)
+		)`,
+		`sbot.blobs.has(
+			"&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256",
+			logMe
+		)`)
+
+	err = s.WantManager.Want(testRef)
+	r.NoError(err, ".Want() should not error")
+
+	time.Sleep(time.Second)
 
 	br, err := s.BlobStore.Get(testRef)
 	r.NoError(err, "should have blob")
+
 	foobar, err := ioutil.ReadAll(br)
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
