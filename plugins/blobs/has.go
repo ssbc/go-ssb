@@ -3,13 +3,13 @@ package blobs
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/blobstore"
 )
 
 type hasHandler struct {
@@ -40,7 +40,7 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	has := true
 
-	if os.IsNotExist(errors.Cause(err)) {
+	if err == blobstore.ErrNoSuchBlob {
 		has = false
 	} else if err != nil {
 		err = errors.Wrap(err, "error looking up blob")
