@@ -92,12 +92,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	opts := sbot.Options{
-		Logger:		 s.info,
-		ListenAddr:  s.listenAddr,
-		KeyPair:     s.KeyPair,
-		AppKey:      s.appKey[:],
-		MakeHandler: graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 2, errAdapter(pmgr.MakeHandler)),
+		Logger:       s.info,
+		ListenAddr:   s.listenAddr,
+		KeyPair:      s.KeyPair,
+		AppKey:       s.appKey[:],
+		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 2, errAdapter(pmgr.MakeHandler)),
+		ConnWrappers: s.connWrappers,
 	}
+
 	node, err := sbot.NewNode(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create node")

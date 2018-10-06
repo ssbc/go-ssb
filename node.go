@@ -13,11 +13,12 @@ import (
 )
 
 type Options struct {
-	ListenAddr  net.Addr
-	KeyPair     *KeyPair
-	AppKey      []byte
-	MakeHandler func(net.Conn) (muxrpc.Handler, error)
-	Logger      log.Logger
+	ListenAddr   net.Addr
+	KeyPair      *KeyPair
+	AppKey       []byte
+	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
+	Logger       log.Logger
+	ConnWrappers []netwrap.ConnWrapper
 }
 
 type Node interface {
@@ -34,6 +35,7 @@ type node struct {
 	secretClient *secretstream.Client
 	connTracker  ConnTracker
 	log          log.Logger
+	connWrappers []netwrap.ConnWrapper
 }
 
 func NewNode(opts Options) (Node, error) {
@@ -59,6 +61,7 @@ func NewNode(opts Options) (Node, error) {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
 
+	n.connWrappers = opts.ConnWrappers
 	n.log = opts.Logger
 
 	return n, nil
@@ -89,6 +92,17 @@ func (n *node) Serve(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error accepting connection")
 		}
+
+		n.log.Log("action", "applying connection wrappers", "count", len(n.connWrappers))
+		// apply connection wrappers
+		for i, cw := range n.connWrappers {
+			var err error
+			conn, err = cw(conn)
+			if err != nil {
+				return errors.Wrapf(err, "error applying connection wrapper #%d", i)
+			}
+		}
+
 		go func(c net.Conn) {
 			n.handleConnection(ctx, c)
 		}(conn)
@@ -111,6 +125,16 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	conn, err := netwrap.Dial(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
 		return errors.Wrap(err, "error dialing")
+	}
+
+	n.log.Log("action", "applying connection wrappers", "count", len(n.connWrappers))
+	// apply connection wrappers
+	for i, cw := range n.connWrappers {
+		var err error
+		conn, err = cw(conn)
+		if err != nil {
+			return errors.Wrapf(err, "error applying connection wrapper #%d", i)
+		}
 	}
 
 	go func(c net.Conn) {

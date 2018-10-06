@@ -11,17 +11,19 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/graph"
 )
 
 type Sbot struct {
-	repoPath   string
-	listenAddr net.Addr
-	info       kitlog.Logger
-	rootCtx    context.Context
-	appKey     []byte
-	closers    multiCloser
+	repoPath     string
+	listenAddr   net.Addr
+	info         kitlog.Logger
+	rootCtx      context.Context
+	appKey       []byte
+	closers      multiCloser
+	connWrappers []netwrap.ConnWrapper
 
 	UserFeeds    multilog.MultiLog
 	KeyPair      *sbot.KeyPair
@@ -67,6 +69,13 @@ func WithInfo(log kitlog.Logger) Option {
 func WithContext(ctx context.Context) Option {
 	return func(s *Sbot) error {
 		s.rootCtx = ctx
+		return nil
+	}
+}
+
+func WithConnWrapper(cw netwrap.ConnWrapper) Option {
+	return func(s *Sbot) error {
+		s.connWrappers = append(s.connWrappers, cw)
 		return nil
 	}
 }
