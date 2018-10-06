@@ -28,6 +28,7 @@ type Sbot struct {
 	GraphBuilder graph.Builder
 	Node         sbot.Node
 	BlobStore    sbot.BlobStore
+	WantManager  sbot.WantManager
 }
 
 type Option func(*Sbot) error

@@ -74,6 +74,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.BlobStore = bs
 	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+	s.WantManager = wm
 
 	s.KeyPair, err = repo.OpenKeyPair(r)
 	if err != nil {
