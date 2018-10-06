@@ -309,7 +309,7 @@ func Authorize(log log.Logger, b Builder, local *sbot.FeedRef, maxHops int, make
 			)
 
 			if d < 0 && len(fpath) < maxHops {
-				return nil, errors.Errorf("sbot: peer not in reach. d:%d, max:%d", d, maxHops)
+				return nil, errors.Errorf("sbot: peer not in reach. d:%.0f, max:%d", d, maxHops)
 			}
 		}
 
