@@ -88,11 +88,14 @@ func (wmgr *wantManager) Want(ref *sbot.BlobRef) error {
 }
 
 func (wmgr *wantManager) WantWithDist(ref *sbot.BlobRef, dist int64) error {
+	wmgr.info.Log("func", "WantWithDist", "dist", dist)
 	f, err := wmgr.bs.Get(ref)
 	if err == nil {
+		wmgr.info.Log("func", "WantWithDist", "blob available", true)
 		return f.(io.Closer).Close()
 	}
 
+	wmgr.info.Log("func", "WantWithDist", "blob available", false)
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
@@ -184,9 +187,10 @@ func (proc *wantProc) Close() error {
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	proc.wmgr.info.Log("event", "createWants.In", "cause", "received data")
-	dump(proc.wmgr.info, v, "proc pour")
+	dump(proc.wmgr.info, v, "proc input")
 	proc.l.Lock()
 	defer proc.l.Unlock()
+	dump(proc.wmgr.info, proc.wmgr.wants, "our wants before processing")
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
