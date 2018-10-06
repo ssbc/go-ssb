@@ -69,25 +69,29 @@ func initInterop(t *testing.T, jsbefore, jsafter string) *sbot.Sbot {
 
 func TestInteropFeedsJS2GO(t *testing.T) {
 	initInterop(t, `
-for (var i = 10; i>0; i--) {
-	sbot.publish({
-		type:"test",
-		text:"foo",
-		i:i
-	}, noErr)
-}
-run()
-
+	function mkMsg(msg) {
+		return function(cb) {
+			sbot.publish(msg, cb)
+		}
+	}
+	n = 50
+	let msgs = []
+	for (var i = n; i>0; i--) {
+		msgs.push(mkMsg({type:"test",text:"foo",i:1}))
+	}
+	series(msgs, function(err, results) {
+		t.error(err, "series of publish")
+		t.equal(n, results.length, "message count")
+		run() // triggers connect and after block
+	})
 `, `
-setTimeout(function(){
-	pull(
-		sbot.createUserStream({id:alice.id}),
-		pull.collect(function(err, vals){
-			t.equal(10, vals.length)
-			t.end(err)
-		})
-	)	
-},1000)
+pull(
+	sbot.createUserStream({id:alice.id}),
+	pull.collect(function(err, vals){
+		t.equal(n, vals.length)
+		t.end(err)
+	})
+)
 `)
 }
 

@@ -8,6 +8,7 @@
   },
   "author": "cryptix & keks",
   "dependencies": {
+    "run-series": "^1.1.8",
     "scuttlebot": "^12.2.0",
     "ssb-blobs": "^1.1.5",
     "ssb-keys": "^7.1.3"

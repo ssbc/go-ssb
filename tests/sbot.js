@@ -2,6 +2,7 @@ const { readFileSync } = require('fs')
 const { generate } = require('ssb-keys')
 const pull = require('pull-stream')
 const tape = require('tape')
+const series = require('run-series')
 
 const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/gossip'))
