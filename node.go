@@ -8,7 +8,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
-	//"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 )
@@ -75,8 +74,6 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	// use this line instead if you want to dump your traffic
-	//pkr := muxrpc.NewPacker(debug.Wrap(log.With(n.log, "module", "packetDumper"), conn))
 	pkr := muxrpc.NewPacker(conn)
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
