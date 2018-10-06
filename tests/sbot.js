@@ -1,5 +1,6 @@
 const { readFileSync } = require('fs')
 const { generate } = require('ssb-keys')
+const pull = require('pull-stream')
 
 const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/gossip'))
@@ -8,7 +9,8 @@ const createSbot = require('scuttlebot')
   .use(require('ssb-blobs'))
 
 
-function logMe() {
+function logMe(err) {
+  if (err) throw err
   console.warn(arguments)
 }
 

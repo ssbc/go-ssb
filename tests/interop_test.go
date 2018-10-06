@@ -7,10 +7,12 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"testing"
+	// "time"
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
+	ssb "go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/sbot/sbot"
 )
 
@@ -25,14 +27,15 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string) {
+func initInterop(t *testing.T, jsbefore, jsafter string) *sbot.Sbot {
 	r := require.New(t)
 	ctx := context.Background()
 
 	dir, err := ioutil.TempDir("", t.Name())
 	r.NoError(err, "failed to create testdir for repo")
-
+	info, _ := logtest.KitLogger("go", t)
 	sbot, err := sbot.New(
+		sbot.WithInfo(info),
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(dir),
 		sbot.WithContext(ctx),
@@ -46,7 +49,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string) {
 	}()
 	b := new(bytes.Buffer)
 	cmd := exec.Command("node", "./sbot.js")
-	cmd.Stderr = logtest.Logger(t.Name(), t)
+	cmd.Stderr = logtest.Logger("js", t)
 	cmd.Stdout = b
 	cmd.Env = []string{
 		"TEST_NAME=" + t.Name(),
@@ -59,9 +62,32 @@ func initInterop(t *testing.T, jsbefore, jsafter string) {
 	r.NoError(cmd.Run(), "failed to init test js-sbot")
 	t.Logf("JSbot: %s", b.String())
 
-	r.NoError(sbot.Close(), "failed to close go-sbot")
+	// time.Sleep(3 * time.Second)
+	// r.NoError(sbot.Close(), "failed to close go-sbot")
+	return sbot
 }
 
 func TestInteropFeeds(t *testing.T) {
-	initInterop(t, `console.warn(sbot.blobs.has('foo', logMe))`, `console.warn(sbot.whoami())`)
+	initInterop(t, `
+for (var i = 10; i>0; i--) {
+	sbot.publish({type:"test", text:"foo"}, logMe)
+}`, `console.warn(sbot.whoami())`)
+}
+
+func TestInteropBlobs(t *testing.T) {
+	r := require.New(t)
+	testRef, err := ssb.ParseBlobRef("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256") // foobar
+	r.NoError(err)
+	s := initInterop(t, `
+pull(
+	pull.values([Buffer.from("foobar")]),
+	sbot.blobs.add(logMe)
+	)
+`, `sbot.blobs.has("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256",logMe)`)
+
+	br, err := s.BlobStore.Get(testRef)
+	r.NoError(err, "should have blob")
+	foobar, err := ioutil.ReadAll(br)
+	r.NoError(err, "couldnt read blob")
+	r.Equal("foobar", string(foobar))
 }
