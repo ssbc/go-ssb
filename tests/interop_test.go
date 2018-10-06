@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -17,7 +18,6 @@ import (
 	"github.com/go-kit/kit/log"
 	goon "github.com/shurcooL/go-goon"
 	"github.com/stretchr/testify/require"
-
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	muxtest "go.cryptoscope.co/muxrpc/test"
@@ -70,8 +70,13 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	go func() {
 		err := sbot.Node.Serve(ctx)
-		r.NoError(err, "serving test go-sbot exited")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn: go-sbot muxrpc exited", err)
+			// t.Fatal(err) BUG?!
+			os.Exit(42)
+		}
 	}()
+
 	pr, pw := io.Pipe()
 	cmd := exec.Command("node", "./sbot.js")
 	cmd.Stderr = logtest.Logger("js", t)
@@ -86,9 +91,16 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
+	// var foo *int
 	go func() {
 		err := cmd.Wait()
-		r.NoError(err, "js-sbot exited")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warn: nodejs exited", err)
+			// *foo = 3
+			// t.Fatal(err)
+			os.Exit(23)
+		}
+		// r.NoError(err, "js-sbot exited")
 		close(exited)
 	}()
 
