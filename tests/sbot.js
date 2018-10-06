@@ -20,43 +20,43 @@ const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
 
 tape.createStream().pipe(process.stderr);
 tape(testName, function (t) {
-  function noErr(err) {
-    t.error(err)
+  t.timeoutAfter(5000) // doesn't exit the process
+  setTimeout(() => {
+    t.comment("test timeout")
+    process.exit(1)
+  }, 6000)
+
+
+  function run() { // needs to be called by the before block when it's done
+    const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
+    t.comment("dialing")
+    console.warn('dialing:', to)
+    sbot.connect(to, (err) => {
+      t.error(err, "connected")
+      eval(scriptAfter)
+    })
   }
 
+  function exit() { // call this when you're done
+    process.exit(0)
+  }
 
   function logMe(name) {
     let logCnt = 0
     return function (err) {
-      t.error(err)
+      t.error(err, name+"/loggerd")
       console.warn(name, logCnt, arguments)
       logCnt++
     }
   }
 
   const alice = generate()
-
   const sbot = createSbot({
     temp: testName,
     keys: alice,
-    timeout: 1000
   })
 
-  console.log(alice.id)
-
+  t.comment("sbot spawned, running before")
+  console.log(alice.id) // tell go process who's incoming
   eval(scriptBefore)
-
-  function run() {
-    const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
-    console.warn('dialing:', to)
-    sbot.connect(to, (err) => {
-      t.error(err)
-      eval(scriptAfter)
-    })
-  }
-
-  setTimeout(() => {
-    // t.end()
-    process.exit(0)
-  }, 5000)
 })

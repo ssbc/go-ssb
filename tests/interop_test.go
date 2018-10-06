@@ -2,22 +2,24 @@ package tests
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/sbot/message"
+	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/netwrap"
 	ssb "go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/sbot/message"
 	"go.cryptoscope.co/sbot/sbot"
 )
 
@@ -32,10 +34,11 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string) (*sbot.Sbot, *ssb.FeedRef) {
+func initInterop(t *testing.T, jsbefore, jsafter string) (*sbot.Sbot, *ssb.FeedRef, <-chan struct{}) {
 	r := require.New(t)
 	ctx := context.Background()
 
+	exited := make(chan struct{})
 	dir, err := ioutil.TempDir("", t.Name())
 	r.NoError(err, "failed to create testdir for repo")
 	info, _ := logtest.KitLogger("go", t)
@@ -52,10 +55,10 @@ func initInterop(t *testing.T, jsbefore, jsafter string) (*sbot.Sbot, *ssb.FeedR
 		err := sbot.Node.Serve(ctx)
 		r.NoError(err, "serving test go-sbot exited")
 	}()
-	b := new(bytes.Buffer)
+	pr, pw := io.Pipe()
 	cmd := exec.Command("node", "./sbot.js")
 	cmd.Stderr = logtest.Logger("js", t)
-	cmd.Stdout = b
+	cmd.Stdout = pw
 	cmd.Env = []string{
 		"TEST_NAME=" + t.Name(),
 		"TEST_BOB=" + sbot.KeyPair.Id.Ref(),
@@ -64,29 +67,29 @@ func initInterop(t *testing.T, jsbefore, jsafter string) (*sbot.Sbot, *ssb.FeedR
 		"TEST_AFTER=" + writeFile(t, jsafter),
 	}
 
-	r.NoError(cmd.Run(), "failed to init test js-sbot")
+	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
-	out := bufio.NewScanner(b)
-	i := 0
-	var last string
-	for out.Scan() {
-		s := out.Text()
-		// t.Logf("out(%d): %q", i, s)
-		i++
-		last = s
-	}
+	time.Sleep(1 * time.Second) // wait for init
 
-	r.Equal(i, 1, "multiple lines of output from js - expected #1 to be alices pubkey/id")
-	alice, err := ssb.ParseFeedRef(last)
+	go func() {
+		err := cmd.Wait()
+		r.NoError(err, "js-sbot exited")
+		close(exited)
+	}()
+
+	pubScanner := bufio.NewScanner(pr) // TODO muxrpc comms?
+	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
+
+	alice, err := ssb.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get alice key from JS process")
 	t.Logf("JS alice: %s", alice.Ref())
 
-	return sbot, alice
+	return sbot, alice, exited
 }
 
-func TestInteropFeedsJS2GO(t *testing.T) {
+func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	s, alice := initInterop(t, `
+	s, alice, exited := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -94,7 +97,7 @@ func TestInteropFeedsJS2GO(t *testing.T) {
 	}
 	n = 50
 	let msgs = []
-	for (var i = 50; i>0; i--) {
+	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
 	series(msgs, function(err, results) {
@@ -108,9 +111,12 @@ pull(
 	pull.collect(function(err, vals){
 		t.equal(n, vals.length)
 		t.end(err)
+		setTimeout(exit, 3000) // give go a chance to get this
 	})
 )
 `)
+	<-exited // wait for js do be done
+
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
@@ -146,18 +152,34 @@ pull(
 	}
 }
 
-func TestInteropBlobs(t *testing.T) {
+func TestBlobToJS(t *testing.T) {
+	r := require.New(t)
+
+	s, _, exited := initInterop(t, `run()`,
+		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
+			t.true(has, "got blob")
+			t.end(err, "no err")
+			exit()
+		})`)
+
+	ref, err := s.BlobStore.Put(strings.NewReader("bl0000p123123"))
+	r.NoError(err)
+	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
+	<-exited
+}
+
+func TestBlobFromJS(t *testing.T) {
 	r := require.New(t)
 
 	testRef, err := ssb.ParseBlobRef("&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256") // foobar
 	r.NoError(err)
 
-	s, _ := initInterop(t,
+	s, _, exited := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
-				t.error(err)
-				t.equal(id, '&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256')
+				t.error(err, "added")
+				t.equal(id, '&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256', "blob id")
 				run()
 			})
 		)`,
@@ -166,6 +188,7 @@ func TestInteropBlobs(t *testing.T) {
 			function(err, has) {
 				t.true(has, "should have blob")
 				t.end(err)
+				setTimeout(exit, 3000)
 			})`)
 
 	err = s.WantManager.Want(testRef)
@@ -179,4 +202,5 @@ func TestInteropBlobs(t *testing.T) {
 	foobar, err := ioutil.ReadAll(br)
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
+	<-exited
 }
