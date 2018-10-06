@@ -67,11 +67,28 @@ func initInterop(t *testing.T, jsbefore, jsafter string) *sbot.Sbot {
 	return sbot
 }
 
-func TestInteropFeeds(t *testing.T) {
+func TestInteropFeedsJS2GO(t *testing.T) {
 	initInterop(t, `
 for (var i = 10; i>0; i--) {
-	sbot.publish({type:"test", text:"foo"}, logMe)
-}`, `console.warn(sbot.whoami())`)
+	sbot.publish({
+		type:"test",
+		text:"foo",
+		i:i
+	}, noErr)
+}
+run()
+
+`, `
+setTimeout(function(){
+	pull(
+		sbot.createUserStream({id:alice.id}),
+		pull.collect(function(err, vals){
+			t.equal(10, vals.length)
+			t.end(err)
+		})
+	)	
+},1000)
+`)
 }
 
 func TestInteropBlobs(t *testing.T) {
@@ -83,17 +100,23 @@ func TestInteropBlobs(t *testing.T) {
 	s := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
-			sbot.blobs.add(logMe)
+			sbot.blobs.add(function(err, id) {
+				t.error(err)
+				t.equal(id, '&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256')
+				run()
+			})
 		)`,
 		`sbot.blobs.has(
 			"&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256",
-			logMe
-		)`)
+			function(err, has) {
+				t.true(has, "should have blob")
+				t.end(err)
+			})`)
 
 	err = s.WantManager.Want(testRef)
 	r.NoError(err, ".Want() should not error")
 
-	time.Sleep(time.Second)
+	time.Sleep(5 * time.Second)
 
 	br, err := s.BlobStore.Get(testRef)
 	r.NoError(err, "should have blob")
