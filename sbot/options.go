@@ -27,6 +27,7 @@ type Sbot struct {
 	KeyPair      *sbot.KeyPair
 	GraphBuilder graph.Builder
 	Node         sbot.Node
+	BlobStore    sbot.BlobStore
 }
 
 type Option func(*Sbot) error

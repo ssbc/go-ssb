@@ -30,20 +30,13 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
-	ref, err := sbot.ParseRef(req.Args[0].(string))
+	ref, err := sbot.ParseBlobRef(req.Args[0].(string))
 	checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 	if err != nil {
 		return
 	}
 
-	br, ok := ref.(*sbot.BlobRef)
-	if !ok {
-		err = errors.Errorf("expected blob reference, got %T", ref)
-		checkAndLog(h.log, err)
-		return
-	}
-
-	_, err = h.bs.Get(br)
+	_, err = h.bs.Get(ref)
 
 	has := true
 
