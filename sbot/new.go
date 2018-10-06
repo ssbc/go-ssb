@@ -51,6 +51,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open rootlog")
 	}
+	s.RootLog = rootLog
 
 	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
 	if err != nil {

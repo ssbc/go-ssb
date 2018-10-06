@@ -3,6 +3,7 @@ package sbot
 import (
 	"context"
 	"encoding/base64"
+	"go.cryptoscope.co/margaret"
 	"net"
 	"os"
 	"os/user"
@@ -25,6 +26,7 @@ type Sbot struct {
 	closers      multiCloser
 	connWrappers []netwrap.ConnWrapper
 
+	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
 	KeyPair      *sbot.KeyPair
 	GraphBuilder graph.Builder
