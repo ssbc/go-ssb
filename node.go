@@ -2,12 +2,13 @@ package sbot
 
 import (
 	"context"
-	"log"
 	"net"
 
 	"github.com/agl/ed25519"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
+	//"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 )
@@ -17,6 +18,7 @@ type Options struct {
 	KeyPair     *KeyPair
 	AppKey      []byte
 	MakeHandler func(net.Conn) (muxrpc.Handler, error)
+	Logger      log.Logger
 }
 
 type Node interface {
@@ -32,6 +34,7 @@ type node struct {
 	secretServer *secretstream.Server
 	secretClient *secretstream.Client
 	connTracker  ConnTracker
+	log          log.Logger
 }
 
 func NewNode(opts Options) (Node, error) {
@@ -56,6 +59,9 @@ func NewNode(opts Options) (Node, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
+
+	n.log = opts.Logger
+
 	return n, nil
 }
 
@@ -65,16 +71,18 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
-		log.Printf("error creating muxrpc handler for peer %s: %s", conn.RemoteAddr(), err)
+		n.log.Log("func", "handleConnection", "op", "MakeHandler", "error", err.Error(), "peer", conn.RemoteAddr())
 		return
 	}
 
-	pkr := muxrpc.NewPacker(conn) //codec.Wrap(logging.Logger("handleC"), conn))
+	// use this line instead if you want to dump your traffic
+	//pkr := muxrpc.NewPacker(debug.Wrap(log.With(n.log, "module", "packetDumper"), conn))
+	pkr := muxrpc.NewPacker(conn)
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
 	srv := edp.(muxrpc.Server)
 	if err := srv.Serve(ctx); err != nil {
-		log.Printf("error serving muxrpc session with peer %s: %s", conn.RemoteAddr(), err)
+		n.log.Log("func", "handleConnection", "op", "Serve", "error", err.Error(), "peer", conn.RemoteAddr())
 	}
 }
 
