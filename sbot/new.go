@@ -92,6 +92,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	opts := sbot.Options{
+		Logger:		 s.info,
 		ListenAddr:  s.listenAddr,
 		KeyPair:     s.KeyPair,
 		AppKey:      s.appKey[:],
