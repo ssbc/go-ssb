@@ -97,7 +97,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
 		AppKey:       s.appKey[:],
-		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 2, errAdapter(pmgr.MakeHandler)),
+		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 4, errAdapter(pmgr.MakeHandler)),
 		ConnWrappers: s.connWrappers,
 	}
 

@@ -3,14 +3,12 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/cryptix/go/logging"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
-	goon "github.com/shurcooL/go-goon"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -31,9 +29,7 @@ func dump(log logging.Interface, v interface{}, from string) {
 		x = m
 	}
 
-	for _, str := range strings.Split(goon.Sdump(x), "\n") {
-		log.Log("from", from, "goon", strings.Replace(str, "\t", "  ", -1))
-	}
+	log.Log("from", from, "blobSpew", spew.Sprint(x))
 }
 
 func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
@@ -277,6 +273,5 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 		})
 	}
 	*msg = wants
-	fmt.Printf("wants debug: %v\n", wants)
 	return nil
 }

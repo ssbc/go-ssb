@@ -301,14 +301,12 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 				"mkGraph", timeDijkstra.Sub(timeGraph),
 				"mkSearch", timeLookup.Sub(timeDijkstra),
 
-				"dist", d,
-				"hops", len(fpath),
-				"path", fmt.Sprint(fpath),
+				"dist", d, "path", fmt.Sprint(fpath), // "hops", len(fpath),
 
 				"remote", remote,
 			)
 
-			if d < 0 && len(fpath) < maxHops {
+			if math.IsInf(d, -1) || int(d) > maxHops {
 				return nil, errors.Errorf("sbot: peer not in reach. d:%.0f, max:%d", d, maxHops)
 			}
 		}

@@ -93,7 +93,6 @@ func (n *node) Serve(ctx context.Context) error {
 			return errors.Wrap(err, "error accepting connection")
 		}
 
-		n.log.Log("action", "applying connection wrappers", "count", len(n.connWrappers))
 		// apply connection wrappers
 		for i, cw := range n.connWrappers {
 			var err error
@@ -101,6 +100,7 @@ func (n *node) Serve(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "error applying connection wrapper #%d", i)
 			}
+			n.log.Log("action", "applied connection wrapper", "i", i, "count", len(n.connWrappers))
 		}
 
 		go func(c net.Conn) {
