@@ -11,6 +11,17 @@ import (
 )
 
 type FakeWantManager struct {
+	RegisterStub        func(luigi.Sink) func()
+	registerMutex       sync.RWMutex
+	registerArgsForCall []struct {
+		arg1 luigi.Sink
+	}
+	registerReturns struct {
+		result1 func()
+	}
+	registerReturnsOnCall map[int]struct {
+		result1 func()
+	}
 	WantStub        func(ref *sbot.BlobRef) error
 	wantMutex       sync.RWMutex
 	wantArgsForCall []struct {
@@ -60,6 +71,54 @@ type FakeWantManager struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeWantManager) Register(arg1 luigi.Sink) func() {
+	fake.registerMutex.Lock()
+	ret, specificReturn := fake.registerReturnsOnCall[len(fake.registerArgsForCall)]
+	fake.registerArgsForCall = append(fake.registerArgsForCall, struct {
+		arg1 luigi.Sink
+	}{arg1})
+	fake.recordInvocation("Register", []interface{}{arg1})
+	fake.registerMutex.Unlock()
+	if fake.RegisterStub != nil {
+		return fake.RegisterStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.registerReturns.result1
+}
+
+func (fake *FakeWantManager) RegisterCallCount() int {
+	fake.registerMutex.RLock()
+	defer fake.registerMutex.RUnlock()
+	return len(fake.registerArgsForCall)
+}
+
+func (fake *FakeWantManager) RegisterArgsForCall(i int) luigi.Sink {
+	fake.registerMutex.RLock()
+	defer fake.registerMutex.RUnlock()
+	return fake.registerArgsForCall[i].arg1
+}
+
+func (fake *FakeWantManager) RegisterReturns(result1 func()) {
+	fake.RegisterStub = nil
+	fake.registerReturns = struct {
+		result1 func()
+	}{result1}
+}
+
+func (fake *FakeWantManager) RegisterReturnsOnCall(i int, result1 func()) {
+	fake.RegisterStub = nil
+	if fake.registerReturnsOnCall == nil {
+		fake.registerReturnsOnCall = make(map[int]struct {
+			result1 func()
+		})
+	}
+	fake.registerReturnsOnCall[i] = struct {
+		result1 func()
+	}{result1}
 }
 
 func (fake *FakeWantManager) Want(ref *sbot.BlobRef) error {
@@ -260,6 +319,8 @@ func (fake *FakeWantManager) CreateWantsReturnsOnCall(i int, result1 luigi.Sink)
 func (fake *FakeWantManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.registerMutex.RLock()
+	defer fake.registerMutex.RUnlock()
 	fake.wantMutex.RLock()
 	defer fake.wantMutex.RUnlock()
 	fake.wantsMutex.RLock()
