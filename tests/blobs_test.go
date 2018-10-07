@@ -37,7 +37,7 @@ func TestBlobToJS(t *testing.T) {
 	r.NoError(err)
 	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
 
-	wait()
+	defer wait()()
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
@@ -99,7 +99,7 @@ func TestBlobFromJS(t *testing.T) {
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
 
-	wait()
+	defer wait()()
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)

@@ -30,7 +30,7 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, func()) {
+func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, func() func()) {
 	t.Parallel()
 	r := require.New(t)
 	ctx := context.Background()
@@ -86,11 +86,17 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	// var foo *int
 	var o sync.Once
-	cleanup := func() {
+	cleanup := func() func() {
 		o.Do(func() {
 			err := cmd.Wait()
 			r.NoError(err, "js-sbot exited")
 		})
+
+		return func() {
+			if !t.Failed() {
+				r.NoError(os.RemoveAll(dir), "error removing test directory")
+			}
+		}
 	}
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?

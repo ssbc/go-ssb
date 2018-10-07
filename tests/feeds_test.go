@@ -39,7 +39,7 @@ pull(
 	})
 )
 `)
-	wait()
+	defer wait()()
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
