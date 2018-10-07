@@ -99,7 +99,7 @@ func (b *builder) Build() (*Graph, error) {
 			it := iter.Item()
 			k := it.Key()
 			if len(k) < 65 {
-				fmt.Printf("skipping: %q\n", string(k))
+				// fmt.Printf("skipping: %q\n", string(k))
 				continue
 			}
 			from := ssb.FeedRef{
@@ -139,7 +139,7 @@ func (b *builder) Build() (*Graph, error) {
 				w = math.Inf(1)
 			}
 			if nFrom.ID() == nTo.ID() {
-				fmt.Printf("skipping self: %s\n", from.Ref())
+				// fmt.Printf("skipping self: %s\n", from.Ref())
 				continue
 			}
 			edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}

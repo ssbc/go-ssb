@@ -21,7 +21,8 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	addr := librarian.Addr(fr.ID)
 	_, ok := g.activeFetch.Load(addr)
 	if ok {
-		return errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
+		// errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
+		return nil
 	}
 	g.activeFetch.Store(addr, true)
 	defer func() {
@@ -73,14 +74,16 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		Limit: -1,
 	}
 	start := time.Now()
-	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	crawlCtx, crawlCancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer crawlCancel()
+	source, err := edp.Source(crawlCtx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
 	// info.Log("debug", "called createHistoryStream", "qry", fmt.Sprintf("%v", q))
 
 	for {
-		v, err := source.Next(ctx)
+		v, err := source.Next(crawlCtx)
 		if luigi.IsEOS(err) {
 			break
 		} else if err != nil {

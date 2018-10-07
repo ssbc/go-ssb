@@ -177,8 +177,8 @@ func (proc *wantProc) init() {
 	}
 
 	err := proc.out.Pour(context.TODO(), proc.wmgr.wants)
-	proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
-	dump(proc.wmgr.info, proc.wmgr.wants, "after pour")
+	// proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
+	// dump(proc.wmgr.info, proc.wmgr.wants, "after pour")
 	if err != nil {
 		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
@@ -190,11 +190,11 @@ func (proc *wantProc) Close() error {
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
-	proc.wmgr.info.Log("event", "createWants.In", "cause", "received data")
-	dump(proc.wmgr.info, v, "proc input")
+	// proc.wmgr.info.Log("event", "createWants.In", "cause", "received data")
+	// dump(proc.wmgr.info, v, "debug proc input")
 	proc.l.Lock()
 	defer proc.l.Unlock()
-	dump(proc.wmgr.info, proc.wmgr.wants, "our wants before processing")
+	// dump(proc.wmgr.info, proc.wmgr.wants, "our wants before processing")
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
