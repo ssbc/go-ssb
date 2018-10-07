@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 // ExtractSignature expects a pretty printed message and uses a regexp to strip it from the msg for signature verification
@@ -23,7 +23,7 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	return out, sig, nil
 }
 
-func Verify(raw []byte) (*sbot.MessageRef, *DeserializedMessage, error) {
+func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "ssb Verify: could not encode message: %q...", raw[:15])
@@ -52,9 +52,9 @@ func Verify(raw []byte) (*sbot.MessageRef, *DeserializedMessage, error) {
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))
 
-	mr := sbot.MessageRef{
+	mr := ssb.MessageRef{
 		Hash: h.Sum(nil),
-		Algo: sbot.RefAlgoSHA256,
+		Algo: ssb.RefAlgoSHA256,
 	}
 	return &mr, &dmsg, nil
 }

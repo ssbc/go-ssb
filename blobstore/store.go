@@ -14,20 +14,20 @@ import (
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 var (
 	ErrNoSuchBlob = errors.New("no such blob")
 )
 
-func parseBlobRef(refStr string) (*sbot.BlobRef, error) {
-	ref, err := sbot.ParseRef(refStr)
+func parseBlobRef(refStr string) (*ssb.BlobRef, error) {
+	ref, err := ssb.ParseRef(refStr)
 	if err != nil {
 		return nil, err
 	}
 
-	br, ok := ref.(*sbot.BlobRef)
+	br, ok := ref.(*ssb.BlobRef)
 
 	if !ok {
 		return nil, fmt.Errorf("ref is not a %T but a %T", br, ref)
@@ -36,7 +36,7 @@ func parseBlobRef(refStr string) (*sbot.BlobRef, error) {
 	return br, nil
 }
 
-func New(basePath string) (sbot.BlobStore, error) {
+func New(basePath string) (ssb.BlobStore, error) {
 	err := os.MkdirAll(path.Join(basePath, "sha256"), 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "error making dir for hash sha256")
@@ -63,7 +63,7 @@ type blobStore struct {
 	bcast luigi.Broadcast
 }
 
-func (store *blobStore) getPath(ref *sbot.BlobRef) (string, error) {
+func (store *blobStore) getPath(ref *ssb.BlobRef) (string, error) {
 	if ref.Algo != "sha256" {
 		return "", errors.Errorf("unknown hash algorithm %q", ref.Algo)
 	}
@@ -77,7 +77,7 @@ func (store *blobStore) getPath(ref *sbot.BlobRef) (string, error) {
 	return path.Join(store.basePath, relPath), nil
 }
 
-func (store *blobStore) getHexDirPath(ref *sbot.BlobRef) (string, error) {
+func (store *blobStore) getHexDirPath(ref *ssb.BlobRef) (string, error) {
 	if ref.Algo != "sha256" {
 		return "", errors.Errorf("unknown hash algorithm %q", ref.Algo)
 	}
@@ -96,7 +96,7 @@ func (store *blobStore) getTmpPath() string {
 	return path.Join(store.basePath, "tmp", relPath)
 }
 
-func (store *blobStore) Get(ref *sbot.BlobRef) (io.Reader, error) {
+func (store *blobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
 	blobPath, err := store.getPath(ref)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting path for ref %q", ref)
@@ -115,7 +115,7 @@ func (store *blobStore) Get(ref *sbot.BlobRef) (io.Reader, error) {
 	return f, nil
 }
 
-func (store *blobStore) Put(blob io.Reader) (*sbot.BlobRef, error) {
+func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 	tmpPath := store.getTmpPath()
 
 	f, err := os.Create(tmpPath)
@@ -130,7 +130,7 @@ func (store *blobStore) Put(blob io.Reader) (*sbot.BlobRef, error) {
 		return nil, errors.Wrap(err, "error copying")
 	}
 
-	ref := &sbot.BlobRef{
+	ref := &ssb.BlobRef{
 		Hash: h.Sum(nil),
 		Algo: "sha256",
 	}
@@ -159,15 +159,15 @@ func (store *blobStore) Put(blob io.Reader) (*sbot.BlobRef, error) {
 		return nil, errors.Wrapf(err, "error moving blob from temp path %q to final path %q", tmpPath, finalPath)
 	}
 
-	err = store.sink.Pour(context.TODO(), sbot.BlobStoreNotification{
-		Op:  sbot.BlobStoreOpPut,
+	err = store.sink.Pour(context.TODO(), ssb.BlobStoreNotification{
+		Op:  ssb.BlobStoreOpPut,
 		Ref: ref,
 	})
 
 	return ref, errors.Wrap(err, "error in notification handler")
 }
 
-func (store *blobStore) Delete(ref *sbot.BlobRef) error {
+func (store *blobStore) Delete(ref *ssb.BlobRef) error {
 	p, err := store.getPath(ref)
 	if err != nil {
 		return errors.Wrap(err, "error getting blob path")
@@ -183,8 +183,8 @@ func (store *blobStore) Delete(ref *sbot.BlobRef) error {
 		return errors.Wrap(err, "error removing file")
 	}
 
-	err = store.sink.Pour(context.TODO(), sbot.BlobStoreNotification{
-		Op:  sbot.BlobStoreOpRm,
+	err = store.sink.Pour(context.TODO(), ssb.BlobStoreNotification{
+		Op:  ssb.BlobStoreOpRm,
 		Ref: ref,
 	})
 
@@ -197,7 +197,7 @@ func (store *blobStore) List() luigi.Source {
 	}
 }
 
-func (store *blobStore) Size(ref *sbot.BlobRef) (int64, error) {
+func (store *blobStore) Size(ref *ssb.BlobRef) (int64, error) {
 	blobPath, err := store.getPath(ref)
 	if err != nil {
 		return 0, errors.Wrapf(err, "error getting path")

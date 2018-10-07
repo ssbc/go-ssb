@@ -18,8 +18,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 )
 
 type testMessage message.StoredMessage

@@ -10,7 +10,7 @@ import (
 	"go.cryptoscope.co/margaret/framing/lengthprefixed"
 	"go.cryptoscope.co/margaret/offset"
 
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb/message"
 )
 
 func OpenLog(r Interface, path ...string) (margaret.Log, error) {

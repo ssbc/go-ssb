@@ -13,14 +13,14 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/blobstore"
 )
 
 type createWantsHandler struct {
 	log logging.Interface
-	bs  sbot.BlobStore
-	wm  sbot.WantManager
+	bs  ssb.BlobStore
+	wm  ssb.WantManager
 
 	// sources is a map if sources where the responses are read from.
 	sources map[string]luigi.Source
@@ -32,7 +32,7 @@ type createWantsHandler struct {
 // getSource looks if we have a source for that remote and, if not, make a
 // source call to get one.
 func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
-	ref, err := sbot.GetFeedRefFromAddr(edp.Remote())
+	ref, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting remote feed ref from addr %#v", edp.Remote())
 	}
@@ -90,7 +90,7 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 }
 
 type wantProcessor struct {
-	bs    sbot.BlobStore
+	bs    ssb.BlobStore
 	wants *sync.Map
 	ch    chan map[string]int64
 	log   logging.Interface
@@ -106,12 +106,12 @@ func (proc wantProcessor) Pour(ctx context.Context, v interface{}) error {
 			continue
 		}
 
-		ref, err := sbot.ParseRef(sRef)
+		ref, err := ssb.ParseRef(sRef)
 		if err != nil {
 			return errors.Wrap(err, "error parsing reference")
 		}
 
-		r, err := proc.bs.Get(ref.(*sbot.BlobRef))
+		r, err := proc.bs.Get(ref.(*ssb.BlobRef))
 		if perr := err.(*os.PathError); perr.Err == syscall.ENOENT {
 			continue
 		} else if err != nil {
@@ -152,6 +152,6 @@ func (proc *wantProcessor) Next(ctx context.Context) (interface{}, error) {
 }
 
 type want struct {
-	Ref  *sbot.BlobRef
+	Ref  *ssb.BlobRef
 	Dist int64
 }

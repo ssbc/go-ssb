@@ -10,7 +10,7 @@ matrix:
   allow_failures:
     - go: master
 
-go_import_path: go.cryptoscope.co/sbot
+go_import_path: go.cryptoscope.co/ssb
 
 install:
-  - go get -t -v go.cryptoscope.co/sbot/...
+  - go get -t -v go.cryptoscope.co/ssb/...

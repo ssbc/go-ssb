@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 func TestStore(t *testing.T) {
@@ -54,7 +54,7 @@ func TestStore(t *testing.T) {
 		},
 	}
 
-	mkStore := func(name string) (sbot.BlobStore, func() error, error) {
+	mkStore := func(name string) (ssb.BlobStore, func() error, error) {
 		name = strings.Replace(name, "/", "_", -1)
 		delBlobStore := func() error {
 			return os.RemoveAll(name)
@@ -74,22 +74,22 @@ func TestStore(t *testing.T) {
 
 		changesSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			defer func() { iChangeSink++ }()
-			not, ok := v.(sbot.BlobStoreNotification)
+			not, ok := v.(ssb.BlobStoreNotification)
 			if !ok {
 				return fmt.Errorf("expected %T but got %T", not, v)
 			}
 
 			if iChangeSink < len(tc.putRefs) {
-				if not.Op != sbot.BlobStoreOpPut {
-					return fmt.Errorf("expected op %q but got %q", sbot.BlobStoreOpPut, not.Op)
+				if not.Op != ssb.BlobStoreOpPut {
+					return fmt.Errorf("expected op %q but got %q", ssb.BlobStoreOpPut, not.Op)
 				}
 
 				if tc.putRefs[iChangeSink] != not.Ref.Ref() {
 					return fmt.Errorf("expected %#v but got %#v", tc.putRefs[iChangeSink], not.Ref.Ref())
 				}
 			} else if iChangeSink < len(tc.putRefs)+len(tc.delRefs) {
-				if not.Op != sbot.BlobStoreOpRm {
-					return fmt.Errorf("expected op %q but got %q", sbot.BlobStoreOpRm, not.Op)
+				if not.Op != ssb.BlobStoreOpRm {
+					return fmt.Errorf("expected op %q but got %q", ssb.BlobStoreOpRm, not.Op)
 				}
 
 				i := iChangeSink - len(tc.putRefs)
@@ -119,7 +119,7 @@ func TestStore(t *testing.T) {
 
 			bs.Changes().Register(changesSink)
 
-			refs := make(map[string]*sbot.BlobRef)
+			refs := make(map[string]*ssb.BlobRef)
 
 			for _, refStr := range tc.putRefs {
 				ref, err := bs.Put(strings.NewReader(tc.blobs[refStr]))
@@ -158,7 +158,7 @@ func TestStore(t *testing.T) {
 					r.NoError(err, "error calling Next on list source")
 				}
 
-				ref, ok := v.(*sbot.BlobRef)
+				ref, ok := v.(*ssb.BlobRef)
 				r.Equal(true, ok, "got something that is not a blobref in list: %v(%T)", v, v)
 
 				_, ok = listExp[ref.Ref()]

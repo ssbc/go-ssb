@@ -16,7 +16,7 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 	mmock "go.cryptoscope.co/muxrpc/mock"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 func TestWantManager(t *testing.T) {
@@ -53,7 +53,7 @@ func TestWantManager(t *testing.T) {
 		},
 	}
 
-	mkStore := func(name string) (sbot.BlobStore, func() error, error) {
+	mkStore := func(name string) (ssb.BlobStore, func() error, error) {
 		name = strings.Replace(name, "/", "_", -1)
 		delBlobStore := func() error {
 			return os.RemoveAll(name)
@@ -148,8 +148,8 @@ func TestWantManager(t *testing.T) {
 				var (
 					m   = make(map[string]int64)
 					h   = sha256.New()
-					ref = sbot.BlobRef{
-						Algo: sbot.RefAlgoSHA256,
+					ref = ssb.BlobRef{
+						Algo: ssb.RefAlgoSHA256,
 					}
 				)
 

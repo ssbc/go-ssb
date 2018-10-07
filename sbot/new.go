@@ -9,15 +9,15 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/blobstore"
-	"go.cryptoscope.co/sbot/graph"
-	"go.cryptoscope.co/sbot/indexes"
-	"go.cryptoscope.co/sbot/multilogs"
-	"go.cryptoscope.co/sbot/plugins/blobs"
-	"go.cryptoscope.co/sbot/plugins/gossip"
-	"go.cryptoscope.co/sbot/plugins/whoami"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins/blobs"
+	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/whoami"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 type Interface interface {
@@ -83,7 +83,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	id := s.KeyPair.Id
 
-	pmgr := sbot.NewPluginManager()
+	pmgr := ssb.NewPluginManager()
 
 	// TODO get rid of this. either add error to pluginmgr.MakeHandler or take it away from the Options.
 	errAdapter := func(mk func(net.Conn) muxrpc.Handler) func(net.Conn) (muxrpc.Handler, error) {
@@ -92,7 +92,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	opts := sbot.Options{
+	opts := ssb.Options{
 		Logger:       s.info,
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
@@ -101,7 +101,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		ConnWrappers: s.connWrappers,
 	}
 
-	node, err := sbot.NewNode(opts)
+	node, err := ssb.NewNode(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create node")
 	}

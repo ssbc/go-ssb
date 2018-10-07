@@ -9,11 +9,11 @@ import (
 
 	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type addHandler struct {
-	bs  sbot.BlobStore
+	bs  ssb.BlobStore
 	log logging.Interface
 }
 

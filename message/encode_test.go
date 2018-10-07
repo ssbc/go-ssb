@@ -11,11 +11,11 @@ import (
 	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type testMessage struct {
-	Author          *sbot.FeedRef
+	Author          *ssb.FeedRef
 	Hash, Signature string
 	Input, NoSig    []byte
 }
@@ -69,9 +69,9 @@ func init() {
 		if !has {
 			checkPanic(errors.Errorf("test(%d) - expected author in value field", i))
 		}
-		r, err := sbot.ParseRef(a.(string))
+		r, err := ssb.ParseRef(a.(string))
 		checkPanic(errors.Wrapf(err, "test(%d) - failed to parse author ref", i))
-		fr, ok := r.(*sbot.FeedRef)
+		fr, ok := r.(*ssb.FeedRef)
 		if !ok {
 			checkPanic(errors.Errorf("test(%d) - expected valid author ref", i))
 		}

@@ -3,18 +3,19 @@ package sbot
 import (
 	"context"
 	"encoding/base64"
-	"go.cryptoscope.co/margaret"
 	"net"
 	"os"
 	"os/user"
 	"path/filepath"
 
+	"go.cryptoscope.co/margaret"
+
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/graph"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
 )
 
 type Sbot struct {
@@ -28,11 +29,11 @@ type Sbot struct {
 
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
-	KeyPair      *sbot.KeyPair
+	KeyPair      *ssb.KeyPair
 	GraphBuilder graph.Builder
-	Node         sbot.Node
-	BlobStore    sbot.BlobStore
-	WantManager  sbot.WantManager
+	Node         ssb.Node
+	BlobStore    ssb.BlobStore
+	WantManager  ssb.WantManager
 }
 
 type Option func(*Sbot) error

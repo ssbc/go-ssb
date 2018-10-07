@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
-	ssb "go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 )
 
 func TestFeedFromJS(t *testing.T) {

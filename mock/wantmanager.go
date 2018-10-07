@@ -7,7 +7,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type FakeWantManager struct {
@@ -22,10 +22,10 @@ type FakeWantManager struct {
 	registerReturnsOnCall map[int]struct {
 		result1 func()
 	}
-	WantStub        func(ref *sbot.BlobRef) error
+	WantStub        func(ref *ssb.BlobRef) error
 	wantMutex       sync.RWMutex
 	wantArgsForCall []struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}
 	wantReturns struct {
 		result1 error
@@ -33,10 +33,10 @@ type FakeWantManager struct {
 	wantReturnsOnCall map[int]struct {
 		result1 error
 	}
-	WantsStub        func(ref *sbot.BlobRef) bool
+	WantsStub        func(ref *ssb.BlobRef) bool
 	wantsMutex       sync.RWMutex
 	wantsArgsForCall []struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}
 	wantsReturns struct {
 		result1 bool
@@ -44,10 +44,10 @@ type FakeWantManager struct {
 	wantsReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	WantWithDistStub        func(ref *sbot.BlobRef, dist int64) error
+	WantWithDistStub        func(ref *ssb.BlobRef, dist int64) error
 	wantWithDistMutex       sync.RWMutex
 	wantWithDistArgsForCall []struct {
-		ref  *sbot.BlobRef
+		ref  *ssb.BlobRef
 		dist int64
 	}
 	wantWithDistReturns struct {
@@ -121,11 +121,11 @@ func (fake *FakeWantManager) RegisterReturnsOnCall(i int, result1 func()) {
 	}{result1}
 }
 
-func (fake *FakeWantManager) Want(ref *sbot.BlobRef) error {
+func (fake *FakeWantManager) Want(ref *ssb.BlobRef) error {
 	fake.wantMutex.Lock()
 	ret, specificReturn := fake.wantReturnsOnCall[len(fake.wantArgsForCall)]
 	fake.wantArgsForCall = append(fake.wantArgsForCall, struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}{ref})
 	fake.recordInvocation("Want", []interface{}{ref})
 	fake.wantMutex.Unlock()
@@ -144,7 +144,7 @@ func (fake *FakeWantManager) WantCallCount() int {
 	return len(fake.wantArgsForCall)
 }
 
-func (fake *FakeWantManager) WantArgsForCall(i int) *sbot.BlobRef {
+func (fake *FakeWantManager) WantArgsForCall(i int) *ssb.BlobRef {
 	fake.wantMutex.RLock()
 	defer fake.wantMutex.RUnlock()
 	return fake.wantArgsForCall[i].ref
@@ -169,11 +169,11 @@ func (fake *FakeWantManager) WantReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeWantManager) Wants(ref *sbot.BlobRef) bool {
+func (fake *FakeWantManager) Wants(ref *ssb.BlobRef) bool {
 	fake.wantsMutex.Lock()
 	ret, specificReturn := fake.wantsReturnsOnCall[len(fake.wantsArgsForCall)]
 	fake.wantsArgsForCall = append(fake.wantsArgsForCall, struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}{ref})
 	fake.recordInvocation("Wants", []interface{}{ref})
 	fake.wantsMutex.Unlock()
@@ -192,7 +192,7 @@ func (fake *FakeWantManager) WantsCallCount() int {
 	return len(fake.wantsArgsForCall)
 }
 
-func (fake *FakeWantManager) WantsArgsForCall(i int) *sbot.BlobRef {
+func (fake *FakeWantManager) WantsArgsForCall(i int) *ssb.BlobRef {
 	fake.wantsMutex.RLock()
 	defer fake.wantsMutex.RUnlock()
 	return fake.wantsArgsForCall[i].ref
@@ -217,11 +217,11 @@ func (fake *FakeWantManager) WantsReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeWantManager) WantWithDist(ref *sbot.BlobRef, dist int64) error {
+func (fake *FakeWantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	fake.wantWithDistMutex.Lock()
 	ret, specificReturn := fake.wantWithDistReturnsOnCall[len(fake.wantWithDistArgsForCall)]
 	fake.wantWithDistArgsForCall = append(fake.wantWithDistArgsForCall, struct {
-		ref  *sbot.BlobRef
+		ref  *ssb.BlobRef
 		dist int64
 	}{ref, dist})
 	fake.recordInvocation("WantWithDist", []interface{}{ref, dist})
@@ -241,7 +241,7 @@ func (fake *FakeWantManager) WantWithDistCallCount() int {
 	return len(fake.wantWithDistArgsForCall)
 }
 
-func (fake *FakeWantManager) WantWithDistArgsForCall(i int) (*sbot.BlobRef, int64) {
+func (fake *FakeWantManager) WantWithDistArgsForCall(i int) (*ssb.BlobRef, int64) {
 	fake.wantWithDistMutex.RLock()
 	defer fake.wantWithDistMutex.RUnlock()
 	return fake.wantWithDistArgsForCall[i].ref, fake.wantWithDistArgsForCall[i].dist
@@ -348,4 +348,4 @@ func (fake *FakeWantManager) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ sbot.WantManager = new(FakeWantManager)
+var _ ssb.WantManager = new(FakeWantManager)

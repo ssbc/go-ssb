@@ -6,14 +6,14 @@ import (
 	"sync"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type FakeBlobStore struct {
-	GetStub        func(ref *sbot.BlobRef) (io.Reader, error)
+	GetStub        func(ref *ssb.BlobRef) (io.Reader, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}
 	getReturns struct {
 		result1 io.Reader
@@ -23,23 +23,23 @@ type FakeBlobStore struct {
 		result1 io.Reader
 		result2 error
 	}
-	PutStub        func(blob io.Reader) (*sbot.BlobRef, error)
+	PutStub        func(blob io.Reader) (*ssb.BlobRef, error)
 	putMutex       sync.RWMutex
 	putArgsForCall []struct {
 		blob io.Reader
 	}
 	putReturns struct {
-		result1 *sbot.BlobRef
+		result1 *ssb.BlobRef
 		result2 error
 	}
 	putReturnsOnCall map[int]struct {
-		result1 *sbot.BlobRef
+		result1 *ssb.BlobRef
 		result2 error
 	}
-	DeleteStub        func(ref *sbot.BlobRef) error
+	DeleteStub        func(ref *ssb.BlobRef) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}
 	deleteReturns struct {
 		result1 error
@@ -56,10 +56,10 @@ type FakeBlobStore struct {
 	listReturnsOnCall map[int]struct {
 		result1 luigi.Source
 	}
-	SizeStub        func(ref *sbot.BlobRef) (int64, error)
+	SizeStub        func(ref *ssb.BlobRef) (int64, error)
 	sizeMutex       sync.RWMutex
 	sizeArgsForCall []struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}
 	sizeReturns struct {
 		result1 int64
@@ -82,11 +82,11 @@ type FakeBlobStore struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeBlobStore) Get(ref *sbot.BlobRef) (io.Reader, error) {
+func (fake *FakeBlobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}{ref})
 	fake.recordInvocation("Get", []interface{}{ref})
 	fake.getMutex.Unlock()
@@ -105,7 +105,7 @@ func (fake *FakeBlobStore) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *FakeBlobStore) GetArgsForCall(i int) *sbot.BlobRef {
+func (fake *FakeBlobStore) GetArgsForCall(i int) *ssb.BlobRef {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	return fake.getArgsForCall[i].ref
@@ -133,7 +133,7 @@ func (fake *FakeBlobStore) GetReturnsOnCall(i int, result1 io.Reader, result2 er
 	}{result1, result2}
 }
 
-func (fake *FakeBlobStore) Put(blob io.Reader) (*sbot.BlobRef, error) {
+func (fake *FakeBlobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 	fake.putMutex.Lock()
 	ret, specificReturn := fake.putReturnsOnCall[len(fake.putArgsForCall)]
 	fake.putArgsForCall = append(fake.putArgsForCall, struct {
@@ -162,33 +162,33 @@ func (fake *FakeBlobStore) PutArgsForCall(i int) io.Reader {
 	return fake.putArgsForCall[i].blob
 }
 
-func (fake *FakeBlobStore) PutReturns(result1 *sbot.BlobRef, result2 error) {
+func (fake *FakeBlobStore) PutReturns(result1 *ssb.BlobRef, result2 error) {
 	fake.PutStub = nil
 	fake.putReturns = struct {
-		result1 *sbot.BlobRef
+		result1 *ssb.BlobRef
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeBlobStore) PutReturnsOnCall(i int, result1 *sbot.BlobRef, result2 error) {
+func (fake *FakeBlobStore) PutReturnsOnCall(i int, result1 *ssb.BlobRef, result2 error) {
 	fake.PutStub = nil
 	if fake.putReturnsOnCall == nil {
 		fake.putReturnsOnCall = make(map[int]struct {
-			result1 *sbot.BlobRef
+			result1 *ssb.BlobRef
 			result2 error
 		})
 	}
 	fake.putReturnsOnCall[i] = struct {
-		result1 *sbot.BlobRef
+		result1 *ssb.BlobRef
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeBlobStore) Delete(ref *sbot.BlobRef) error {
+func (fake *FakeBlobStore) Delete(ref *ssb.BlobRef) error {
 	fake.deleteMutex.Lock()
 	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
 	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}{ref})
 	fake.recordInvocation("Delete", []interface{}{ref})
 	fake.deleteMutex.Unlock()
@@ -207,7 +207,7 @@ func (fake *FakeBlobStore) DeleteCallCount() int {
 	return len(fake.deleteArgsForCall)
 }
 
-func (fake *FakeBlobStore) DeleteArgsForCall(i int) *sbot.BlobRef {
+func (fake *FakeBlobStore) DeleteArgsForCall(i int) *ssb.BlobRef {
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	return fake.deleteArgsForCall[i].ref
@@ -272,11 +272,11 @@ func (fake *FakeBlobStore) ListReturnsOnCall(i int, result1 luigi.Source) {
 	}{result1}
 }
 
-func (fake *FakeBlobStore) Size(ref *sbot.BlobRef) (int64, error) {
+func (fake *FakeBlobStore) Size(ref *ssb.BlobRef) (int64, error) {
 	fake.sizeMutex.Lock()
 	ret, specificReturn := fake.sizeReturnsOnCall[len(fake.sizeArgsForCall)]
 	fake.sizeArgsForCall = append(fake.sizeArgsForCall, struct {
-		ref *sbot.BlobRef
+		ref *ssb.BlobRef
 	}{ref})
 	fake.recordInvocation("Size", []interface{}{ref})
 	fake.sizeMutex.Unlock()
@@ -295,7 +295,7 @@ func (fake *FakeBlobStore) SizeCallCount() int {
 	return len(fake.sizeArgsForCall)
 }
 
-func (fake *FakeBlobStore) SizeArgsForCall(i int) *sbot.BlobRef {
+func (fake *FakeBlobStore) SizeArgsForCall(i int) *ssb.BlobRef {
 	fake.sizeMutex.RLock()
 	defer fake.sizeMutex.RUnlock()
 	return fake.sizeArgsForCall[i].ref
@@ -397,4 +397,4 @@ func (fake *FakeBlobStore) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ sbot.BlobStore = new(FakeBlobStore)
+var _ ssb.BlobStore = new(FakeBlobStore)

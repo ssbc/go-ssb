@@ -10,11 +10,11 @@ import (
 
 	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type getHandler struct {
-	bs  sbot.BlobStore
+	bs  ssb.BlobStore
 	log logging.Interface
 }
 
@@ -40,7 +40,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		refStr, _ = arg["key"].(string)
 	}
 
-	ref, err := sbot.ParseBlobRef(refStr)
+	ref, err := ssb.ParseBlobRef(refStr)
 	checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 	if err != nil {
 		return

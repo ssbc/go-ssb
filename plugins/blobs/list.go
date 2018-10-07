@@ -9,11 +9,11 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type listHandler struct {
-	bs  sbot.BlobStore
+	bs  ssb.BlobStore
 	log logging.Interface
 }
 

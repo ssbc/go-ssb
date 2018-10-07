@@ -14,7 +14,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 func dump(log logging.Interface, v interface{}, from string) {
@@ -36,7 +36,7 @@ func dump(log logging.Interface, v interface{}, from string) {
 	}
 }
 
-func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
+func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
 	wmgr := &wantManager{
 		bs:    bs,
 		wants: make(map[string]int64),
@@ -49,8 +49,8 @@ func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
 		wmgr.l.Lock()
 		defer wmgr.l.Unlock()
 
-		n, ok := v.(sbot.BlobStoreNotification)
-		if ok && n.Op == sbot.BlobStoreOpPut {
+		n, ok := v.(ssb.BlobStoreNotification)
+		if ok && n.Op == ssb.BlobStoreOpPut {
 			if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
 				delete(wmgr.wants, n.Ref.Ref())
 			}
@@ -65,7 +65,7 @@ func NewWantManager(log logging.Interface, bs sbot.BlobStore) sbot.WantManager {
 type wantManager struct {
 	luigi.Broadcast
 
-	bs sbot.BlobStore
+	bs ssb.BlobStore
 
 	wants    map[string]int64
 	wantSink luigi.Sink
@@ -75,7 +75,7 @@ type wantManager struct {
 	info logging.Interface
 }
 
-func (wmgr *wantManager) Wants(ref *sbot.BlobRef) bool {
+func (wmgr *wantManager) Wants(ref *ssb.BlobRef) bool {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
@@ -83,11 +83,11 @@ func (wmgr *wantManager) Wants(ref *sbot.BlobRef) bool {
 	return ok
 }
 
-func (wmgr *wantManager) Want(ref *sbot.BlobRef) error {
+func (wmgr *wantManager) Want(ref *ssb.BlobRef) error {
 	return wmgr.WantWithDist(ref, -1)
 }
 
-func (wmgr *wantManager) WantWithDist(ref *sbot.BlobRef, dist int64) error {
+func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	wmgr.info.Log("func", "WantWithDist", "dist", dist)
 	f, err := wmgr.bs.Get(ref)
 	if err == nil {
@@ -121,7 +121,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 }
 
 type want struct {
-	Ref *sbot.BlobRef
+	Ref *ssb.BlobRef
 
 	// if Dist is negative, it is the hop count to the original wanter.
 	// if it is positive, it is the size of the blob.
@@ -131,7 +131,7 @@ type want struct {
 type wantProc struct {
 	l sync.Mutex
 
-	bs          sbot.BlobStore
+	bs          ssb.BlobStore
 	wmgr        *wantManager
 	out         luigi.Sink
 	remoteWants map[string]int64
@@ -145,7 +145,7 @@ func (proc *wantProc) init() {
 			proc.l.Lock()
 			defer proc.l.Unlock()
 
-			notif := v.(sbot.BlobStoreNotification)
+			notif := v.(ssb.BlobStoreNotification)
 			proc.wmgr.info.Log("event", "wantProc notification", "op", notif.Op, "ref", notif.Ref.Ref())
 			_, ok := proc.remoteWants[notif.Ref.Ref()]
 			if ok {
@@ -220,7 +220,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
 				proc.wmgr.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
-				go func(ref *sbot.BlobRef) {
+				go func(ref *ssb.BlobRef) {
 					src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
 					if err != nil {
 						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
@@ -263,13 +263,13 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 
 	var wants []want
 	for ref, dist := range wantsMap {
-		ref, err := sbot.ParseRef(ref)
+		ref, err := ssb.ParseRef(ref)
 		if err != nil {
 			return errors.Wrap(err, "error parsing blob reference")
 		}
-		br, ok := ref.(*sbot.BlobRef)
+		br, ok := ref.(*ssb.BlobRef)
 		if !ok {
-			return errors.Errorf("expected *sbot.BlobRef but got %T", ref)
+			return errors.Errorf("expected *ssb.BlobRef but got %T", ref)
 		}
 		wants = append(wants, want{
 			Ref:  br,

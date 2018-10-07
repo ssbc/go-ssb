@@ -1,4 +1,4 @@
-package sbot
+package ssb
 
 import (
 	"net"

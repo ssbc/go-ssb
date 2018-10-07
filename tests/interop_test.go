@@ -15,8 +15,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
-	ssb "go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/sbot"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/sbot"
 )
 
 func writeFile(t *testing.T, data string) string {

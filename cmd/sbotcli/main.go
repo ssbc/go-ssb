@@ -23,9 +23,9 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 	"gopkg.in/urfave/cli.v2"
 )
 
@@ -164,7 +164,7 @@ func todo(ctx *cli.Context) error {
 }
 
 func initClient(ctx *cli.Context) error {
-	localKey, err := sbot.LoadKeyPair(ctx.String("key"))
+	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
 		return err
 	}

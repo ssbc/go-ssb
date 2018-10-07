@@ -7,8 +7,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/graph"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
 )
 
 func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, promisc bool) ssb.Plugin {

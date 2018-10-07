@@ -18,7 +18,7 @@ import (
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {

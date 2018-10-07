@@ -11,8 +11,8 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 )
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler

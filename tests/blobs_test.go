@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	muxtest "go.cryptoscope.co/muxrpc/test"
-	ssb "go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/sbot"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestBlobToJS(t *testing.T) {

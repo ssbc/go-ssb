@@ -24,15 +24,15 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 )
 
 type Builder interface {
 	librarian.SinkIndex
 
 	Build() (*Graph, error)
-	Follows(*sbot.FeedRef) ([]*sbot.FeedRef, error)
+	Follows(*ssb.FeedRef) ([]*ssb.FeedRef, error)
 }
 
 type builder struct {
@@ -58,10 +58,10 @@ func NewBuilder(log log.Logger, db *badger.DB) Builder {
 				return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
 			}
 
-			var c sbot.Contact
+			var c ssb.Contact
 			err = json.Unmarshal(dmsg.Content, &c)
 			if err != nil {
-				if sbot.IsMessageUnusable(err) {
+				if ssb.IsMessageUnusable(err) {
 					return nil
 				}
 				log.Log("msg", "skipped contact message", "reason", err)
@@ -102,12 +102,12 @@ func (b *builder) Build() (*Graph, error) {
 				fmt.Printf("skipping: %q\n", string(k))
 				continue
 			}
-			from := sbot.FeedRef{
+			from := ssb.FeedRef{
 				Algo: "ed25519",
 				ID:   k[:32],
 			}
 
-			to := sbot.FeedRef{
+			to := ssb.FeedRef{
 				Algo: "ed25519",
 				ID:   k[33:],
 			}
@@ -177,7 +177,7 @@ func (g *Graph) RenderSVG() error {
 	return nil
 }
 
-func (g *Graph) Follows(from, to *sbot.FeedRef) bool {
+func (g *Graph) Follows(from, to *ssb.FeedRef) bool {
 	var bfrom [32]byte
 	copy(bfrom[:], from.ID)
 	nFrom, has := g.lookup[bfrom]
@@ -198,7 +198,7 @@ type Lookup struct {
 	lookup key2node
 }
 
-func (l Lookup) Dist(to *sbot.FeedRef) ([]graph.Node, float64) {
+func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
 	var bto [32]byte
 	copy(bto[:], to.ID)
 	nTo, has := l.lookup[bto]
@@ -208,7 +208,7 @@ func (l Lookup) Dist(to *sbot.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (g *Graph) MakeDijkstra(from *sbot.FeedRef) (*Lookup, error) {
+func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
 	var bfrom [32]byte
 	copy(bfrom[:], from.ID)
 	nFrom, has := g.lookup[bfrom]
@@ -221,8 +221,8 @@ func (g *Graph) MakeDijkstra(from *sbot.FeedRef) (*Lookup, error) {
 	}, nil
 }
 
-func (b *builder) Follows(fr *sbot.FeedRef) ([]*sbot.FeedRef, error) {
-	var friends []*sbot.FeedRef
+func (b *builder) Follows(fr *ssb.FeedRef) ([]*ssb.FeedRef, error) {
+	var friends []*ssb.FeedRef
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
@@ -232,7 +232,7 @@ func (b *builder) Follows(fr *sbot.FeedRef) ([]*sbot.FeedRef, error) {
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			c := sbot.FeedRef{
+			c := ssb.FeedRef{
 				Algo: "ed25519",
 				ID:   k[33:],
 			}
@@ -261,9 +261,9 @@ func (n contactNode) String() string {
 
 type key2node map[[32]byte]graph.Node
 
-func Authorize(log log.Logger, b Builder, local *sbot.FeedRef, maxHops int, makeHandler func(net.Conn) (muxrpc.Handler, error)) func(net.Conn) (muxrpc.Handler, error) {
+func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeHandler func(net.Conn) (muxrpc.Handler, error)) func(net.Conn) (muxrpc.Handler, error) {
 	return func(conn net.Conn) (muxrpc.Handler, error) {
-		remote, err := sbot.GetFeedRefFromAddr(conn.RemoteAddr())
+		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
 		}

@@ -17,9 +17,9 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/graph"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
 )
 
 type handler struct {

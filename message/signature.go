@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -35,10 +35,10 @@ func (s Signature) Raw() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(b64)
 }
 
-func (s Signature) Verify(content []byte, r *sbot.FeedRef) error {
+func (s Signature) Verify(content []byte, r *ssb.FeedRef) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
-		if r.Algo != sbot.RefAlgoEd25519 {
+		if r.Algo != ssb.RefAlgoEd25519 {
 			return errors.Errorf("sbot: invalid signature algorithm")
 		}
 		key := ed25519.PublicKey(r.ID)

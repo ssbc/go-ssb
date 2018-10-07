@@ -9,8 +9,8 @@ import (
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/sbot/graph"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, func(context.Context, margaret.Log) error, error) {

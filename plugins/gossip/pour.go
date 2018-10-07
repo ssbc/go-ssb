@@ -9,8 +9,8 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/message"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 )
 
 func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {

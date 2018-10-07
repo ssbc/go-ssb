@@ -13,8 +13,8 @@ import (
 
 	"github.com/cryptix/go/logging"
 
-	ssb "go.cryptoscope.co/sbot"
-	mksbot "go.cryptoscope.co/sbot/sbot"
+	"go.cryptoscope.co/ssb"
+	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
 	"net/http"

@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type listSource struct {
@@ -92,7 +92,7 @@ func (src *listSource) Next(ctx context.Context) (interface{}, error) {
 		return nil, errors.Wrapf(err, "error decoding hex file name %q", file)
 	}
 
-	return &sbot.BlobRef{
+	return &ssb.BlobRef{
 		Algo: "sha256",
 		Hash: raw,
 	}, nil

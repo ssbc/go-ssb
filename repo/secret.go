@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/sbot"
 	"go.cryptoscope.co/secretstream/secrethandshake"
+	"go.cryptoscope.co/ssb"
 )
 
 func OpenKeyPair(r Interface) (*ssb.KeyPair, error) {
@@ -33,7 +33,7 @@ func OpenKeyPair(r Interface) (*ssb.KeyPair, error) {
 		// if err != nil {
 		// 	return nil, errors.Wrap(err, "error creating secret file")
 		// }
-		// if err:=sbot.SaveKeyPair(keyFile);err != nil {
+		// if err:=ssb.SaveKeyPair(keyFile);err != nil {
 		// 	return nil, errors.Wrap(err, "error saving secret file")
 		// }
 		fmt.Println("warning: save new keypair!")

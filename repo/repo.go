@@ -17,8 +17,8 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
 
-	"go.cryptoscope.co/sbot"
-	"go.cryptoscope.co/sbot/blobstore"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/blobstore"
 )
 
 var _ Interface = repo{}

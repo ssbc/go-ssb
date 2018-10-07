@@ -9,7 +9,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 /*
@@ -30,8 +30,8 @@ blobs manifest.json except:
 */
 
 var (
-	_      sbot.Plugin = plugin{} // compile-time type check
-	method             = muxrpc.Method{"blobs"}
+	_      ssb.Plugin = plugin{} // compile-time type check
+	method            = muxrpc.Method{"blobs"}
 )
 
 func checkAndLog(log logging.Interface, err error) {
@@ -42,7 +42,7 @@ func checkAndLog(log logging.Interface, err error) {
 	}
 }
 
-func New(log logging.Interface, bs sbot.BlobStore, wm sbot.WantManager) sbot.Plugin {
+func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin {
 	rootHdlr := muxrpc.HandlerMux{}
 
 	rootHdlr.Register(muxrpc.Method{"blobs", "get"}, getHandler{
@@ -105,6 +105,6 @@ type endpoint struct {
 	edp muxrpc.Endpoint
 }
 
-func (edp endpoint) Add(ctx context.Context) (sbot.MessageRef, error) {
-	return sbot.MessageRef{}, errors.New("not implemented yet")
+func (edp endpoint) Add(ctx context.Context) (ssb.MessageRef, error) {
+	return ssb.MessageRef{}, errors.New("not implemented yet")
 }

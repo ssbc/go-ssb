@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 type WhoamiReply struct {
@@ -29,9 +29,9 @@ type RawSignedMessage struct {
 }
 
 type StoredMessage struct {
-	Author    *sbot.FeedRef    // @... pubkey
-	Previous  *sbot.MessageRef // %... message hashsha
-	Key       *sbot.MessageRef // %... message hashsha
+	Author    *ssb.FeedRef    // @... pubkey
+	Previous  *ssb.MessageRef // %... message hashsha
+	Key       *ssb.MessageRef // %... message hashsha
 	Sequence  margaret.BaseSeq
 	Timestamp time.Time
 	Raw       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
@@ -42,8 +42,8 @@ func (sm StoredMessage) String() string {
 }
 
 type DeserializedMessage struct {
-	Previous  sbot.MessageRef  `json:"previous"`
-	Author    sbot.FeedRef     `json:"author"`
+	Previous  ssb.MessageRef   `json:"previous"`
+	Author    ssb.FeedRef      `json:"author"`
 	Sequence  margaret.BaseSeq `json:"sequence"`
 	Timestamp float64          `json:"timestamp"`
 	Hash      string           `json:"hash"`

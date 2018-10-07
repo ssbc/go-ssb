@@ -9,12 +9,12 @@ import (
 
 	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/sbot"
+	"go.cryptoscope.co/ssb"
 )
 
 var (
-	_      sbot.Plugin = plugin{} // compile-time type check
-	method             = muxrpc.Method{"whoami"}
+	_      ssb.Plugin = plugin{} // compile-time type check
+	method            = muxrpc.Method{"whoami"}
 )
 
 func checkAndLog(log logging.Interface, err error) {
@@ -25,7 +25,7 @@ func checkAndLog(log logging.Interface, err error) {
 	}
 }
 
-func New(log logging.Interface, id *sbot.FeedRef) sbot.Plugin {
+func New(log logging.Interface, id *ssb.FeedRef) ssb.Plugin {
 	return plugin{handler{
 		log: log,
 		id:  id,
@@ -52,7 +52,7 @@ func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
 
 type handler struct {
 	log logging.Interface
-	id  *sbot.FeedRef
+	id  *ssb.FeedRef
 }
 
 func (handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
@@ -74,16 +74,16 @@ type endpoint struct {
 	edp muxrpc.Endpoint
 }
 
-func (edp endpoint) WhoAmI(ctx context.Context) (sbot.FeedRef, error) {
+func (edp endpoint) WhoAmI(ctx context.Context) (ssb.FeedRef, error) {
 	type respType struct {
-		ID sbot.FeedRef `json:"id"`
+		ID ssb.FeedRef `json:"id"`
 	}
 
 	var tResp respType
 
 	resp, err := edp.edp.Async(ctx, tResp, method)
 	if err != nil {
-		return sbot.FeedRef{}, errors.Wrap(err, "error making async call")
+		return ssb.FeedRef{}, errors.Wrap(err, "error making async call")
 	}
 
 	return resp.(respType).ID, nil

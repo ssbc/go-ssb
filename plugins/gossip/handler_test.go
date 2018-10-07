@@ -20,10 +20,10 @@ import (
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
-	"go.cryptoscope.co/sbot/indexes"
-	"go.cryptoscope.co/sbot/multilogs"
-	"go.cryptoscope.co/sbot/plugins/test"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins/test"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func TestReplicate(t *testing.T) {

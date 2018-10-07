@@ -9,8 +9,8 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/sbot/message"
-	"go.cryptoscope.co/sbot/repo"
+	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func OpenUserFeeds(r repo.Interface) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
