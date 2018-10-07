@@ -13,13 +13,14 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
+	const n = 64
 	s, alice, wait := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
 		}
 	}
-	n = 50
+	n = 64
 	let msgs = []
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
@@ -45,9 +46,9 @@ pull(
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
-	r.Equal(seq, margaret.BaseSeq(49))
+	r.Equal(margaret.BaseSeq(n-1), seq)
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < n; i++ {
 		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
@@ -72,7 +73,7 @@ pull(
 		r.Equal(alice.ID, m.Author.ID, "wrong author")
 		r.Equal(m.Content.Type, "test")
 		r.Equal(m.Content.Text, "foo")
-		r.Equal(m.Content.I, 50-i, "wrong I on msg: %d", i)
+		r.Equal(m.Content.I, n-i, "wrong I on msg: %d", i)
 	}
 	r.NoError(s.Close())
 }

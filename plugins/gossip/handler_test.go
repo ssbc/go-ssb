@@ -37,7 +37,7 @@ func TestReplicate(t *testing.T) {
 	}
 	for i, tc := range []tcase{
 		{"testdata/replicate1", 2, "@Z9VZfAWEFjNyo2SfuPu6dkbarqalYELwARCE4nKXyY0=.ed25519"},
-		{"testdata/longTestRepo", 225, "@83JEFNo7j/kO0qrIrsCQ+h3xf7c+5Qrc0lGWJTSXrW8=.ed25519"},
+		{"testdata/largeRepo", 431, "@qhSpPqhWyJBZ0/w+ERa6WZvRWjaXu0dlep6L+Xi6PQ0=.ed25519"},
 	} {
 		t.Log("test run", i, tc.path)
 

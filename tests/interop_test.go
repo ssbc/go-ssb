@@ -84,7 +84,6 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
-	// var foo *int
 	var o sync.Once
 	cleanup := func() func() {
 		o.Do(func() {
