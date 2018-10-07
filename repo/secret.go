@@ -9,9 +9,9 @@ import (
 	"go.cryptoscope.co/secretstream/secrethandshake"
 )
 
-func OpenKeyPair(r Interface) (*sbot.KeyPair, error) {
+func OpenKeyPair(r Interface) (*ssb.KeyPair, error) {
 	secPath := r.GetPath("secret")
-	keyPair, err := sbot.LoadKeyPair(secPath)
+	keyPair, err := ssb.LoadKeyPair(secPath)
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
 			return nil, errors.Wrap(err, "error opening key pair")
@@ -23,8 +23,8 @@ func OpenKeyPair(r Interface) (*sbot.KeyPair, error) {
 			return nil, errors.Wrap(err, "error building key pair")
 		}
 
-		keyPair = &sbot.KeyPair{
-			Id:   &sbot.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
+		keyPair = &ssb.KeyPair{
+			Id:   &ssb.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
 			Pair: *kp,
 		}
 

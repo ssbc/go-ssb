@@ -27,9 +27,9 @@ type testMessage message.StoredMessage
 var (
 	testMsgCnt = 0
 
-	testAlice  = &sbot.FeedRef{Algo: "faketest", ID: []byte("alice")}
-	testBob    = &sbot.FeedRef{Algo: "faketest", ID: []byte("bob")}
-	testClaire = &sbot.FeedRef{Algo: "faketest", ID: []byte("claire")}
+	testAlice  = &ssb.FeedRef{Algo: "faketest", ID: []byte("alice")}
+	testBob    = &ssb.FeedRef{Algo: "faketest", ID: []byte("bob")}
+	testClaire = &ssb.FeedRef{Algo: "faketest", ID: []byte("claire")}
 )
 
 // TODO: generate proper test feeds with matching previous etc
@@ -49,8 +49,8 @@ func (tm testMessage) Generate(rand *rand.Rand, size int) reflect.Value {
 	}
 	testMsgCnt++
 
-	tm.Previous = pVal.Interface().(*sbot.MessageRef)
-	tm.Key = keyVal.Interface().(*sbot.MessageRef)
+	tm.Previous = pVal.Interface().(*ssb.MessageRef)
+	tm.Key = keyVal.Interface().(*ssb.MessageRef)
 	tm.Sequence = seqVal.Interface().(margaret.BaseSeq)
 	tm.Timestamp = time.Unix(timeVal.Int()%9999, 0)
 	tm.Raw = []byte(`{"content":{"type":"testdata"}}`)

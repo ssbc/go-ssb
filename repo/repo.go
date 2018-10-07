@@ -157,7 +157,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 	return db, sinkidx, serve, nil
 }
 
-func OpenBlobStore(r Interface) (sbot.BlobStore, error) {
+func OpenBlobStore(r Interface) (ssb.BlobStore, error) {
 	bs, err := blobstore.New(r.GetPath("blobs"))
 	return bs, errors.Wrap(err, "error opening blob store")
 }

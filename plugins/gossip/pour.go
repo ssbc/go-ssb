@@ -23,11 +23,11 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	if err := mapstructure.Decode(qv, &qry); err != nil {
 		return errors.Wrap(err, "failed#2 to decode qry map")
 	}
-	ref, err := sbot.ParseRef(qry.Id)
+	ref, err := ssb.ParseRef(qry.Id)
 	if err != nil {
 		return errors.Wrapf(err, "illegal ref: %s", qry.Id)
 	}
-	feedRef, ok := ref.(*sbot.FeedRef)
+	feedRef, ok := ref.(*ssb.FeedRef)
 	if !ok {
 		return errors.Wrapf(err, "illegal ref type: %s", qry.Id)
 	}

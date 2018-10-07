@@ -11,7 +11,7 @@ import (
 	"go.cryptoscope.co/sbot/graph"
 )
 
-func New(log logging.Interface, id *sbot.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node sbot.Node, promisc bool) sbot.Plugin {
+func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, promisc bool) ssb.Plugin {
 	return plugin{
 		&handler{
 			Node:         node,
@@ -26,7 +26,7 @@ func New(log logging.Interface, id *sbot.FeedRef, rootLog margaret.Log, userFeed
 	}
 }
 
-func NewHist(log logging.Interface, id *sbot.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node sbot.Node) sbot.Plugin {
+func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node) ssb.Plugin {
 	return histPlugin{
 		&handler{
 			Node:         node,

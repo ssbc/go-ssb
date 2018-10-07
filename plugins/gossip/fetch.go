@@ -16,7 +16,7 @@ import (
 )
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
-func (g *handler) fetchFeed(ctx context.Context, fr *sbot.FeedRef, edp muxrpc.Endpoint) error {
+func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.Endpoint) error {
 	// check our latest
 	addr := librarian.Addr(fr.ID)
 	_, ok := g.activeFetch.Load(addr)

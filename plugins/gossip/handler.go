@@ -23,8 +23,8 @@ import (
 )
 
 type handler struct {
-	Node         sbot.Node
-	Id           *sbot.FeedRef
+	Node         ssb.Node
+	Id           *ssb.FeedRef
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
 	GraphBuilder graph.Builder
@@ -64,7 +64,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	remoteRef := &sbot.FeedRef{
+	remoteRef := &ssb.FeedRef{
 		Algo: "ed25519",
 		ID:   remoteAddr.PubKey,
 	}
@@ -89,7 +89,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 	for i, addr := range ufaddrs {
-		userRef := &sbot.FeedRef{
+		userRef := &ssb.FeedRef{
 			Algo: "ed25519",
 			ID:   []byte(addr),
 		}
@@ -115,7 +115,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	}
 }
 
-func isIn(list []librarian.Addr, a *sbot.FeedRef) bool {
+func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 	for _, el := range list {
 		if bytes.Compare([]byte(el), a.ID) == 0 {
 			return true
@@ -219,12 +219,12 @@ func (g *handler) connect(ctx context.Context, dest string) error {
 		return errors.Wrapf(err, "gossip.connect call: error resolving network address %q", splitted[:2])
 	}
 
-	ref, err := sbot.ParseRef(splitted[2])
+	ref, err := ssb.ParseRef(splitted[2])
 	if err != nil {
 		return errors.Wrapf(err, "gossip.connect call: failed to parse FeedRef %s", splitted[2])
 	}
 
-	remoteFeed, ok := ref.(*sbot.FeedRef)
+	remoteFeed, ok := ref.(*ssb.FeedRef)
 	if !ok {
 		return errors.Errorf("gossip.connect: expected FeedRef got %T", ref)
 	}
