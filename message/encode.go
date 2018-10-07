@@ -39,6 +39,7 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 					return errors.Wrapf(err, "formatArray(%d): decend failed", depth)
 				}
 			case '[':
+				fmt.Fprint(b, strings.Repeat("  ", depth))
 				fmt.Fprint(b, "[\n")
 				if err := formatArray(depth+1, b, dec); err != nil {
 					return errors.Wrapf(err, "formatArray(%d): decend failed", depth)

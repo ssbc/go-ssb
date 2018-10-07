@@ -23,6 +23,10 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	return out, sig, nil
 }
 
+// Verify takes an slice of bytes (like json.RawMessage) and uses EncodePreserveOrder to pretty print it.
+// It then uses ExtractSignature and verifies the found signature against the author field of the message.
+// At last it uses internalV8Binary to create a the SHA256 hash for the message key.
+// If you find a buggy message, use `node ./encode_test.js $feedID` to generate a new testdata.zip
 func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
@@ -31,7 +35,7 @@ func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 
 	// destroys it for the network layer but makes it easier to access its values
 	var dmsg DeserializedMessage
-	if err := json.Unmarshal(enc, &dmsg); err != nil {
+	if err := json.Unmarshal(raw, &dmsg); err != nil {
 		return nil, nil, errors.Wrapf(err, "ssb Verify: could not json.Unmarshal message: %q...", raw[:15])
 	}
 
@@ -41,6 +45,7 @@ func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 	}
 
 	if err := sig.Verify(woSig, &dmsg.Author); err != nil {
+		// fmt.Fprintln(os.Stderr, string(enc))
 		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could not verify message", dmsg.Author.Ref(), dmsg.Sequence)
 	}
 
