@@ -17,9 +17,9 @@ require (
 	github.com/shurcooL/go v0.0.0-20180423040247-9e1955d9fb6e // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.2.2
-	go.cryptoscope.co/librarian v1.0.0
-	go.cryptoscope.co/luigi v0.2.0
-	go.cryptoscope.co/margaret v0.0.2
+	go.cryptoscope.co/librarian v0.1.0
+	go.cryptoscope.co/luigi v0.3.0
+	go.cryptoscope.co/margaret v0.0.6
 	go.cryptoscope.co/muxrpc v0.0.0-20181007003539-601b7be81ee6
 	go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3
 	go.cryptoscope.co/secretstream v1.1.0
