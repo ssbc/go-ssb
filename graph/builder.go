@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger"
@@ -40,56 +41,72 @@ type builder struct {
 	kv  *badger.DB
 	idx librarian.Index
 	log log.Logger
+
+	cacheLock   sync.Mutex
+	cachedGraph *Graph
 }
 
 func NewBuilder(log log.Logger, db *badger.DB) Builder {
 	contactsIdx := libbadger.NewIndex(db, 0)
 
-	return &builder{
+	b := &builder{
 		kv:  db,
 		idx: contactsIdx,
 		log: log,
+	}
 
-		SinkIndex: librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
-			msg := val.(message.StoredMessage)
-			var dmsg message.DeserializedMessage
-			err := json.Unmarshal(msg.Raw, &dmsg)
-			if err != nil {
-				return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
-			}
+	b.SinkIndex = librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+		b.cacheLock.Lock()
+		defer b.cacheLock.Unlock()
 
-			var c ssb.Contact
-			err = json.Unmarshal(dmsg.Content, &c)
-			if err != nil {
-				if ssb.IsMessageUnusable(err) {
-					return nil
-				}
-				log.Log("msg", "skipped contact message", "reason", err)
+		msg := val.(message.StoredMessage)
+		var dmsg message.DeserializedMessage
+		err := json.Unmarshal(msg.Raw, &dmsg)
+		if err != nil {
+			return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
+		}
+
+		var c ssb.Contact
+		err = json.Unmarshal(dmsg.Content, &c)
+		if err != nil {
+			if ssb.IsMessageUnusable(err) {
 				return nil
 			}
+			log.Log("msg", "skipped contact message", "reason", err)
+			return nil
+		}
 
-			addr := append(dmsg.Author.ID, ':')
-			addr = append(addr, c.Contact.ID...)
-			switch {
-			case c.Following:
-				err = idx.Set(ctx, librarian.Addr(addr), 1)
-			case c.Blocking:
-				err = idx.Set(ctx, librarian.Addr(addr), 0)
-			default:
-				err = idx.Delete(ctx, librarian.Addr(addr))
-			}
-			if err != nil {
-				return errors.Wrapf(err, "db/idx contacts: failed to update index. %+v", c)
-			}
+		addr := append(dmsg.Author.ID, ':')
+		addr = append(addr, c.Contact.ID...)
+		switch {
+		case c.Following:
+			err = idx.Set(ctx, librarian.Addr(addr), 1)
+		case c.Blocking:
+			err = idx.Set(ctx, librarian.Addr(addr), 0)
+		default:
+			err = idx.Delete(ctx, librarian.Addr(addr))
+		}
+		if err != nil {
+			return errors.Wrapf(err, "db/idx contacts: failed to update index. %+v", c)
+		}
 
-			return err
-		}, contactsIdx),
-	}
+		b.cachedGraph = nil
+		return nil
+	}, contactsIdx)
+
+	return b
 }
 
 func (b *builder) Build() (*Graph, error) {
 	dg := simple.NewWeightedDirectedGraph(0, math.Inf(1))
 	known := make(key2node)
+
+	b.cacheLock.Lock()
+	defer b.cacheLock.Unlock()
+
+	if b.cachedGraph != nil {
+		return b.cachedGraph, nil
+	}
 
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -102,20 +119,15 @@ func (b *builder) Build() (*Graph, error) {
 				// fmt.Printf("skipping: %q\n", string(k))
 				continue
 			}
-			from := ssb.FeedRef{
-				Algo: "ed25519",
-				ID:   k[:32],
-			}
 
-			to := ssb.FeedRef{
-				Algo: "ed25519",
-				ID:   k[33:],
-			}
+			from := ssb.FeedRef{Algo: "ed25519", ID: k[:32]}
+			to := ssb.FeedRef{Algo: "ed25519", ID: k[33:]}
 
 			v, err := it.Value()
 			if err != nil {
-				return errors.Wrap(err, "friends: counldnt get idx value")
+				return errors.Wrap(err, "friends: couldn't get idx value")
 			}
+
 			var bfrom [32]byte
 			copy(bfrom[:], from.ID)
 			nFrom, has := known[bfrom]
@@ -124,6 +136,7 @@ func (b *builder) Build() (*Graph, error) {
 				dg.AddNode(nFrom)
 				known[bfrom] = nFrom
 			}
+
 			var bto [32]byte
 			copy(bto[:], to.ID)
 			nTo, has := known[bto]
@@ -132,14 +145,15 @@ func (b *builder) Build() (*Graph, error) {
 				dg.AddNode(nTo)
 				known[bto] = nTo
 			}
+
 			w := math.Inf(-1)
 			if len(v) >= 1 && v[0] == '1' {
 				w = 1
 			} else {
 				w = math.Inf(1)
 			}
+
 			if nFrom.ID() == nTo.ID() {
-				// fmt.Printf("skipping self: %s\n", from.Ref())
 				continue
 			}
 			edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}
@@ -148,9 +162,9 @@ func (b *builder) Build() (*Graph, error) {
 		return nil
 	})
 
-	// dg.HasEdgeBetween()
-
-	return &Graph{dg, known}, err
+	g := &Graph{dg, known}
+	b.cachedGraph = g
+	return g, err
 }
 
 type Graph struct {
@@ -265,7 +279,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 	return func(conn net.Conn) (muxrpc.Handler, error) {
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
-			return nil, errors.Wrap(err, "MakeHandler: expected an address containing an shs-bs addr")
+			return nil, errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
 		}
 
 		// TODO: cache me in tandem with indexing
@@ -273,7 +287,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 
 		fg, err := b.Build()
 		if err != nil {
-			return nil, errors.Wrap(err, "MakeHandler: failed to make friendgraph")
+			return nil, errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
 		}
 
 		if fg.Nodes() != 0 { // trust on first use
@@ -286,7 +300,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 
 			distLookup, err := fg.MakeDijkstra(local)
 			if err != nil {
-				return nil, errors.Wrap(err, "MakeHandler: failed to construct dijkstra")
+				return nil, errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
 			}
 			timeLookup := time.Now()
 
@@ -301,7 +315,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 				"mkGraph", timeDijkstra.Sub(timeGraph),
 				"mkSearch", timeLookup.Sub(timeDijkstra),
 
-				"dist", d, "path", fmt.Sprint(fpath), // "hops", len(fpath),
+				"dist", d, "path", fmt.Sprint(fpath),
 
 				"remote", remote,
 			)
