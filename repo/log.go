@@ -1,8 +1,6 @@
 package repo
 
 import (
-	"strings"
-
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/margaret"
@@ -20,6 +18,6 @@ func OpenLog(r Interface, path ...string) (margaret.Log, error) {
 	}
 
 	// TODO use proper log message type here
-	log, err := offset2.Open(strings.Join(path, "/"), msgpack.New(&message.StoredMessage{}))
+	log, err := offset2.Open(r.GetPath(path...), msgpack.New(&message.StoredMessage{}))
 	return log, errors.Wrap(err, "failed to open log")
 }

@@ -28,6 +28,10 @@ func fail(err error) {
 }
 
 func main() {
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "usage: migrate <from> <to>")
+		os.Exit(1)
+	}
 	fromPath := os.Args[1]
 	toPath := os.Args[2]
 
