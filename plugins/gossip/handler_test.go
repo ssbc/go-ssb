@@ -174,7 +174,7 @@ func TestReplicate(t *testing.T) {
 		// r.NoError(err, "failed to get sublog")
 		// seqVal, err = dstTestLog.Seq().Value()
 		// r.NoError(err, "failed to aquire current sequence of test sublog")
-		r.Equal(tc.has-1, seqVal, "wrong sequence value on testlog")
+		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
 
 		if !t.Failed() {
 			os.RemoveAll(dstPath)

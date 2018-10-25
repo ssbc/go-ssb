@@ -57,6 +57,9 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		if qry.Seq >= int64(v) { // more than we got
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
 		}
+		if qry.Seq >= 1 {
+			qry.Seq-- // out internals are 0-indexed
+		}
 
 		userSequences, err := userLog.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
 		if err != nil {
