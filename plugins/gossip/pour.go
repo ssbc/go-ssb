@@ -61,6 +61,13 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			qry.Seq-- // out internals are 0-indexed
 		}
 
+		if qry.Live && qry.Limit == 0 {
+			// currently having live streams is not implemented
+			// it might work but we have some problems with dangling rpc routines which we like to fix first
+			// so we ignore the live and just close after 1000 to not have dangling calls
+			qry.Limit = -1
+		}
+
 		userSequences, err := userLog.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
 		if err != nil {
 			return errors.Wrapf(err, "illegal user log query seq:%d - limit:%d", qry.Seq, qry.Limit)

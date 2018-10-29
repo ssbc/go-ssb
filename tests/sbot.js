@@ -8,6 +8,7 @@ const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/gossip'))
   .use(require('scuttlebot/plugins/replicate'))
   .use(require('scuttlebot/plugins/logging'))
+  .use(require('ssb-friends'))
   .use(require('ssb-blobs'))
 
 
