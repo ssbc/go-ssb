@@ -14,7 +14,7 @@ import (
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
 	const n = 64
-	s, alice, wait := initInterop(t, `
+	s, alice, done, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -40,7 +40,8 @@ pull(
 	})
 )
 `)
-	defer wait()()
+	defer cleanup()
+	<-done
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)

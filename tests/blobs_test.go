@@ -19,7 +19,7 @@ func TestBlobToJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, wait := initInterop(t, `run()`,
+	s, _, done, cleanup := initInterop(t, `run()`,
 		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
 			t.true(has, "got blob")
 			t.end(err, "no err")
@@ -37,7 +37,9 @@ func TestBlobToJS(t *testing.T) {
 	r.NoError(err)
 	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
 
-	defer wait()()
+	defer cleanup()
+	<-done
+
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
@@ -54,7 +56,7 @@ func TestBlobFromJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, wait := initInterop(t,
+	s, _, done, cleanup := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
@@ -99,7 +101,8 @@ func TestBlobFromJS(t *testing.T) {
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
 
-	defer wait()()
+	defer cleanup()
+	<-done
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
