@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"sync"
 	"testing"
 	"time"
 
@@ -30,7 +29,8 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
-func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, func() func()) {
+// returns the created go-sbot, the pubkey of the jsbot, a wait and a cleanup function
+func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, <-chan bool, func()) {
 	r := require.New(t)
 	ctx := context.Background()
 
@@ -74,16 +74,15 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		sbot.KeyPair.Id.Ref(),
 		netwrap.GetAddr(sbot.Node.GetListenAddr(), "tcp").String())
 
-	return sbot, alice, func() func() {
-		return func() {
-			<-done
-			if !t.Failed() {
-				r.NoError(os.RemoveAll(dir), "error removing test directory")
-			}
+	return sbot, alice, done, func() {
+		<-done
+		if !t.Failed() {
+			r.NoError(os.RemoveAll(dir), "error removing test directory")
 		}
 	}
 }
 
+// returns the jsbots pubkey, a wait func and a done channel
 func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.FeedRef, <-chan bool) {
 	r := require.New(t)
 	cmd := exec.Command("node", "./sbot.js")
@@ -101,15 +100,13 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
-	var o sync.Once
 	var done = make(chan bool)
-
-	o.Do(func() {
+	go func() {
 		err := cmd.Wait()
 		r.NoError(err, "js-sbot exited")
 		t.Log("waited")
-		done <- true
-	})
+		close(done)
+	}()
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
 	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
