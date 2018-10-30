@@ -63,7 +63,6 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		if qry.Live && qry.Limit == 0 {
 			// currently having live streams is not implemented
 			// it might work but we have some problems with dangling rpc routines which we like to fix first
-			// so we ignore the live and just close after 1000 to not have dangling calls
 			qry.Limit = -1
 		}
 
