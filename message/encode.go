@@ -58,7 +58,7 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 
 		case float64:
 			fmt.Fprint(b, strings.Repeat("  ", depth))
-			fmt.Fprintf(b, "%v", v)
+			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
 			if dec.More() {
 				fmt.Fprintf(b, ",")
 			}
@@ -149,7 +149,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			isKey = !isKey
 
 		case float64:
-			fmt.Fprint(b, strconv.FormatFloat(v, 'f', -1, 64))
+			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
 			if dec.More() {
 				fmt.Fprintf(b, ",")
 			}
