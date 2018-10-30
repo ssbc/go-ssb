@@ -113,7 +113,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, node, false))
+		id, rootLog, uf, gb, node))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(

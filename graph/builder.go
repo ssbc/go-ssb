@@ -321,7 +321,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 			)
 
 			if math.IsInf(d, -1) || int(d) > maxHops {
-				return nil, errors.Errorf("sbot: peer not in reach. d:%.0f, max:%d", d, maxHops)
+				return nil, &ssb.ErrOutOfReach{int(d), maxHops}
 			}
 		}
 

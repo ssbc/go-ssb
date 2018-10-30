@@ -23,13 +23,12 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	if err := mapstructure.Decode(qv, &qry); err != nil {
 		return errors.Wrap(err, "failed#2 to decode qry map")
 	}
-	ref, err := ssb.ParseRef(qry.Id)
-	if err != nil {
-		return errors.Wrapf(err, "illegal ref: %s", qry.Id)
+	if qry.Id == "@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256" { // nothing to do here...
+		return nil
 	}
-	feedRef, ok := ref.(*ssb.FeedRef)
-	if !ok {
-		return errors.Wrapf(err, "illegal ref type: %s", qry.Id)
+	feedRef, err := ssb.ParseFeedRef(qry.Id)
+	if err != nil {
+		return errors.Wrapf(err, "invalid ref: %q", qry.Id)
 	}
 
 	// check what we got
@@ -70,7 +69,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 
 		userSequences, err := userLog.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
 		if err != nil {
-			return errors.Wrapf(err, "illegal user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
+			return errors.Wrapf(err, "invalid user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}
 
 		sent := 0
@@ -94,7 +93,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			return errors.Wrap(err, "failed to pump messages to peer")
 		}
 
-		h.Info.Log("poured", ref.Ref(), "from", qry.Seq, "sent", sent)
+		h.Info.Log("poured", feedRef.Ref(), "from", qry.Seq, "sent", sent)
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}

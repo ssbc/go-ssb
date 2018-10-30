@@ -2,7 +2,6 @@ package blobs
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -60,7 +59,6 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 	}
 
 	h.sources[ref.Ref()] = src
-	h.log.Log("method", "blobs.createWants", "function", "getSource", "evt", "putSource", "ref", ref.Ref())
 	return src, nil
 }
 
@@ -73,7 +71,7 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 }
 
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	// h.log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 
 	src, err := h.getSource(ctx, edp)
@@ -100,7 +98,7 @@ func (proc wantProcessor) Pour(ctx context.Context, v interface{}) error {
 	mIn := v.(map[string]int64)
 	mOut := make(map[string]int64)
 
-	for sRef, _ := range mIn {
+	for sRef := range mIn {
 		_, ok := proc.wants.Load(sRef)
 		if !ok {
 			continue

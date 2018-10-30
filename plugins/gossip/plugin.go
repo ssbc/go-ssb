@@ -11,7 +11,7 @@ import (
 	"go.cryptoscope.co/ssb/graph"
 )
 
-func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, promisc bool) ssb.Plugin {
+func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node) ssb.Plugin {
 	return plugin{
 		&handler{
 			Node:         node,
@@ -20,7 +20,6 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 			UserFeeds:    userFeeds,
 			GraphBuilder: graphBuilder,
 			Info:         log,
-			Promisc:      promisc,
 			hanlderDone:  func() {},
 		},
 	}
