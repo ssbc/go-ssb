@@ -93,7 +93,7 @@ func main() {
 		err := sbot.Close()
 		checkAndLog(err)
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(c)

@@ -2,6 +2,7 @@ package ssb
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/agl/ed25519"
@@ -67,12 +68,25 @@ func NewNode(opts Options) (Node, error) {
 	return n, nil
 }
 
-func (n *node) handleConnection(ctx context.Context, conn net.Conn) {
+type ErrOutOfReach struct {
+	Dist int
+	Max  int
+}
+
+func (e ErrOutOfReach) Error() string {
+	return fmt.Sprintf("sbot: peer not in reach. d:%d, max:%d", e.Dist, e.Max)
+}
+
+func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
 	n.connTracker.OnAccept(conn)
 	defer n.connTracker.OnClose(conn)
+	defer conn.Close()
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
+		if _, ok := errors.Cause(err).(*ErrOutOfReach); ok {
+			return // ignore silently
+		}
 		n.log.Log("func", "handleConnection", "op", "MakeHandler", "error", err.Error(), "peer", conn.RemoteAddr())
 		return
 	}

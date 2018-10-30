@@ -3,9 +3,7 @@ package gossip
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -30,8 +28,6 @@ type handler struct {
 	GraphBuilder graph.Builder
 	Info         logging.Interface
 
-	Promisc bool
-
 	activeFetch sync.Map
 
 	hanlderDone func()
@@ -42,7 +38,10 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.hanlderDone()
 	}()
 	remote := e.(muxrpc.Server).Remote()
-	g.Info.Log("event", "onConnect", "addr", remote)
+	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
+	if !ok {
+		return
+	}
 
 	hasOwn, err := multilog.Has(g.UserFeeds, librarian.Addr(g.Id.ID))
 	if err != nil {
@@ -57,11 +56,6 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 		g.Info.Log("fetchFeed", "done self")
-	}
-
-	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
-	if !ok {
-		return
 	}
 
 	remoteRef := &ssb.FeedRef{
@@ -88,14 +82,14 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "UserFeeds listing failed", "err", err)
 		return
 	}
-	for i, addr := range ufaddrs {
+	for _, addr := range ufaddrs {
 		userRef := &ssb.FeedRef{
 			Algo: "ed25519",
 			ID:   []byte(addr),
 		}
 		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
-			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "i", i)
+			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "uxer", userRef.Ref()[1:5])
 		}
 	}
 
@@ -104,12 +98,11 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return
 	}
-	for i, addr := range follows {
+	for _, addr := range follows {
 		if !isIn(ufaddrs, addr) {
-			// g.Info.Log("fetchFeed", "adding from follows list", "ref", addr.Ref(), "i", i)
 			err = g.fetchFeed(ctx, addr, e)
 			if err != nil {
-				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "i", i)
+				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "uxer", addr.Ref()[1:5])
 			}
 		}
 	}
@@ -127,7 +120,6 @@ func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 func (g *handler) check(err error) {
 	if err != nil {
 		g.Info.Log("error", err)
-		debug.PrintStack()
 	}
 }
 
@@ -164,7 +156,9 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 			checkAndClose(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
+		closed = true
 		g.check(req.Stream.Close())
+		return
 
 	case "gossip.ping":
 		if err := g.ping(ctx, req); err != nil {
@@ -189,6 +183,7 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
 			return
 		}
+		closed = true
 		g.check(req.Return(ctx, "connected"))
 
 	default:
@@ -197,7 +192,7 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 }
 
 func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
-	g.Info.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
+	//g.Info.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
 	for i := 0; i < 2; i++ {
 		err := req.Stream.Pour(ctx, time.Now().Unix())
 		if err != nil {
