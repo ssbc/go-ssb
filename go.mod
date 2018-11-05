@@ -27,3 +27,5 @@ require (
 	gonum.org/v1/netlib v0.0.0-20180816165226-ebcc3d2662d3 // indirect
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8
 )
+
+replace go.cryptoscope.co/muxrpc => /home/cryptix/go.old/src/go.cryptoscope.co/muxrpc

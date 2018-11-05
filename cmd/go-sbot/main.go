@@ -74,6 +74,12 @@ func main() {
 	ctx := context.Background()
 	ctx, shutdown := context.WithCancel(ctx)
 
+	defer func() {
+		if r := recover(); r != nil {
+			logging.LogPanicWithStack(log, "main-panic", r)
+		}
+	}()
+
 	sbot, err := mksbot.New(
 		mksbot.WithInfo(log),
 		mksbot.WithContext(ctx),
