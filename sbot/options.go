@@ -8,15 +8,19 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"go.cryptoscope.co/margaret"
-
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 )
+
+type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
 type Sbot struct {
 	repoPath     string
@@ -27,6 +31,8 @@ type Sbot struct {
 	closers      multiCloser
 	connWrappers []netwrap.ConnWrapper
 
+	edpWrapper MuxrpcEndpointWrapper
+
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
 	KeyPair      *ssb.KeyPair
@@ -34,6 +40,9 @@ type Sbot struct {
 	Node         ssb.Node
 	BlobStore    ssb.BlobStore
 	WantManager  ssb.WantManager
+
+	eventCounter *prometheus.Counter
+	systemGauge  *prometheus.Gauge
 }
 
 type Option func(*Sbot) error
@@ -79,6 +88,21 @@ func WithContext(ctx context.Context) Option {
 func WithConnWrapper(cw netwrap.ConnWrapper) Option {
 	return func(s *Sbot) error {
 		s.connWrappers = append(s.connWrappers, cw)
+		return nil
+	}
+}
+
+func WithEventMetrics(ctr *prometheus.Counter, lvls *prometheus.Gauge) Option {
+	return func(s *Sbot) error {
+		s.eventCounter = ctr
+		s.systemGauge = lvls
+		return nil
+	}
+}
+
+func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
+	return func(s *Sbot) error {
+		s.edpWrapper = mw
 		return nil
 	}
 }

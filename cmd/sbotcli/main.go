@@ -51,7 +51,7 @@ func init() {
 	u, err := user.Current()
 	check(err)
 
-	defaultKeyFile = filepath.Join(u.HomeDir, ".ssb", "secret")
+	defaultKeyFile = filepath.Join(u.HomeDir, ".ssb-go", "secret")
 }
 
 var Revision = "unset"

@@ -13,17 +13,17 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
-
-	"gonum.org/v1/gonum/graph"
-	"gonum.org/v1/gonum/graph/encoding/dot"
-	"gonum.org/v1/gonum/graph/path"
-	"gonum.org/v1/gonum/graph/simple"
-
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
+	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/encoding/dot"
+	"gonum.org/v1/gonum/graph/path"
+	"gonum.org/v1/gonum/graph/simple"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
@@ -275,60 +275,63 @@ func (n contactNode) String() string {
 
 type key2node map[[32]byte]graph.Node
 
-func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeHandler func(net.Conn) (muxrpc.Handler, error)) func(net.Conn) (muxrpc.Handler, error) {
-	return func(conn net.Conn) (muxrpc.Handler, error) {
+type HandlerCallback func(net.Conn) (muxrpc.Handler, error)
+
+func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, next HandlerCallback) HandlerCallback {
+	durration := prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace: "gossb",
+		Subsystem: "graph",
+		Name:      "authorize_seconds",
+	}, []string{"outcome"})
+	return func(conn net.Conn) (h muxrpc.Handler, err error) {
+		start := time.Now()
+		outcome := "success"
+		defer func() {
+			if err != nil {
+				outcome = "failed"
+			}
+			durration.With("outcome", outcome).Observe(time.Since(start).Seconds())
+		}()
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
-			return nil, errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
+			err = errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
+			return
 		}
 
 		if bytes.Equal(local.ID, remote.ID) {
-			return makeHandler(conn)
+			h, err = next(conn)
+			outcome = "same"
+			return
 		}
-
-		// TODO: cache me in tandem with indexing
-		timeGraph := time.Now()
 
 		fg, err := b.Build()
 		if err != nil {
-			return nil, errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
+			err = errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
+			return
 		}
 
 		if fg.Nodes() != 0 { // trust on first use
-			timeDijkstra := time.Now()
 
 			if fg.Follows(local, remote) {
-				// quick skip direct follow
-				return makeHandler(conn)
+				h, err = next(conn)
+				outcome = "direct follow"
+				return
 			}
 
-			distLookup, err := fg.MakeDijkstra(local)
+			var distLookup *Lookup
+			distLookup, err = fg.MakeDijkstra(local)
 			if err != nil {
-				return nil, errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
+				err = errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
+				return
 			}
-			timeLookup := time.Now()
 
-			fpath, d := distLookup.Dist(remote)
-			timeDone := time.Now()
-
-			log.Log("event", "disjkstra",
-				"nodes", fg.Nodes(),
-
-				"total", timeDone.Sub(timeGraph),
-				"lookup", timeDone.Sub(timeLookup),
-				"mkGraph", timeDijkstra.Sub(timeGraph),
-				"mkSearch", timeLookup.Sub(timeDijkstra),
-
-				"dist", d, "path", fmt.Sprint(fpath),
-
-				"remote", remote,
-			)
-
+			_, d := distLookup.Dist(remote)
 			if math.IsInf(d, -1) || int(d) > maxHops {
-				return nil, &ssb.ErrOutOfReach{int(d), maxHops}
+				err = &ssb.ErrOutOfReach{int(d), maxHops}
+				return
 			}
 		}
 
-		return makeHandler(conn)
+		return next(conn)
 	}
 }

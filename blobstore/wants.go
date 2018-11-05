@@ -7,37 +7,33 @@ import (
 	"sync"
 
 	"github.com/cryptix/go/logging"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
-
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
+
 	"go.cryptoscope.co/ssb"
 )
-
-func dump(log logging.Interface, v interface{}, from string) {
-	var x interface{}
-	if msg, ok := v.(WantMsg); ok {
-		x = &msg
-	}
-
-	if msg, ok := v.(*WantMsg); ok {
-		m := make(map[string]int64)
-		for _, w := range *msg {
-			m[w.Ref.Ref()] = w.Dist
-		}
-		x = m
-	}
-
-	log.Log("from", from, "blobSpew", spew.Sprint(x))
-}
 
 func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
 	wmgr := &wantManager{
 		bs:    bs,
 		wants: make(map[string]int64),
 		info:  log,
+		evtCtr: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: "gossb",
+			Subsystem: "blobs_want",
+			Name:      "wantmanager_events",
+		}, []string{"op"}),
+		gauge: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: "gossb",
+			Subsystem: "blobs_watermarks",
+			Name:      "wantmanager_gauge",
+		}, []string{"area"}),
 	}
+
+	wmgr.gauge.With("area", "proc").Set(0)
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
 
@@ -46,9 +42,16 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
 		defer wmgr.l.Unlock()
 
 		n, ok := v.(ssb.BlobStoreNotification)
-		if ok && n.Op == ssb.BlobStoreOpPut {
-			if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
-				delete(wmgr.wants, n.Ref.Ref())
+		if ok {
+			wmgr.evtCtr.With("op", n.Op.String()).Add(1)
+			switch n.Op {
+			case ssb.BlobStoreOpPut:
+				if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
+					delete(wmgr.wants, n.Ref.Ref())
+					wmgr.gauge.With("area", "nwants").Set(float64(len(wmgr.wants)))
+				}
+			default:
+				log.Log("evnt", "warn/debug", "msg", "unhandled blobStore change", "notify", n)
 			}
 		}
 
@@ -68,7 +71,9 @@ type wantManager struct {
 
 	l sync.Mutex
 
-	info logging.Interface
+	info   logging.Interface
+	evtCtr *prometheus.Counter
+	gauge  *prometheus.Gauge
 }
 
 func (wmgr *wantManager) Wants(ref *ssb.BlobRef) bool {
@@ -97,6 +102,9 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 	wmgr.wants[ref.Ref()] = dist
 
+	wmgr.gauge.With("area", "nwants").Set(float64(len(wmgr.wants)))
+
+	// TODO: ctx?? this pours into the broadcast, right?
 	err = wmgr.wantSink.Pour(context.TODO(), want{ref, dist})
 	err = errors.Wrap(err, "error pouring want to broadcast")
 	return err
@@ -104,6 +112,7 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
 	proc := &wantProc{
+		rootCtx:     ctx,
 		bs:          wmgr.bs,
 		wmgr:        wmgr,
 		out:         sink,
@@ -127,6 +136,8 @@ type want struct {
 type wantProc struct {
 	l sync.Mutex
 
+	rootCtx context.Context
+
 	bs          ssb.BlobStore
 	wmgr        *wantManager
 	out         luigi.Sink
@@ -136,6 +147,8 @@ type wantProc struct {
 }
 
 func (proc *wantProc) init() {
+	proc.wmgr.gauge.With("area", "proc").Add(1)
+
 	bsCancel := proc.bs.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			proc.l.Lock()
@@ -153,7 +166,6 @@ func (proc *wantProc) init() {
 				m := map[string]int64{notif.Ref.Ref(): sz}
 				err = proc.out.Pour(ctx, m)
 				proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
-				dump(proc.wmgr.info, m, "out sink")
 				return errors.Wrap(err, "errors pouring into sink")
 			}
 
@@ -174,11 +186,11 @@ func (proc *wantProc) init() {
 		if oldDone != nil {
 			oldDone(nil)
 		}
+		proc.wmgr.gauge.With("area", "proc").Add(-1)
 	}
 
-	err := proc.out.Pour(context.TODO(), proc.wmgr.wants)
+	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
 	// proc.wmgr.info.Log("event", "createWants.Out", "cause", "initial wants")
-	// dump(proc.wmgr.info, proc.wmgr.wants, "after pour")
 	if err != nil {
 		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
@@ -191,10 +203,8 @@ func (proc *wantProc) Close() error {
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	// proc.wmgr.info.Log("event", "createWants.In", "cause", "received data")
-	// dump(proc.wmgr.info, v, "debug proc input")
 	proc.l.Lock()
 	defer proc.l.Unlock()
-	// dump(proc.wmgr.info, proc.wmgr.wants, "our wants before processing")
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
@@ -217,6 +227,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 			if proc.wmgr.Wants(w.Ref) {
 				proc.wmgr.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
 				go func(ref *ssb.BlobRef) {
+					// cryptix: feel like we might need to wrap rootCtx in, too?
 					src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
 					if err != nil {
 						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
@@ -244,6 +255,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		return nil
 	}
 
+	// cryptix: feel like we might need to wrap rootCtx in, too?
 	err := proc.out.Pour(ctx, mOut)
 	return errors.Wrap(err, "error responding to wants")
 }

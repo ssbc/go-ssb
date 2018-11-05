@@ -7,6 +7,7 @@ import (
 
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
@@ -20,6 +21,10 @@ type Options struct {
 	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
 	Logger       log.Logger
 	ConnWrappers []netwrap.ConnWrapper
+
+	EventCounter    *prometheus.Counter
+	SystemGauge     *prometheus.Gauge
+	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 }
 
 type Node interface {
@@ -37,6 +42,10 @@ type node struct {
 	connTracker  ConnTracker
 	log          log.Logger
 	connWrappers []netwrap.ConnWrapper
+
+	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
+	evtCtr     *prometheus.Counter
+	sysGauge   *prometheus.Gauge
 }
 
 func NewNode(opts Options) (Node, error) {
@@ -63,6 +72,15 @@ func NewNode(opts Options) (Node, error) {
 	}
 
 	n.connWrappers = opts.ConnWrappers
+
+	n.edpWrapper = opts.EndpointWrapper
+	n.evtCtr = opts.EventCounter
+	n.sysGauge = opts.SystemGauge
+
+	if n.sysGauge != nil {
+		n.sysGauge.With("part", "conns").Set(0)
+		n.sysGauge.With("part", "fetches").Set(0)
+	}
 	n.log = opts.Logger
 
 	return n, nil
@@ -80,7 +98,16 @@ func (e ErrOutOfReach) Error() string {
 func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
 	n.connTracker.OnAccept(conn)
 	defer n.connTracker.OnClose(conn)
-	defer conn.Close()
+	defer func() {
+		if n.sysGauge != nil {
+			n.sysGauge.With("part", "conns").Add(-1)
+		}
+		conn.Close()
+	}()
+
+	if n.evtCtr != nil {
+		n.evtCtr.With("event", "connection").Add(1)
+	}
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
@@ -94,6 +121,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	pkr := muxrpc.NewPacker(conn)
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
+	if n.edpWrapper != nil {
+		edp = n.edpWrapper(edp)
+	}
+
 	srv := edp.(muxrpc.Server)
 	if err := srv.Serve(ctx); err != nil {
 		n.log.Log("func", "handleConnection", "op", "Serve", "error", err.Error(), "peer", conn.RemoteAddr())
@@ -105,6 +136,9 @@ func (n *node) Serve(ctx context.Context) error {
 		conn, err := n.l.Accept()
 		if err != nil {
 			return errors.Wrap(err, "error accepting connection")
+		}
+		if n.sysGauge != nil {
+			n.sysGauge.With("part", "conns").Add(1)
 		}
 
 		// apply connection wrappers
@@ -149,6 +183,10 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		if err != nil {
 			return errors.Wrapf(err, "error applying connection wrapper #%d", i)
 		}
+	}
+
+	if n.sysGauge != nil {
+		n.sysGauge.With("part", "conns").Add(1)
 	}
 
 	go func(c net.Conn) {

@@ -3,12 +3,10 @@ package sbot
 import (
 	"context"
 	"io"
-	"net"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/graph"
@@ -85,20 +83,17 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	pmgr := ssb.NewPluginManager()
 
-	// TODO get rid of this. either add error to pluginmgr.MakeHandler or take it away from the Options.
-	errAdapter := func(mk func(net.Conn) muxrpc.Handler) func(net.Conn) (muxrpc.Handler, error) {
-		return func(conn net.Conn) (muxrpc.Handler, error) {
-			return mk(conn), nil
-		}
-	}
-
 	opts := ssb.Options{
 		Logger:       s.info,
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
 		AppKey:       s.appKey[:],
-		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 4, errAdapter(pmgr.MakeHandler)),
+		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 4, pmgr.MakeHandler),
 		ConnWrappers: s.connWrappers,
+
+		EventCounter:    s.eventCounter,
+		SystemGauge:     s.systemGauge,
+		EndpointWrapper: s.edpWrapper,
 	}
 
 	node, err := ssb.NewNode(opts)
@@ -113,12 +108,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, node))
+		id, rootLog, uf, gb, node, s.systemGauge))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, node))
+		id, rootLog, uf, gb, node, s.systemGauge))
 
 	return s, nil
 }
