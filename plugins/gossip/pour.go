@@ -19,6 +19,10 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.New("not enough arguments, expecting feed id")
 	}
 	qv := req.Args[0].(map[string]interface{})
+	if id,ok:=qv["id"]; ok && id == `@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256` {
+		h.Info.Log("pour", "ignored sha ID")
+		return nil // no comment
+	}
 	var qry message.CreateHistArgs
 	if err := mapstructure.Decode(qv, &qry); err != nil {
 		return errors.Wrap(err, "failed#2 to decode qry map")

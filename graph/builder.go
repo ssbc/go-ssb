@@ -282,6 +282,10 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 			return nil, errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
 		}
 
+		if bytes.Equal(local.ID, remote.ID) {
+			return makeHandler(conn)
+		}
+
 		// TODO: cache me in tandem with indexing
 		timeGraph := time.Now()
 

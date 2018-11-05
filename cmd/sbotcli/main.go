@@ -224,7 +224,7 @@ func initClient(ctx *cli.Context) error {
 	logging.SetCloseChan(signalc)
 	go func() {
 		err := client.(muxrpc.Server).Serve(longctx)
-		log.Log("warning", "muxrpc disconnected", "err", err)
+		check(err)
 	}()
 	log.Log("init", "done")
 	return nil
@@ -277,7 +277,7 @@ func callCmd(ctx *cli.Context) error {
 	}
 	args := ctx.Args().Slice()
 	v := strings.Split(cmd, ".")
-	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method(v), args)
+	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method(v), args[1]) // TODO: args[1:]...
 	if err != nil {
 		return errors.Wrapf(err, "%s: call failed.", cmd)
 	}
