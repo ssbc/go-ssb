@@ -24,9 +24,15 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		// errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
 		return nil
 	}
+	if g.sysGauge != nil {
+		g.sysGauge.With("part", "fetches").Add(1)
+	}
 	g.activeFetch.Store(addr, true)
 	defer func() {
 		g.activeFetch.Delete(addr)
+		if g.sysGauge != nil {
+			g.sysGauge.With("part", "fetches").Add(-1)
+		}
 	}()
 	userLog, err := g.UserFeeds.Get(addr)
 	if err != nil {
@@ -132,6 +138,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 
 	if n := latestSeq - startSeq; n > 0 {
 		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
+		if g.sysGauge != nil {
+			g.sysGauge.With("part", "msgs").Add(float64(n))
+		}
 	}
 	return nil
 }

@@ -12,26 +12,20 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
-
+	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
-	"net/http"
 	_ "net/http/pprof"
 )
-
-func startHTTPServer() {
-	err := http.ListenAndServe("localhost:6078", nil)
-	if err != nil {
-		panic(err)
-	}
-}
 
 var (
 	// flags
 	flagPromisc bool
 	listenAddr  string
+	debugAddr   string
 	repoDir     string
 
 	// helper
@@ -51,7 +45,6 @@ func checkAndLog(err error) {
 }
 
 func init() {
-	go startHTTPServer() // debug
 
 	logging.SetupLogging(nil)
 	log = logging.Logger("sbot")
@@ -64,7 +57,7 @@ func init() {
 	checkFatal(err)
 
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
-	flag.BoolVar(&flagPromisc, "promisc", false, "crawl all the feeds")
+	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
 	flag.Parse()
@@ -80,13 +73,15 @@ func main() {
 		}
 	}()
 
+	startDebug()
+
 	sbot, err := mksbot.New(
 		mksbot.WithInfo(log),
 		mksbot.WithContext(ctx),
 		mksbot.WithAppKey(appKey),
+		mksbot.WithEventMetrics(SystemEvents, RepoStats),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr))
-
 	checkFatal(err)
 
 	c := make(chan os.Signal)
@@ -111,12 +106,17 @@ func main() {
 	feeds, err := uf.List()
 	checkFatal(err)
 	log.Log("event", "repo open", "feeds", len(feeds))
+	SystemEvents.With("event", "openedRepo").Add(1)
+	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
+
+	var followCnt, msgCount uint
 	for _, author := range feeds {
 		subLog, err := uf.Get(author)
 		checkFatal(err)
 
 		currSeq, err := subLog.Seq().Value()
 		checkFatal(err)
+		msgCount += uint(currSeq.(margaret.BaseSeq))
 
 		authorRef := ssb.FeedRef{
 			Algo: "ed25519",
@@ -124,14 +124,18 @@ func main() {
 		}
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
-
 		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
+		followCnt += uint(len(f))
+
 	}
+	RepoStats.With("part", "msgs").Set(float64(msgCount))
+	RepoStats.With("part", "follows").Set(float64(followCnt))
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
-		err = sbot.Node.Serve(ctx)
+		err = sbot.Node.Serve(ctx, muxrpc.Throttle(500, 0), HandlerWithLatency(latencySummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
+		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
 	}
 }

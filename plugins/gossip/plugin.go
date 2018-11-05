@@ -2,8 +2,10 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
@@ -11,32 +13,46 @@ import (
 	"go.cryptoscope.co/ssb/graph"
 )
 
-func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node) ssb.Plugin {
-	return plugin{
-		&handler{
-			Node:         node,
-			Id:           id,
-			RootLog:      rootLog,
-			UserFeeds:    userFeeds,
-			GraphBuilder: graphBuilder,
-			Info:         log,
-			hanlderDone:  func() {},
-		},
+func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, opts ...interface{}) ssb.Plugin {
+	h := &handler{
+		Node:         node,
+		Id:           id,
+		RootLog:      rootLog,
+		UserFeeds:    userFeeds,
+		GraphBuilder: graphBuilder,
+		Info:         log,
+		hanlderDone:  func() {},
 	}
+	for i, o := range opts {
+		switch v := o.(type) {
+		case *prometheus.Gauge:
+			h.sysGauge = v
+		default:
+			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
+		}
+	}
+	return &plugin{h}
 }
 
-func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node) ssb.Plugin {
-	return histPlugin{
-		&handler{
-			Node:         node,
-			Id:           id,
-			RootLog:      rootLog,
-			UserFeeds:    userFeeds,
-			GraphBuilder: graphBuilder,
-			Info:         log,
-			hanlderDone:  func() {},
-		},
+func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, opts ...interface{}) ssb.Plugin {
+	h := &handler{
+		Node:         node,
+		Id:           id,
+		RootLog:      rootLog,
+		UserFeeds:    userFeeds,
+		GraphBuilder: graphBuilder,
+		Info:         log,
+		hanlderDone:  func() {},
 	}
+	for i, o := range opts {
+		switch v := o.(type) {
+		case *prometheus.Gauge:
+			h.sysGauge = v
+		default:
+			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
+		}
+	}
+	return histPlugin{h}
 }
 
 type plugin struct {

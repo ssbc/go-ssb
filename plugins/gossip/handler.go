@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
@@ -31,6 +32,8 @@ type handler struct {
 	activeFetch sync.Map
 
 	hanlderDone func()
+
+	sysGauge *prometheus.Gauge
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
@@ -62,6 +65,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		Algo: "ed25519",
 		ID:   remoteAddr.PubKey,
 	}
+
 	hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
 	if err != nil {
 		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
@@ -90,6 +94,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
 			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "uxer", userRef.Ref()[1:5])
+			if muxrpc.IsSinkClosed(err) {
+				return
+			}
 		}
 	}
 
@@ -103,6 +110,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			err = g.fetchFeed(ctx, addr, e)
 			if err != nil {
 				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "uxer", addr.Ref()[1:5])
+				if muxrpc.IsSinkClosed(err) {
+					return
+				}
 			}
 		}
 	}

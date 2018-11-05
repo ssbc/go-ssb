@@ -99,6 +99,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		AppKey:       s.appKey[:],
 		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 4, errAdapter(pmgr.MakeHandler)),
 		ConnWrappers: s.connWrappers,
+
+		EventCounter:    s.eventCounter,
+		SystemGauge:     s.systemGauge,
+		EndpointWrapper: s.edpWrapper,
 	}
 
 	node, err := ssb.NewNode(opts)
@@ -113,12 +117,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, node))
+		id, rootLog, uf, gb, node, s.systemGauge))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, node))
+		id, rootLog, uf, gb, node, s.systemGauge))
 
 	return s, nil
 }
