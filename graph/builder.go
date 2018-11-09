@@ -275,7 +275,9 @@ func (n contactNode) String() string {
 
 type key2node map[[32]byte]graph.Node
 
-func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeHandler func(net.Conn) (muxrpc.Handler, error)) func(net.Conn) (muxrpc.Handler, error) {
+type HandlerCallback func(net.Conn) (muxrpc.Handler, error)
+
+func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, mk HandlerCallback) HandlerCallback {
 	return func(conn net.Conn) (muxrpc.Handler, error) {
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
@@ -283,10 +285,9 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 		}
 
 		if bytes.Equal(local.ID, remote.ID) {
-			return makeHandler(conn)
+			return mk(conn)
 		}
 
-		// TODO: cache me in tandem with indexing
 		timeGraph := time.Now()
 
 		fg, err := b.Build()
@@ -299,7 +300,7 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 
 			if fg.Follows(local, remote) {
 				// quick skip direct follow
-				return makeHandler(conn)
+				return mk(conn)
 			}
 
 			distLookup, err := fg.MakeDijkstra(local)
@@ -329,6 +330,6 @@ func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, makeH
 			}
 		}
 
-		return makeHandler(conn)
+		return mk(conn)
 	}
 }

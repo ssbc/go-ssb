@@ -24,7 +24,7 @@ type Plugin interface {
 
 type PluginManager interface {
 	Register(Plugin)
-	MakeHandler(conn net.Conn) muxrpc.Handler
+	MakeHandler(conn net.Conn) (muxrpc.Handler, error)
 }
 
 type pluginManager struct {
@@ -41,7 +41,7 @@ func (pmgr pluginManager) Register(p Plugin) {
 	pmgr.plugins[p.Method().String()] = p
 }
 
-func (pmgr pluginManager) MakeHandler(conn net.Conn) muxrpc.Handler {
+func (pmgr pluginManager) MakeHandler(conn net.Conn) (muxrpc.Handler, error) {
 	// TODO: add authorization requirements check to plugin so we can call it here
 	// e.g. only allow some peers to make certain requests
 
@@ -51,5 +51,5 @@ func (pmgr pluginManager) MakeHandler(conn net.Conn) muxrpc.Handler {
 		h.Register(p.Method(), p.Handler())
 	}
 
-	return &h
+	return &h, nil
 }
