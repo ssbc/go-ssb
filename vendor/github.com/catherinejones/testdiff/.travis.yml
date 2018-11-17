@@ -1,0 +1,27 @@
+language: go
+
+env:
+    secure: "DO9kkmsoqj5cHbtyFGHv0Ukkhuoq0jYGKAVgFXclvTzTOAecgOwWMkH3LQ8Qla9aT9I3oYt3i23Xs8Zorq3AoYta1apRMp5HZ/aL2iMGEgknQDeGVndaYeogMC8tvu8LtSFzFmqYC/Ew976rwpy5SffQvLuhBfkPJnRynGgUsYoYGOqTuy03BUVLO4Ia30LQXHvUGt5fvfJIdENtM+S/RYJ4kg79ONI7rl8VfhZ076ERdmaC54As5L2u6HR19F6m+PVRrYt0YhPzDmRYxvtkdPH/u2s5xElzdzHIvR2mWC6locpvF0KPKOl/ACbXzlX08jmR0RBs7gVUnL0Szz/8UujAv6kqo1MUr5VZIxdxHK1oyVtf0FvjN0ZxWr2MBXUFywzR8q3cby6kRSBZ1lR4T9COjZnL6k0c9wmD4P2y/whY/lh6Wr3fIkA4NO/QAuGobn3Gccurqne0zcenwYHmKDL16CfpNuqhoOCfJuYO+3yArHYynjZ2y0BWWWFFbJ5FNpJdFWwOD6ES/OXOm3Oc4Ct2LZK9HedcmkVCLB/s1JoPJoS+AHsUqKYgSnW+QNoht0oJZBBy7Vyf88ZHQM+riDl65h94ZXqmuZuhegW7fT/k+Nv9Ezv9YRsdkNBxOR2aIe+VFgtL60hflqj39ni9R+EKemLGk667LXDfENYXcac="
+
+go: 
+    - 1.9
+    - "1.10"
+    - tip
+
+install:
+    - go get golang.org/x/tools/cmd/cover
+    - go get -u github.com/sergi/go-diff/...
+
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
+
+script: 
+    - go test -v -covermode=count -coverprofile c.out
+
+after_script:
+  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
+
+notifications:
+    email: true

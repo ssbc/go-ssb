@@ -1,0 +1,14 @@
+{
+  "author": "keks",
+  "bugs": {
+    "url": "github.com/keks/secretstream"
+  },
+  "gx": {
+    "dvcsimport": "github.com/keks/secretstream"
+  },
+  "gxVersion": "0.7.0",
+  "language": "go",
+  "license": "",
+  "name": "secretstream",
+  "version": "1.0.0"
+}

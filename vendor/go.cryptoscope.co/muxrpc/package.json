@@ -1,0 +1,8 @@
+{
+    "dependencies": {},
+    "devDependencies": {
+        "pull-stream": "^3.6.7",
+        "muxrpc": "^6.4.0",
+        "stream-to-pull-stream": "^1.7.2"
+    }
+}
