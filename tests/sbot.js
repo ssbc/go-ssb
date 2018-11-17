@@ -21,13 +21,6 @@ const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
 
 tape.createStream().pipe(process.stderr);
 tape(testName, function (t) {
-  t.timeoutAfter(5000) // doesn't exit the process
-  setTimeout(() => {
-    t.comment("test timeout")
-    process.exit(1)
-  }, 6000)
-
-
   function run() { // needs to be called by the before block when it's done
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
     t.comment("dialing")
