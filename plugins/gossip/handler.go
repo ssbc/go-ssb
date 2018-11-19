@@ -34,6 +34,7 @@ type handler struct {
 	hanlderDone func()
 
 	sysGauge *prometheus.Gauge
+	sysCtr   *prometheus.Counter
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {

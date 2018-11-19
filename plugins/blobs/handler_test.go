@@ -7,15 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	//kitlog "github.com/go-kit/kit/log"
 	"github.com/cryptix/go/logging/logtest"
-	//"github.com/cryptix/go/logging"
 	"github.com/stretchr/testify/require"
-
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	//"go.cryptoscope.co/muxrpc/codec"
 	muxtest "go.cryptoscope.co/muxrpc/test"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/plugins/test"

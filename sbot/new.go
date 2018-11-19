@@ -72,7 +72,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to ...")
 	}
 	s.BlobStore = bs
-	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs)
+	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
 	s.KeyPair, err = repo.OpenKeyPair(r)
@@ -108,12 +108,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, node, s.systemGauge))
+		id, rootLog, uf, gb, node, s.systemGauge, s.eventCounter))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, node, s.systemGauge))
+		id, rootLog, uf, gb, node, s.systemGauge, s.eventCounter))
 
 	return s, nil
 }
