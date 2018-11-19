@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -63,6 +64,9 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 }
 
 func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
+	ctx, longCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer longCancel()
+
 	_, err := h.getSource(ctx, edp)
 	if err != nil {
 		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
@@ -71,8 +75,8 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 }
 
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// h.log.Log("event", "onCall", "handler", "createWants", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
-	// TODO: push manifest check into muxrpc
+	ctx, longCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer longCancel()
 
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
@@ -83,7 +87,6 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	err = luigi.Pump(ctx, h.wm.CreateWants(ctx, req.Stream, edp), src)
 	if err != nil {
 		h.log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
-		return
 	}
 }
 
