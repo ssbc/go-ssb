@@ -27,6 +27,8 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 		switch v := o.(type) {
 		case *prometheus.Gauge:
 			h.sysGauge = v
+		case *prometheus.Counter:
+			h.sysCtr = v
 		default:
 			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
@@ -48,6 +50,8 @@ func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userF
 		switch v := o.(type) {
 		case *prometheus.Gauge:
 			h.sysGauge = v
+		case *prometheus.Counter:
+			h.sysCtr = v
 		default:
 			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
 		}

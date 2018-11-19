@@ -19,7 +19,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.New("not enough arguments, expecting feed id")
 	}
 	qv := req.Args[0].(map[string]interface{})
-	if id,ok:=qv["id"]; ok && id == `@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256` {
+	if id, ok := qv["id"]; ok && id == `@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256` {
 		h.Info.Log("pour", "ignored sha ID")
 		return nil // no comment
 	}
@@ -45,17 +45,9 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
 
-	// h.Info.Log("event", "pour req", "ref", feedRef.Ref(), "has", latest, "want", qry.Seq)
-
 	// act accordingly
 	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
-		// if h.Promisc {
-		// 	err := gossipIdx.Set(ctx, latestKey, margaret.BaseSeq(0))
-		// 	if err != nil {
-		// 		return errors.Wrap(err, "failed to set unknown key")
-		// 	}
-		// }
 	case margaret.BaseSeq:
 		if qry.Seq >= int64(v) { // more than we got
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
@@ -96,7 +88,9 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			return errors.Wrap(err, "failed to pump messages to peer")
 		}
 
-		h.Info.Log("poured", feedRef.Ref(), "from", qry.Seq, "sent", sent)
+		if h.sysCtr != nil {
+			h.sysCtr.With("event", "gossiptx").Add(float64(sent))
+		}
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}

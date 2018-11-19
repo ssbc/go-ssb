@@ -116,8 +116,6 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 			}
 		}
 
-		// info.Log("debug", "new message", "seq", dmsg.Sequence)
-
 		nextMsg := message.StoredMessage{
 			Author:    &dmsg.Author,
 			Previous:  &dmsg.Previous,
@@ -140,6 +138,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
 		if g.sysGauge != nil {
 			g.sysGauge.With("part", "msgs").Add(float64(n))
+		}
+		if g.sysCtr != nil {
+			g.sysCtr.With("event", "gossiprx").Add(float64(n))
 		}
 	}
 	return nil

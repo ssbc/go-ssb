@@ -121,6 +121,7 @@ func TestReplicate(t *testing.T) {
 		pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
 		// create handlers
+		//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
 		h1 := &handler{
 			Id:           srcID,
 			RootLog:      srcRootLog,

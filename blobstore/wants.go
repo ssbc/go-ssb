@@ -3,37 +3,38 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
 )
 
-func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
+func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}) ssb.WantManager {
 	wmgr := &wantManager{
 		bs:    bs,
 		wants: make(map[string]int64),
 		info:  log,
-		evtCtr: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: "gossb",
-			Subsystem: "blobs_want",
-			Name:      "wantmanager_events",
-		}, []string{"op"}),
-		gauge: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
-			Namespace: "gossb",
-			Subsystem: "blobs_watermarks",
-			Name:      "wantmanager_gauge",
-		}, []string{"area"}),
 	}
 
-	wmgr.gauge.With("area", "proc").Set(0)
+	for i, o := range opts {
+		switch v := o.(type) {
+		case *prometheus.Gauge:
+			wmgr.gauge = v
+		case *prometheus.Counter:
+			wmgr.evtCtr = v
+		default:
+			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
+		}
+	}
+
+	wmgr.gauge.With("part", "proc").Set(0)
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
 
@@ -43,12 +44,12 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore) ssb.WantManager {
 
 		n, ok := v.(ssb.BlobStoreNotification)
 		if ok {
-			wmgr.evtCtr.With("op", n.Op.String()).Add(1)
+			wmgr.promEvent(n.Op.String(), 1)
 			switch n.Op {
 			case ssb.BlobStoreOpPut:
 				if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
 					delete(wmgr.wants, n.Ref.Ref())
-					wmgr.gauge.With("area", "nwants").Set(float64(len(wmgr.wants)))
+					wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
 				}
 			default:
 				log.Log("evnt", "warn/debug", "msg", "unhandled blobStore change", "notify", n)
@@ -74,6 +75,18 @@ type wantManager struct {
 	info   logging.Interface
 	evtCtr *prometheus.Counter
 	gauge  *prometheus.Gauge
+}
+
+func (wmgr *wantManager) promEvent(name string, n float64) {
+	if wmgr.evtCtr != nil {
+		wmgr.evtCtr.With("event", name).Add(n)
+	}
+}
+
+func (wmgr *wantManager) promGauge(name string, n float64) {
+	if wmgr.evtCtr != nil {
+		wmgr.gauge.With("part", name).Add(n)
+	}
 }
 
 func (wmgr *wantManager) Wants(ref *ssb.BlobRef) bool {
@@ -102,7 +115,7 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 	wmgr.wants[ref.Ref()] = dist
 
-	wmgr.gauge.With("area", "nwants").Set(float64(len(wmgr.wants)))
+	wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
 
 	// TODO: ctx?? this pours into the broadcast, right?
 	err = wmgr.wantSink.Pour(context.TODO(), want{ref, dist})
@@ -147,7 +160,7 @@ type wantProc struct {
 }
 
 func (proc *wantProc) init() {
-	proc.wmgr.gauge.With("area", "proc").Add(1)
+	proc.wmgr.gauge.With("part", "proc").Add(1)
 
 	bsCancel := proc.bs.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
@@ -186,7 +199,7 @@ func (proc *wantProc) init() {
 		if oldDone != nil {
 			oldDone(nil)
 		}
-		proc.wmgr.gauge.With("area", "proc").Add(-1)
+		proc.wmgr.gauge.With("part", "proc").Add(-1)
 	}
 
 	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
