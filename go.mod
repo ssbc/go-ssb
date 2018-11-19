@@ -6,7 +6,6 @@ require (
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
 	github.com/cryptix/go v1.3.2
-	github.com/davecgh/go-spew v1.1.0
 	github.com/dgraph-io/badger v1.5.3
 	github.com/go-kit/kit v0.7.0
 	github.com/gogo/protobuf v1.1.1 // indirect
@@ -37,4 +36,6 @@ require (
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8
 )
 
-replace go.cryptoscope.co/muxrpc => /home/cryptix/go-muxrpc
+replace go.cryptoscope.co/muxrpc => /home/cryptix/go-muxrpc // memleak branch
+
+replace go.cryptoscope.co/luigi => /home/cryptix/go/src/go.cryptoscope.co/luigi/ // race kludge
