@@ -175,7 +175,9 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.Wrap(err, "error dialing")
 	}
 
-	n.log.Log("action", "applying connection wrappers", "count", len(n.connWrappers))
+	if n := len(n.connWrappers); n > 0 {
+		n.log.Log("action", "applying connection wrappers", "count", n)
+	}
 	// apply connection wrappers
 	for i, cw := range n.connWrappers {
 		var err error
