@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"testing"
 	"time"
 
@@ -61,11 +62,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	go func() {
 		err := sbot.Node.Serve(ctx)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "warn: go-sbot muxrpc exited", err)
-			// t.Fatal(err) BUG?!
-			os.Exit(42)
-		}
+		ckFatal(err)
 	}()
 
 	alice, done := startJSBot(t,
@@ -79,6 +76,14 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		if !t.Failed() {
 			r.NoError(os.RemoveAll(dir), "error removing test directory")
 		}
+	}
+}
+
+func ckFatal(err error) {
+	if err != nil {
+		fmt.Println("ckFatal err:", err)
+		debug.PrintStack()
+		os.Exit(2)
 	}
 }
 
@@ -103,7 +108,7 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 	var done = make(chan bool)
 	go func() {
 		err := cmd.Wait()
-		r.NoError(err, "js-sbot exited")
+		ckFatal(err)
 		t.Log("waited")
 		close(done)
 	}()

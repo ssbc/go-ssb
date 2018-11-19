@@ -40,6 +40,8 @@ func TestBlobToJS(t *testing.T) {
 	defer cleanup()
 	<-done
 
+	// TODO: check wantManager for this connection is stopped when the jsbot exited
+
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)

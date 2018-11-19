@@ -2,15 +2,17 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"runtime/debug"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/librarian"
@@ -26,8 +28,14 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+func ckFatal(err error) {
+	if err != nil {
+		fmt.Println("ckFatal err:", err)
+		debug.PrintStack()
+		os.Exit(2)
+	}
+}
 func TestReplicate(t *testing.T) {
-	a := assert.New(t)
 	r := require.New(t)
 
 	type tcase struct {
@@ -62,7 +70,7 @@ func TestReplicate(t *testing.T) {
 
 		go func() {
 			err := srcMlogServe(context.TODO(), srcRootLog)
-			a.NoError(err, "error serving src user feeds multilog")
+			ckFatal(errors.Wrap(err, "error serving src user feeds multilog"))
 		}()
 
 		srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
@@ -70,7 +78,7 @@ func TestReplicate(t *testing.T) {
 
 		go func() {
 			err := srcGraphBuilderServe(context.TODO(), srcRootLog)
-			a.NoError(err, "error serving src contacts index")
+			ckFatal(errors.Wrap(err, "error serving src contacts index"))
 		}()
 
 		dstRootLog, err := repo.OpenLog(dstRepo)
@@ -81,7 +89,7 @@ func TestReplicate(t *testing.T) {
 
 		go func() {
 			err := dstMlogServe(context.TODO(), dstRootLog)
-			a.NoError(err, "error serving dst user feeds multilog")
+			ckFatal(errors.Wrap(err, "error serving dst user feeds multilog"))
 		}()
 
 		dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
@@ -89,7 +97,7 @@ func TestReplicate(t *testing.T) {
 
 		go func() {
 			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
-			a.NoError(err, "error serving dst contacts index")
+			ckFatal(errors.Wrap(err, "error serving dst contacts index"))
 		}()
 
 		// check full & empty
@@ -195,7 +203,7 @@ func BenchmarkReplicate(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		err := srcMlogServe(context.TODO(), srcRootLog)
-		b.Log("srcMlogServe error:", err)
+		ckFatal(errors.Wrap(err, "srcMlogServe error"))
 		wg.Done()
 	}()
 
@@ -205,7 +213,7 @@ func BenchmarkReplicate(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
-		b.Log("srcGraphBuilderServe error:", err)
+		ckFatal(errors.Wrap(err, "srcGraphBuilderServe error"))
 		wg.Done()
 	}()
 
