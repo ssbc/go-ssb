@@ -172,10 +172,22 @@ func (proc *wantProc) init() {
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			proc.l.Lock()
 			defer proc.l.Unlock()
+			if luigi.IsEOS(err) {
+				return nil
+			}
 
-			notif := v.(ssb.BlobStoreNotification)
+			if v == nil {
+				proc.wmgr.info.Log("event", "wantProc notification", "warn", "nil value", "goterr", err)
+				return nil
+			}
+
+			notif, ok := v.(ssb.BlobStoreNotification)
+			if !ok {
+				proc.wmgr.info.Log("event", "wantProc notification", "err", "wrong type", "t", fmt.Sprintf("%T", v), "goterr", err)
+				return nil
+			}
 			proc.wmgr.info.Log("event", "wantProc notification", "op", notif.Op, "ref", notif.Ref.Ref())
-			_, ok := proc.remoteWants[notif.Ref.Ref()]
+			_, ok = proc.remoteWants[notif.Ref.Ref()]
 			if ok {
 				sz, err := proc.bs.Size(notif.Ref)
 				if err != nil {
@@ -193,6 +205,13 @@ func (proc *wantProc) init() {
 
 	wmCancel := proc.wmgr.Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+			if luigi.IsEOS(err) {
+				return nil
+			}
+			if v == nil {
+				proc.wmgr.info.Log("event", "wmanager notification", "warn", "nil value", "goterr", err)
+				return nil
+			}
 			w := v.(want)
 			proc.wmgr.info.Log("op", "sending want we now want", "want", w.Ref.Ref())
 			return proc.out.Pour(ctx, WantMsg{w})
