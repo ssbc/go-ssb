@@ -96,13 +96,24 @@ func (e ErrOutOfReach) Error() string {
 }
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
-	n.connTracker.OnAccept(conn)
-	defer n.connTracker.OnClose(conn)
+	ok := n.connTracker.OnAccept(conn)
+	if !ok {
+		err := conn.Close()
+		n.log.Log("conn", "ignored", "remote", conn.RemoteAddr(), "err", err)
+		return
+	}
+	var pkr muxrpc.Packer
+	var closed bool
 	defer func() {
-		if n.sysGauge != nil {
-			n.sysGauge.With("part", "conns").Add(-1)
+		closed = true
+		durr := n.connTracker.OnClose(conn)
+		var err error
+		if pkr != nil {
+			err = errors.Wrap(pkr.Close(), "packer closing")
+		} else {
+			err = errors.Wrap(conn.Close(), "direct conn closing")
 		}
-		conn.Close()
+		n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
 	}()
 
 	if n.evtCtr != nil {
@@ -114,20 +125,35 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		if _, ok := errors.Cause(err).(*ErrOutOfReach); ok {
 			return // ignore silently
 		}
-		n.log.Log("func", "handleConnection", "op", "MakeHandler", "error", err.Error(), "peer", conn.RemoteAddr())
+		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		return
 	}
 
-	pkr := muxrpc.NewPacker(conn)
+	for _, hw := range hws {
+		h = hw(h)
+	}
+
+	pkr = muxrpc.NewPacker(conn)
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
 	}
 
+	go func() {
+		if closed {
+			return
+		}
+		time.Sleep(15 * time.Minute)
+		n.log.Log("sorry", "overdue bug")
+		err := pkr.Close()
+		n.log.Log("conn", "long close", "err", err, "connErr", conn.Close())
+		pkr = nil
+	}()
+
 	srv := edp.(muxrpc.Server)
 	if err := srv.Serve(ctx); err != nil {
-		n.log.Log("func", "handleConnection", "op", "Serve", "error", err.Error(), "peer", conn.RemoteAddr())
+		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
 	}
 }
 

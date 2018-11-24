@@ -9,17 +9,13 @@ import (
 	"net"
 	"os/exec"
 	"sync"
-	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/path"
@@ -275,63 +271,35 @@ func (n contactNode) String() string {
 
 type key2node map[[32]byte]graph.Node
 
-type HandlerCallback func(net.Conn) (muxrpc.Handler, error)
-
-func Authorize(log log.Logger, b Builder, local *ssb.FeedRef, maxHops int, next HandlerCallback) HandlerCallback {
-	durration := prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-		Namespace: "gossb",
-		Subsystem: "graph",
-		Name:      "authorize_seconds",
-	}, []string{"outcome"})
-	return func(conn net.Conn) (h muxrpc.Handler, err error) {
-		start := time.Now()
-		outcome := "success"
-		defer func() {
-			if err != nil {
-				outcome = "failed"
-			}
-			durration.With("outcome", outcome).Observe(time.Since(start).Seconds())
-		}()
-		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-		if err != nil {
-			err = errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
-			return
-		}
-
-		if bytes.Equal(local.ID, remote.ID) {
-			h, err = next(conn)
-			outcome = "same"
-			return
-		}
-
-		fg, err := b.Build()
-		if err != nil {
-			err = errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
-			return
-		}
-
-		if fg.Nodes() != 0 { // trust on first use
-
-			if fg.Follows(local, remote) {
-				h, err = next(conn)
-				outcome = "direct follow"
-				return
-			}
-
-			var distLookup *Lookup
-			distLookup, err = fg.MakeDijkstra(local)
-			if err != nil {
-				err = errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
-				return
-			}
-
-			_, d := distLookup.Dist(remote)
-			if math.IsInf(d, -1) || int(d) > maxHops {
-				err = &ssb.ErrOutOfReach{int(d), maxHops}
-				return
-			}
-		}
-
-		return next(conn)
+func Authorize(conn net.Conn, log log.Logger, b Builder, local *ssb.FeedRef, maxHops int) error {
+	remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+	if err != nil {
+		return errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
 	}
+
+	fg, err := b.Build()
+	if err != nil {
+		return errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
+	}
+
+	if fg.Nodes() == 0 { // trust on first use
+		return nil
+	}
+
+	if fg.Follows(local, remote) {
+		return nil
+	}
+
+	var distLookup *Lookup
+	distLookup, err = fg.MakeDijkstra(local)
+	if err != nil {
+		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
+	}
+
+	_, d := distLookup.Dist(remote)
+	if math.IsInf(d, -1) || int(d) > maxHops {
+		return &ssb.ErrOutOfReach{int(d), maxHops}
+	}
+
+	return nil
 }
