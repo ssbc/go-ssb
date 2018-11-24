@@ -3,7 +3,6 @@ package blobs
 import (
 	"context"
 	"os"
-	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -55,7 +54,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 	}
 	if src == nil {
 		h.log.Log("msg", "got a nil source edp.Source, returning an error")
-		debug.PrintStack()
+		//debug.PrintStack()
 		return nil, errors.New("could not make createWants call")
 	}
 
@@ -75,7 +74,7 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 }
 
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	ctx, longCancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, longCancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer longCancel()
 
 	src, err := h.getSource(ctx, edp)
@@ -83,11 +82,12 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 		h.log.Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
 		return
 	}
-
-	err = luigi.Pump(ctx, h.wm.CreateWants(ctx, req.Stream, edp), src)
+	snk := h.wm.CreateWants(ctx, req.Stream, edp)
+	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
 		h.log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
 	}
+	snk.Close()
 }
 
 type wantProcessor struct {
