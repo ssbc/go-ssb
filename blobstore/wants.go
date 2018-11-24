@@ -34,9 +34,7 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 		}
 	}
 
-	if wmgr.gauge != nil {
-		wmgr.gauge.With("part", "proc").Set(0)
-	}
+	wmgr.promGaugeSet("proc", 0)
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
 
@@ -52,9 +50,7 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 				if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
 					delete(wmgr.wants, n.Ref.Ref())
 
-					if wmgr.gauge != nil {
-						wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
-					}
+					wmgr.promGaugeSet("nwants", len(wmgr.wants))
 				}
 			default:
 				log.Log("evnt", "warn/debug", "msg", "unhandled blobStore change", "notify", n)
@@ -89,8 +85,13 @@ func (wmgr *wantManager) promEvent(name string, n float64) {
 }
 
 func (wmgr *wantManager) promGauge(name string, n float64) {
-	if wmgr.evtCtr != nil {
+	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Add(n)
+	}
+}
+func (wmgr *wantManager) promGaugeSet(name string, n int) {
+	if wmgr.gauge != nil {
+		wmgr.gauge.With("part", name).Set(float64(n))
 	}
 }
 
@@ -119,10 +120,7 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	defer wmgr.l.Unlock()
 
 	wmgr.wants[ref.Ref()] = dist
-
-	if wmgr.gauge != nil {
-		wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
-	}
+	wmgr.promGaugeSet("nwants", len(wmgr.wants))
 
 	// TODO: ctx?? this pours into the broadcast, right?
 	err = wmgr.wantSink.Pour(context.TODO(), want{ref, dist})
@@ -168,9 +166,7 @@ type wantProc struct {
 
 func (proc *wantProc) init() {
 
-	if proc.wmgr.gauge != nil {
-		proc.wmgr.gauge.With("part", "proc").Add(1)
-	}
+	proc.wmgr.promGauge("proc", 1)
 
 	bsCancel := proc.bs.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
@@ -204,12 +200,15 @@ func (proc *wantProc) init() {
 
 	oldDone := proc.done
 	proc.done = func(next func()) {
+		proc.wmgr.promGauge("proc", -1)
 		bsCancel()
 		wmCancel()
 		if oldDone != nil {
 			oldDone(nil)
 		}
-		proc.wmgr.gauge.With("part", "proc").Add(-1)
+		if next != nil {
+			next()
+		}
 	}
 
 	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
