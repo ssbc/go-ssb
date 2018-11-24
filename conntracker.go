@@ -3,49 +3,101 @@ package ssb
 import (
 	"net"
 	"sync"
+	"time"
+
+	"github.com/go-kit/kit/metrics"
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
 )
 
-type activeConn struct {
-	// these are basically net.Addr's, but we take the .String() because that's better for map keys
-	Local, Remote string
+type instrumentedConnTracker struct {
+	root ConnTracker
+
+	count     metrics.Gauge
+	durration metrics.Histogram
 }
 
-func toActiveConn(conn net.Conn) activeConn {
-	return activeConn{
-		Local:  conn.LocalAddr().String(),
-		Remote: conn.RemoteAddr().String(),
+func NewInstrumentedConnTracker(r ConnTracker, ct metrics.Gauge, h metrics.Histogram) ConnTracker {
+	i := instrumentedConnTracker{root: r, count: ct, durration: h}
+	return &i
+}
+
+func (ict instrumentedConnTracker) Count() uint {
+	n := ict.root.Count()
+	ict.count.With("part", "tracked_count").Set(float64(n))
+	return n
+}
+
+func (ict instrumentedConnTracker) OnAccept(conn net.Conn) bool {
+	ok := ict.root.OnAccept(conn)
+	if ok {
+		ict.count.With("part", "tracked_conns").Add(1)
 	}
+	return ok
+}
+
+func (ict instrumentedConnTracker) OnClose(conn net.Conn) time.Duration {
+	durr := ict.root.OnClose(conn)
+	if durr > 0 {
+		ict.count.With("part", "tracked_conns").Add(-1)
+		ict.durration.With("part", "tracked_conns").Observe(durr.Seconds())
+	}
+	return durr
 }
 
 type ConnTracker interface {
-	OnAccept(conn net.Conn)
-	OnClose(conn net.Conn)
+	OnAccept(conn net.Conn) bool
+	OnClose(conn net.Conn) time.Duration
+	Count() uint
 }
 
 func NewConnTracker() ConnTracker {
-	return &connTracker{active: make(map[activeConn]struct{})}
+	return &connTracker{active: make(map[[32]byte]time.Time)}
 }
 
+// tracks open connections and refuses to established pubkeys
 type connTracker struct {
 	activeLock sync.Mutex
-	active     map[activeConn]struct{}
+	active     map[[32]byte]time.Time
 }
 
-func (ct *connTracker) OnAccept(conn net.Conn) {
+func (ct *connTracker) Count() uint {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	return uint(len(ct.active))
+}
+
+func toActive(a net.Addr) [32]byte {
+	shs, ok := netwrap.GetAddr(a, "shs-bs").(secretstream.Addr)
+	if !ok {
+		panic("ssb:what")
+	}
+	var pk [32]byte
+	copy(pk[:], shs.PubKey)
+	return pk
+}
+
+func (ct *connTracker) OnAccept(conn net.Conn) bool {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	k := toActive(conn.RemoteAddr())
+	_, ok := ct.active[k]
+	if ok {
+		return false
+	}
+	ct.active[k] = time.Now()
+	return true
+}
+
+func (ct *connTracker) OnClose(conn net.Conn) time.Duration {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 
-	ct.active[toActiveConn(conn)] = struct{}{}
-}
-
-func (ct *connTracker) OnClose(conn net.Conn) {
-	ct.activeLock.Lock()
-	defer ct.activeLock.Unlock()
-
-	// this should be done by packer
-	// if err := conn.Close(); err != nil {
-	// 	log.Println("connTracker: failed to close connection:", err)
-	// }
-
-	delete(ct.active, toActiveConn(conn))
+	k := toActive(conn.RemoteAddr())
+	when, ok := ct.active[k]
+	if !ok {
+		return 0
+	}
+	delete(ct.active, k)
+	return time.Since(when)
 }

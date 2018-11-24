@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
@@ -24,6 +25,7 @@ type Options struct {
 
 	EventCounter    *prometheus.Counter
 	SystemGauge     *prometheus.Gauge
+	Latency         *prometheus.Summary
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 }
 
@@ -46,6 +48,7 @@ type node struct {
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 	evtCtr     *prometheus.Counter
 	sysGauge   *prometheus.Gauge
+	latency    *prometheus.Summary
 }
 
 func NewNode(opts Options) (Node, error) {
@@ -76,10 +79,13 @@ func NewNode(opts Options) (Node, error) {
 	n.edpWrapper = opts.EndpointWrapper
 	n.evtCtr = opts.EventCounter
 	n.sysGauge = opts.SystemGauge
+	n.latency = opts.Latency
 
 	if n.sysGauge != nil {
 		n.sysGauge.With("part", "conns").Set(0)
 		n.sysGauge.With("part", "fetches").Set(0)
+
+		n.connTracker = NewInstrumentedConnTracker(n.connTracker, n.sysGauge, n.latency)
 	}
 	n.log = opts.Logger
 
@@ -162,9 +168,6 @@ func (n *node) Serve(ctx context.Context) error {
 		conn, err := n.l.Accept()
 		if err != nil {
 			return errors.Wrap(err, "error accepting connection")
-		}
-		if n.sysGauge != nil {
-			n.sysGauge.With("part", "conns").Add(1)
 		}
 
 		// apply connection wrappers

@@ -43,6 +43,7 @@ type Sbot struct {
 
 	eventCounter *prometheus.Counter
 	systemGauge  *prometheus.Gauge
+	latency      *prometheus.Summary
 }
 
 type Option func(*Sbot) error
@@ -92,10 +93,11 @@ func WithConnWrapper(cw netwrap.ConnWrapper) Option {
 	}
 }
 
-func WithEventMetrics(ctr *prometheus.Counter, lvls *prometheus.Gauge) Option {
+func WithEventMetrics(ctr *prometheus.Counter, lvls *prometheus.Gauge, lat *prometheus.Summary) Option {
 	return func(s *Sbot) error {
 		s.eventCounter = ctr
 		s.systemGauge = lvls
+		s.latency = lat
 		return nil
 	}
 }

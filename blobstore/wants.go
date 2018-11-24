@@ -34,7 +34,9 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 		}
 	}
 
-	wmgr.gauge.With("part", "proc").Set(0)
+	if wmgr.gauge != nil {
+		wmgr.gauge.With("part", "proc").Set(0)
+	}
 
 	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
 
@@ -49,7 +51,10 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 			case ssb.BlobStoreOpPut:
 				if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
 					delete(wmgr.wants, n.Ref.Ref())
-					wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
+
+					if wmgr.gauge != nil {
+						wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
+					}
 				}
 			default:
 				log.Log("evnt", "warn/debug", "msg", "unhandled blobStore change", "notify", n)
@@ -115,7 +120,9 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 	wmgr.wants[ref.Ref()] = dist
 
-	wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
+	if wmgr.gauge != nil {
+		wmgr.gauge.With("part", "nwants").Set(float64(len(wmgr.wants)))
+	}
 
 	// TODO: ctx?? this pours into the broadcast, right?
 	err = wmgr.wantSink.Pour(context.TODO(), want{ref, dist})
@@ -160,7 +167,10 @@ type wantProc struct {
 }
 
 func (proc *wantProc) init() {
-	proc.wmgr.gauge.With("part", "proc").Add(1)
+
+	if proc.wmgr.gauge != nil {
+		proc.wmgr.gauge.With("part", "proc").Add(1)
+	}
 
 	bsCancel := proc.bs.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {

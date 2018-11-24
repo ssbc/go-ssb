@@ -79,7 +79,7 @@ func main() {
 		mksbot.WithInfo(log),
 		mksbot.WithContext(ctx),
 		mksbot.WithAppKey(appKey),
-		mksbot.WithEventMetrics(SystemEvents, RepoStats),
+		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr))
 	checkFatal(err)
@@ -133,7 +133,7 @@ func main() {
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
-		err = sbot.Node.Serve(ctx, muxrpc.Throttle(500, 0), HandlerWithLatency(latencySummary))
+		err = sbot.Node.Serve(ctx, muxrpc.Throttle(500, 0), HandlerWithLatency(muxrpcSummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
