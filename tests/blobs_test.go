@@ -22,7 +22,7 @@ func TestBlobToJS(t *testing.T) {
 	s, _, done, cleanup := initInterop(t, `run()`,
 		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
 			t.true(has, "got blob")
-			t.end(err, "no err")
+			t.error(err, "no err")
 			exit()
 		})`,
 		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
@@ -62,7 +62,7 @@ func TestBlobFromJS(t *testing.T) {
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
-				t.error(err, "added")
+				t.error(err, "added err")
 				t.equal(id, '&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256', "blob id")
 				run()
 			})
@@ -71,7 +71,7 @@ func TestBlobFromJS(t *testing.T) {
 			"&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256",
 			function(err, has) {
 				t.true(has, "should have blob")
-				t.end(err)
+				t.error(err, "has err")
 				setTimeout(exit, 1500)
 			})`,
 		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
