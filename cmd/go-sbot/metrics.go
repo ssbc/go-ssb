@@ -14,8 +14,13 @@ import (
 	"go.cryptoscope.co/muxrpc"
 )
 
-var SystemEvents *prometheus.Counter
-var RepoStats *prometheus.Gauge
+var (
+	SystemEvents  *prometheus.Counter
+	SystemSummary *prometheus.Summary
+	RepoStats     *prometheus.Gauge
+
+	muxrpcSummary *prometheus.Summary
+)
 
 type latencyMuxH struct {
 	root muxrpc.Handler
@@ -44,8 +49,6 @@ func HandlerWithLatency(s *prometheus.Summary) muxrpc.HandlerWrapper {
 	}
 }
 
-var latencySummary *prometheus.Summary
-
 func startDebug() {
 	if debugAddr == "" {
 		return
@@ -63,11 +66,17 @@ func startDebug() {
 		Name:      "ssb_repostats",
 	}, []string{"part"})
 
-	latencySummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+	muxrpcSummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace: "gossb",
 		Subsystem: "muxrpc",
 		Name:      "muxrpc_durrations_seconds",
 	}, []string{"method", "type", "error"})
+
+	SystemSummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace: "gossb",
+		Subsystem: "sbot",
+		Name:      "general_durrations",
+	}, []string{"part"})
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())

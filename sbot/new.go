@@ -124,6 +124,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		EventCounter:    s.eventCounter,
 		SystemGauge:     s.systemGauge,
 		EndpointWrapper: s.edpWrapper,
+		Latency:         s.latency,
 	}
 
 	node, err := ssb.NewNode(opts)
