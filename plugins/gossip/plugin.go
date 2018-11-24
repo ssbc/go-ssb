@@ -13,9 +13,8 @@ import (
 	"go.cryptoscope.co/ssb/graph"
 )
 
-func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, opts ...interface{}) ssb.Plugin {
+func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
 	h := &handler{
-		Node:         node,
 		Id:           id,
 		RootLog:      rootLog,
 		UserFeeds:    userFeeds,
@@ -36,9 +35,8 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 	return &plugin{h}
 }
 
-func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, node ssb.Node, opts ...interface{}) ssb.Plugin {
+func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
 	h := &handler{
-		Node:         node,
 		Id:           id,
 		RootLog:      rootLog,
 		UserFeeds:    userFeeds,

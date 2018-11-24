@@ -3,8 +3,6 @@ package gossip
 import (
 	"bytes"
 	"context"
-	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 )
 
 type handler struct {
-	Node         ssb.Node
 	Id           *ssb.FeedRef
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
@@ -177,26 +174,6 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 			return
 		}
 
-	case "gossip.connect":
-		if len(req.Args) != 1 {
-			// TODO: use secretstream
-			g.Info.Log("error", "usage", "args", req.Args, "method", req.Method)
-			checkAndClose(errors.New("usage: gossip.connect host:port:key"))
-			return
-		}
-		destString, ok := req.Args[0].(string)
-		if !ok {
-			err := errors.Errorf("gossip.connect call: expected argument to be string, got %T", req.Args[0])
-			checkAndClose(err)
-			return
-		}
-		if err := g.connect(ctx, destString); err != nil {
-			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
-			return
-		}
-		closed = true
-		g.check(req.Return(ctx, "connected"))
-
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
 	}
@@ -204,7 +181,7 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 
 func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
 	//g.Info.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 50; i++ {
 		err := req.Stream.Pour(ctx, time.Now().Unix())
 		if err != nil {
 			return errors.Wrapf(err, "pour(%d) failed to pong", i)
@@ -212,31 +189,4 @@ func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
 		time.Sleep(time.Second)
 	}
 	return req.Stream.CloseWithError(errors.New("TODO:dos0day"))
-}
-
-func (g *handler) connect(ctx context.Context, dest string) error {
-	splitted := strings.Split(dest, ":")
-	if n := len(splitted); n != 3 {
-		return errors.Errorf("gossip.connect: bad request. expected 3 parts, got %d", n)
-	}
-
-	addr, err := net.ResolveTCPAddr("tcp", strings.Join(splitted[:2], ":"))
-	if err != nil {
-		return errors.Wrapf(err, "gossip.connect call: error resolving network address %q", splitted[:2])
-	}
-
-	ref, err := ssb.ParseRef(splitted[2])
-	if err != nil {
-		return errors.Wrapf(err, "gossip.connect call: failed to parse FeedRef %s", splitted[2])
-	}
-
-	remoteFeed, ok := ref.(*ssb.FeedRef)
-	if !ok {
-		return errors.Errorf("gossip.connect: expected FeedRef got %T", ref)
-	}
-
-	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: remoteFeed.ID})
-	g.Info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
-	err = g.Node.Connect(ctx, wrappedAddr)
-	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", addr)
 }

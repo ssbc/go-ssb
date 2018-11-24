@@ -1,14 +1,22 @@
 package sbot
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"net"
+	"os"
+	"time"
 
+	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/control"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -35,12 +43,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog := func(ctx context.Context, l margaret.Log, name string, f func(context.Context, margaret.Log) error) {
 		go func() {
 			err := f(ctx, l)
-			if err == nil {
-				log.Log("event", "component terminated without error", "component", name)
+			if err != nil {
+				log.Log("event", "component terminated", "component", name, "error", err)
+				err := s.Close()
+				logging.CheckFatal(err)
+				os.Exit(1)
 				return
 			}
-
-			log.Log("event", "component terminated", "component", name, "error", err)
 		}()
 	}
 
@@ -82,13 +91,34 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	id := s.KeyPair.Id
 
 	pmgr := ssb.NewPluginManager()
+	ctrl := ssb.NewPluginManager()
+
+	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
+		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
+		}
+		if bytes.Equal(id.ID, remote.ID) {
+			return ctrl.MakeHandler(conn)
+		}
+
+		start := time.Now()
+		err = graph.Authorize(conn, kitlog.With(log, "module", "auth handler"), gb, id, 4)
+		if s.latency != nil {
+			s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
+		}
+		if err != nil {
+			return nil, err
+		}
+		return pmgr.MakeHandler(conn)
+	}
 
 	opts := ssb.Options{
 		Logger:       s.info,
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
 		AppKey:       s.appKey[:],
-		MakeHandler:  graph.Authorize(kitlog.With(log, "module", "auth handler"), gb, id, 4, pmgr.MakeHandler),
+		MakeHandler:  mkHandler,
 		ConnWrappers: s.connWrappers,
 
 		EventCounter:    s.eventCounter,
@@ -101,6 +131,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to create node")
 	}
 	s.Node = node
+	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
 
 	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), id))   // whoami
 	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)) // blobs
@@ -108,12 +139,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// gossip.*
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, node, s.systemGauge, s.eventCounter))
+		id, rootLog, uf, gb, s.systemGauge, s.eventCounter))
 
 	// createHistoryStream
 	pmgr.Register(gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, node, s.systemGauge, s.eventCounter))
+		id, rootLog, uf, gb, s.systemGauge, s.eventCounter))
 
 	return s, nil
 }
