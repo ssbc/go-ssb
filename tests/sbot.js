@@ -32,7 +32,9 @@ tape(testName, function (t) {
   }
 
   function exit() { // call this when you're done
-    process.exit(0)
+    sbot.close()
+    t.comment('closed sbot')
+    t.end()
   }
 
   function logMe(name) {

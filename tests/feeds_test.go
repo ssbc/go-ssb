@@ -37,7 +37,7 @@ pull(
 	sbot.createUserStream({id:alice.id}),
 	pull.collect(function(err, vals){
 		t.equal(n, vals.length)
-		t.end(err)
+		t.error(err, "collect")
 		setTimeout(exit, 1500) // give go a chance to get this
 	})
 )
@@ -113,7 +113,7 @@ setTimeout(function() {
     pull.collect(function(err, msgs) {
       t.equal(64, msgs.length, 'got all the messages')
       t.equal(%q, msgs[63].key)
-      t.end(err, 'query worked')
+      t.error(err, 'query worked')
       exit()
     })
   )
