@@ -131,6 +131,8 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 
 		if h.sysCtr != nil {
 			h.sysCtr.With("event", "gossiptx").Add(float64(sent))
+		} else {
+			h.Info.Log("event", "gossiptx", "n", sent)
 		}
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)

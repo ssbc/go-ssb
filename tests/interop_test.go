@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
@@ -42,9 +43,12 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	// use the "logtest" line if you want to log through calls to `t.Log`
 	// use the "NewLogfmtLogger" line if you want to log to stdout
 	// the test logger does not print anything if the command hangs, so you have an alternative
-	info, _ := logtest.KitLogger("go", t)
-	//info := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
-
+	var info logging.Interface
+	if testing.Verbose() {
+		info = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	} else {
+		info, _ = logtest.KitLogger("go", t)
+	}
 	// timestamps!
 	info = log.With(info, "ts", log.TimestampFormat(time.Now, "3:04:05.000"))
 
@@ -91,7 +95,11 @@ func ckFatal(err error) {
 func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.FeedRef, <-chan bool) {
 	r := require.New(t)
 	cmd := exec.Command("node", "./sbot.js")
-	cmd.Stderr = logtest.Logger("js", t)
+	if testing.Verbose() {
+		cmd.Stderr = os.Stderr
+	} else {
+		cmd.Stderr = logtest.Logger("js", t)
+	}
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 

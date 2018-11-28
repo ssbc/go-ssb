@@ -15,33 +15,28 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	const n = 64
+	const n = 1024
 	bob, alice, done, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
 		}
 	}
-	n = 64
+	n = 1024
 	let msgs = []
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
-	series(msgs, function(err, results) {
-		t.error(err, "series of publish")
+
+    // be done when the other party is done
+    sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
+
+	parallel(msgs, function(err, results) {
+		t.error(err, "parallel of publish")
 		t.equal(n, results.length, "message count")
 		run() // triggers connect and after block
 	})
-`, `
-pull(
-	sbot.createUserStream({id:alice.id}),
-	pull.collect(function(err, vals){
-		t.equal(n, vals.length)
-		t.error(err, "collect")
-		setTimeout(exit, 1500) // give go a chance to get this
-	})
-)
-`)
+`, ``)
 	defer cleanup()
 	<-done
 
@@ -86,6 +81,22 @@ pull(
 	before := fmt.Sprintf(`fromKey = %q // global - pubKey of the first alice
 t.comment('shouldnt have alices feed:' + fromKey)
 
+sbot.on('rpc:connect', (rpc) => {
+  rpc.on('closed', () => { 
+    t.comment('now should have feed:' + fromKey)
+    pull(
+      sbot.createUserStream({id:fromKey, reverse:true, limit: 1}),
+      pull.collect(function(err, msgs) {
+        t.error(err, 'query worked')
+        t.equal(1, msgs.length, 'got all the messages')
+        t.equal(%q, msgs[0].key)
+        t.equal(1024, msgs[0].value.sequence)
+        exit()
+      })
+    )
+  })
+})
+
 sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
   t.error(err, 'follow:' + fromKey)
 
@@ -104,23 +115,9 @@ pull(
 
 }) // friends.get
 
-}) // publish`, alice.Ref())
+}) // publish`, alice.Ref(), lastMsg)
 
-	after := fmt.Sprintf(`t.comment('now should have feed:' + fromKey)
-setTimeout(function() {
-  pull(
-    sbot.createUserStream({id:fromKey}),
-    pull.collect(function(err, msgs) {
-      t.equal(64, msgs.length, 'got all the messages')
-      t.equal(%q, msgs[63].key)
-      t.error(err, 'query worked')
-      exit()
-    })
-  )
-}, 3000) // wait for go to send these
-`, lastMsg)
-
-	claire, done := startJSBot(t, before, after, bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire, done := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
 	<-done
