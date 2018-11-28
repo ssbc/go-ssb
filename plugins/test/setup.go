@@ -5,11 +5,14 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/muxrpc"
@@ -49,10 +52,15 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 
 	p1, p2 := net.Pipe()
 
-	infoAlice, _ := logtest.KitLogger("alice", t)
-	infoBob, _ := logtest.KitLogger("bob", t)
-	//infoAlice := logging.Logger("alice/src")
-	//infoBob := logging.Logger("bob/dst")
+	var infoAlice, infoBob logging.Interface
+	if testing.Verbose() {
+		l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		infoAlice = log.With(l, "testsrc", "alice")
+		infoBob = log.With(l, "testdst", "bob")
+	} else {
+		infoAlice, _ = logtest.KitLogger("alice", t)
+		infoBob, _ = logtest.KitLogger("bob", t)
+	}
 
 	tc1 := &TestConn{
 		Reader: p1, WriteCloser: p1, conn: p1,
