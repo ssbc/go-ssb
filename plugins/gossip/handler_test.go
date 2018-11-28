@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +37,7 @@ func ckFatal(err error) {
 		os.Exit(2)
 	}
 }
+
 func TestReplicate(t *testing.T) {
 	r := require.New(t)
 
@@ -49,8 +52,15 @@ func TestReplicate(t *testing.T) {
 	} {
 		t.Log("test run", i, tc.path)
 
-		infoAlice, _ := logtest.KitLogger("alice", t)
-		infoBob, _ := logtest.KitLogger("bob", t)
+		var infoAlice, infoBob logging.Interface
+		if testing.Verbose() {
+			l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+			infoAlice = log.With(l, "bot", "alice")
+			infoBob = log.With(l, "bot", "bob")
+		} else {
+			infoAlice, _ = logtest.KitLogger("alice", t)
+			infoBob, _ = logtest.KitLogger("bob", t)
+		}
 
 		srcRepo := test.LoadTestDataPeer(t, tc.path)
 		srcKeyPair, err := repo.OpenKeyPair(srcRepo)
