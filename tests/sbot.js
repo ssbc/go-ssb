@@ -2,7 +2,7 @@ const { readFileSync } = require('fs')
 const { generate } = require('ssb-keys')
 const pull = require('pull-stream')
 const tape = require('tape')
-const series = require('run-series')
+const parallel = require('run-parallel')
 
 const createSbot = require('scuttlebot')
   .use(require('scuttlebot/plugins/gossip'))
@@ -21,6 +21,11 @@ const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
 
 tape.createStream().pipe(process.stderr);
 tape(testName, function (t) {
+  t.timeoutAfter(30000) // doesn't exit the process
+  const tapeTimeout = setTimeout(() => {
+    t.comment("test timeout")
+    process.exit(1)
+  }, 50000)
   function run() { // needs to be called by the before block when it's done
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
     t.comment("dialing")
@@ -34,23 +39,17 @@ tape(testName, function (t) {
   function exit() { // call this when you're done
     sbot.close()
     t.comment('closed sbot')
+    clearTimeout(tapeTimeout)
     t.end()
   }
 
-  function logMe(name) {
-    let logCnt = 0
-    return function (err) {
-      t.error(err, name+"/loggerd")
-      console.warn(name, logCnt, arguments)
-      logCnt++
-    }
-  }
-
-  const alice = generate()
   const sbot = createSbot({
     temp: testName,
-    keys: alice,
+    keys: generate(),
   })
+  const alice = sbot.whoami()
+
+  const replicate_changes = sbot.replicate.changes()
 
   t.comment("sbot spawned, running before")
   console.log(alice.id) // tell go process who's incoming
