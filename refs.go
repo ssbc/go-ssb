@@ -127,6 +127,27 @@ func (fr *FeedRef) UnmarshalText(text []byte) error {
 	return err
 }
 
+func (r *FeedRef) Scan(raw interface{}) error {
+	switch v := raw.(type) {
+	case []byte:
+		if len(v) != 32 {
+			return errors.Errorf("feedRef/Scan: wrong length: %d", len(v))
+		}
+		(*r).ID = v
+		(*r).Algo = "ed25519"
+
+	case string:
+		fr, err := ParseFeedRef(v)
+		if err != nil {
+			return errors.Wrap(err, "feedRef/Scan: failed to serialze from string")
+		}
+		*r = *fr
+	default:
+		return errors.Errorf("feedRef/Scan: unhandled type %T", raw)
+	}
+	return nil
+}
+
 func ParseFeedRef(s string) (*FeedRef, error) {
 	ref, err := ParseRef(s)
 	if err != nil {
@@ -156,16 +177,44 @@ func (mr *MessageRef) UnmarshalText(text []byte) error {
 		*mr = MessageRef{}
 		return nil
 	}
-	ref, err := ParseRef(string(text))
+	newRef, err := ParseMessageRef(string(text))
 	if err != nil {
-		return errors.Wrap(err, "failed to parse ref")
-	}
-	newRef, ok := ref.(*MessageRef)
-	if !ok {
-		return errors.Errorf("msgRef: not a message! %T", ref)
+		return errors.Wrap(err, "message: unmarshal failed")
 	}
 	*mr = *newRef
 	return nil
+}
+
+func (r *MessageRef) Scan(raw interface{}) error {
+	switch v := raw.(type) {
+	case []byte:
+		if len(v) != 32 {
+			return errors.Errorf("msgRef/Scan: wrong length: %d", len(v))
+		}
+		r.Hash = v
+		r.Algo = "sha256"
+	case string:
+		mr, err := ParseMessageRef(v)
+		if err != nil {
+			return errors.Wrap(err, "msgRef/Scan: failed to serialze from string")
+		}
+		*r = *mr
+	default:
+		return errors.Errorf("msgRef/Scan: unhandled type %T", raw)
+	}
+	return nil
+}
+
+func ParseMessageRef(s string) (*MessageRef, error) {
+	ref, err := ParseRef(s)
+	if err != nil {
+		return nil, errors.Wrap(err, "messageRef: failed to parse ref")
+	}
+	newRef, ok := ref.(*MessageRef)
+	if !ok {
+		return nil, errors.Errorf("messageRef: not a message! %T", ref)
+	}
+	return newRef, nil
 }
 
 func ParseBlobRef(s string) (*BlobRef, error) {
