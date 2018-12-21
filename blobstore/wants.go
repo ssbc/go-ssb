@@ -171,8 +171,11 @@ func (proc *wantProc) init() {
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			proc.l.Lock()
 			defer proc.l.Unlock()
-			if luigi.IsEOS(err) {
-				return nil
+			if err != nil {
+				if luigi.IsEOS(err) {
+					return nil
+				}
+				return errors.Wrap(err, "blobstore broadcast error")
 			}
 
 			if v == nil {
@@ -206,8 +209,11 @@ func (proc *wantProc) init() {
 
 	wmCancel := proc.wmgr.Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-			if luigi.IsEOS(err) {
-				return nil
+			if err != nil {
+				if luigi.IsEOS(err) {
+					return nil
+				}
+				return errors.Wrap(err, "wmanager broadcast error")
 			}
 			if v == nil {
 				proc.wmgr.info.Log("event", "wmanager notification", "warn", "nil value", "goterr", err)
