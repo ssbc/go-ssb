@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
-	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	mksbot "go.cryptoscope.co/ssb/sbot"
@@ -133,7 +132,7 @@ func main() {
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
-		err = sbot.Node.Serve(ctx, muxrpc.Throttle(500, 0), HandlerWithLatency(muxrpcSummary))
+		err = sbot.Node.Serve(ctx, HandlerWithLatency(muxrpcSummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
