@@ -7,13 +7,13 @@ matrix:
     - go: master
   include:
   - go: "1.10.x"
-    script: go test -count 10 -race ./tests
+    script: go test -race ./tests
   - go: "1.11.x"
-    script: go test -count 10 -race -mod=vendor ./tests
+    script: go test -race -mod=vendor ./tests
   - go: "1.x"
-    script: go test -count 10 -race -mod=vendor ./tests
+    script: go test -race -mod=vendor ./tests
   - go: "master"
-    script: go test -count 10 -race -mod=vendor ./tests
+    script: go test -race -mod=vendor ./tests
 
 env:
   - GO111MODULE="on"

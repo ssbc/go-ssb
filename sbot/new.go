@@ -16,11 +16,11 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/control"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/blobs"
+	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/repo"
