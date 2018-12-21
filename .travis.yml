@@ -7,13 +7,13 @@ matrix:
     - go: master
   include:
   - go: "1.10.x"
-    script: go test -count 10 -race ./...
+    script: go test -count 10 -race ./tests
   - go: "1.11.x"
-    script: go test -count 10 -race -mod=vendor ./...
+    script: go test -count 10 -race -mod=vendor ./tests
   - go: "1.x"
-    script: go test -count 10 -race -mod=vendor ./...
+    script: go test -count 10 -race -mod=vendor ./tests
   - go: "master"
-    script: go test -count 10 -race -mod=vendor ./...
+    script: go test -count 10 -race -mod=vendor ./tests
 
 env:
   - GO111MODULE="on"
@@ -24,8 +24,8 @@ go_import_path: go.cryptoscope.co/ssb
 # no need to fetch anything
 install: true
 
-script:
+before_script: # install interop deps
   - nvm install --lts
-  - cd tests
+  - pushd tests
   - npm ci
-  - go test -v
+  - popd

@@ -169,17 +169,14 @@ func (n *node) Serve(ctx context.Context) error {
 	for {
 		conn, err := n.l.Accept()
 		if err != nil {
-			return errors.Wrap(err, "error accepting connection")
+			n.log.Log("msg", "node/Serve: failed to accepting connection", "err", err)
+			continue
 		}
 
-		// apply connection wrappers
-		for i, cw := range n.connWrappers {
-			var err error
-			conn, err = cw(conn)
-			if err != nil {
-				return errors.Wrapf(err, "error applying connection wrapper #%d", i)
-			}
-			n.log.Log("action", "applied connection wrapper", "i", i, "count", len(n.connWrappers))
+		conn, err = n.applyConnWrappers(conn)
+		if err != nil {
+			n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
+			continue
 		}
 
 		go func(c net.Conn) {
@@ -191,30 +188,26 @@ func (n *node) Serve(ctx context.Context) error {
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	shsAddr := netwrap.GetAddr(addr, "shs-bs")
 	if shsAddr == nil {
-		return errors.New("expected an address containing an shs-bs addr")
+		return errors.New("node/connect: expected an address containing an shs-bs addr")
 	}
 
 	var pubKey [ed25519.PublicKeySize]byte
 	if shsAddr, ok := shsAddr.(secretstream.Addr); ok {
 		copy(pubKey[:], shsAddr.PubKey)
 	} else {
-		return errors.New("expected shs-bs address to be of type secretstream.Addr")
+		return errors.New("node/connect: expected shs-bs address to be of type secretstream.Addr")
 	}
 
 	conn, err := netwrap.Dial(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
-		return errors.Wrap(err, "error dialing")
+		return errors.Wrap(err, "node/connect: error dialing")
 	}
 
 	if cnt := len(n.connWrappers); cnt > 0 {
 		n.log.Log("action", "applying connection wrappers", "count", cnt)
-	}
-	// apply connection wrappers
-	for i, cw := range n.connWrappers {
-		var err error
-		conn, err = cw(conn)
+		conn, err = n.applyConnWrappers(conn)
 		if err != nil {
-			return errors.Wrapf(err, "error applying connection wrapper #%d", i)
+			return errors.Wrap(err, "node/connect: wrap failed")
 		}
 	}
 
@@ -226,4 +219,15 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 
 func (n *node) GetListenAddr() net.Addr {
 	return n.l.Addr()
+}
+
+func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
+	for i, cw := range n.connWrappers {
+		var err error
+		conn, err = cw(conn)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error applying connection wrapper #%d", i)
+		}
+	}
+	return conn, nil
 }
