@@ -3,6 +3,8 @@
     "devDependencies": {
         "pull-stream": "^3.6.7",
         "muxrpc": "^6.4.0",
-        "stream-to-pull-stream": "^1.7.2"
+        "stream-to-pull-stream": "^1.7.2",
+        "packet-stream-codec": "^1.1.0",
+        "pull-randomly-split": "^1.0.4"
     }
 }

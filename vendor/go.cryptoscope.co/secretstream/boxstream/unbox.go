@@ -35,7 +35,7 @@ type Unboxer struct {
 }
 
 // NewUnboxer wraps the passed input Reader into an Unboxer
-func NewUnboxer(input io.Reader, nonce *[24]byte, secret *[32]byte) io.Reader {
+func NewUnboxer(input io.Reader, nonce *[24]byte, secret *[32]byte) io.ReadCloser {
 	pr, pw := io.Pipe()
 	unboxer := &Unboxer{
 		input:  input,

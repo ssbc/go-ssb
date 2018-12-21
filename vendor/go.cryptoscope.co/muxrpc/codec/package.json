@@ -1,9 +1,0 @@
-{
-    "dependencies": {},
-    "devDependencies": {
-        "packet-stream-codec": "^1.1.0",
-        "pull-randomly-split": "^1.0.4",
-        "pull-stream": "^3.2.3",
-        "stream-to-pull-stream": "^1.6.6"
-    }
-}

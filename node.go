@@ -203,12 +203,9 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.Wrap(err, "node/connect: error dialing")
 	}
 
-	if cnt := len(n.connWrappers); cnt > 0 {
-		n.log.Log("action", "applying connection wrappers", "count", cnt)
-		conn, err = n.applyConnWrappers(conn)
-		if err != nil {
-			return errors.Wrap(err, "node/connect: wrap failed")
-		}
+	conn, err = n.applyConnWrappers(conn)
+	if err != nil {
+		return errors.Wrap(err, "node/connect: wrap failed")
 	}
 
 	go func(c net.Conn) {

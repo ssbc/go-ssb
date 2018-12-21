@@ -48,6 +48,7 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 }
 
 type chanSink struct {
+	cl          sync.Mutex
 	ch          chan<- interface{}
 	nonBlocking bool
 	closeErr    *error
@@ -56,6 +57,12 @@ type chanSink struct {
 
 func (sink *chanSink) Pour(ctx context.Context, v interface{}) error {
 	var err error
+
+	sink.cl.Lock()
+	defer sink.cl.Unlock()
+	if err := *sink.closeErr; err != nil {
+		return err
+	}
 
 	if sink.nonBlocking {
 		select {
@@ -82,6 +89,8 @@ func (sink *chanSink) Close() error {
 
 func (sink *chanSink) CloseWithError(err error) error {
 	sink.closeOnce.Do(func() {
+		sink.cl.Lock()
+		defer sink.cl.Unlock()
 		*sink.closeErr = err
 		close(sink.ch)
 	})

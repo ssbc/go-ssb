@@ -19,9 +19,13 @@ package secretstream
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/netwrap"
 )
@@ -46,7 +50,7 @@ func (a Addr) String() string {
 
 // Conn is a boxstream wrapped net.Conn
 type Conn struct {
-	io.Reader
+	io.ReadCloser
 	io.WriteCloser
 	conn net.Conn
 
@@ -54,9 +58,35 @@ type Conn struct {
 	local, remote []byte
 }
 
+type MultiError []error
+
+func (merr MultiError) Error() string {
+	errStrs := make([]string, len(merr))
+
+	// single bounds check
+	_ = errStrs[len(merr)-1]
+
+	for i := range merr {
+		errStrs[i] = fmt.Sprintf("%q", merr[i].Error())
+	}
+
+	return fmt.Sprintf("%d errors: %s", len(merr), strings.Join(errStrs, ", "))
+}
+
 // Close closes the underlying net.Conn
 func (conn *Conn) Close() error {
-	return conn.WriteCloser.Close()
+	werr := conn.WriteCloser.Close()
+	rerr := conn.ReadCloser.Close()
+
+	if werr == nil {
+		return errors.Wrap(werr, "error closing boxstream boxer")
+	}
+
+	if rerr == nil {
+		return errors.Wrap(rerr, "error closing boxstream unboxer")
+	}
+
+	return errors.Wrap(MultiError{werr, rerr}, "error closing both boxstream boxer and unboxer")
 }
 
 // LocalAddr returns the local net.Addr with the local public key

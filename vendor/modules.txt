@@ -24,8 +24,8 @@ github.com/dgraph-io/badger/y
 github.com/dgryski/go-farm
 # github.com/go-kit/kit v0.7.0
 github.com/go-kit/kit/log
-github.com/go-kit/kit/metrics/prometheus
 github.com/go-kit/kit/metrics
+github.com/go-kit/kit/metrics/prometheus
 github.com/go-kit/kit/metrics/internal/lv
 # github.com/go-logfmt/logfmt v0.3.0
 github.com/go-logfmt/logfmt
@@ -47,8 +47,6 @@ github.com/kr/logfmt
 github.com/kylelemons/godebug/diff
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mitchellh/mapstructure v0.0.0-20180715050151-f15292f7a699
-github.com/mitchellh/mapstructure
 # github.com/pkg/errors v0.8.0
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
@@ -85,7 +83,7 @@ github.com/ugorji/go/codec
 # go.cryptoscope.co/librarian v0.1.0
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
-# go.cryptoscope.co/luigi v0.3.0
+# go.cryptoscope.co/luigi v0.3.0 => /home/cryptix/go/src/go.cryptoscope.co/luigi/
 go.cryptoscope.co/luigi
 # go.cryptoscope.co/margaret v0.0.7
 go.cryptoscope.co/margaret
@@ -103,7 +101,7 @@ go.cryptoscope.co/muxrpc/codec
 go.cryptoscope.co/muxrpc/mock
 # go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3
 go.cryptoscope.co/netwrap
-# go.cryptoscope.co/secretstream v1.1.0
+# go.cryptoscope.co/secretstream v1.1.1
 go.cryptoscope.co/secretstream
 go.cryptoscope.co/secretstream/secrethandshake
 go.cryptoscope.co/secretstream/boxstream
