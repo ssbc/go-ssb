@@ -43,17 +43,16 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 		defer wmgr.l.Unlock()
 
 		n, ok := v.(ssb.BlobStoreNotification)
-		if ok {
-			wmgr.promEvent(n.Op.String(), 1)
-			switch n.Op {
-			case ssb.BlobStoreOpPut:
-				if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
-					delete(wmgr.wants, n.Ref.Ref())
+		if !ok {
+			return errors.Errorf("blob change: unhandled notification type: %T", v)
+		}
+		wmgr.promEvent(n.Op.String(), 1)
 
-					wmgr.promGaugeSet("nwants", len(wmgr.wants))
-				}
-			default:
-				log.Log("evnt", "warn/debug", "msg", "unhandled blobStore change", "notify", n)
+		if n.Op == ssb.BlobStoreOpPut {
+			if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
+				delete(wmgr.wants, n.Ref.Ref())
+
+				wmgr.promGaugeSet("nwants", len(wmgr.wants))
 			}
 		}
 
@@ -183,24 +182,26 @@ func (proc *wantProc) init() {
 
 			notif, ok := v.(ssb.BlobStoreNotification)
 			if !ok {
-				proc.wmgr.info.Log("event", "wantProc notification", "err", "wrong type", "t", fmt.Sprintf("%T", v), "goterr", err)
+				return errors.Errorf("wantProc: unhandled notification type: %T", v)
+			}
+
+			proc.wmgr.promEvent(notif.Op.String(), 1)
+
+			_, ok = proc.remoteWants[notif.Ref.Ref()]
+			if !ok {
 				return nil
 			}
-			proc.wmgr.info.Log("event", "wantProc notification", "op", notif.Op, "ref", notif.Ref.Ref())
-			_, ok = proc.remoteWants[notif.Ref.Ref()]
-			if ok {
-				sz, err := proc.bs.Size(notif.Ref)
-				if err != nil {
-					return errors.Wrap(err, "error getting blob size")
-				}
 
-				m := map[string]int64{notif.Ref.Ref(): sz}
-				err = proc.out.Pour(ctx, m)
-				proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
-				return errors.Wrap(err, "errors pouring into sink")
+			sz, err := proc.bs.Size(notif.Ref)
+			if err != nil {
+				return errors.Wrap(err, "error getting blob size")
 			}
 
-			return nil
+			m := map[string]int64{notif.Ref.Ref(): sz}
+			err = proc.out.Pour(ctx, m)
+			proc.wmgr.info.Log("event", "createWants.Out", "cause", "changesnotification")
+			return errors.Wrap(err, "errors pouring into sink")
+
 		}))
 
 	wmCancel := proc.wmgr.Register(
