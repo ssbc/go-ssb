@@ -175,12 +175,8 @@ func (proc *wantProc) init() {
 				if luigi.IsEOS(err) {
 					return nil
 				}
+				proc.wmgr.info.Log("event", "wantProc notification", "err", err)
 				return errors.Wrap(err, "blobstore broadcast error")
-			}
-
-			if v == nil {
-				proc.wmgr.info.Log("event", "wantProc notification", "warn", "nil value", "goterr", err)
-				return nil
 			}
 
 			notif, ok := v.(ssb.BlobStoreNotification)
@@ -213,11 +209,8 @@ func (proc *wantProc) init() {
 				if luigi.IsEOS(err) {
 					return nil
 				}
+				proc.wmgr.info.Log("event", "wmanager notification", "err", err)
 				return errors.Wrap(err, "wmanager broadcast error")
-			}
-			if v == nil {
-				proc.wmgr.info.Log("event", "wmanager notification", "warn", "nil value", "goterr", err)
-				return nil
 			}
 			w := v.(want)
 			proc.wmgr.info.Log("op", "sending want we now want", "want", w.Ref.Ref())
