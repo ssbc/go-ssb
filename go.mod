@@ -35,6 +35,7 @@ require (
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8
 )
 
-replace go.cryptoscope.co/muxrpc => /home/cryptix/go-muxrpc // memleak branch
-
-replace go.cryptoscope.co/luigi => /home/cryptix/go/src/go.cryptoscope.co/luigi/ // race kludge
+replace (
+	go.cryptoscope.co/luigi => /home/cryptix/luigi // race kludge
+	go.cryptoscope.co/muxrpc => /home/cryptix/go-muxrpc // cleanup branch
+)
