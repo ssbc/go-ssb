@@ -23,3 +23,9 @@ go_import_path: go.cryptoscope.co/ssb
 # we use 'go mod vendor' to populate vendor/ dir
 # no need to fetch anything
 install: true
+
+script:
+  - nvm install --lts
+  - cd tests
+  - npm ci
+  - go test -v
