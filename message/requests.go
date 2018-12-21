@@ -14,7 +14,6 @@ type WhoamiReply struct {
 }
 
 type CreateHistArgs struct {
-	//map[keys:false id:@Bqm7bG4qvlnWh3BEBFSj2kDr+     30+mUU3hRgrikE2+xc=.ed25519 seq:20 live:true
 	Keys    bool   `json:"keys"`
 	Values  bool   `json:"values"`
 	Live    bool   `json:"live"`

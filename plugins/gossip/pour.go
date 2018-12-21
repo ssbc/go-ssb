@@ -2,8 +2,8 @@ package gossip
 
 import (
 	"context"
+	"strings"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -13,26 +13,67 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
-func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
+func newCreateHistArgs(args []interface{}) (*message.CreateHistArgs, error) {
 	// check & parse args
-	if len(req.Args) < 1 {
-		return errors.New("not enough arguments, expecting feed id")
+	if len(args) < 1 {
+		return nil, errors.New("ssb/message: not enough arguments, expecting feed id")
 	}
-	qv := req.Args[0].(map[string]interface{})
-	if id, ok := qv["id"]; ok && id == `@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256` {
-		h.Info.Log("pour", "ignored sha ID")
-		return nil // no comment
+	argMap, ok := args[0].(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("ssb/message: not the right map - %T", args[0])
 	}
+
+	// could reflect over qrys fiields but meh - compiler knows better
 	var qry message.CreateHistArgs
-	if err := mapstructure.Decode(qv, &qry); err != nil {
-		return errors.Wrap(err, "failed#2 to decode qry map")
+	for k, v := range argMap {
+		switch k = strings.ToLower(k); k {
+		case "live", "keys", "values", "reverse":
+			b, ok := v.(bool)
+			if !ok {
+				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
+			}
+			switch k {
+			case "live":
+				qry.Live = b
+			case "keys":
+				qry.Keys = b
+			case "values":
+				qry.Values = b
+			case "reverse":
+				qry.Reverse = b
+			}
+		case "id":
+			qry.Id, ok = v.(string)
+			if !ok {
+				return nil, errors.Errorf("ssb/message: not a string for %s", k)
+			}
+		case "seq", "limit":
+			n, ok := v.(float64)
+			if !ok {
+				return nil, errors.Errorf("ssb/message: not a float64 for %s", k)
+			}
+			switch k {
+			case "seq":
+				qry.Seq = int64(n)
+			case "limit":
+				qry.Limit = int64(n)
+			}
+		}
 	}
-	if qry.Id == "@S9lG7keeOfIAepU1LRD9XUDtuesbejRC2+3/FRaGZ3s=.sha256" { // nothing to do here...
-		return nil
+
+	return &qry, nil
+}
+
+func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
+
+	qry, err := newCreateHistArgs(req.Args)
+	if err != nil {
+		return errors.Wrap(err, "bad request")
 	}
+
 	feedRef, err := ssb.ParseFeedRef(qry.Id)
 	if err != nil {
-		return errors.Wrapf(err, "invalid ref: %q", qry.Id)
+		return nil // only handle valid feed refs
 	}
 
 	// check what we got
