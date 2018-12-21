@@ -68,12 +68,11 @@ func (ct *connTracker) Count() uint {
 }
 
 func toActive(a net.Addr) [32]byte {
-	shs, ok := netwrap.GetAddr(a, "shs-bs").(secretstream.Addr)
-	if !ok {
-		panic("ssb:what")
-	}
 	var pk [32]byte
-	copy(pk[:], shs.PubKey)
+	shs, ok := netwrap.GetAddr(a, "shs-bs").(secretstream.Addr)
+	if ok {
+		copy(pk[:], shs.PubKey)
+	}
 	return pk
 }
 

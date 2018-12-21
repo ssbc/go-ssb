@@ -109,6 +109,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		return
 	}
 	var pkr muxrpc.Packer
+
 	var closed bool
 	defer func() {
 		closed = true
@@ -147,13 +148,14 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	go func() {
+		time.Sleep(15 * time.Minute)
 		if closed {
 			return
 		}
-		time.Sleep(15 * time.Minute)
 		n.log.Log("sorry", "overdue bug")
 		err := pkr.Close()
 		n.log.Log("conn", "long close", "err", err, "connErr", conn.Close())
+		n.connTracker.OnClose(conn)
 		pkr = nil
 	}()
 
@@ -214,10 +216,6 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		if err != nil {
 			return errors.Wrapf(err, "error applying connection wrapper #%d", i)
 		}
-	}
-
-	if n.sysGauge != nil {
-		n.sysGauge.With("part", "conns").Add(1)
 	}
 
 	go func(c net.Conn) {
