@@ -143,9 +143,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		id, rootLog, uf, gb, s.systemGauge, s.eventCounter))
 
 	// createHistoryStream
-	pmgr.Register(gossip.NewHist(
+	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, s.systemGauge, s.eventCounter))
+		id, rootLog, uf, gb, s.systemGauge, s.eventCounter)
+	pmgr.Register(hist)
+	ctrl.Register(hist)
 
 	return s, nil
 }
