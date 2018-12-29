@@ -29,7 +29,7 @@ type latencyMuxH struct {
 
 func (lm *latencyMuxH) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	start := time.Now()
-	lm.root.HandleCall(ctx, req, edp)
+	lm.root.HandleCall(ctx, req, EndpointWithLatency(lm.sum)(edp))
 	lm.sum.With("method", req.Method.String(), "type", string(req.Type), "error", "undefined").Observe(time.Since(start).Seconds())
 
 }
