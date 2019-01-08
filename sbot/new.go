@@ -134,8 +134,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.Node = node
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
 
-	pmgr.Register(whoami.New(kitlog.With(log, "plugin", "whoami"), id))   // whoami
-	pmgr.Register(blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)) // blobs
+	// whoami
+	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
+	pmgr.Register(whoami)
+	ctrl.Register(whoami)
+
+	// blobs
+	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)
+	pmgr.Register(blobs)
+	ctrl.Register(blobs)
 
 	// gossip.*
 	pmgr.Register(gossip.New(

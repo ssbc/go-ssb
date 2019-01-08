@@ -26,7 +26,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"gopkg.in/urfave/cli.v2"
+	cli "gopkg.in/urfave/cli.v2"
 )
 
 var (
@@ -116,6 +116,11 @@ see https://scuttlebot.io/apis/scuttlebot/ssb.html#createlogstream-source  for m
 
 CAVEAT: only one argument...
 `,
+		},
+		{
+			Name:   "connect",
+			Action: connectCmd,
+			Usage:  "connect to a remote peer",
 		},
 		{
 			Name: "private",
@@ -277,11 +282,36 @@ func callCmd(ctx *cli.Context) error {
 	}
 	args := ctx.Args().Slice()
 	v := strings.Split(cmd, ".")
-	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method(v), args[1]) // TODO: args[1:]...
+	var sendArgs []interface{}
+	if len(args) > 0 {
+		sendArgs = make([]interface{}, len(args))
+		for i, v := range args {
+			sendArgs[i] = v
+		}
+	}
+	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
 	if err != nil {
 		return errors.Wrapf(err, "%s: call failed.", cmd)
 	}
 	log.Log("event", "call reply")
+	goon.Dump(val)
+	return nil
+}
+
+func connectCmd(ctx *cli.Context) error {
+	to := ctx.Args().Get(0)
+	if to == "" {
+		return errors.New("connect: host argument can't be empty")
+	}
+	fields := strings.Split(to, ":")
+	if n := len(fields); n != 3 {
+		return errors.Errorf("connect: expecting host:port:pubkey - only got %d fields.", n)
+	}
+	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method{"gossip", "connect"}, to)
+	if err != nil {
+		return errors.Wrapf(err, "connect: async call failed.")
+	}
+	log.Log("event", "connect reply")
 	goon.Dump(val)
 	return nil
 }
