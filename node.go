@@ -31,7 +31,7 @@ type Options struct {
 
 type Node interface {
 	Connect(ctx context.Context, addr net.Addr) error
-	Serve(ctx context.Context) error
+	Serve(context.Context, ...muxrpc.HandlerWrapper) error
 	GetListenAddr() net.Addr
 }
 
@@ -165,7 +165,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 }
 
-func (n *node) Serve(ctx context.Context) error {
+func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	for {
 		conn, err := n.l.Accept()
 		if err != nil {
@@ -180,7 +180,7 @@ func (n *node) Serve(ctx context.Context) error {
 		}
 
 		go func(c net.Conn) {
-			n.handleConnection(ctx, c)
+			n.handleConnection(ctx, c, wrappers...)
 		}(conn)
 	}
 }
