@@ -152,7 +152,6 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		if closed {
 			return
 		}
-		n.log.Log("sorry", "overdue bug")
 		err := pkr.Close()
 		n.log.Log("conn", "long close", "err", err, "connErr", conn.Close())
 		n.connTracker.OnClose(conn)
