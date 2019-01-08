@@ -19,7 +19,7 @@ func TestBlobToJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, done, cleanup := initInterop(t, `run()`,
+	s, _, done, errc, cleanup := initInterop(t, `run()`,
 		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
 			t.true(has, "got blob")
 			t.error(err, "no err")
@@ -40,6 +40,10 @@ func TestBlobToJS(t *testing.T) {
 	defer cleanup()
 	<-done
 
+	for err := range errc {
+		t.Error(err)
+	}
+
 	// TODO: check wantManager for this connection is stopped when the jsbot exited
 
 	ts := <-tsChan
@@ -58,7 +62,7 @@ func TestBlobFromJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, done, cleanup := initInterop(t,
+	s, _, done, errc, cleanup := initInterop(t,
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
@@ -85,6 +89,7 @@ func TestBlobFromJS(t *testing.T) {
 	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		defer close(got)
 		notif := v.(ssb.BlobStoreNotification)
+		// TODO: if this is on another goroutine we cant use require
 		t.Log(notif)
 		r.Equal(ssb.BlobStoreOp("put"), notif.Op)
 		r.Equal(fooBarRef, notif.Ref.Ref())
@@ -105,6 +110,11 @@ func TestBlobFromJS(t *testing.T) {
 
 	defer cleanup()
 	<-done
+
+	for err := range errc {
+		t.Error(err)
+	}
+
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)

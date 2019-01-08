@@ -7,13 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"runtime/debug"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
@@ -32,7 +33,7 @@ func writeFile(t *testing.T, data string) string {
 }
 
 // returns the created go-sbot, the pubkey of the jsbot, a wait and a cleanup function
-func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, <-chan bool, func()) {
+func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, <-chan bool, <-chan error, func()) {
 	r := require.New(t)
 	ctx := context.Background()
 
@@ -65,18 +66,22 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	r.NoError(err, "failed to init test go-sbot")
 	t.Logf("go-sbot: %s", sbot.KeyPair.Id.Ref())
 
+	var errc = make(chan error, 1)
 	go func() {
 		err := sbot.Node.Serve(ctx)
-		ckFatal(err)
+		if err != nil {
+			errc <- errors.Wrap(err, "node serve exited")
+		}
+		close(errc)
 	}()
 
-	alice, done := startJSBot(t,
+	alice, done, nodeErrc := startJSBot(t,
 		jsbefore,
 		jsafter,
 		sbot.KeyPair.Id.Ref(),
 		netwrap.GetAddr(sbot.Node.GetListenAddr(), "tcp").String())
 
-	return sbot, alice, done, func() {
+	return sbot, alice, done, mergeErrorChans(nodeErrc, errc), func() {
 		<-done
 		if !t.Failed() {
 			r.NoError(os.RemoveAll(dir), "error removing test directory")
@@ -84,16 +89,8 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	}
 }
 
-func ckFatal(err error) {
-	if err != nil {
-		fmt.Println("ckFatal err:", err)
-		debug.PrintStack()
-		os.Exit(2)
-	}
-}
-
 // returns the jsbots pubkey, a wait func and a done channel
-func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.FeedRef, <-chan bool) {
+func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.FeedRef, <-chan bool, <-chan error) {
 	r := require.New(t)
 	cmd := exec.Command("node", "./sbot.js")
 	if testing.Verbose() {
@@ -115,11 +112,15 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
 	var done = make(chan bool)
+	var errc = make(chan error, 1)
 	go func() {
 		err := cmd.Wait()
-		ckFatal(err)
+		if err != nil {
+			errc <- errors.Wrap(err, "cmd wait failed")
+		}
 		t.Log("waited")
 		close(done)
+		close(errc)
 	}()
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
@@ -128,5 +129,29 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 	alice, err := ssb.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get alice key from JS process")
 	t.Logf("JS alice: %s", alice.Ref())
-	return alice, done
+	return alice, done, errc
+}
+
+// utils
+func mergeErrorChans(cs ...<-chan error) <-chan error {
+	var wg sync.WaitGroup
+	out := make(chan error, 1)
+
+	output := func(c <-chan error) {
+		for a := range c {
+			out <- a
+		}
+		wg.Done()
+	}
+
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go output(c)
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	return out
 }

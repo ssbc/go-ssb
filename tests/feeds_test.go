@@ -17,7 +17,7 @@ import (
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
 	const n = 1024
-	bob, alice, done, cleanup := initInterop(t, `
+	bob, alice, done, errc, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -29,8 +29,8 @@ func TestFeedFromJS(t *testing.T) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
 
-    // be done when the other party is done
-    sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
+	// be done when the other party is done
+	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 
 	parallel(msgs, function(err, results) {
 		t.error(err, "parallel of publish")
@@ -40,6 +40,10 @@ func TestFeedFromJS(t *testing.T) {
 `, ``)
 	defer cleanup()
 	<-done
+
+	for err := range errc {
+		t.Error(err)
+	}
 
 	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -118,9 +122,12 @@ pull(
 
 }) // publish`, alice.Ref(), lastMsg)
 
-	claire, done := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire, done, errc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
+	for err := range errc {
+		t.Fatal(err)
+	}
 	<-done
 
 	r.NoError(bob.Close())
