@@ -17,7 +17,7 @@ import (
 )
 
 type WhoamiReply struct {
-	ID string `json:"id"`
+	ID *ssb.FeedRef `json:"id"`
 }
 
 func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, error) {
@@ -185,4 +185,28 @@ type KeyValueRaw struct {
 	Key       *ssb.MessageRef `json:"key"`
 	Value     json.RawMessage `json:"value"`
 	Timestamp int64           `json:"timestamp"`
+}
+
+type Typed struct {
+	Previous  ssb.MessageRef   `json:"previous"`
+	Author    ssb.FeedRef      `json:"author"`
+	Sequence  margaret.BaseSeq `json:"sequence"`
+	Timestamp float64          `json:"timestamp"`
+	Hash      string           `json:"hash"`
+	Content   struct {
+		Type string `json:"type"`
+	} `json:"content"`
+}
+
+type KeyValueAsMap struct {
+	Key   *ssb.MessageRef `json:"key"`
+	Value struct {
+		Previous  ssb.MessageRef   `json:"previous"`
+		Author    ssb.FeedRef      `json:"author"`
+		Sequence  margaret.BaseSeq `json:"sequence"`
+		Timestamp float64          `json:"timestamp"`
+		Hash      string           `json:"hash"`
+		Content   interface{}      `json:"content"`
+	} `json:"value"`
+	Timestamp int64 `json:"timestamp"`
 }

@@ -123,6 +123,13 @@ func New(opts Options) (ssb.Network, error) {
 }
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
+	conn, err := n.applyConnWrappers(conn)
+	if err != nil {
+		conn.Close()
+		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
+		return
+	}
+
 	ok := n.connTracker.OnAccept(conn)
 	if !ok {
 		err := conn.Close()
@@ -157,12 +164,6 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 			return // ignore silently
 		}
 		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
-		return
-	}
-
-	conn, err = n.applyConnWrappers(conn)
-	if err != nil {
-		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
 		return
 	}
 

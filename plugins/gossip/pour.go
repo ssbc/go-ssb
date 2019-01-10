@@ -43,23 +43,31 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
+
 	// act accordingly
 	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
 	case margaret.BaseSeq:
-		qry.Seq--               // our idx is 0 based
-		if qry.Seq > int64(v) { // more than we got
-			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
+		if qry.Seq != 0 {
+			qry.Seq--               // our idx is 0 based
+			if qry.Seq > int64(v) { // more than we got
+				return errors.Wrap(req.Stream.Close(), "pour: failed to close")
+			}
 		}
 
-		if qry.Live && qry.Limit == 0 {
+		if qry.Limit == 0 {
 			// currently having live streams is not tested
 			// it might work but we have some problems with dangling rpc routines which we like to fix first
 			qry.Limit = -1
 		}
 
 		resolved := mutil.Indirect(h.RootLog, userLog)
-		src, err := resolved.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
+		src, err := resolved.Query(
+			margaret.Gte(margaret.BaseSeq(qry.Seq)),
+			margaret.Limit(int(qry.Limit)),
+			margaret.Live(qry.Live),
+			margaret.Reverse(qry.Reverse),
+		)
 		if err != nil {
 			return errors.Wrapf(err, "invalid user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}

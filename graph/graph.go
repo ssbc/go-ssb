@@ -59,13 +59,13 @@ func (g *Graph) BlockedList(from *ssb.FeedRef) map[[32]byte]bool {
 	if !has {
 		return nil
 	}
-	var blocked map[[32]byte]bool
+	blocked := make(map[[32]byte]bool)
 	edgs := g.From(nFrom.ID())
 	for edgs.Next() {
 		edg := g.Edge(nFrom.ID(), edgs.Node().ID()).(contactEdge)
 
 		if edg.Weight() == math.Inf(1) {
-			ctNode := edg.To().(contactNode)
+			ctNode := edg.To().(*contactNode)
 			var k [32]byte
 			copy(k[:], ctNode.feed.ID)
 			blocked[k] = true

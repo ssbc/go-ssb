@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
+
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -28,6 +31,7 @@ import (
 	privplug "go.cryptoscope.co/ssb/plugins/private"
 	"go.cryptoscope.co/ssb/plugins/publish"
 	"go.cryptoscope.co/ssb/plugins/rawread"
+	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
@@ -101,6 +105,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "msgTypes", serveMT)
 	s.MessageTypes = mt
 
+	tangles, _, servetangles, err := multilogs.OpenTangles(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open message type sublogs")
+	}
+	s.closers.addCloser(tangles)
+	goThenLog(ctx, rootLog, "tangles", servetangles)
+	s.Tangles = tangles
+
 	/* new style graph builder
 	contactLog, err := mt.Get(librarian.Addr("contact"))
 	if err != nil {
@@ -158,34 +170,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "privLogs", servePrivs)
 	s.PrivateLogs = pl
 
-	/* some randos
-	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "contacts"), r)
+	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "abouts"), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open about idx")
 	}
 	// s.closers.addCloser(ab)
 	goThenLog(ctx, rootLog, "abouts", serveAbouts)
 	s.AboutStore = ab
-
-	// TODO: make these tests
-	feeds := []string{
-		s.KeyPair.Id.Ref(),
-		"@uOReuhnb9+mPi5RnTbKMKRr3r87cK+aOg8lFXV/SBPU=.ed25519",
-		"@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519",
-		"@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519",
-	}
-	for _, feed := range feeds {
-		fr, err := ssb.ParseFeedRef(feed)
-		if err == nil {
-			selfName, err := ab.GetName(fr)
-			if err != nil {
-				log.Log("event", "debug", "about", feed, "err", err)
-				continue
-			}
-			goon.Dump(selfName)
-		}
-	}
-	*/
 
 	if s.disableNetwork {
 		return s, nil
@@ -216,6 +207,60 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return pmgr.MakeHandler(conn)
 	}
 
+	// local clients (not using network package because we don't want conn limiting or advertising)
+	c, err := net.Dial("unix", r.GetPath("socket"))
+	if err == nil {
+		c.Close()
+		return nil, errors.Errorf("sbot: repo already in use, socket accepted connection")
+	}
+	os.Remove(r.GetPath("socket"))
+
+	uxLis, err := net.Listen("unix", r.GetPath("socket"))
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for {
+			conn, err := uxLis.Accept()
+			if err != nil {
+				err = errors.Wrap(err, "unix sock accept failed")
+				s.info.Log("warn", err)
+				continue
+			}
+
+			go func() {
+				pkr := muxrpc.NewPacker(conn)
+				ctx, cancel := context.WithCancel(ctx)
+				if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+					go func() {
+						<-cn.Closed()
+						cancel()
+					}()
+				}
+
+				h, err := ctrl.MakeHandler(conn)
+				if err != nil {
+					err = errors.Wrap(err, "unix sock make handler")
+					s.info.Log("warn", err)
+					cancel()
+					return
+				}
+
+				// spoof remote as us
+				sameAs := netwrap.WrapAddr(conn.RemoteAddr(), secretstream.Addr{PubKey: id.ID})
+				edp := muxrpc.HandleWithRemote(pkr, h, sameAs)
+
+				srv := edp.(muxrpc.Server)
+				if err := srv.Serve(ctx); err != nil {
+					s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
+				}
+				cancel()
+			}()
+		}
+	}()
+
+	// tcp+shs
 	opts := network.Options{
 		Logger:           s.info,
 		Dialer:           s.dialer,
@@ -243,7 +288,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
 
-	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog))
+	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
 	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
@@ -285,9 +330,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	pmgr.Register(hist)
 
 	// raw log plugins
+	ctrl.Register(rawread.NewTanglePlug(rootLog, s.Tangles))
 	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
 	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
 	ctrl.Register(hist)                           // createHistoryStream
+
+	ctrl.Register(replicate.NewPlug(s.UserFeeds))
 
 	return s, nil
 }

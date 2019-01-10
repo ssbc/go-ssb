@@ -2,7 +2,8 @@ package publish
 
 import (
 	"context"
-	"fmt"
+
+	"go.cryptoscope.co/ssb/message"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -12,6 +13,7 @@ import (
 
 type handler struct {
 	publish margaret.Log
+	rootLog margaret.Log // to get the key back
 	info    logging.Interface
 }
 
@@ -31,9 +33,21 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		return
 	}
 
-	h.info.Log("published", seq.Seq())
+	msgv, err := h.rootLog.Get(seq)
+	if err != nil {
+		req.CloseWithError(errors.Wrap(err, "publish: geting new message back failed"))
+		return
+	}
 
-	err = req.Return(ctx, fmt.Sprintf("published msg: %d", seq.Seq()))
+	msg, ok := msgv.(message.StoredMessage)
+	if !ok {
+		req.CloseWithError(errors.Errorf("publish: unexpected message type: %T", msgv))
+		return
+	}
+
+	h.info.Log("info", "published new message", "rootSeq", seq.Seq(), "refKey", msg.Key.Ref())
+
+	err = req.Return(ctx, msg.Key.Ref())
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "publish: return failed"))
 		return

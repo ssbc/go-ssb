@@ -113,16 +113,14 @@ func main() {
 		mksbot.WithPromisc(flagPromisc),
 		mksbot.WithInfo(log),
 		mksbot.WithAppKey(ak),
-		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
-		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			if dbgLogDir == "" {
-				return conn, nil
-			}
+	}
 
+	if dbgLogDir != "" {
+		opts = append(opts, mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			parts := strings.Split(conn.RemoteAddr().String(), "|")
 
 			if len(parts) != 2 {
@@ -137,7 +135,14 @@ func main() {
 			)
 
 			return debug.WrapDump(muxrpcDumpDir, conn)
-		}),
+		}))
+	}
+
+	if debugAddr != "" {
+		opts = append(opts,
+			mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
+			mksbot.WithConnWrapper(promCountConn()),
+		)
 	}
 
 	if hmacSec != "" {

@@ -11,8 +11,12 @@ type publishPlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, publish margaret.Log) ssb.Plugin {
-	return &publishPlug{h: handler{publish: publish, info: i}}
+func NewPlug(i logging.Interface, publish, rootLog margaret.Log) ssb.Plugin {
+	return &publishPlug{h: handler{
+		publish: publish,
+		rootLog: rootLog,
+		info:    i,
+	}}
 }
 
 func (p publishPlug) Name() string {

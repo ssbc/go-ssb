@@ -147,11 +147,6 @@ func (b *builder) Build() (*Graph, error) {
 				continue
 			}
 
-			v, err := it.Value()
-			if err != nil {
-				return errors.Wrap(err, "friends: couldn't get idx value")
-			}
-
 			var bfrom [32]byte
 			copy(bfrom[:], from.ID)
 			nFrom, has := known[bfrom]
@@ -170,29 +165,35 @@ func (b *builder) Build() (*Graph, error) {
 				known[bto] = nTo
 			}
 
-			w := math.Inf(-1) // undefined - will result in a panic when trying to construct dijkstra
-			if len(v) != 1 {
-				return errors.Errorf("badgerGraph: invalid state val(%v) for %s:%s", v, from.Ref(), to.Ref())
+			if nFrom.ID() == nTo.ID() {
+				continue
 			}
-			fstate := v[0]
-			switch fstate {
-			case '0':
-				if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
-					dg.RemoveEdge(nFrom.ID(), nTo.ID())
+
+			w := math.Inf(-1)
+			err := it.Value(func(v []byte) error {
+				if len(v) >= 1 {
+					switch v[0] {
+					case '0': // not following
+					case '1':
+						w = 1
+					case '2':
+						w = math.Inf(1)
+					}
 				}
-				continue // don't add an edge, go to next entry
-			case '1':
-				w = 1
-			case '2': // blocking
-				w = math.Inf(1)
-			default:
-				return errors.Errorf("badgerGraph: unhandled state val(%v) for %s:%s", fstate, from.Ref(), to.Ref())
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "failed to get value from iter")
+			}
+
+			if math.IsInf(w, -1) {
+				continue
 			}
 
 			edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}
 			dg.SetWeightedEdge(contactEdge{
 				WeightedEdge: edg,
-				isBlock:      fstate == '2',
+				isBlock:      math.IsInf(w, 1),
 			})
 		}
 		return nil
@@ -235,16 +236,18 @@ func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
 			it := iter.Item()
 			k := it.Key()
 
-			v, err := it.Value()
-			if err != nil {
-				return errors.Wrap(err, "friends: couldnt get idx value")
-			}
-			if len(v) >= 1 && v[0] == '1' {
-				if err := fs.AddB(k[33:]); err != nil {
-					return errors.Wrapf(err, "invalid follow entry(%d) addr for feed:%s", i, fr.Ref())
+			err := it.Value(func(v []byte) error {
+				if len(v) >= 1 && v[0] == '1' {
+					if err := fs.AddB(k[33:]); err != nil {
+						return errors.Wrapf(err, "invalid follow entry(%d) addr for feed:%s", i, fr.Ref())
+					}
 				}
+				return nil
+			})
+			if err != nil {
+				return errors.Wrap(err, "failed to get value from iter")
 			}
-			i++
+
 		}
 		return nil
 	})
