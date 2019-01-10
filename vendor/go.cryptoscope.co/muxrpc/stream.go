@@ -3,6 +3,7 @@ package muxrpc // import "go.cryptoscope.co/muxrpc"
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -11,6 +12,12 @@ import (
 	"go.cryptoscope.co/muxrpc/codec"
 
 	"github.com/pkg/errors"
+)
+
+var (
+	ErrStreamNotReadable = errors.New("muxrpc: this stream can not be read from")
+	ErrStreamNotWritable = errors.New("muxrpc: this stream can not be written to")
+	ErrStreamNotClosable = errors.New("muxrpc: this stream can not be closed")
 )
 
 // Stream is a muxrpc stream for the general duplex case.
@@ -26,16 +33,37 @@ type Stream interface {
 	WithReq(req int32)
 }
 
-// NewStram creates a new Stream.
-func NewStream(src luigi.Source, sink luigi.Sink, req int32, ins, outs bool) Stream {
+// how should a stream be able to be used
+type streamCapability uint
+
+func (c streamCapability) String() string {
+	switch c {
+	case streamCapNone:
+		return "streamCap:none"
+	case streamCapOnce:
+		return "streamCap:once"
+	case streamCapMultiple:
+		return "streamCap:multiple"
+	default:
+		panic(fmt.Sprintf("invalid stream capability: %d", c))
+	}
+}
+
+const (
+	streamCapNone     streamCapability = iota // can't be used
+	streamCapOnce                             // can be once
+	streamCapMultiple                         // can be used multiple times
+)
+
+func newStream(src luigi.Source, sink luigi.Sink, req int32, ins, outs streamCapability) Stream {
 	return &stream{
 		pktSrc:    src,
 		pktSink:   sink,
 		req:       req,
 		closeCh:   make(chan struct{}),
 		closeOnce: &sync.Once{},
-		inStream:  ins,
-		outStream: outs,
+		inCap:     ins,
+		outCap:    outs,
 	}
 }
 
@@ -50,8 +78,9 @@ type stream struct {
 	req       int32
 	closeCh   chan struct{}
 	closeOnce *sync.Once
+	closed    bool
 
-	inStream, outStream bool
+	inCap, outCap streamCapability
 }
 
 // WithType makes the stream unmarshal JSON into values of type tipe
@@ -72,15 +101,15 @@ func (str *stream) WithReq(req int32) {
 
 // Next returns the next incoming value on the stream
 func (str *stream) Next(ctx context.Context) (interface{}, error) {
-	// TODO: for some reason the streams are not getting closed when a
-	// connection closes, and thus the context returned by withCloseCtx
-	// is not cancelled.  As a temporary fix we cancel after five
-	// minutes of inactivity.
-	ctx, cancel_ := context.WithTimeout(ctx, 5 * time.Minute)
-	defer cancel_()
+
+	switch str.inCap {
+	case streamCapNone:
+		return nil, ErrStreamNotReadable
+
+	}
 
 	// cancellation
-	ctx, cancel := withCloseCtx(ctx)
+	ctx, cancel := withError(ctx, luigi.EOS{})
 	defer cancel()
 	go func() {
 		select {
@@ -92,28 +121,21 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 
 	vpkt, err := str.pktSrc.Next(ctx)
 	if err != nil {
-		str.Close()
-
-		if luigi.IsEOS(err) {
-			return nil, err
-		}
-		return nil, errors.Wrap(err, "error reading from packet source")
+		return nil, errors.Wrap(err, "muxrpc: error reading from packet source")
 	}
 
 	pkt, ok := vpkt.(*codec.Packet)
 	if !ok {
-		return nil, errors.Errorf("unexpected vpkt value: %v %T", vpkt, vpkt)
+		return nil, errors.Errorf("muxrpc: unexpected vpkt value: %v %T", vpkt, vpkt)
 	}
 
 	if pkt.Flag.Get(codec.FlagEndErr) {
 		return nil, luigi.EOS{}
 	}
 
+	var dst interface{}
 	if pkt.Flag.Get(codec.FlagJSON) {
-		var (
-			dst     interface{}
-			ptrType bool
-		)
+		var ptrType bool
 
 		if str.tipe != nil {
 			t := reflect.TypeOf(str.tipe)
@@ -136,15 +158,14 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 		if !ptrType {
 			dst = reflect.ValueOf(dst).Elem().Interface()
 		}
-
-		return dst, nil
 	} else if pkt.Flag.Get(codec.FlagString) {
-		return string(pkt.Body), nil
+		dst = string(pkt.Body)
+
 	} else {
-		return []byte(pkt.Body), nil
+		dst = []byte(pkt.Body)
 	}
 
-	return pkt.Body, nil
+	return dst, nil
 }
 
 // Pour sends a message on the stream
@@ -154,57 +175,112 @@ func (str *stream) Pour(ctx context.Context, v interface{}) error {
 		err error
 	)
 
+	var (
+		isStream bool
+	)
+	switch str.outCap {
+	case streamCapNone:
+		return ErrStreamNotWritable
+
+	case streamCapMultiple:
+		isStream = true
+	}
+
+	// cancellation
+	ctx, cancel := withError(ctx, errSinkClosed)
+	defer cancel()
+	go func() {
+		select {
+		case <-str.closeCh:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	if body, ok := v.(codec.Body); ok {
-		pkt = newRawPacket(str.outStream, str.req, body)
+		pkt = newRawPacket(isStream, str.req, body)
 	} else if body, ok := v.(string); ok {
-		pkt = newStringPacket(str.outStream, str.req, body)
+		pkt = newStringPacket(isStream, str.req, body)
 	} else {
-		pkt, err = newJSONPacket(str.outStream, str.req, v)
+		pkt, err = newJSONPacket(isStream, str.req, v)
 		if err != nil {
 			return errors.Wrap(err, "error building json packet")
 		}
 	}
 
 	err = str.pktSink.Pour(ctx, pkt)
-	return errors.Wrap(err, "error pouring to packet sink")
+	if err != nil {
+		return errors.Wrap(err, "error pouring to packet sink")
+	}
+
+	return nil
 }
 
 // Close closes the stream and sends the EndErr message.
 func (str *stream) Close() error {
-	str.closeOnce.Do(func() {
-		pkt := newEndOkayPacket(str.req, str.inStream || str.outStream)
-		close(str.closeCh)
-
-		// call in goroutine because we get called from the Serve-loop and
-		// this causes trouble when used with net.Pipe(), because the stream is
-		// unbuffered.  This shouldn't block too long and returns (a) when the
-		// packet is sent, (b) if the connection is closed or some other error
-		// occurs, which at some point will happen.
-		go str.pktSink.Pour(context.TODO(), pkt)
-	})
-
-	return nil
+	return str.CloseWithError(luigi.EOS{})
 }
 
 // Close closes the stream and sends the EndErr message.
 func (str *stream) CloseWithError(closeErr error) error {
-	pkt, err := newEndErrPacket(str.req, str.inStream || str.outStream, closeErr)
-	if err != nil {
-		return errors.Wrap(err, "error building error packet")
+	if str.outCap == streamCapOnce && !str.closed {
+		// TODO
+		return str.doCloseWithError(closeErr)
+	}
+
+	if str.outCap != streamCapMultiple {
+		return ErrStreamNotClosable
+	}
+	return str.doCloseWithError(closeErr)
+}
+
+func (str *stream) doCloseWithError(closeErr error) error {
+	var isStream bool
+	if str.inCap == streamCapMultiple {
+		isStream = true
+	}
+	if str.outCap == streamCapMultiple {
+		isStream = true
+	}
+
+	str.l.Lock()
+	defer str.l.Unlock()
+
+	if str.closed {
+		// TODO: should return ErrAlreadyClosed
+		// but adds a lot of unecessary noise right now that needs to be handled better
+		return nil
+	}
+
+	var (
+		pkt *codec.Packet
+		err error
+	)
+
+	if luigi.IsEOS(closeErr) {
+		pkt = newEndOkayPacket(str.req, isStream)
+	} else {
+		pkt, err = newEndErrPacket(str.req, isStream, closeErr)
+		if err != nil {
+			return errors.Wrap(err, "error building error packet")
+		}
 	}
 
 	str.closeOnce.Do(func() {
-		// don't close the stream itself, otherwise the error will be dropped!
+		close(str.closeCh)
+		str.closed = true
 
-		// call in goroutine because we get called from the Serve-loop and
-		// this causes trouble when used with net.Pipe(), because the stream is
-		// unbuffered.  This shouldn't block too long and returns (a) when the
-		// packet is sent, (b) if the connection is closed or some other error
-		// occurs, which at some point will happen.
-		go str.pktSink.Pour(context.TODO(), pkt)
+		toLong, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+		defer cancel()
+		err = str.pktSink.Pour(toLong, pkt)
 	})
 
-	return nil
+	if IsSinkClosed(errors.Cause(err)) {
+		// log.Printf("muxrpc: stream(%d) sink closed", str.req)
+		return nil
+	}
+
+	return errors.Wrapf(err, "muxrpc: failed to close stream (%d) with err: %s", str.req, closeErr)
 }
 
 // newRawPacket crafts a packet with a byte slice as payload

@@ -3,12 +3,10 @@ package muxrpc // import "go.cryptoscope.co/muxrpc"
 import (
 	"context"
 	"sync"
-
-	"go.cryptoscope.co/luigi"
 )
 
 // withCloseCtx returns a cancellable context where ctx.Err() is luigi.EOS instead of "context cancelled"
-func withCloseCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+func withError(ctx context.Context, err error) (context.Context, context.CancelFunc) {
 	ch := make(chan struct{})
 	next := &closeCtx{
 		ch:      ch,
@@ -19,7 +17,7 @@ func withCloseCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 
 	cls := func() {
 		once.Do(func() {
-			next.err = luigi.EOS{}
+			next.err = err
 			close(ch)
 		})
 	}

@@ -2,9 +2,14 @@ language: go
 
 go:
   - "1.x"
-  - "1.9.x"
-  - "1.10.x"
+  # disabled because we rely on gomod to give us a
+  # version of badger before they broke the API
+  #- "1.9.x"
+  #- "1.10.x"
   - master
+
+env:
+  - GO111MODULE=on
 
 matrix:
   allow_failures:

@@ -7,9 +7,65 @@ import (
 	"github.com/pkg/errors"
 )
 
+type pipeOpts struct {
+	bufferSize  int
+	nonBlocking bool
+}
+
+// PipeOpt configures NewPipes behavior
+type PipeOpt func(*pipeOpts) error
+
+// WithBuffer sets the buffer size of the internal channel
+func WithBuffer(bufSize int) PipeOpt {
+	return PipeOpt(func(opts *pipeOpts) error {
+		opts.bufferSize = bufSize
+		return nil
+	})
+}
+
+// NonBlocking changes the behavior to assume a non-blocking backing medium
+func NonBlocking() PipeOpt {
+	return PipeOpt(func(opts *pipeOpts) error {
+		opts.nonBlocking = true
+		return nil
+	})
+}
+
+// NewPipe returns both ends of a tube
+func NewPipe(opts ...PipeOpt) (Source, Sink) {
+	var pOpts pipeOpts
+
+	for i, opt := range opts {
+		err := opt(&pOpts)
+		if err != nil {
+			// TODO what to do?
+			// the current options don't trigger this anyway
+			panic(errors.Wrapf(err, "luigi: invalid pipe option %d", i))
+		}
+	}
+
+	ch := make(chan interface{}, pOpts.bufferSize)
+
+	var closeLock sync.Mutex
+	var closeErr error
+
+	return &chanSource{
+			ch:          ch,
+			closeLock:   &closeLock,
+			closeErr:    &closeErr,
+			nonBlocking: pOpts.nonBlocking,
+		}, &chanSink{
+			ch:          ch,
+			closeLock:   &closeLock,
+			closeErr:    &closeErr,
+			nonBlocking: pOpts.nonBlocking,
+		}
+}
+
 type chanSource struct {
 	ch          <-chan interface{}
 	nonBlocking bool
+	closeLock   *sync.Mutex
 	closeErr    *error
 }
 
@@ -40,7 +96,12 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 				}
 			}
 		case <-ctx.Done():
-			err = ctx.Err()
+			err = errors.Wrap(ctx.Err(), "luigi next done")
+			/*
+				src.closeLock.Lock()
+				err = errors.Wrapf(ctx.Err(), "luigi next done (closed: %v)", *(src.closeErr))
+				src.closeLock.Unlock()
+			*/
 		}
 	}
 
@@ -48,9 +109,9 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 }
 
 type chanSink struct {
-	cl          sync.Mutex
 	ch          chan<- interface{}
 	nonBlocking bool
+	closeLock   *sync.Mutex
 	closeErr    *error
 	closeOnce   sync.Once
 }
@@ -58,8 +119,8 @@ type chanSink struct {
 func (sink *chanSink) Pour(ctx context.Context, v interface{}) error {
 	var err error
 
-	sink.cl.Lock()
-	defer sink.cl.Unlock()
+	sink.closeLock.Lock()
+	defer sink.closeLock.Unlock()
 	if err := *sink.closeErr; err != nil {
 		return err
 	}
@@ -76,7 +137,7 @@ func (sink *chanSink) Pour(ctx context.Context, v interface{}) error {
 		case sink.ch <- v:
 			return nil
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.Wrapf(ctx.Err(), "luigi pour done (closed: %v)", *(sink.closeErr))
 		}
 	}
 
@@ -89,57 +150,10 @@ func (sink *chanSink) Close() error {
 
 func (sink *chanSink) CloseWithError(err error) error {
 	sink.closeOnce.Do(func() {
-		sink.cl.Lock()
-		defer sink.cl.Unlock()
+		sink.closeLock.Lock()
+		defer sink.closeLock.Unlock()
 		*sink.closeErr = err
 		close(sink.ch)
 	})
 	return nil
-}
-
-type pipeOpts struct {
-	bufferSize  int
-	nonBlocking bool
-}
-
-type PipeOpt func(*pipeOpts) error
-
-func WithBuffer(bufSize int) PipeOpt {
-	return PipeOpt(func(opts *pipeOpts) error {
-		opts.bufferSize = bufSize
-		return nil
-	})
-}
-
-func NonBlocking() PipeOpt {
-	return PipeOpt(func(opts *pipeOpts) error {
-		opts.nonBlocking = true
-		return nil
-	})
-}
-
-func NewPipe(opts ...PipeOpt) (Source, Sink) {
-	var pOpts pipeOpts
-
-	for _, opt := range opts {
-		err := opt(&pOpts)
-		if err != nil {
-			// TODO what to do?
-			panic(err)
-		}
-	}
-
-	ch := make(chan interface{}, pOpts.bufferSize)
-
-	var closeErr error
-
-	return &chanSource{
-			ch:          ch,
-			closeErr:    &closeErr,
-			nonBlocking: pOpts.nonBlocking,
-		}, &chanSink{
-			ch:          ch,
-			closeErr:    &closeErr,
-			nonBlocking: pOpts.nonBlocking,
-		}
 }

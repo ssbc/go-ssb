@@ -37,6 +37,26 @@ func Potrf(a blas64.Symmetric) (t blas64.Triangular, ok bool) {
 	return
 }
 
+// Potri computes the inverse of a real symmetric positive definite matrix A
+// using its Cholesky factorization.
+//
+// On entry, t contains the triangular factor U or L from the Cholesky
+// factorization A = U^T*U or A = L*L^T, as computed by Potrf.
+//
+// On return, the upper or lower triangle of the (symmetric) inverse of A is
+// stored in t, overwriting the input factor U or L, and also returned in a. The
+// underlying data between a and t is shared.
+//
+// The returned bool indicates whether the inverse was computed successfully.
+func Potri(t blas64.Triangular) (a blas64.Symmetric, ok bool) {
+	ok = lapack64.Dpotri(t.Uplo, t.N, t.Data, t.Stride)
+	a.Uplo = t.Uplo
+	a.N = t.N
+	a.Data = t.Data
+	a.Stride = t.Stride
+	return
+}
+
 // Potrs solves a system of n linear equations A*X = B where A is an n×n
 // symmetric positive definite matrix and B is an n×nrhs matrix, using the
 // Cholesky factorization A = U^T*U or A = L*L^T. t contains the corresponding
@@ -152,7 +172,7 @@ func Gelqf(a blas64.General, tau, work []float64, lwork int) {
 // jobU and jobVT are options for computing the singular vectors. The behavior
 // is as follows
 //  jobU == lapack.SVDAll       All m columns of U are returned in u
-//  jobU == lapack.SVDInPlace   The first min(m,n) columns are returned in u
+//  jobU == lapack.SVDStore     The first min(m,n) columns are returned in u
 //  jobU == lapack.SVDOverwrite The first min(m,n) columns of U are written into a
 //  jobU == lapack.SVDNone      The columns of U are not computed.
 // The behavior is the same for jobVT and the rows of V^T. At most one of jobU
@@ -166,12 +186,12 @@ func Gelqf(a blas64.General, tau, work []float64, lwork int) {
 // values in decreasing order.
 //
 // u contains the left singular vectors on exit, stored columnwise. If
-// jobU == lapack.SVDAll, u is of size m×m. If jobU == lapack.SVDInPlace u is
+// jobU == lapack.SVDAll, u is of size m×m. If jobU == lapack.SVDStore u is
 // of size m×min(m,n). If jobU == lapack.SVDOverwrite or lapack.SVDNone, u is
 // not used.
 //
 // vt contains the left singular vectors on exit, stored rowwise. If
-// jobV == lapack.SVDAll, vt is of size n×m. If jobVT == lapack.SVDInPlace vt is
+// jobV == lapack.SVDAll, vt is of size n×m. If jobVT == lapack.SVDStore vt is
 // of size min(m,n)×n. If jobVT == lapack.SVDOverwrite or lapack.SVDNone, vt is
 // not used.
 //

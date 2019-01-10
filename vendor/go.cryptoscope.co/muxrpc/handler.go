@@ -7,6 +7,25 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Handler allows handling connections.
+// When we are being called, HandleCall is called.
+// When a connection is established, HandleConnect is called.
+// TODO: let HandleCall return an error
+type Handler interface {
+	HandleCall(ctx context.Context, req *Request, edp Endpoint)
+	HandleConnect(ctx context.Context, edp Endpoint)
+}
+
+type HandlerWrapper func(Handler) Handler
+
+func ApplyHandlerWrappers(h Handler, hws ...HandlerWrapper) Handler {
+	for _, hw := range hws {
+		h = hw(h)
+	}
+
+	return h
+}
+
 type HandlerMux struct {
 	handlers map[string]Handler
 }

@@ -42,24 +42,28 @@ func (Implementation) Dtrsm(s blas.Side, ul blas.Uplo, tA blas.Transpose, d blas
 	if n < 0 {
 		panic(nLT0)
 	}
-	if ldb < n {
-		panic(badLdB)
-	}
-	var k int
+	k := n
 	if s == blas.Left {
 		k = m
-	} else {
-		k = n
 	}
-	if lda*(k-1)+k > len(a) || lda < max(1, k) {
+	if lda < max(1, k) {
 		panic(badLdA)
 	}
-	if ldb*(m-1)+n > len(b) || ldb < max(1, n) {
+	if ldb < max(1, n) {
 		panic(badLdB)
 	}
 
+	// Quick return if possible.
 	if m == 0 || n == 0 {
 		return
+	}
+
+	// For zero matrix size the following slice length checks are trivially satisfied.
+	if len(a) < lda*(k-1)+k {
+		panic(shortA)
+	}
+	if len(b) < ldb*(m-1)+n {
+		panic(shortB)
 	}
 
 	if alpha == 0 {
@@ -240,7 +244,7 @@ func (Implementation) Dtrsm(s blas.Side, ul blas.Uplo, tA blas.Transpose, d blas
 // is a scalar.
 func (Implementation) Dsymm(s blas.Side, ul blas.Uplo, m, n int, alpha float64, a []float64, lda int, b []float64, ldb int, beta float64, c []float64, ldc int) {
 	if s != blas.Right && s != blas.Left {
-		panic("goblas: bad side")
+		panic(badSide)
 	}
 	if ul != blas.Lower && ul != blas.Upper {
 		panic(badUplo)
@@ -251,27 +255,41 @@ func (Implementation) Dsymm(s blas.Side, ul blas.Uplo, m, n int, alpha float64, 
 	if n < 0 {
 		panic(nLT0)
 	}
-	var k int
+	k := n
 	if s == blas.Left {
 		k = m
-	} else {
-		k = n
 	}
-	if lda*(k-1)+k > len(a) || lda < max(1, k) {
+	if lda < max(1, k) {
 		panic(badLdA)
 	}
-	if ldb*(m-1)+n > len(b) || ldb < max(1, n) {
+	if ldb < max(1, n) {
 		panic(badLdB)
 	}
-	if ldc*(m-1)+n > len(c) || ldc < max(1, n) {
+	if ldc < max(1, n) {
 		panic(badLdC)
 	}
+
+	// Quick return if possible.
 	if m == 0 || n == 0 {
 		return
 	}
+
+	// For zero matrix size the following slice length checks are trivially satisfied.
+	if len(a) < lda*(k-1)+k {
+		panic(shortA)
+	}
+	if len(b) < ldb*(m-1)+n {
+		panic(shortB)
+	}
+	if len(c) < ldc*(m-1)+n {
+		panic(shortC)
+	}
+
+	// Quick return if possible.
 	if alpha == 0 && beta == 1 {
 		return
 	}
+
 	if alpha == 0 {
 		if beta == 0 {
 			for i := 0; i < m; i++ {
@@ -380,21 +398,30 @@ func (Implementation) Dsyrk(ul blas.Uplo, tA blas.Transpose, n, k int, alpha flo
 	if k < 0 {
 		panic(kLT0)
 	}
-	if ldc < n {
-		panic(badLdC)
-	}
-	var row, col int
+	row, col := k, n
 	if tA == blas.NoTrans {
 		row, col = n, k
-	} else {
-		row, col = k, n
 	}
-	if lda*(row-1)+col > len(a) || lda < max(1, col) {
+	if lda < max(1, col) {
 		panic(badLdA)
 	}
-	if ldc*(n-1)+n > len(c) || ldc < max(1, n) {
+	if ldc < max(1, n) {
 		panic(badLdC)
 	}
+
+	// Quick return if possible.
+	if n == 0 {
+		return
+	}
+
+	// For zero matrix size the following slice length checks are trivially satisfied.
+	if len(a) < lda*(row-1)+col {
+		panic(shortA)
+	}
+	if len(c) < ldc*(n-1)+n {
+		panic(shortC)
+	}
+
 	if alpha == 0 {
 		if beta == 0 {
 			if ul == blas.Upper {
@@ -436,17 +463,31 @@ func (Implementation) Dsyrk(ul blas.Uplo, tA blas.Transpose, n, k int, alpha flo
 			for i := 0; i < n; i++ {
 				ctmp := c[i*ldc+i : i*ldc+n]
 				atmp := a[i*lda : i*lda+k]
-				for jc, vc := range ctmp {
-					j := jc + i
-					ctmp[jc] = vc*beta + alpha*f64.DotUnitary(atmp, a[j*lda:j*lda+k])
+				if beta == 0 {
+					for jc := range ctmp {
+						j := jc + i
+						ctmp[jc] = alpha * f64.DotUnitary(atmp, a[j*lda:j*lda+k])
+					}
+				} else {
+					for jc, vc := range ctmp {
+						j := jc + i
+						ctmp[jc] = vc*beta + alpha*f64.DotUnitary(atmp, a[j*lda:j*lda+k])
+					}
 				}
 			}
 			return
 		}
 		for i := 0; i < n; i++ {
+			ctmp := c[i*ldc : i*ldc+i+1]
 			atmp := a[i*lda : i*lda+k]
-			for j, vc := range c[i*ldc : i*ldc+i+1] {
-				c[i*ldc+j] = vc*beta + alpha*f64.DotUnitary(a[j*lda:j*lda+k], atmp)
+			if beta == 0 {
+				for j := range ctmp {
+					ctmp[j] = alpha * f64.DotUnitary(a[j*lda:j*lda+k], atmp)
+				}
+			} else {
+				for j, vc := range ctmp {
+					ctmp[j] = vc*beta + alpha*f64.DotUnitary(a[j*lda:j*lda+k], atmp)
+				}
 			}
 		}
 		return
@@ -455,7 +496,11 @@ func (Implementation) Dsyrk(ul blas.Uplo, tA blas.Transpose, n, k int, alpha flo
 	if ul == blas.Upper {
 		for i := 0; i < n; i++ {
 			ctmp := c[i*ldc+i : i*ldc+n]
-			if beta != 1 {
+			if beta == 0 {
+				for j := range ctmp {
+					ctmp[j] = 0
+				}
+			} else if beta != 1 {
 				for j := range ctmp {
 					ctmp[j] *= beta
 				}
@@ -471,7 +516,7 @@ func (Implementation) Dsyrk(ul blas.Uplo, tA blas.Transpose, n, k int, alpha flo
 	}
 	for i := 0; i < n; i++ {
 		ctmp := c[i*ldc : i*ldc+i+1]
-		if beta != 0 {
+		if beta != 1 {
 			for j := range ctmp {
 				ctmp[j] *= beta
 			}
@@ -503,24 +548,36 @@ func (Implementation) Dsyr2k(ul blas.Uplo, tA blas.Transpose, n, k int, alpha fl
 	if k < 0 {
 		panic(kLT0)
 	}
-	if ldc < n {
-		panic(badLdC)
-	}
-	var row, col int
+	row, col := k, n
 	if tA == blas.NoTrans {
 		row, col = n, k
-	} else {
-		row, col = k, n
 	}
-	if lda*(row-1)+col > len(a) || lda < max(1, col) {
+	if lda < max(1, col) {
 		panic(badLdA)
 	}
-	if ldb*(row-1)+col > len(b) || ldb < max(1, col) {
+	if ldb < max(1, col) {
 		panic(badLdB)
 	}
-	if ldc*(n-1)+n > len(c) || ldc < max(1, n) {
+	if ldc < max(1, n) {
 		panic(badLdC)
 	}
+
+	// Quick return if possible.
+	if n == 0 {
+		return
+	}
+
+	// For zero matrix size the following slice length checks are trivially satisfied.
+	if len(a) < lda*(row-1)+col {
+		panic(shortA)
+	}
+	if len(b) < ldb*(row-1)+col {
+		panic(shortB)
+	}
+	if len(c) < ldc*(n-1)+n {
+		panic(shortC)
+	}
+
 	if alpha == 0 {
 		if beta == 0 {
 			if ul == blas.Upper {
@@ -660,18 +717,30 @@ func (Implementation) Dtrmm(s blas.Side, ul blas.Uplo, tA blas.Transpose, d blas
 	if n < 0 {
 		panic(nLT0)
 	}
-	var k int
+	k := n
 	if s == blas.Left {
 		k = m
-	} else {
-		k = n
 	}
-	if lda*(k-1)+k > len(a) || lda < max(1, k) {
+	if lda < max(1, k) {
 		panic(badLdA)
 	}
-	if ldb*(m-1)+n > len(b) || ldb < max(1, n) {
+	if ldb < max(1, n) {
 		panic(badLdB)
 	}
+
+	// Quick return if possible.
+	if m == 0 || n == 0 {
+		return
+	}
+
+	// For zero matrix size the following slice length checks are trivially satisfied.
+	if len(a) < lda*(k-1)+k {
+		panic(shortA)
+	}
+	if len(b) < ldb*(m-1)+n {
+		panic(shortB)
+	}
+
 	if alpha == 0 {
 		for i := 0; i < m; i++ {
 			btmp := b[i*ldb : i*ldb+n]

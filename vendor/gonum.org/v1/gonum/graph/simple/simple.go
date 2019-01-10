@@ -18,6 +18,10 @@ func (n Node) ID() int64 {
 	return int64(n)
 }
 
+func newSimpleNode(id int) graph.Node {
+	return Node(id)
+}
+
 // Edge is a simple graph edge.
 type Edge struct {
 	F, T graph.Node
@@ -48,4 +52,12 @@ func (e WeightedEdge) Weight() float64 { return e.W }
 // are equalable.
 func isSame(a, b float64) bool {
 	return a == b || (math.IsNaN(a) && math.IsNaN(b))
+}
+
+type edgeSetter interface {
+	SetEdge(e graph.Edge)
+}
+
+type weightedEdgeSetter interface {
+	SetWeightedEdge(e graph.WeightedEdge)
 }

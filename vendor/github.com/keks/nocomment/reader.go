@@ -1,3 +1,4 @@
+// nocomment provides a reader that strips away everything between a # and a newline (including the #)
 package nocomment
 
 import (
@@ -6,6 +7,7 @@ import (
 	"sync"
 )
 
+// NewReader wraps the passed reader to clean the read data from #-style comments.
 func NewReader(r io.Reader) io.Reader {
 	return &reader{r: r}
 }

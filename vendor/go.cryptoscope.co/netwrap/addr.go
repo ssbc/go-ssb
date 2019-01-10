@@ -53,6 +53,10 @@ func (a *addr) Head() net.Addr {
 // GetAddr returns, if available, the concrete address addr with netw == addr.Network() from inside the stack.
 // If no such address exists, it returns nil.
 func GetAddr(a net.Addr, netw string) net.Addr {
+	if a == nil {
+		return nil
+	}
+
 	for {
 		if a.Network() == netw || strings.HasSuffix(a.Network(), "|"+netw) {
 			if a, ok := a.(Addr); ok {

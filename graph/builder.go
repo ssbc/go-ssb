@@ -173,7 +173,7 @@ func (g *Graph) Nodes() int {
 }
 
 func (g *Graph) RenderSVG() error {
-	dotbytes, err := dot.Marshal(g.dg, "", "", "", true)
+	dotbytes, err := dot.Marshal(g.dg, "", "", "")
 	if err != nil {
 		return errors.Wrap(err, "dot marshal failed")
 	}

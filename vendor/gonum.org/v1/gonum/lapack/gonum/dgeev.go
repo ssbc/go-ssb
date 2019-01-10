@@ -116,20 +116,20 @@ func (impl Implementation) Dgeev(jobvl lapack.LeftEVJob, jobvr lapack.RightEVJob
 	maxwrk := 2*n + n*impl.Ilaenv(1, "DGEHRD", " ", n, 1, n, 0)
 	if wantvl || wantvr {
 		maxwrk = max(maxwrk, 2*n+(n-1)*impl.Ilaenv(1, "DORGHR", " ", n, 1, n, -1))
-		impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.OriginalEV, n, 0, n-1,
-			nil, 1, nil, nil, nil, 1, work, -1)
+		impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.SchurOrig, n, 0, n-1,
+			a, lda, wr, wi, vl, ldvl, work, -1)
 		maxwrk = max(maxwrk, max(n+1, n+int(work[0])))
 		side := lapack.EVLeft
 		if wantvr {
 			side = lapack.EVRight
 		}
-		impl.Dtrevc3(side, lapack.EVAllMulQ, nil, n, nil, 1, nil, 1, nil, 1,
+		impl.Dtrevc3(side, lapack.EVAllMulQ, nil, n, a, lda, vl, ldvl, vr, ldvr,
 			n, work, -1)
 		maxwrk = max(maxwrk, n+int(work[0]))
 		maxwrk = max(maxwrk, 4*n)
 	} else {
-		impl.Dhseqr(lapack.EigenvaluesOnly, lapack.None, n, 0, n-1,
-			nil, 1, nil, nil, nil, 1, work, -1)
+		impl.Dhseqr(lapack.EigenvaluesOnly, lapack.SchurNone, n, 0, n-1,
+			a, lda, wr, wi, vr, ldvr, work, -1)
 		maxwrk = max(maxwrk, max(n+1, n+int(work[0])))
 	}
 	maxwrk = max(maxwrk, minwrk)
@@ -176,12 +176,12 @@ func (impl Implementation) Dgeev(jobvl lapack.LeftEVJob, jobvr lapack.RightEVJob
 		impl.Dorghr(n, ilo, ihi, vl, ldvl, tau, work[iwrk:], lwork-iwrk)
 		// Perform QR iteration, accumulating Schur vectors in VL.
 		iwrk = n
-		first = impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.OriginalEV, n, ilo, ihi,
+		first = impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.SchurOrig, n, ilo, ihi,
 			a, lda, wr, wi, vl, ldvl, work[iwrk:], lwork-iwrk)
 		if wantvr {
 			// Want left and right eigenvectors.
 			// Copy Schur vectors to VR.
-			side = lapack.EVRightLeft
+			side = lapack.EVBoth
 			impl.Dlacpy(blas.All, n, n, vl, ldvl, vr, ldvr)
 		}
 	} else if wantvr {
@@ -192,12 +192,12 @@ func (impl Implementation) Dgeev(jobvl lapack.LeftEVJob, jobvr lapack.RightEVJob
 		impl.Dorghr(n, ilo, ihi, vr, ldvr, tau, work[iwrk:], lwork-iwrk)
 		// Perform QR iteration, accumulating Schur vectors in VR.
 		iwrk = n
-		first = impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.OriginalEV, n, ilo, ihi,
+		first = impl.Dhseqr(lapack.EigenvaluesAndSchur, lapack.SchurOrig, n, ilo, ihi,
 			a, lda, wr, wi, vr, ldvr, work[iwrk:], lwork-iwrk)
 	} else {
 		// Compute eigenvalues only.
 		iwrk = n
-		first = impl.Dhseqr(lapack.EigenvaluesOnly, lapack.None, n, ilo, ihi,
+		first = impl.Dhseqr(lapack.EigenvaluesOnly, lapack.SchurNone, n, ilo, ihi,
 			a, lda, wr, wi, nil, 1, work[iwrk:], lwork-iwrk)
 	}
 

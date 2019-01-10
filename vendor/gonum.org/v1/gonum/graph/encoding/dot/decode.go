@@ -39,15 +39,34 @@ type PortSetter interface {
 }
 
 // Unmarshal parses the Graphviz DOT-encoded data and stores the result in dst.
+// If the number of graphs encoded in data is not one, an error is returned and
+// dst will hold the first graph in data.
 func Unmarshal(data []byte, dst encoding.Builder) error {
 	file, err := dot.ParseBytes(data)
 	if err != nil {
 		return err
 	}
-	if len(file.Graphs) != 1 {
-		return fmt.Errorf("invalid number of graphs; expected 1, got %d", len(file.Graphs))
+	err = copyGraph(dst, file.Graphs[0])
+	if err == nil && len(file.Graphs) != 1 {
+		err = fmt.Errorf("invalid number of graphs; expected 1, got %d", len(file.Graphs))
 	}
-	return copyGraph(dst, file.Graphs[0])
+	return err
+}
+
+// UnmarshalMulti parses the Graphviz DOT-encoded data as a multigraph and
+// stores the result in dst.
+// If the number of graphs encoded in data is not one, an error is returned and
+// dst will hold the first graph in data.
+func UnmarshalMulti(data []byte, dst encoding.MultiBuilder) error {
+	file, err := dot.ParseBytes(data)
+	if err != nil {
+		return err
+	}
+	err = copyMultigraph(dst, file.Graphs[0])
+	if err == nil && len(file.Graphs) != 1 {
+		err = fmt.Errorf("invalid number of graphs; expected 1, got %d", len(file.Graphs))
+	}
+	return err
 }
 
 // copyGraph copies the nodes and edges from the Graphviz AST source graph to
@@ -62,9 +81,41 @@ func copyGraph(dst encoding.Builder, src *ast.Graph) (err error) {
 			panic(e)
 		}
 	}()
-	gen := &generator{
-		directed: src.Directed,
-		ids:      make(map[string]graph.Node),
+	gen := &simpleGraph{
+		generator: generator{
+			directed: src.Directed,
+			ids:      make(map[string]graph.Node),
+		},
+	}
+	if dst, ok := dst.(DOTIDSetter); ok {
+		dst.SetDOTID(src.ID)
+	}
+	if a, ok := dst.(AttributeSetters); ok {
+		gen.graphAttr, gen.nodeAttr, gen.edgeAttr = a.DOTAttributeSetters()
+	}
+	for _, stmt := range src.Stmts {
+		gen.addStmt(dst, stmt)
+	}
+	return err
+}
+
+// copyMultigraph copies the nodes and edges from the Graphviz AST source graph to
+// the destination graph. Edge direction is maintained if present.
+func copyMultigraph(dst encoding.MultiBuilder, src *ast.Graph) (err error) {
+	defer func() {
+		switch e := recover().(type) {
+		case nil:
+		case error:
+			err = e
+		default:
+			panic(e)
+		}
+	}()
+	gen := &multiGraph{
+		generator: generator{
+			directed: src.Directed,
+			ids:      make(map[string]graph.Node),
+		},
 	}
 	if dst, ok := dst.(DOTIDSetter); ok {
 		dst.SetDOTID(src.ID)
@@ -97,15 +148,15 @@ type generator struct {
 
 // node returns the gonum node corresponding to the given dot AST node ID,
 // generating a new such node if none exist.
-func (gen *generator) node(dst encoding.Builder, id string) graph.Node {
+func (gen *generator) node(dst graph.NodeAdder, id string) graph.Node {
 	if n, ok := gen.ids[id]; ok {
 		return n
 	}
 	n := dst.NewNode()
-	dst.AddNode(n)
 	if n, ok := n.(DOTIDSetter); ok {
 		n.SetDOTID(id)
 	}
+	dst.AddNode(n)
 	gen.ids[id] = n
 	// Check if within the context of a subgraph, that is to be used as a vertex
 	// of an edge.
@@ -117,8 +168,10 @@ func (gen *generator) node(dst encoding.Builder, id string) graph.Node {
 	return n
 }
 
+type simpleGraph struct{ generator }
+
 // addStmt adds the given statement to the graph.
-func (gen *generator) addStmt(dst encoding.Builder, stmt ast.Stmt) {
+func (gen *simpleGraph) addStmt(dst encoding.Builder, stmt ast.Stmt) {
 	switch stmt := stmt.(type) {
 	case *ast.NodeStmt:
 		n, ok := gen.node(dst, stmt.Node.ID).(encoding.AttributeSetter)
@@ -131,7 +184,7 @@ func (gen *generator) addStmt(dst encoding.Builder, stmt ast.Stmt) {
 				Value: attr.Val,
 			}
 			if err := n.SetAttribute(a); err != nil {
-				panic(fmt.Errorf("unable to unmarshal node DOT attribute (%s=%s)", a.Key, a.Value))
+				panic(fmt.Errorf("unable to unmarshal node DOT attribute (%s=%s): %v", a.Key, a.Value, err))
 			}
 		}
 	case *ast.EdgeStmt:
@@ -167,7 +220,7 @@ func (gen *generator) addStmt(dst encoding.Builder, stmt ast.Stmt) {
 				Value: attr.Val,
 			}
 			if err := n.SetAttribute(a); err != nil {
-				panic(fmt.Errorf("unable to unmarshal global %s DOT attribute (%s=%s)", dst, a.Key, a.Value))
+				panic(fmt.Errorf("unable to unmarshal global %s DOT attribute (%s=%s): %v", dst, a.Key, a.Value, err))
 			}
 		}
 	case *ast.Attr:
@@ -206,7 +259,7 @@ func applyPortsToEdge(from ast.Vertex, to *ast.Edge, edge graph.Edge) {
 }
 
 // addEdgeStmt adds the given edge statement to the graph.
-func (gen *generator) addEdgeStmt(dst encoding.Builder, stmt *ast.EdgeStmt) {
+func (gen *simpleGraph) addEdgeStmt(dst encoding.Builder, stmt *ast.EdgeStmt) {
 	fs := gen.addVertex(dst, stmt.From)
 	ts := gen.addEdge(dst, stmt.To, stmt.Attrs)
 	for _, f := range fs {
@@ -220,7 +273,7 @@ func (gen *generator) addEdgeStmt(dst encoding.Builder, stmt *ast.EdgeStmt) {
 }
 
 // addVertex adds the given vertex to the graph, and returns its set of nodes.
-func (gen *generator) addVertex(dst encoding.Builder, v ast.Vertex) []graph.Node {
+func (gen *simpleGraph) addVertex(dst encoding.Builder, v ast.Vertex) []graph.Node {
 	switch v := v.(type) {
 	case *ast.Node:
 		n := gen.node(dst, v.ID)
@@ -237,7 +290,7 @@ func (gen *generator) addVertex(dst encoding.Builder, v ast.Vertex) []graph.Node
 }
 
 // addEdge adds the given edge to the graph, and returns its set of nodes.
-func (gen *generator) addEdge(dst encoding.Builder, to *ast.Edge, attrs []*ast.Attr) []graph.Node {
+func (gen *simpleGraph) addEdge(dst encoding.Builder, to *ast.Edge, attrs []*ast.Attr) []graph.Node {
 	if !gen.directed && to.Directed {
 		panic(fmt.Errorf("directed edge to %v in undirected graph", to.Vertex))
 	}
@@ -307,6 +360,123 @@ func (gen *generator) appendSubgraphNode(n graph.Node) {
 	gen.subNodes = append(gen.subNodes, n)
 }
 
+type multiGraph struct{ generator }
+
+// addStmt adds the given statement to the multigraph.
+func (gen *multiGraph) addStmt(dst encoding.MultiBuilder, stmt ast.Stmt) {
+	switch stmt := stmt.(type) {
+	case *ast.NodeStmt:
+		n, ok := gen.node(dst, stmt.Node.ID).(encoding.AttributeSetter)
+		if !ok {
+			return
+		}
+		for _, attr := range stmt.Attrs {
+			a := encoding.Attribute{
+				Key:   attr.Key,
+				Value: attr.Val,
+			}
+			if err := n.SetAttribute(a); err != nil {
+				panic(fmt.Errorf("unable to unmarshal node DOT attribute (%s=%s): %v", a.Key, a.Value, err))
+			}
+		}
+	case *ast.EdgeStmt:
+		gen.addEdgeStmt(dst, stmt)
+	case *ast.AttrStmt:
+		var n encoding.AttributeSetter
+		var dst string
+		switch stmt.Kind {
+		case ast.GraphKind:
+			if gen.graphAttr == nil {
+				return
+			}
+			n = gen.graphAttr
+			dst = "graph"
+		case ast.NodeKind:
+			if gen.nodeAttr == nil {
+				return
+			}
+			n = gen.nodeAttr
+			dst = "node"
+		case ast.EdgeKind:
+			if gen.edgeAttr == nil {
+				return
+			}
+			n = gen.edgeAttr
+			dst = "edge"
+		default:
+			panic("unreachable")
+		}
+		for _, attr := range stmt.Attrs {
+			a := encoding.Attribute{
+				Key:   attr.Key,
+				Value: attr.Val,
+			}
+			if err := n.SetAttribute(a); err != nil {
+				panic(fmt.Errorf("unable to unmarshal global %s DOT attribute (%s=%s): %v", dst, a.Key, a.Value, err))
+			}
+		}
+	case *ast.Attr:
+		// ignore.
+	case *ast.Subgraph:
+		for _, stmt := range stmt.Stmts {
+			gen.addStmt(dst, stmt)
+		}
+	default:
+		panic(fmt.Sprintf("unknown statement type %T", stmt))
+	}
+}
+
+// addEdgeStmt adds the given edge statement to the multigraph.
+func (gen *multiGraph) addEdgeStmt(dst encoding.MultiBuilder, stmt *ast.EdgeStmt) {
+	fs := gen.addVertex(dst, stmt.From)
+	ts := gen.addLine(dst, stmt.To, stmt.Attrs)
+	for _, f := range fs {
+		for _, t := range ts {
+			edge := dst.NewLine(f, t)
+			dst.SetLine(edge)
+			applyPortsToEdge(stmt.From, stmt.To, edge)
+			addEdgeAttrs(edge, stmt.Attrs)
+		}
+	}
+}
+
+// addVertex adds the given vertex to the multigraph, and returns its set of nodes.
+func (gen *multiGraph) addVertex(dst encoding.MultiBuilder, v ast.Vertex) []graph.Node {
+	switch v := v.(type) {
+	case *ast.Node:
+		n := gen.node(dst, v.ID)
+		return []graph.Node{n}
+	case *ast.Subgraph:
+		gen.pushSubgraph()
+		for _, stmt := range v.Stmts {
+			gen.addStmt(dst, stmt)
+		}
+		return gen.popSubgraph()
+	default:
+		panic(fmt.Sprintf("unknown vertex type %T", v))
+	}
+}
+
+// addLine adds the given edge to the multigraph, and returns its set of nodes.
+func (gen *multiGraph) addLine(dst encoding.MultiBuilder, to *ast.Edge, attrs []*ast.Attr) []graph.Node {
+	if !gen.directed && to.Directed {
+		panic(fmt.Errorf("directed edge to %v in undirected graph", to.Vertex))
+	}
+	fs := gen.addVertex(dst, to.Vertex)
+	if to.To != nil {
+		ts := gen.addLine(dst, to.To, attrs)
+		for _, f := range fs {
+			for _, t := range ts {
+				edge := dst.NewLine(f, t)
+				dst.SetLine(edge)
+				applyPortsToEdge(to.Vertex, to.To, edge)
+				addEdgeAttrs(edge, attrs)
+			}
+		}
+	}
+	return fs
+}
+
 // addEdgeAttrs adds the attributes to the given edge.
 func addEdgeAttrs(edge graph.Edge, attrs []*ast.Attr) {
 	e, ok := edge.(encoding.AttributeSetter)
@@ -319,7 +489,7 @@ func addEdgeAttrs(edge graph.Edge, attrs []*ast.Attr) {
 			Value: attr.Val,
 		}
 		if err := e.SetAttribute(a); err != nil {
-			panic(fmt.Errorf("unable to unmarshal edge DOT attribute (%s=%s)", a.Key, a.Value))
+			panic(fmt.Errorf("unable to unmarshal edge DOT attribute (%s=%s): %v", a.Key, a.Value, err))
 		}
 	}
 }

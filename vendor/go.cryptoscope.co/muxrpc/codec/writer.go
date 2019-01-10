@@ -36,6 +36,7 @@ func (w *Writer) WritePacket(r *Packet) error {
 	hdr.Flag = r.Flag
 	hdr.Len = uint32(len(r.Body))
 	hdr.Req = r.Req
+	// context?! ioctx.Copy??
 	if err := binary.Write(w.w, binary.BigEndian, hdr); err != nil {
 		return errors.Wrapf(err, "pkt-codec: header write failed")
 	}
@@ -52,7 +53,7 @@ func (w *Writer) Close() error {
 		return errors.Wrapf(err, "pkt-codec: failed to write Close() packet")
 	}
 	if c, ok := w.w.(io.Closer); ok {
-		return c.Close()
+		return errors.Wrap(c.Close(), "pkt-codec: failed to close underlying writer")
 	}
 	return nil
 }

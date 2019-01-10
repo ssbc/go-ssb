@@ -10,8 +10,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/ugorji/go v1.1.1 // indirect
-	go.cryptoscope.co/luigi v0.0.1
-	go.cryptoscope.co/margaret v0.0.2
+	go.cryptoscope.co/luigi v0.3.0
+	go.cryptoscope.co/margaret v0.0.5
 	golang.org/x/net v0.0.0-20180406214816-61147c48b25b // indirect
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f // indirect
 	golang.org/x/sys v0.0.0-20180406135729-3b87a42e500a // indirect

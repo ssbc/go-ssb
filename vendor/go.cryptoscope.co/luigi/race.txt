@@ -1,0 +1,59 @@
+==================
+WARNING: DATA RACE
+Write at 0x00c0001ea010 by goroutine 9:
+  go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi.(*chanSink).CloseWithError.func1()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi/chan.go:120 +0x7b
+  sync.(*Once).Do()
+      /home/cryptix/go.root/src/sync/once.go:44 +0xde
+  go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi.(*chanSink).CloseWithError()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi/chan.go:119 +0x7e
+  go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi.(*chanSink).Close()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi/chan.go:115 +0x50
+  go.cryptoscope.co/muxrpc.(*rpc).Serve.func4()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc.go:365 +0x1ac
+  go.cryptoscope.co/muxrpc.(*rpc).Serve()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc.go:389 +0x2e4
+  go.cryptoscope.co/muxrpc.serve()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc_test.go:22 +0x56
+
+Previous read at 0x00c0001ea010 by goroutine 19:
+  go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi.(*chanSource).Next()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/vendor/go.cryptoscope.co/luigi/chan.go:79 +0x49e
+  go.cryptoscope.co/muxrpc.(*stream).Next()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/stream.go:93 +0x1c2
+  go.cryptoscope.co/muxrpc.(*Request).Return()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/request.go:59 +0x167
+  go.cryptoscope.co/muxrpc.TestBothwaysAsync.func1()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/bothways_test.go:29 +0x165
+  go.cryptoscope.co/muxrpc.(*FakeHandler).HandleCall()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/fakehandler_test.go:37 +0x37c
+
+Goroutine 9 (running) created at:
+  go.cryptoscope.co/muxrpc.TestBothwaysAsync()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/bothways_test.go:56 +0xda6
+  testing.tRunner()
+      /home/cryptix/go.root/src/testing/testing.go:827 +0x162
+
+Goroutine 19 (finished) created at:
+  go.cryptoscope.co/muxrpc.(*rpc).fetchRequest()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc.go:293 +0x2af
+  go.cryptoscope.co/muxrpc.(*rpc).Serve()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc.go:402 +0x41e
+  go.cryptoscope.co/muxrpc.serve()
+      /home/cryptix/go/src/go.cryptoscope.co/muxrpc/rpc_test.go:22 +0x56
+==================
+--- FAIL: TestBothwaysAsync (0.00s)
+    bothways_test.go:47: h2 connected
+    bothways_test.go:34: h1 connected
+    bothways_test.go:102: conn1 closed
+    bothways_test.go:105: conn2 closed
+    bothways_test.go:27: h1 called &{Stream:0xc0001fc060 Method:whoami Args:[] Type:async in:0xc0001da030 pkt:0xc0001d8000 tipe:<nil>}
+    bothways_test.go:40: h2 called &{Stream:0xc000188240 Method:whoami Args:[] Type:async in:0xc000210000 pkt:0xc00019e1a0 tipe:<nil>}
+    bothways_test.go:88: return of rpc2.whoami/async: you are a test
+    bothways_test.go:68: return of rpc1.whoami/async: you are a test
+    bothways_test.go:117: term2 closed
+    bothways_test.go:114: term1 closed
+    bothways_test.go:108: serve1 closed
+    bothways_test.go:121: done
+    testing.go:771: race detected during execution of test
+panic: Fail in goroutine after TestBothwaysSink has completed

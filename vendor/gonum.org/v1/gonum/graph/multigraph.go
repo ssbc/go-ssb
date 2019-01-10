@@ -19,16 +19,20 @@ type WeightedLine interface {
 
 // Multigraph is a generalized multigraph.
 type Multigraph interface {
-	// Has returns whether the node with the given ID exists
-	// within the multigraph.
-	Has(id int64) bool
+	// Node returns the node with the given ID if it exists
+	// in the multigraph, and nil otherwise.
+	Node(id int64) Node
 
 	// Nodes returns all the nodes in the multigraph.
-	Nodes() []Node
+	//
+	// Nodes must not return nil.
+	Nodes() Nodes
 
 	// From returns all nodes that can be reached directly
 	// from the node with the given ID.
-	From(id int64) []Node
+	//
+	// From must not return nil.
+	From(id int64) Nodes
 
 	// HasEdgeBetween returns whether an edge exists between
 	// nodes with IDs xid and yid without considering direction.
@@ -38,7 +42,9 @@ type Multigraph interface {
 	// vid, if any such lines exist and nil otherwise. The
 	// node v must be directly reachable from u as defined by
 	// the From method.
-	Lines(uid, vid int64) []Line
+	//
+	// Lines must not return nil.
+	Lines(uid, vid int64) Lines
 }
 
 // WeightedMultigraph is a weighted multigraph.
@@ -49,7 +55,9 @@ type WeightedMultigraph interface {
 	// with IDs uid and vid if any such lines exist and nil
 	// otherwise. The node v must be directly reachable
 	// from u as defined by the From method.
-	WeightedLines(uid, vid int64) []WeightedLine
+	//
+	// WeightedLines must not return nil.
+	WeightedLines(uid, vid int64) WeightedLines
 }
 
 // UndirectedMultigraph is an undirected multigraph.
@@ -58,7 +66,9 @@ type UndirectedMultigraph interface {
 
 	// LinesBetween returns the lines between nodes x and y
 	// with IDs xid and yid.
-	LinesBetween(xid, yid int64) []Line
+	//
+	// LinesBetween must not return nil.
+	LinesBetween(xid, yid int64) Lines
 }
 
 // WeightedUndirectedMultigraph is a weighted undirected multigraph.
@@ -67,7 +77,9 @@ type WeightedUndirectedMultigraph interface {
 
 	// WeightedLinesBetween returns the lines between nodes
 	// x and y with IDs xid and yid.
-	WeightedLinesBetween(xid, yid int64) []WeightedLine
+	//
+	// WeightedLinesBetween must not return nil.
+	WeightedLinesBetween(xid, yid int64) WeightedLines
 }
 
 // DirectedMultigraph is a directed multigraph.
@@ -81,7 +93,9 @@ type DirectedMultigraph interface {
 
 	// To returns all nodes that can reach directly
 	// to the node with the given ID.
-	To(id int64) []Node
+	//
+	// To must not return nil.
+	To(id int64) Nodes
 }
 
 // WeightedDirectedMultigraph is a weighted directed multigraph.
@@ -95,7 +109,9 @@ type WeightedDirectedMultigraph interface {
 
 	// To returns all nodes that can reach directly
 	// to the node with the given ID.
-	To(id int64) []Node
+	//
+	// To must not return nil.
+	To(id int64) Nodes
 }
 
 // LineAdder is an interface for adding lines to a multigraph.
@@ -107,6 +123,8 @@ type LineAdder interface {
 	// If the multigraph supports node addition the nodes
 	// will be added if they do not exist, otherwise
 	// SetLine will panic.
+	// Whether l, l.From() and l.To() are stored
+	// within the graph is implementation dependent.
 	SetLine(l Line)
 }
 
@@ -120,7 +138,9 @@ type WeightedLineAdder interface {
 	// to another. If the multigraph supports node addition
 	// the nodes will be added if they do not exist,
 	// otherwise SetWeightedLine will panic.
-	SetWeightedLine(e WeightedLine)
+	// Whether l, l.From() and l.To() are stored
+	// within the graph is implementation dependent.
+	SetWeightedLine(l WeightedLine)
 }
 
 // LineRemover is an interface for removing lines from a multigraph.

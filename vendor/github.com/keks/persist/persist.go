@@ -14,6 +14,16 @@ func Save(f *os.File, v interface{}) error {
 		return errors.Wrapf(err, "error marshaling value of type %T", v)
 	}
 
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return errors.Wrap(err, "error seeking to beginning of file")
+	}
+
+	err = f.Truncate(0)
+	if err != nil {
+		return errors.Wrap(err, "error truncating file")
+	}
+
 	_, err = f.Write(data)
 	if err != nil {
 		return errors.Wrap(err, "error copying data into file")
