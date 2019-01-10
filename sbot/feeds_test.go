@@ -20,14 +20,16 @@ import (
 )
 
 func TestFeedsOneByOne(t *testing.T) {
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.TODO())
 
 	os.RemoveAll("testrun")
 
 	aliLog, _ := logtest.KitLogger("ali", t)
 	ali, err := New(
+		WithContext(ctx),
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"))
@@ -44,6 +46,7 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	bobLog, _ := logtest.KitLogger("bob", t)
 	bob, err := New(
+		WithContext(ctx),
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"))
@@ -99,10 +102,13 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	ali.Shutdown()
 	bob.Shutdown()
+
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
 	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
+	cancel()
+	time.Sleep(10 * time.Second)
 }
 
 // utils

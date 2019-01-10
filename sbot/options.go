@@ -13,6 +13,7 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
@@ -20,6 +21,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/network"
 )
 
@@ -55,11 +57,13 @@ type Sbot struct {
 	RootLog          margaret.Log
 	liveIndexUpdates bool
 	UserFeeds        multilog.MultiLog
+	idxGet           librarian.Index
+	Tangles          multilog.MultiLog
+	AboutStore       indexes.AboutStore
 	MessageTypes     multilog.MultiLog
 	PrivateLogs      multilog.MultiLog
-	// AboutStore   indexes.AboutStore
-	PublishLog     margaret.Log
-	signHMACsecret []byte
+	PublishLog       margaret.Log
+	signHMACsecret   []byte
 
 	GraphBuilder graph.Builder
 

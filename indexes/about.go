@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
@@ -67,36 +68,38 @@ func (ab aboutStore) GetName(ref *ssb.FeedRef) (*AboutInfo, error) {
 				Algo: "ed25519",
 				ID:   k[33 : 33+32],
 			}
-			v, err := it.Value()
+			err := it.Value(func(v []byte) error {
+				// log.Printf("about debug: %s ", c.Ref())
+				var fieldPtr *AboutAttribute
+				foundVal := string(v)
+				switch {
+				case bytes.HasSuffix(k, []byte(":name")):
+					fieldPtr = &reduced.Name
+				case bytes.HasSuffix(k, []byte(":description")):
+					fieldPtr = &reduced.Description
+				case bytes.HasSuffix(k, []byte(":image")):
+					fieldPtr = &reduced.Image
+				}
+
+				if bytes.Equal(c.ID, ref.ID) {
+					fieldPtr.Chosen = foundVal
+				} else {
+					cnt, has := fieldPtr.Prescribed[foundVal]
+					if has {
+						cnt++
+					} else {
+						cnt = 1
+					}
+					fieldPtr.Prescribed[foundVal] = cnt
+				}
+
+				// log.Printf(" key: %q", string(k))
+				return nil
+			})
 			if err != nil {
 				return errors.Wrap(err, "about: counldnt get idx value")
 			}
 
-			// log.Printf("about debug: %s ", c.Ref())
-
-			var fieldPtr *AboutAttribute
-			foundVal := string(v)
-			switch {
-			case bytes.HasSuffix(k, []byte(":name")):
-				fieldPtr = &reduced.Name
-			case bytes.HasSuffix(k, []byte(":description")):
-				fieldPtr = &reduced.Description
-			case bytes.HasSuffix(k, []byte(":image")):
-				fieldPtr = &reduced.Image
-			}
-
-			if bytes.Equal(c.ID, ref.ID) {
-				fieldPtr.Chosen = foundVal
-			} else {
-				cnt, has := fieldPtr.Prescribed[foundVal]
-				if has {
-					cnt++
-				} else {
-					cnt = 1
-				}
-				fieldPtr.Prescribed[foundVal] = cnt
-			}
-			// log.Printf(" key: %q", string(k))
 		}
 		return nil
 	})
@@ -122,8 +125,14 @@ func OpenAbout(log kitlog.Logger, r repo.Interface) (AboutStore, repo.ServeFunc,
 }
 
 func updateAboutMessage(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+	msg, ok := val.(message.StoredMessage)
+	if !ok {
+		if margaret.IsErrNulled(val.(error)) {
+			return nil
+		}
+		return fmt.Errorf("about(%d): wrong msgT: %T", seq, val)
+	}
 
-	msg := val.(message.StoredMessage)
 	var dmsg message.DeserializedMessage
 	err := json.Unmarshal(msg.Raw, &dmsg)
 	if err != nil {

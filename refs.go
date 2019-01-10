@@ -157,8 +157,11 @@ func (fr *FeedRef) UnmarshalText(text []byte) error {
 		return nil
 	}
 	newRef, err := ParseFeedRef(string(text))
+	if err != nil {
+		return err
+	}
 	*fr = *newRef
-	return err
+	return nil
 }
 
 func (r *FeedRef) Scan(raw interface{}) error {

@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cryptix/go/logging/countconn"
+
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/netwrap"
 )
 
 var (
@@ -209,3 +212,33 @@ func (lw *latencyWrapper) Serve(ctx context.Context) error {
 	// this looses the wrapped endpoint again maybe?
 	return srv.Serve(ctx)
 }
+
+type promCount struct {
+	*countconn.Reader
+	*countconn.Writer
+	conn net.Conn
+}
+
+func promCountConn() netwrap.ConnWrapper {
+	return func(c net.Conn) (net.Conn, error) {
+		wrap := &promCount{
+			conn: c,
+		}
+		wrap.Reader = countconn.NewReader(c)
+		wrap.Writer = countconn.NewWriter(c)
+		return wrap, nil
+	}
+}
+
+func (c *promCount) Close() error {
+	err := c.conn.Close()
+	SystemEvents.With("event", "bytes.tx").Add(float64(c.Writer.N()))
+	SystemEvents.With("event", "bytes.rx").Add(float64(c.Reader.N()))
+	return err
+}
+
+func (c *promCount) LocalAddr() net.Addr                { return c.conn.LocalAddr() }
+func (c *promCount) RemoteAddr() net.Addr               { return c.conn.RemoteAddr() }
+func (c *promCount) SetDeadline(t time.Time) error      { return c.conn.SetDeadline(t) }
+func (c *promCount) SetReadDeadline(t time.Time) error  { return c.conn.SetReadDeadline(t) }
+func (c *promCount) SetWriteDeadline(t time.Time) error { return c.conn.SetWriteDeadline(t) }

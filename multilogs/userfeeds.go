@@ -23,12 +23,12 @@ func OpenUserFeeds(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeF
 			return nulled
 		}
 
-		msg, ok := value.(message.StoredMessage)
+		abstractMsg, ok := value.(message.Abstract)
 		if !ok {
 			return errors.Errorf("error casting message. got type %T", value)
 		}
 
-		authorID := msg.Author.ID
+		authorID := abstractMsg.GetAuthor().ID
 		authorLog, err := mlog.Get(librarian.Addr(authorID))
 		if err != nil {
 			return errors.Wrap(err, "error opening sublog")

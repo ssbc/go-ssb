@@ -55,6 +55,7 @@ func init() {
 			Value map[string]interface{}
 		}
 		origRC, err := full.Open()
+		checkPanic(errors.Wrapf(err, "test(%d) - failed to open full", i))
 		err = json.NewDecoder(origRC).Decode(&origMsg)
 		checkPanic(errors.Wrapf(err, "test(%d) - could not json decode full", i))
 		testMessages[seq].Hash = origMsg.Key

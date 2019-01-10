@@ -80,6 +80,20 @@ var privateReadCmd = &cli.Command{
 	},
 }
 
+var replicateUptoCmd = &cli.Command{
+	Name:  "upto",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		var args = getStreamArgs(ctx)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "replicate/upto failed")
+	},
+}
+
 func jsonDrain(w io.Writer) luigi.Sink {
 	i := 0
 	return luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
@@ -115,11 +129,4 @@ func query(ctx *cli.Context) error {
 	}
 	return client.Close()
 }
-
-
-
-
-
-
-
 */

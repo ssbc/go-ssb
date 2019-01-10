@@ -13,6 +13,7 @@ import (
 )
 
 func TestFeedFromJS(t *testing.T) {
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
 
