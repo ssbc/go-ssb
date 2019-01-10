@@ -5,7 +5,6 @@ import (
 	"os"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -63,9 +62,6 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 }
 
 func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	ctx, longCancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer longCancel()
-
 	_, err := h.getSource(ctx, edp)
 	if err != nil {
 		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
@@ -74,9 +70,6 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 }
 
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	ctx, longCancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer longCancel()
-
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
 		h.log.Log("event", "onCall", "handler", "createWants", "getSourceErr", err)

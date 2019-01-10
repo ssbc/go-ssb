@@ -164,8 +164,6 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 			checkAndClose(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
-		closed = true
-		g.check(req.Stream.Close())
 		return
 
 	case "gossip.ping":

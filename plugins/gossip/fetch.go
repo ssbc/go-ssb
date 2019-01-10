@@ -80,16 +80,15 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		Limit: -1,
 	}
 	start := time.Now()
-	crawlCtx, crawlCancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer crawlCancel()
-	source, err := edp.Source(crawlCtx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+
+	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
 	// info.Log("debug", "called createHistoryStream", "qry", fmt.Sprintf("%v", q))
 
 	for {
-		v, err := source.Next(crawlCtx)
+		v, err := source.Next(ctx)
 		if luigi.IsEOS(err) {
 			break
 		} else if err != nil {
@@ -133,9 +132,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		latestSeq = dmsg.Sequence
 		latestMsg = nextMsg
 	} // hist drained
-
-	if n := latestSeq - startSeq; n > 0 {
-		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
+	n := latestSeq - startSeq
+	info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
+	if n > 0 {
 		if g.sysGauge != nil {
 			g.sysGauge.With("part", "msgs").Add(float64(n))
 		}
