@@ -23,7 +23,7 @@ require (
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.3.0
 	go.cryptoscope.co/librarian v0.1.1
-	go.cryptoscope.co/luigi v0.3.1
+	go.cryptoscope.co/luigi v0.3.2
 	go.cryptoscope.co/margaret v0.0.7
 	go.cryptoscope.co/muxrpc v1.3.0
 	go.cryptoscope.co/netwrap v0.0.1
