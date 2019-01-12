@@ -124,6 +124,7 @@ func (lw *latencyWrapper) Source(ctx context.Context, tipe interface{}, method m
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
+		pSink.Close()
 		lw.sum.With("method", method.String(), "type", "source", "error", errStr).Observe(time.Since(start).Seconds())
 	}()
 
@@ -145,6 +146,7 @@ func (lw *latencyWrapper) Sink(ctx context.Context, method muxrpc.Method, args .
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
+		rootSink.Close()
 		lw.sum.With("method", method.String(), "type", "sink", "error", errStr).Observe(time.Since(start).Seconds())
 	}()
 
@@ -166,6 +168,7 @@ func (lw *latencyWrapper) Duplex(ctx context.Context, tipe interface{}, method m
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
+		rootSink.Close()
 		lw.sum.With("method", method.String(), "type", "duplex sink", "error", errStr).Observe(time.Since(start).Seconds())
 	}()
 
@@ -176,6 +179,7 @@ func (lw *latencyWrapper) Duplex(ctx context.Context, tipe interface{}, method m
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
+		rootfromSink.Close()
 		lw.sum.With("method", method.String(), "type", "duplex source", "error", errStr).Observe(time.Since(start).Seconds())
 	}()
 
