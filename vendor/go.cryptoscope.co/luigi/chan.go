@@ -46,18 +46,19 @@ func NewPipe(opts ...PipeOpt) (Source, Sink) {
 
 	ch := make(chan interface{}, pOpts.bufferSize)
 
-	var closeLock sync.Mutex
 	var closeErr error
+
+	closeCh := make(chan struct{})
 
 	return &chanSource{
 			ch:          ch,
-			closeLock:   &closeLock,
+			closeCh:     closeCh,
 			closeErr:    &closeErr,
 			nonBlocking: pOpts.nonBlocking,
 		}, &chanSink{
 			ch:          ch,
-			closeLock:   &closeLock,
 			closeErr:    &closeErr,
+			closeCh:     closeCh,
 			nonBlocking: pOpts.nonBlocking,
 		}
 }
@@ -65,17 +66,18 @@ func NewPipe(opts ...PipeOpt) (Source, Sink) {
 type chanSource struct {
 	ch          <-chan interface{}
 	nonBlocking bool
-	closeLock   *sync.Mutex
+	closeCh     chan struct{}
 	closeErr    *error
 }
 
 func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
-	var ok bool
-
 	if src.nonBlocking {
 		select {
-		case v, ok = <-src.ch:
-			if !ok {
+		case v = <-src.ch:
+		case <-src.closeCh:
+			select {
+			case v = <-src.ch:
+			default:
 				if *(src.closeErr) != nil {
 					err = *(src.closeErr)
 				} else {
@@ -87,8 +89,11 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 		}
 	} else {
 		select {
-		case v, ok = <-src.ch:
-			if !ok {
+		case v = <-src.ch:
+		case <-src.closeCh:
+			select {
+			case v = <-src.ch:
+			default:
 				if *(src.closeErr) != nil {
 					err = *(src.closeErr)
 				} else {
@@ -96,12 +101,18 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 				}
 			}
 		case <-ctx.Done():
-			err = errors.Wrap(ctx.Err(), "luigi next done")
-			/*
-				src.closeLock.Lock()
-				err = errors.Wrapf(ctx.Err(), "luigi next done (closed: %v)", *(src.closeErr))
-				src.closeLock.Unlock()
-			*/
+			// even if both the context is cancelled and the stream is closed,
+			// we consistently return the closing error
+			select {
+			case <-src.closeCh:
+				if *(src.closeErr) != nil {
+					err = *(src.closeErr)
+				} else {
+					err = EOS{}
+				}
+			default:
+				err = errors.Wrap(ctx.Err(), "luigi next done")
+			}
 		}
 	}
 
@@ -111,37 +122,55 @@ func (src *chanSource) Next(ctx context.Context) (v interface{}, err error) {
 type chanSink struct {
 	ch          chan<- interface{}
 	nonBlocking bool
-	closeLock   *sync.Mutex
+	closeLock   sync.Mutex
+	closeCh     chan struct{}
 	closeErr    *error
 	closeOnce   sync.Once
 }
 
 func (sink *chanSink) Pour(ctx context.Context, v interface{}) error {
-	var err error
-
-	sink.closeLock.Lock()
-	defer sink.closeLock.Unlock()
-	if err := *sink.closeErr; err != nil {
-		return err
+	select {
+	case <-sink.closeCh:
+		// TODO export error
+		return errors.New("pour to closed sink")
+	default:
 	}
 
 	if sink.nonBlocking {
 		select {
 		case sink.ch <- v:
 			return nil
+		case <-sink.closeCh:
+			// we may be called with closed context on a closed sink. in that case we want to return the closed sink error.
+			select {
+			case <-sink.closeCh:
+				// TODO export error
+				return errors.New("pour to closed sink")
+			default:
+				return ctx.Err()
+			}
 		default:
-			err = errors.New("channel not ready for writing")
+			return errors.New("channel not ready for writing")
 		}
 	} else {
 		select {
 		case sink.ch <- v:
 			return nil
+		case <-sink.closeCh:
+			// TODO export error
+			return errors.New("pour to closed sink")
 		case <-ctx.Done():
-			return errors.Wrapf(ctx.Err(), "luigi pour done (closed: %v)", *(sink.closeErr))
+			// we may be called with closed context on a closed sink. in that case we want to return the closed sink error.
+			select {
+			case <-sink.closeCh:
+				// TODO export error
+				return errors.New("pour to closed sink")
+			default:
+				return ctx.Err()
+			}
 		}
 	}
 
-	return err
 }
 
 func (sink *chanSink) Close() error {
@@ -150,10 +179,8 @@ func (sink *chanSink) Close() error {
 
 func (sink *chanSink) CloseWithError(err error) error {
 	sink.closeOnce.Do(func() {
-		sink.closeLock.Lock()
-		defer sink.closeLock.Unlock()
 		*sink.closeErr = err
-		close(sink.ch)
+		close(sink.closeCh)
 	})
 	return nil
 }
