@@ -93,12 +93,14 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 		wg.Add(2)
 		go func() {
 			err := rpc1.(muxrpc.Server).Serve(ctx)
+			// TODO: use error chan
 			r.NoError(err, "rpc1 serve err")
 			wg.Done()
 		}()
 
 		go func() {
 			err := rpc2.(muxrpc.Server).Serve(ctx)
+			// TODO: use error chan
 			r.NoError(err, "rpc2 serve err")
 			wg.Done()
 		}()

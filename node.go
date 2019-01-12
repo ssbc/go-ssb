@@ -146,7 +146,8 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
 	go func() {
 		defer cancel()
 		time.Sleep(15 * time.Minute)

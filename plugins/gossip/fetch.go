@@ -132,9 +132,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		latestSeq = dmsg.Sequence
 		latestMsg = nextMsg
 	} // hist drained
-	n := latestSeq - startSeq
-	info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
-	if n > 0 {
+
+	if n := latestSeq - startSeq; n > 0 {
+		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
 		if g.sysGauge != nil {
 			g.sysGauge.With("part", "msgs").Add(float64(n))
 		}
