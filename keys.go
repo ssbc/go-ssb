@@ -3,6 +3,7 @@ package ssb
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 
@@ -16,40 +17,49 @@ type KeyPair struct {
 	Pair secrethandshake.EdKeyPair
 }
 
+// the format of the .ssb/secret file as defined by the js implementations
+var sbotKey struct {
+	Curve   string   `json:"curve"`
+	ID      *FeedRef `json:"id"`
+	Private string   `json:"private"`
+	Public  string   `json:"public"`
+}
+
+// LoadKeyPair opens fname, ignores any line starting with # and passes it ParseKeyPair
 func LoadKeyPair(fname string) (*KeyPair, error) {
 	f, err := os.Open(fname)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: could not open key file")
+		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: could not open key file %s", fname)
 	}
 	defer f.Close()
 
-	var sbotKey struct {
-		Curve   string   `json:"curve"`
-		ID      *FeedRef `json:"id"`
-		Private string   `json:"private"`
-		Public  string   `json:"public"`
-	}
+	return ParseKeyPair(nocomment.NewReader(f))
+}
 
-	if err := json.NewDecoder(nocomment.NewReader(f)).Decode(&sbotKey); err != nil {
-		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: json decoding of %q failed.", fname)
+// ParseKeyPair json decodes an object from the reader.
+// It expects std base64 encoded data under the `private` and `public` fields.
+func ParseKeyPair(r io.Reader) (*KeyPair, error) {
+	if err := json.NewDecoder(r).Decode(&sbotKey); err != nil {
+		return nil, errors.Wrapf(err, "ssb.Parse: JSON decoding failed")
 	}
 
 	public, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(sbotKey.Public, ".ed25519"))
 	if err != nil {
-		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: base64 decode of public part failed.")
+		return nil, errors.Wrapf(err, "ssb.Parse: base64 decode of public part failed")
 	}
 
 	private, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(sbotKey.Private, ".ed25519"))
 	if err != nil {
-		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: base64 decode of private part failed.")
+		return nil, errors.Wrapf(err, "ssb.Parse: base64 decode of private part failed")
 	}
 
 	var kp secrethandshake.EdKeyPair
 	copy(kp.Public[:], public)
 	copy(kp.Secret[:], private)
 
-	return &KeyPair{
+	ssbkp := KeyPair{
 		Id:   sbotKey.ID,
 		Pair: kp,
-	}, nil
+	}
+	return &ssbkp, nil
 }
