@@ -120,14 +120,14 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 
 	f, err := os.Create(tmpPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error creating tmp file at %q", tmpPath)
+		return nil, errors.Wrapf(err, "blobstore.Put: error creating tmp file at %q", tmpPath)
 	}
 
 	h := sha256.New()
 	tee := io.TeeReader(blob, h)
 	_, err = io.Copy(f, tee)
-	if err != nil {
-		return nil, errors.Wrap(err, "error copying")
+	if err != nil && !luigi.IsEOS(err) {
+		return nil, errors.Wrap(err, "blobstore.Put: error copying")
 	}
 
 	ref := &ssb.BlobRef{
@@ -137,7 +137,7 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 
 	hexDirPath, err := store.getHexDirPath(ref)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting hex dir path")
+		return nil, errors.Wrap(err, "blobstore.Put: error getting hex dir path")
 	}
 
 	err = os.Mkdir(hexDirPath, 0700)
@@ -145,13 +145,13 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 		perr, ok := err.(*os.PathError)
 		// ignore errors that indicate that the directory already exists
 		if !ok || perr.Err != syscall.EEXIST {
-			return nil, errors.Wrap(err, "error creating hex dir")
+			return nil, errors.Wrap(err, "blobstore.Put: error creating hex dir")
 		}
 	}
 
 	finalPath, err := store.getPath(ref)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting final path")
+		return nil, errors.Wrap(err, "blobstore.Put: error getting final path")
 	}
 
 	err = os.Rename(tmpPath, finalPath)
@@ -164,7 +164,7 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 		Ref: ref,
 	})
 
-	return ref, errors.Wrap(err, "error in notification handler")
+	return ref, errors.Wrap(err, "blobstore.Put: error in notification handler")
 }
 
 func (store *blobStore) Delete(ref *ssb.BlobRef) error {
