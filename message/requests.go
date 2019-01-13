@@ -48,3 +48,17 @@ type DeserializedMessage struct {
 	Hash      string           `json:"hash"`
 	Content   json.RawMessage  `json:"content"`
 }
+
+type LegacyMessage struct {
+	Previous  *ssb.MessageRef  `json:"previous"`
+	Author    string           `json:"author"`
+	Sequence  margaret.BaseSeq `json:"sequence"`
+	Timestamp int64            `json:"timestamp"`
+	Hash      string           `json:"hash"`
+	Content   interface{}      `json:"content"`
+}
+
+type SignedLegacyMessage struct {
+	LegacyMessage
+	Signature Signature `json:"signature"`
+}

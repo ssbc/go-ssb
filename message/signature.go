@@ -11,6 +11,10 @@ import (
 
 type Signature string
 
+func EncodeSignature(s []byte) Signature {
+	return Signature(base64.StdEncoding.EncodeToString(s) + ".sig.ed25519")
+}
+
 type SigAlgo int
 
 const (

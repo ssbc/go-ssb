@@ -28,7 +28,7 @@ func unicodeEscapeSome(s string) string {
 }
 
 // new Buffer(in, "binary") returns soemthing like (u16 && 0xff)
-func internalV8Binary(in []byte) ([]byte, error) {
+func InternalV8Binary(in []byte) ([]byte, error) {
 	var u16 bytes.Buffer
 	enc := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
 	trans := transform.NewWriter(&u16, enc)

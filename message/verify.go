@@ -50,7 +50,7 @@ func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string
-	v8warp, err := internalV8Binary(enc)
+	v8warp, err := InternalV8Binary(enc)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could hash convert message", dmsg.Author.Ref(), dmsg.Sequence)
 	}

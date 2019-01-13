@@ -1,11 +1,10 @@
 package repo
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/secretstream/secrethandshake"
 	"go.cryptoscope.co/ssb"
 )
 
@@ -14,29 +13,18 @@ func OpenKeyPair(r Interface) (*ssb.KeyPair, error) {
 	keyPair, err := ssb.LoadKeyPair(secPath)
 	if err != nil {
 		if !os.IsNotExist(errors.Cause(err)) {
-			return nil, errors.Wrap(err, "error opening key pair")
+			return nil, errors.Wrap(err, "repo: error opening key pair")
 		}
 
-		// generate new keypair
-		kp, err := secrethandshake.GenEdKeyPair(nil)
+		keyPair, err = ssb.NewKeyPair(nil)
 		if err != nil {
-			return nil, errors.Wrap(err, "error building key pair")
+			return nil, errors.Wrap(err, "repo: no keypair but couldn't create one either")
 		}
 
-		keyPair = &ssb.KeyPair{
-			Id:   &ssb.FeedRef{ID: kp.Public[:], Algo: "ed25519"},
-			Pair: *kp,
+		if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
+			return nil, errors.Wrap(err, "repo: error saving new identity file")
 		}
-
-		// TODO:
-		// keyFile, err := os.Create(secPath)
-		// if err != nil {
-		// 	return nil, errors.Wrap(err, "error creating secret file")
-		// }
-		// if err:=ssb.SaveKeyPair(keyFile);err != nil {
-		// 	return nil, errors.Wrap(err, "error saving secret file")
-		// }
-		fmt.Println("warning: save new keypair!")
+		log.Printf("saved identity %s to %s", keyPair.Id.Ref(), secPath)
 	}
 
 	return keyPair, nil

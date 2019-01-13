@@ -89,7 +89,7 @@ func TestInternalV8String(t *testing.T) {
 		r.Equal(fmt.Sprintf("%x", v), string(u8), "assuming we are dealing with utf8 on our side")
 		*/
 
-		got, err := internalV8Binary([]byte(v.in))
+		got, err := InternalV8Binary([]byte(v.in))
 		r.NoError(err)
 		p := fmt.Sprintf("%x", got)
 

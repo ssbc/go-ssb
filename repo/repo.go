@@ -2,10 +2,10 @@ package repo
 
 import (
 	"context"
+	"log"
 	"os"
 	"path"
 
-	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 
@@ -22,8 +22,6 @@ import (
 )
 
 var _ Interface = repo{}
-
-var check = logging.CheckFatal
 
 // New creates a new repository value, it opens the keypair and database from basePath if it is already existing
 func New(basePath string) Interface {
@@ -70,6 +68,11 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
 
 	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		defer func() {
+			// todo: fsck
+			log.Printf("mlog %s: badger closed: %v", name, errors.Wrapf(db.Close(), "failed to close badger db %s", dbPath))
+			log.Printf("mlog %s: state file closed:%v", name, errors.Wrapf(idxStateFile.Close(), "failed to close index file %s", statePath))
+		}()
 		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), mlogSink.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying rootLog for mlog")
@@ -106,13 +109,18 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 	sinkidx := f(idx)
 
 	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		defer func() {
+			// todo: register "waiters" on repo to implement sane closing
+			err := errors.Wrapf(db.Close(), "failed to close badger db %s", pth)
+			log.Printf("idx %s: closed: %v", name, err)
+		}()
 		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying root log")
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == nil || err == context.Canceled {
+		if err == context.Canceled {
 			return nil
 		}
 
@@ -141,13 +149,18 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 	sinkidx := f(db)
 
 	serve := func(ctx context.Context, rootLog margaret.Log) error {
+		defer func() {
+			// todo: register "waiters" on repo to implement sane closing
+			err := errors.Wrapf(db.Close(), "failed to close badger db %s", pth)
+			log.Printf("badger idx %s: closed: %v", name, err)
+		}()
 		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying root log")
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == nil || err == context.Canceled {
+		if err == context.Canceled {
 			return nil
 		}
 

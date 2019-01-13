@@ -7,7 +7,9 @@ An example repo layout:
 .ssb-go
 .ssb-go/manifest.json
 .ssb-go/secret
-.ssb-go/log
+.ssb-go/log/data
+.ssb-go/log/jrnl
+.ssb-go/log/ofst
 
 .ssb-go/blobs
 .ssb-go/blobs/tmp
