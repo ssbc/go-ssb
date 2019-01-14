@@ -2,6 +2,7 @@ package control
 
 import (
 	"github.com/cryptix/go/logging"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 )
@@ -10,8 +11,8 @@ type plug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, n ssb.Node) ssb.Plugin {
-	return &plug{h: New(i, n)}
+func NewPlug(i logging.Interface, n ssb.Node, publish margaret.Log) ssb.Plugin {
+	return &plug{h: New(i, n, publish)}
 }
 
 func (p plug) Name() string {
@@ -19,7 +20,7 @@ func (p plug) Name() string {
 }
 
 func (p plug) Method() muxrpc.Method {
-	return muxrpc.Method{"gossip"}
+	return muxrpc.Method{"ctrl"}
 }
 
 func (p plug) Handler() muxrpc.Handler {

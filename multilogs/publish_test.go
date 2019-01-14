@@ -7,13 +7,13 @@ import (
 	"math/rand"
 	"testing"
 
-	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/ssb"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -55,7 +55,7 @@ func TestSignMessages(t *testing.T) {
 	authorLog, err := userFeeds.Get(librarian.Addr(testAuthor.Id.ID))
 	r.NoError(err)
 
-	w, err := OpenPublishLog(rl, authorLog, *testAuthor)
+	w, err := OpenPublishLog(rl, userFeeds, *testAuthor)
 	r.NoError(err)
 
 	var tmsgs = []interface{}{
@@ -75,11 +75,12 @@ func TestSignMessages(t *testing.T) {
 		},
 	}
 	for i, msg := range tmsgs {
-		err = w.Pour(tctx, msg)
+		newSeq, err := w.Append(msg)
 		r.NoError(err, "failed to pour test message %d", i)
-		newSeq, err := authorLog.Seq().Value()
+		currSeq, err := authorLog.Seq().Value()
 		r.NoError(err, "failed to get log seq")
-		r.Equal(margaret.BaseSeq(i), newSeq, "not empty")
+		r.Equal(margaret.BaseSeq(i), newSeq, "advanced")
+		r.Equal(newSeq, currSeq, "same new sequences")
 	}
 
 	latest, err := authorLog.Seq().Value()

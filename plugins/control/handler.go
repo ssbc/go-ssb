@@ -2,11 +2,13 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -16,10 +18,16 @@ import (
 type handler struct {
 	node ssb.Node
 	info logging.Interface
+
+	publish margaret.Log
 }
 
-func New(i logging.Interface, n ssb.Node) muxrpc.Handler {
-	return &handler{info: i, node: n}
+func New(i logging.Interface, n ssb.Node, p margaret.Log) muxrpc.Handler {
+	return &handler{
+		publish: p,
+		info:    i,
+		node:    n,
+	}
 }
 
 func (h *handler) check(err error) {
@@ -54,26 +62,40 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 
 	switch req.Method.String() {
 
-	case "gossip.connect":
+	case "ctrl.connect":
 		if len(req.Args) != 1 {
 			// TODO: use secretstream
 			h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
-			checkAndClose(errors.New("usage: gossip.connect host:port:key"))
+			checkAndClose(errors.New("usage: ctrl.connect host:port:key"))
 			return
 		}
 		destString, ok := req.Args[0].(string)
 		if !ok {
-			err := errors.Errorf("gossip.connect call: expected argument to be string, got %T", req.Args[0])
+			err := errors.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args[0])
 			checkAndClose(err)
 			return
 		}
 		if err := h.connect(ctx, destString); err != nil {
-			checkAndClose(errors.Wrap(err, "gossip.connect failed."))
+			checkAndClose(errors.Wrap(err, "ctrl.connect failed."))
 			return
 		}
 		closed = true
 		h.check(req.Return(ctx, "connected"))
 
+	// TODO: our plugins have to share one root namespace
+	case "ctrl.publish":
+		if n := len(req.Args); n != 1 {
+			req.CloseWithError(errors.Errorf("publish: bad request. expected 1 argument got %d", n))
+			return
+		}
+
+		seq, err := h.publish.Append(req.Args[0])
+		if err != nil {
+			req.CloseWithError(errors.Wrap(err, "publish: pour failed"))
+			return
+		}
+		h.info.Log("published", seq.Seq())
+		checkAndClose(req.Return(ctx, fmt.Sprintf("published msg: %d", seq.Seq())))
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
 	}

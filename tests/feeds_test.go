@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -175,10 +174,7 @@ func TestFeedFromGo(t *testing.T) {
 
 	s, alice, done, cleanup := initInterop(t, before, "")
 
-	authorLog, err := s.UserFeeds.Get(librarian.Addr(s.KeyPair.Id.ID))
-	r.NoError(err)
-
-	publish, err := multilogs.OpenPublishLog(s.RootLog, authorLog, *s.KeyPair)
+	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	r.NoError(err)
 
 	var tmsgs = []interface{}{
@@ -203,8 +199,9 @@ func TestFeedFromGo(t *testing.T) {
 		},
 	}
 	for i, msg := range tmsgs {
-		err = publish.Pour(context.TODO(), msg)
+		newSeq, err := publish.Append(msg)
 		r.NoError(err, "failed to publish test message %d", i)
+		r.NotNil(newSeq)
 	}
 
 	defer cleanup()

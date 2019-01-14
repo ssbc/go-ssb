@@ -148,7 +148,7 @@ CAVEAT: only one argument...
 		{
 			Name:   "publish",
 			Usage:  "p",
-			Action: todo, //publishCmd,
+			Action: publishCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{Name: "type", Value: "post"},
 				&cli.StringFlag{Name: "text", Value: "Hello, World!"},
@@ -307,12 +307,35 @@ func connectCmd(ctx *cli.Context) error {
 	if n := len(fields); n != 3 {
 		return errors.Errorf("connect: expecting host:port:pubkey - only got %d fields.", n)
 	}
-	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method{"gossip", "connect"}, to)
+	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method{"ctrl", "connect"}, to)
 	if err != nil {
 		return errors.Wrapf(err, "connect: async call failed.")
 	}
 	log.Log("event", "connect reply")
 	goon.Dump(val)
+	return nil
+}
+
+func publishCmd(ctx *cli.Context) error {
+	arg := map[string]interface{}{
+		"text": ctx.String("text"),
+		"type": ctx.String("type"),
+	}
+	if r := ctx.String("root"); r != "" {
+		arg["root"] = r
+		if b := ctx.String("branch"); b != "" {
+			arg["branch"] = b
+		} else {
+			arg["branch"] = r
+		}
+	}
+	type reply map[string]interface{}
+	v, err := client.Async(longctx, reply{}, muxrpc.Method{"ctrl", "publish"}, arg)
+	if err != nil {
+		return errors.Wrapf(err, "publish call failed.")
+	}
+	log.Log("event", "published")
+	goon.Dump(v)
 	return nil
 }
 
@@ -397,28 +420,7 @@ func privateUnboxCmd(ctx *cli.Context) error {
 	return client.Close()
 }
 
-func publishCmd(ctx *cli.Context) error {
-	arg := map[string]interface{}{
-		"text": ctx.String("text"),
-		"type": ctx.String("type"),
-	}
-	if r := ctx.String("root"); r != "" {
-		arg["root"] = r
-		if b := ctx.String("branch"); b != "" {
-			arg["branch"] = b
-		} else {
-			arg["branch"] = r
-		}
-	}
-	var reply map[string]interface{}
-	err := client.Call("publish", arg, &reply)
-	if err != nil {
-		return errors.Wrapf(err, "publish call failed.")
-	}
-	log.Log("event", "published")
-	goon.Dump(reply)
-	return client.Close()
-}
+
 
 
 */

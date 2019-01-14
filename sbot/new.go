@@ -44,6 +44,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		go func() {
 			err := f(ctx, l)
 			if err != nil {
+				// todo: oerhaul closer system
 				log.Log("event", "component terminated", "component", name, "error", err)
 				err := s.Close()
 				logging.CheckFatal(err)
@@ -56,13 +57,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	r := repo.New(s.repoPath)
 	rootLog, err := repo.OpenLog(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open rootlog")
+		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
 	}
 	s.RootLog = rootLog
 
 	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to ...")
+		return nil, errors.Wrap(err, "sbot: failed to open user sublogs")
 	}
 	s.closers.addCloser(uf)
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
@@ -70,7 +71,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "index", "contacts"), r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to ...")
+		return nil, errors.Wrap(err, "sbot: failed to open contacts idx")
 	}
 	s.closers.addCloser(gb)
 	goThenLog(ctx, rootLog, "contacts", serveContacts)
@@ -78,7 +79,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	bs, err := repo.OpenBlobStore(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to ...")
+		return nil, errors.Wrap(err, "sbot: failed to open blob store")
 	}
 	s.BlobStore = bs
 	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs, s.eventCounter, s.systemGauge)
@@ -86,9 +87,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.KeyPair, err = repo.OpenKeyPair(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to ...")
+		return nil, errors.Wrap(err, "sbot: failed to get keypair")
 	}
 	id := s.KeyPair.Id
+
+	publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+	}
 
 	pmgr := ssb.NewPluginManager()
 	ctrl := ssb.NewPluginManager()
@@ -132,7 +138,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to create node")
 	}
 	s.Node = node
-	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
+
+	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node, publishLog))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
