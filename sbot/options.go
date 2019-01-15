@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -62,6 +63,7 @@ func WithListenAddr(addr string) Option {
 		return errors.Wrap(err, "failed to parse tcp listen addr")
 	}
 }
+
 func WithAppKey(k []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(k); n != 32 {
@@ -69,6 +71,14 @@ func WithAppKey(k []byte) Option {
 		}
 		s.appKey = k
 		return nil
+	}
+}
+
+func WithJSONKeyPair(blob string) Option {
+	return func(s *Sbot) error {
+		var err error
+		s.KeyPair, err = ssb.ParseKeyPair(strings.NewReader(blob))
+		return errors.Wrap(err, "JSON KeyPair decode failed")
 	}
 }
 

@@ -85,9 +85,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
-	s.KeyPair, err = repo.OpenKeyPair(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to get keypair")
+	if s.KeyPair == nil {
+		s.KeyPair, err = repo.OpenKeyPair(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to get keypair")
+		}
 	}
 	id := s.KeyPair.Id
 	auth := gb.Authorizer(id, 4)
