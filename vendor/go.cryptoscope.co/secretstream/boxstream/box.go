@@ -39,17 +39,17 @@ var final [18]byte
 // Boxer encrypts everything that is written to it
 type Boxer struct {
 	input  *io.PipeReader
-	output io.Writer
+	output io.WriteCloser
 	secret *[32]byte
 	nonce  *[24]byte
 }
 
 // NewBoxer returns a Boxer wich encrypts everything that is written to the passed writer
-func NewBoxer(w io.Writer, nonce *[24]byte, secret *[32]byte) io.WriteCloser {
+func NewBoxer(wc io.WriteCloser, nonce *[24]byte, secret *[32]byte) io.WriteCloser {
 	pr, pw := io.Pipe()
 	b := &Boxer{
 		input:  pr,
-		output: w,
+		output: wc,
 		secret: secret,
 		nonce:  nonce,
 	}
@@ -81,10 +81,16 @@ func (b *Boxer) loop() {
 		if err != nil {
 			running = false
 			if err2 := b.input.CloseWithError(err); err2 != nil {
-				log.Print("Boxer/CloseWithErr: ", err)
+				log.Print("Boxer: pipe CloseWithErr failed: ", err)
 			}
 		}
 	}
+
+	defer func() {
+		if err := b.output.Close(); err != nil {
+			log.Print("Boxer: output writer close failed: ", err)
+		}
+	}()
 
 	// prepare nonces
 	copy(nonce1[:], b.nonce[:])
@@ -110,8 +116,7 @@ func (b *Boxer) loop() {
 		check(err)
 
 		// slice mac from box
-		_, err = hdrPlain.Write(boxed[:16]) // ???
-		check(err)
+		hdrPlain.Write(boxed[:16]) // ???
 
 		if eof {
 			hdrPlain.Reset()

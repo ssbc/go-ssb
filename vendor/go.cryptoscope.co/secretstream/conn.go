@@ -19,14 +19,12 @@ package secretstream
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"net"
-	"strings"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/netwrap"
 )
 
@@ -58,35 +56,30 @@ type Conn struct {
 	local, remote []byte
 }
 
-type MultiError []error
-
-func (merr MultiError) Error() string {
-	errStrs := make([]string, len(merr))
-
-	// single bounds check
-	_ = errStrs[len(merr)-1]
-
-	for i := range merr {
-		errStrs[i] = fmt.Sprintf("%q", merr[i].Error())
-	}
-
-	return fmt.Sprintf("%d errors: %s", len(merr), strings.Join(errStrs, ", "))
-}
-
 // Close closes the underlying net.Conn
 func (conn *Conn) Close() error {
 	werr := conn.WriteCloser.Close()
 	rerr := conn.ReadCloser.Close()
 
-	if werr == nil {
-		return errors.Wrap(werr, "error closing boxstream boxer")
+	werr = errors.Wrap(werr, "boxstream: error closing boxer")
+	rerr = errors.Wrap(rerr, "boxstream: error closing unboxer")
+
+	// TODO: just to be double sure the FD is closed if the piping (un)boxes mess this up?
+	// defer conn.conn.Close()
+
+	if werr != nil && rerr != nil {
+		return errors.Wrap(multierror.Append(werr, rerr), "error closing both boxstream boxer and unboxer")
 	}
 
-	if rerr == nil {
-		return errors.Wrap(rerr, "error closing boxstream unboxer")
+	if werr != nil {
+		return werr
 	}
 
-	return errors.Wrap(MultiError{werr, rerr}, "error closing both boxstream boxer and unboxer")
+	if rerr != nil {
+		return rerr
+	}
+
+	return nil
 }
 
 // LocalAddr returns the local net.Addr with the local public key
