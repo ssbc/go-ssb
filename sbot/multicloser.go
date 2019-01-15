@@ -4,7 +4,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 )
 
 type multiCloser struct {
@@ -25,8 +26,8 @@ func (mc *multiCloser) Close() error {
 	mc.l.Lock()
 	defer mc.l.Unlock()
 
-	for _, c := range mc.cs {
-		multierror.Append(err, c.Close())
+	for i, c := range mc.cs {
+		err = multierror.Append(err, errors.Wrapf(c.Close(), "multiCloser: c%d failed", i))
 	}
 
 	return err
