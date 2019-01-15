@@ -1,6 +1,7 @@
 package ssb
 
 import (
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -28,6 +29,10 @@ func (ict instrumentedConnTracker) Count() uint {
 	return n
 }
 
+func (ict instrumentedConnTracker) CloseAll() {
+	ict.root.CloseAll()
+}
+
 func (ict instrumentedConnTracker) OnAccept(conn net.Conn) bool {
 	ok := ict.root.OnAccept(conn)
 	if ok {
@@ -49,16 +54,32 @@ type ConnTracker interface {
 	OnAccept(conn net.Conn) bool
 	OnClose(conn net.Conn) time.Duration
 	Count() uint
+	CloseAll()
 }
+type connEntry struct {
+	c       net.Conn
+	started time.Time
+}
+type connLookupMap map[[32]byte]connEntry
 
 func NewConnTracker() ConnTracker {
-	return &connTracker{active: make(map[[32]byte]time.Time)}
+	return &connTracker{active: make(connLookupMap)}
 }
 
 // tracks open connections and refuses to established pubkeys
 type connTracker struct {
 	activeLock sync.Mutex
-	active     map[[32]byte]time.Time
+	active     connLookupMap
+}
+
+func (ct *connTracker) CloseAll() {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	for k, c := range ct.active {
+		if err := c.c.Close(); err != nil {
+			log.Println("failed to close %x: %v", k[:5], err)
+		}
+	}
 }
 
 func (ct *connTracker) Count() uint {
@@ -84,7 +105,10 @@ func (ct *connTracker) OnAccept(conn net.Conn) bool {
 	if ok {
 		return false
 	}
-	ct.active[k] = time.Now()
+	ct.active[k] = connEntry{
+		c:       conn,
+		started: time.Now(),
+	}
 	return true
 }
 
@@ -93,10 +117,10 @@ func (ct *connTracker) OnClose(conn net.Conn) time.Duration {
 	defer ct.activeLock.Unlock()
 
 	k := toActive(conn.RemoteAddr())
-	when, ok := ct.active[k]
+	who, ok := ct.active[k]
 	if !ok {
 		return 0
 	}
 	delete(ct.active, k)
-	return time.Since(when)
+	return time.Since(who.started)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/agl/ed25519"
@@ -175,6 +176,11 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	for {
 		conn, err := n.l.Accept()
 		if err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				// yikes way of handling this
+				// but means this needs to be restarted anyway
+				return nil
+			}
 			n.log.Log("msg", "node/Serve: failed to accepting connection", "err", err)
 			continue
 		}
@@ -240,9 +246,13 @@ func (n *node) GetConnTracker() ConnTracker {
 }
 
 func (n *node) Close() error {
+	err := n.l.Close()
+	if err != nil {
+		return errors.Wrap(err, "ssb: network node failed to close it's listener")
+	}
 	if cnt := n.connTracker.Count(); cnt > 0 {
 		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
+		n.connTracker.CloseAll()
 	}
-	err := n.l.Close()
-	return errors.Wrap(err, "ssb: network node failed to close it's listener")
+	return nil
 }
