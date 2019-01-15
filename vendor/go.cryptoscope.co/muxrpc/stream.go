@@ -105,7 +105,6 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 	switch str.inCap {
 	case streamCapNone:
 		return nil, ErrStreamNotReadable
-
 	}
 
 	// cancellation
@@ -130,6 +129,7 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 	}
 
 	if pkt.Flag.Get(codec.FlagEndErr) {
+		// TODO: return error body?
 		return nil, luigi.EOS{}
 	}
 
@@ -160,7 +160,6 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 		}
 	} else if pkt.Flag.Get(codec.FlagString) {
 		dst = string(pkt.Body)
-
 	} else {
 		dst = []byte(pkt.Body)
 	}
@@ -257,7 +256,7 @@ func (str *stream) doCloseWithError(closeErr error) error {
 		err error
 	)
 
-	if luigi.IsEOS(closeErr) {
+	if closeErr == nil || luigi.IsEOS(errors.Cause(closeErr)) {
 		pkt = newEndOkayPacket(str.req, isStream)
 	} else {
 		pkt, err = newEndErrPacket(str.req, isStream, closeErr)

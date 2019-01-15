@@ -56,7 +56,7 @@ func (req *Request) Return(ctx context.Context, v interface{}) error {
 
 func (req *Request) CloseWithError(cerr error) error {
 	var inErr error
-	if luigi.IsEOS(cerr) {
+	if cerr == nil || luigi.IsEOS(errors.Cause(cerr)) {
 		inErr = req.in.Close()
 	} else {
 		inErr = req.in.(luigi.ErrorCloser).CloseWithError(cerr)
@@ -65,7 +65,10 @@ func (req *Request) CloseWithError(cerr error) error {
 		return errors.Wrap(inErr, "failed to close request input")
 	}
 
-	return errors.Wrap(req.Stream.Close(), "muxrpc: failed to close request stream")
+	// we really need to make sure we close the streams
+	// "you can't" doesn't work here
+	s := req.Stream.(*stream)
+	return errors.Wrap(s.doCloseWithError(cerr), "muxrpc: failed to close request stream")
 }
 
 func (req *Request) Close() error {

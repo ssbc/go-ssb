@@ -49,9 +49,9 @@ func (hm *HandlerMux) HandleConnect(ctx context.Context, edp Endpoint) {
 
 	for _, h := range hm.handlers {
 		go func(h Handler) {
-			defer wg.Done()
 
 			h.HandleConnect(ctx, edp)
+			wg.Done()
 		}(h)
 	}
 

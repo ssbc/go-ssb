@@ -44,7 +44,7 @@ type packer struct {
 }
 
 // Next returns the next packet from the underlying stream.
-func (pkr *packer) Next(ctx context.Context) (interface{}, error) {
+func (pkr *packer) Next(_ context.Context) (interface{}, error) {
 	pkr.rl.Lock()
 	defer pkr.rl.Unlock()
 
@@ -57,13 +57,15 @@ func (pkr *packer) Next(ctx context.Context) (interface{}, error) {
 	default:
 	}
 
-	if errors.Cause(err) == io.EOF {
-		if err = pkr.Close(); err != nil {
-			return nil, errors.Wrap(err, "error closing connection after reading EOF")
+	if err != nil {
+		if cerr := pkr.Close(); cerr != nil {
+			return nil, errors.Wrapf(cerr, "error closing connection on read error %v", err)
 		}
 
-		return nil, luigi.EOS{}
-	} else if err != nil {
+		if errors.Cause(err) == io.EOF {
+			return nil, luigi.EOS{}
+		}
+
 		return nil, errors.Wrap(err, "error reading packet")
 	}
 
@@ -73,7 +75,7 @@ func (pkr *packer) Next(ctx context.Context) (interface{}, error) {
 }
 
 // Pour sends a packet to the underlying stream.
-func (pkr *packer) Pour(ctx context.Context, v interface{}) error {
+func (pkr *packer) Pour(_ context.Context, v interface{}) error {
 	pkt, ok := v.(*codec.Packet)
 	if !ok {
 		return errors.Errorf("packer sink expected type *codec.Packet, got %T", v)
@@ -87,6 +89,9 @@ func (pkr *packer) Pour(ctx context.Context, v interface{}) error {
 		case <-pkr.closing:
 			err = errSinkClosed
 		default:
+		}
+		if cerr := pkr.Close(); cerr != nil {
+			return errors.Wrapf(cerr, "error closing connection on write err:%v", err)
 		}
 	}
 
