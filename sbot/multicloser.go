@@ -30,5 +30,10 @@ func (mc *multiCloser) Close() error {
 		err = multierror.Append(err, errors.Wrapf(c.Close(), "multiCloser: c%d failed", i))
 	}
 
+	me := err.(*multierror.Error)
+	if len(me.Errors) == 0 {
+		return nil
+	}
+
 	return err
 }

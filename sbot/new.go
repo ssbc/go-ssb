@@ -44,7 +44,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		go func() {
 			err := f(ctx, l)
 			if err != nil {
-				// todo: oerhaul closer system
 				log.Log("event", "component terminated", "component", name, "error", err)
 				err := s.Close()
 				logging.CheckFatal(err)
@@ -141,6 +140,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to create node")
 	}
 	s.Node = node
+	s.closers.addCloser(s.Node)
 
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node, publishLog))
 

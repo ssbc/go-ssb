@@ -3,6 +3,7 @@ package ssb
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -33,6 +34,10 @@ type Node interface {
 	Connect(ctx context.Context, addr net.Addr) error
 	Serve(context.Context, ...muxrpc.HandlerWrapper) error
 	GetListenAddr() net.Addr
+
+	GetConnTracker() ConnTracker
+
+	io.Closer
 }
 
 type node struct {
@@ -228,4 +233,16 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 		}
 	}
 	return conn, nil
+}
+
+func (n *node) GetConnTracker() ConnTracker {
+	return n.connTracker
+}
+
+func (n *node) Close() error {
+	if cnt := n.connTracker.Count(); cnt > 0 {
+		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
+	}
+	err := n.l.Close()
+	return errors.Wrap(err, "ssb: network node failed to close it's listener")
 }
