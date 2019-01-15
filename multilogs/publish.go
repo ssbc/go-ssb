@@ -50,7 +50,7 @@ func (pl publishLog) Append(val interface{}) (margaret.Seq, error) {
 	// set metadata
 	var newMsg message.LegacyMessage
 	// user control would be nice here
-	// newMsg.Timestamp = time.Now().Unix()
+	newMsg.Timestamp = time.Now().Unix()
 	newMsg.Author = pl.key.Id.Ref()
 	newMsg.Hash = "sha256"
 	newMsg.Content = val
@@ -137,7 +137,7 @@ func (pl publishLog) Append(val interface{}) (margaret.Seq, error) {
 	}
 
 	log.Println("new message key:", mr.Ref())
-	return newMsg.Sequence, nil
+	return newMsg.Sequence - 1, nil
 }
 
 // OpenPublishLog needs the base datastore (root or receive log - offset2)
