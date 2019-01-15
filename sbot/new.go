@@ -90,6 +90,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to get keypair")
 	}
 	id := s.KeyPair.Id
+	auth := gb.Authorizer(id, 4)
 
 	publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	if err != nil {
@@ -109,7 +110,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		start := time.Now()
-		err = graph.Authorize(conn, kitlog.With(log, "module", "auth handler"), gb, id, 4)
+		err = auth.Authorize(remote)
 		if s.latency != nil {
 			s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
 		}

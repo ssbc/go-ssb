@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net"
 	"os/exec"
 	"sync"
 
@@ -30,6 +29,7 @@ type Builder interface {
 
 	Build() (*Graph, error)
 	Follows(*ssb.FeedRef) ([]*ssb.FeedRef, error)
+	Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer
 }
 
 type builder struct {
@@ -91,6 +91,15 @@ func NewBuilder(log log.Logger, db *badger.DB) Builder {
 	}, contactsIdx)
 
 	return b
+}
+
+func (b *builder) Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer {
+	return &authorizer{
+		b:       b,
+		from:    from,
+		maxHops: maxHops,
+		log:     b.log,
+	}
 }
 
 func (b *builder) Build() (*Graph, error) {
@@ -270,36 +279,3 @@ func (n contactNode) String() string {
 }
 
 type key2node map[[32]byte]graph.Node
-
-func Authorize(conn net.Conn, log log.Logger, b Builder, local *ssb.FeedRef, maxHops int) error {
-	remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-	if err != nil {
-		return errors.Wrap(err, "graph/Authorize: expected an address containing an shs-bs addr")
-	}
-
-	fg, err := b.Build()
-	if err != nil {
-		return errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
-	}
-
-	if fg.Nodes() == 0 { // trust on first use
-		return nil
-	}
-
-	if fg.Follows(local, remote) {
-		return nil
-	}
-
-	var distLookup *Lookup
-	distLookup, err = fg.MakeDijkstra(local)
-	if err != nil {
-		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
-	}
-
-	_, d := distLookup.Dist(remote)
-	if math.IsInf(d, -1) || int(d) > maxHops {
-		return &ssb.ErrOutOfReach{int(d), maxHops}
-	}
-
-	return nil
-}
