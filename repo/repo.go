@@ -38,9 +38,8 @@ func (r repo) GetPath(rel ...string) string {
 // OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //
 // Exposes the badger db for 100% hackability. This will go away in future versions!
+// badger + librarian as index
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
-	// badger + librarian as index
-	opts := badger.DefaultOptions
 
 	dbPath := r.GetPath("sublogs", name, "db")
 	err := os.MkdirAll(dbPath, 0700)
@@ -48,10 +47,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		return nil, nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
 	}
 
-	opts.Dir = dbPath
-	opts.ValueDir = opts.Dir // we have small values in this one
-
-	db, err := badger.Open(opts)
+	db, err := badger.Open(badgerOpts(dbPath))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
 	}
@@ -97,11 +93,7 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 		return nil, nil, nil, errors.Wrap(err, "error making index directory")
 	}
 
-	opts := badger.DefaultOptions
-	opts.Dir = pth
-	opts.ValueDir = opts.Dir
-
-	db, err := badger.Open(opts)
+	db, err := badger.Open(badgerOpts(pth))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
 	}
@@ -140,11 +132,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 		return nil, nil, nil, errors.Wrap(err, "error making index directory")
 	}
 
-	opts := badger.DefaultOptions
-	opts.Dir = pth
-	opts.ValueDir = opts.Dir
-
-	db, err := badger.Open(opts)
+	db, err := badger.Open(badgerOpts(pth))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
 	}
