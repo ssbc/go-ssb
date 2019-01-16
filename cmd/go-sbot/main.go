@@ -104,7 +104,7 @@ func main() {
 
 	feeds, err := uf.List()
 	checkFatal(err)
-	log.Log("event", "repo open", "feeds", len(feeds))
+
 	SystemEvents.With("event", "openedRepo").Add(1)
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
@@ -123,12 +123,15 @@ func main() {
 		}
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
-		log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
+		if len(feeds) < 20 {
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
+		}
 		followCnt += uint(len(f))
-
 	}
+
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
 	RepoStats.With("part", "follows").Set(float64(followCnt))
+	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount, "follows", followCnt)
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
