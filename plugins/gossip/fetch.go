@@ -81,14 +81,17 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	}
 	start := time.Now()
 
-	source, err := edp.Source(ctx, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	toLong, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	source, err := edp.Source(toLong, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
 	// info.Log("debug", "called createHistoryStream", "qry", fmt.Sprintf("%v", q))
 
 	for {
-		v, err := source.Next(ctx)
+		v, err := source.Next(toLong)
 		if luigi.IsEOS(err) {
 			break
 		} else if err != nil {
