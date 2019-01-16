@@ -77,7 +77,7 @@ func (ct *connTracker) CloseAll() {
 	defer ct.activeLock.Unlock()
 	for k, c := range ct.active {
 		if err := c.c.Close(); err != nil {
-			log.Println("failed to close %x: %v", k[:5], err)
+			log.Printf("failed to close %x: %v\n", k[:5], err)
 		}
 	}
 }

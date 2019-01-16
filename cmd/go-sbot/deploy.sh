@@ -2,7 +2,7 @@
 
 set -e 
 export CGO_ENABLED=0
-export GOROOT=$HOME/go.tmproot
+#export GOROOT=$HOME/go.tmproot
 
 export GOOS=linux
 go install -v
