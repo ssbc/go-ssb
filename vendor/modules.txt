@@ -91,7 +91,7 @@ go.cryptoscope.co/margaret/offset
 go.cryptoscope.co/margaret/offset2
 go.cryptoscope.co/margaret/multilog
 go.cryptoscope.co/margaret/multilog/badger
-# go.cryptoscope.co/muxrpc v1.3.1-0.20190115152533-93deb6eb9aed
+# go.cryptoscope.co/muxrpc v1.3.1
 go.cryptoscope.co/muxrpc
 go.cryptoscope.co/muxrpc/debug
 go.cryptoscope.co/muxrpc/test
@@ -132,18 +132,18 @@ gonum.org/v1/gonum/graph
 gonum.org/v1/gonum/graph/encoding/dot
 gonum.org/v1/gonum/graph/path
 gonum.org/v1/gonum/graph/simple
+gonum.org/v1/gonum/graph/traverse
 gonum.org/v1/gonum/graph/encoding
 gonum.org/v1/gonum/graph/formats/dot
 gonum.org/v1/gonum/graph/formats/dot/ast
 gonum.org/v1/gonum/graph/internal/ordered
 gonum.org/v1/gonum/graph/internal/set
 gonum.org/v1/gonum/graph/iterator
-gonum.org/v1/gonum/graph/traverse
 gonum.org/v1/gonum/mat
 gonum.org/v1/gonum/graph/internal/uid
+gonum.org/v1/gonum/graph/internal/linear
 gonum.org/v1/gonum/graph/formats/dot/internal/lexer
 gonum.org/v1/gonum/graph/formats/dot/internal/parser
-gonum.org/v1/gonum/graph/internal/linear
 gonum.org/v1/gonum/blas
 gonum.org/v1/gonum/blas/blas64
 gonum.org/v1/gonum/floats

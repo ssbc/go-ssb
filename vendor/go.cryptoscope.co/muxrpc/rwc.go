@@ -67,7 +67,7 @@ func (r *srcReader) Read(data []byte) (int, error) {
 
 	v, err := r.src.Next(context.TODO())
 	if err != nil {
-		if err == (luigi.EOS{}) {
+		if luigi.IsEOS(err) {
 			return 0, io.EOF
 		}
 

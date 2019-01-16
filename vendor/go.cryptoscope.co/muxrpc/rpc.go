@@ -282,7 +282,10 @@ func (r *rpc) fetchRequest(ctx context.Context, pkt *codec.Packet) (*Request, bo
 			return nil, false, errors.Wrap(err, "error parsing request")
 		}
 		r.reqs[pkt.Req] = req
-
+		// TODO:
+		// buffer new requests to not mindlessly spawn goroutines
+		// and prioritize exisitng requests to unblock the connection time
+		// maybe use two maps
 		go r.root.HandleCall(ctx, req, r)
 	}
 
