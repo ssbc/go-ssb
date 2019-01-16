@@ -125,15 +125,16 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			return nil
 		})
 
-		if err := luigi.Pump(ctx, wrapSink, userSequences); err != nil {
-			return errors.Wrap(err, "failed to pump messages to peer")
-		}
-
+		err = luigi.Pump(ctx, wrapSink, userSequences)
 		if h.sysCtr != nil {
 			h.sysCtr.With("event", "gossiptx").Add(float64(sent))
 		} else {
 			h.Info.Log("event", "gossiptx", "n", sent)
 		}
+		if err != nil {
+			return errors.Wrap(err, "failed to pump messages to peer")
+		}
+
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}

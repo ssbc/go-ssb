@@ -82,7 +82,19 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	start := time.Now()
 
 	toLong, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
+	defer func() {
+		cancel()
+		if n := latestSeq - startSeq; n > 0 {
+			if g.sysGauge != nil {
+				g.sysGauge.With("part", "msgs").Add(float64(n))
+			}
+			if g.sysCtr != nil {
+				g.sysCtr.With("event", "gossiprx").Add(float64(n))
+			} else {
+				info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
+			}
+		}
+	}()
 
 	source, err := edp.Source(toLong, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
 	if err != nil {
@@ -136,14 +148,5 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		latestMsg = nextMsg
 	} // hist drained
 
-	if n := latestSeq - startSeq; n > 0 {
-		info.Log("event", "fetchFeed", "new", n, "took", time.Since(start))
-		if g.sysGauge != nil {
-			g.sysGauge.With("part", "msgs").Add(float64(n))
-		}
-		if g.sysCtr != nil {
-			g.sysCtr.With("event", "gossiprx").Add(float64(n))
-		}
-	}
 	return nil
 }

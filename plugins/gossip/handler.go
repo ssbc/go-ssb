@@ -26,6 +26,8 @@ type handler struct {
 	GraphBuilder graph.Builder
 	Info         logging.Interface
 
+	hopCount int
+
 	activeFetch sync.Map
 
 	hanlderDone func()
@@ -91,23 +93,23 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 		err = g.fetchFeed(ctx, userRef, e)
 		if err != nil {
-			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "uxer", userRef.Ref()[1:5])
+			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "uxer", remoteRef.Ref()[1:5])
 			if muxrpc.IsSinkClosed(err) {
 				return
 			}
 		}
 	}
 
-	follows, err := g.GraphBuilder.Follows(g.Id)
+	tGraph, err := g.GraphBuilder.Build()
 	if err != nil {
-		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
+		g.Info.Log("handleConnect", "fetchFeed hops listing", "err", err)
 		return
 	}
-	for _, addr := range follows {
+	for _, addr := range tGraph.Hops(g.Id, g.hopCount) {
 		if !isIn(ufaddrs, addr) {
 			err = g.fetchFeed(ctx, addr, e)
 			if err != nil {
-				g.Info.Log("handleConnect", "fetchFeed follows failed", "err", err, "uxer", addr.Ref()[1:5])
+				g.Info.Log("handleConnect", "fetchFeed hops failed", "err", err, "uxer", remoteRef.Ref()[1:5])
 				if muxrpc.IsSinkClosed(err) {
 					return
 				}

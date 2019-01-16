@@ -30,15 +30,24 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	}
 
 	// TODO we need to check that `from` is in the graph, instead of checking if it's empty
+	// only important in the _resync existing feed_ case. should maybe not construct this authorizer then?
 	var distLookup *Lookup
 	distLookup, err = fg.MakeDijkstra(a.from)
 	if err != nil {
+		// for now adding this as a kludge so that stuff works when you don't get your own feed during initial re-sync
+		// if it's a new key there should be follows quickly anyway and this shouldn't happen then.... yikes :'(
+		if _, ok := err.(*NoSuchFrom); ok {
+			return nil
+		}
 		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
 	}
 
+	// dist includes start and end of the path so Alice to Bob will be
+	// p:=[Alice, some, friends, Bob]
+	// len(p) == 4
 	_, d := distLookup.Dist(to)
 	if math.IsInf(d, -1) || int(d) > a.maxHops {
-		return &ssb.ErrOutOfReach{int(d), a.maxHops}
+		return &ssb.ErrOutOfReach{Dist: int(d), Max: a.maxHops}
 	}
 
 	return nil

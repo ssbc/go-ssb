@@ -1,12 +1,9 @@
 package graph
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
-	"os/exec"
 	"sync"
 
 	"github.com/dgraph-io/badger"
@@ -16,7 +13,6 @@ import (
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 	"gonum.org/v1/gonum/graph"
-	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 
@@ -87,6 +83,7 @@ func NewBuilder(log log.Logger, db *badger.DB) Builder {
 		}
 
 		b.cachedGraph = nil
+		// TODO: patch existing graph
 		return nil
 	}, contactsIdx)
 
@@ -137,7 +134,7 @@ func (b *builder) Build() (*Graph, error) {
 			copy(bfrom[:], from.ID)
 			nFrom, has := known[bfrom]
 			if !has {
-				nFrom = contactNode{dg.NewNode(), from.Ref()}
+				nFrom = contactNode{dg.NewNode(), &from}
 				dg.AddNode(nFrom)
 				known[bfrom] = nFrom
 			}
@@ -146,7 +143,7 @@ func (b *builder) Build() (*Graph, error) {
 			copy(bto[:], to.ID)
 			nTo, has := known[bto]
 			if !has {
-				nTo = contactNode{dg.NewNode(), to.Ref()}
+				nTo = contactNode{dg.NewNode(), &to}
 				dg.AddNode(nTo)
 				known[bto] = nTo
 			}
@@ -172,46 +169,6 @@ func (b *builder) Build() (*Graph, error) {
 	return g, err
 }
 
-type Graph struct {
-	dg     *simple.WeightedDirectedGraph
-	lookup key2node
-}
-
-func (g *Graph) Nodes() int {
-	return len(g.lookup)
-}
-
-func (g *Graph) RenderSVG() error {
-	dotbytes, err := dot.Marshal(g.dg, "", "", "")
-	if err != nil {
-		return errors.Wrap(err, "dot marshal failed")
-	}
-	dotCmd := exec.Command("dot", "-Tsvg", "-o", "fullgraph.svg")
-	dotCmd.Stdin = bytes.NewReader(dotbytes)
-	out, err := dotCmd.CombinedOutput()
-	if err != nil {
-		fmt.Println("dot out:", out)
-		return errors.Wrap(err, "dot run failed")
-	}
-	return nil
-}
-
-func (g *Graph) Follows(from, to *ssb.FeedRef) bool {
-	var bfrom [32]byte
-	copy(bfrom[:], from.ID)
-	nFrom, has := g.lookup[bfrom]
-	if !has {
-		return false
-	}
-	var bto [32]byte
-	copy(bto[:], to.ID)
-	nTo, has := g.lookup[bto]
-	if !has {
-		return false
-	}
-	return g.dg.HasEdgeFromTo(nFrom.ID(), nTo.ID())
-}
-
 type Lookup struct {
 	dijk   path.Shortest
 	lookup key2node
@@ -225,19 +182,6 @@ func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
 		return nil, math.Inf(-1)
 	}
 	return l.dijk.To(nTo.ID())
-}
-
-func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
-	var bfrom [32]byte
-	copy(bfrom[:], from.ID)
-	nFrom, has := g.lookup[bfrom]
-	if !has {
-		return nil, errors.Errorf("make dijkstra: no such from: %s", from.Ref())
-	}
-	return &Lookup{
-		path.DijkstraFrom(nFrom, g.dg),
-		g.lookup,
-	}, nil
 }
 
 func (b *builder) Follows(fr *ssb.FeedRef) ([]*ssb.FeedRef, error) {
@@ -268,14 +212,3 @@ func (b *builder) Follows(fr *ssb.FeedRef) ([]*ssb.FeedRef, error) {
 
 	return friends, err
 }
-
-type contactNode struct {
-	graph.Node
-	name string
-}
-
-func (n contactNode) String() string {
-	return n.name[0:5]
-}
-
-type key2node map[[32]byte]graph.Node

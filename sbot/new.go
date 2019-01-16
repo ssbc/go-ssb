@@ -151,19 +151,20 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// blobs
 	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)
 	pmgr.Register(blobs)
-	ctrl.Register(blobs)
+	ctrl.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
-	// gossip.*
+	// outgoing gossip behavior
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, s.systemGauge, s.eventCounter))
+		id, rootLog, uf, gb, s.systemGauge, s.eventCounter,
+		gossip.HopCount(3),
+	))
 
-	// createHistoryStream
+	// incoming createHistoryStream handler
 	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
 		id, rootLog, uf, gb, s.systemGauge, s.eventCounter)
 	pmgr.Register(hist)
-	ctrl.Register(hist)
 
 	return s, nil
 }

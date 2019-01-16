@@ -13,6 +13,8 @@ import (
 	"go.cryptoscope.co/ssb/graph"
 )
 
+type HopCount int
+
 func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
 	h := &handler{
 		Id:           id,
@@ -28,9 +30,14 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 			h.sysGauge = v
 		case *prometheus.Counter:
 			h.sysCtr = v
+		case HopCount:
+			h.hopCount = int(v)
 		default:
 			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
+	}
+	if h.hopCount == 0 {
+		h.hopCount = 2
 	}
 	return &plugin{h}
 }
@@ -53,6 +60,10 @@ func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userF
 		default:
 			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
+	}
+
+	if h.hopCount == 0 {
+		h.hopCount = 2
 	}
 	return histPlugin{h}
 }
