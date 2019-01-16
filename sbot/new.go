@@ -97,6 +97,35 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
 
+	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "contacts"), r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open about idx")
+	}
+	// s.closers.addCloser(ab)
+	goThenLog(ctx, rootLog, "abouts", serveAbouts)
+	s.AboutStore = ab
+
+	/* some randos
+	// TODO: make these tests
+	feeds := []string{
+		s.KeyPair.Id.Ref(),
+		"@uOReuhnb9+mPi5RnTbKMKRr3r87cK+aOg8lFXV/SBPU=.ed25519",
+		"@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519",
+		"@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519",
+	}
+	for _, feed := range feeds {
+		fr, err := ssb.ParseFeedRef(feed)
+		if err == nil {
+			selfName, err := ab.GetName(fr)
+			if err != nil {
+				log.Log("event", "debug", "about", feed, "err", err)
+				continue
+			}
+			goon.Dump(selfName)
+		}
+	}
+	*/
+
 	pmgr := ssb.NewPluginManager()
 	ctrl := ssb.NewPluginManager()
 

@@ -37,7 +37,7 @@ func ParseRef(str string) (Ref, error) {
 	}
 
 	raw, err := base64.StdEncoding.DecodeString(split[0])
-	if err != nil {
+	if err != nil { // ???
 		raw, err = base64.URLEncoding.DecodeString(split[1])
 		if err != nil {
 			return nil, ErrInvalidHash
