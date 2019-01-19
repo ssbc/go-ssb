@@ -22,7 +22,7 @@ func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 		var kv message.KeyValueRaw
 		kv.Key = storedMsg.Key
 		kv.Value = storedMsg.Raw
-		kv.Timestamp = storedMsg.Timestamp.UnixNano() / 1000
+		kv.Timestamp = storedMsg.Timestamp.UnixNano() / 1000000
 		kvMsg, err := json.Marshal(kv)
 		if err != nil {
 			return nil, errors.Wrapf(err, "rootLog: failed to k:v map message")

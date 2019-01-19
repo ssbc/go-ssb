@@ -11,6 +11,7 @@ import (
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 
@@ -22,8 +23,11 @@ import (
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	privplug "go.cryptoscope.co/ssb/plugins/private"
+	"go.cryptoscope.co/ssb/plugins/publish"
 	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/whoami"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -125,6 +129,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.PublishLog = publishLog
 
+	pl, _, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
+	}
+	s.closers.addCloser(pl)
+	goThenLog(ctx, rootLog, "privLogs", servePrivs)
+	s.PrivateLogs = pl
+
 	/* some randos
 	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "contacts"), r)
 	if err != nil {
@@ -199,7 +211,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.Node = node
 	s.closers.addCloser(s.Node)
 
-	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node, publishLog))
+	// TODO: should be gossip.connect but conflicts with our namespace assumption
+	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
+
+	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), publishLog))
+	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open user private index")
+	}
+
+	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), publishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)

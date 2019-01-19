@@ -49,8 +49,14 @@ func (pl publishLog) Append(val interface{}) (margaret.Seq, error) {
 
 	// set metadata
 	var newMsg message.LegacyMessage
-	// user control would be nice here
-	newMsg.Timestamp = time.Now().UnixNano() / 1000
+
+	// TODO: user control, if they want to expose a timestamp would be cool
+
+	newMsg.Timestamp = time.Now().UnixNano() / 1000000
+	// or .Unix() * 1000 but needs to be ascending between calls
+	// the requirement is supposed to be lifted but I don't want to depend on it _right now_
+	// it's on my errata for shs2
+
 	newMsg.Author = pl.key.Id.Ref()
 	newMsg.Hash = "sha256"
 	newMsg.Content = val

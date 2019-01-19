@@ -2,13 +2,11 @@ package control
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -18,15 +16,12 @@ import (
 type handler struct {
 	node ssb.Node
 	info logging.Interface
-
-	publish margaret.Log
 }
 
-func New(i logging.Interface, n ssb.Node, p margaret.Log) muxrpc.Handler {
+func New(i logging.Interface, n ssb.Node) muxrpc.Handler {
 	return &handler{
-		publish: p,
-		info:    i,
-		node:    n,
+		info: i,
+		node: n,
 	}
 }
 
@@ -36,8 +31,7 @@ func (h *handler) check(err error) {
 	}
 }
 
-func (h *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-}
+func (h *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	if req.Type == "" {
@@ -82,20 +76,6 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 		closed = true
 		h.check(req.Return(ctx, "connected"))
 
-	// TODO: our plugins have to share one root namespace
-	case "ctrl.publish":
-		if n := len(req.Args); n != 1 {
-			req.CloseWithError(errors.Errorf("publish: bad request. expected 1 argument got %d", n))
-			return
-		}
-
-		seq, err := h.publish.Append(req.Args[0])
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "publish: pour failed"))
-			return
-		}
-		h.info.Log("published", seq.Seq())
-		checkAndClose(req.Return(ctx, fmt.Sprintf("published msg: %d", seq.Seq())))
 	default:
 		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
 	}

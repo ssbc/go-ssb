@@ -41,6 +41,7 @@ type Sbot struct {
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
 	MessageTypes multilog.MultiLog
+	PrivateLogs  multilog.MultiLog
 	KeyPair      *ssb.KeyPair
 	PublishLog   margaret.Log
 	GraphBuilder graph.Builder
