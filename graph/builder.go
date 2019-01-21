@@ -148,11 +148,9 @@ func (b *builder) Build() (*Graph, error) {
 				known[bto] = nTo
 			}
 
-			w := math.Inf(-1)
+			w := math.Inf(1)
 			if len(v) >= 1 && v[0] == '1' {
 				w = 1
-			} else {
-				w = math.Inf(1)
 			}
 
 			if nFrom.ID() == nTo.ID() {
