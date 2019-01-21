@@ -8,19 +8,10 @@ import (
 	"gonum.org/v1/gonum/graph/traverse"
 )
 
-type contactNode struct {
-	graph.Node
-	feed *ssb.FeedRef
-}
-
-func (n contactNode) String() string {
-	return n.feed.Ref()[:8]
-}
-
 type key2node map[[32]byte]graph.Node
 
 type Graph struct {
-	dg     *simple.WeightedDirectedGraph
+	simple.WeightedDirectedGraph
 	lookup key2node
 }
 
@@ -37,10 +28,10 @@ func (g *Graph) Follows(from, to *ssb.FeedRef) bool {
 	if !has {
 		return false
 	}
-	if !g.dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
+	if !g.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
 		return false
 	}
-	edg := g.dg.Edge(nFrom.ID(), nTo.ID())
+	edg := g.Edge(nFrom.ID(), nTo.ID())
 	w := edg.(graph.WeightedEdge)
 	return w.Weight() == 1
 }
@@ -54,7 +45,7 @@ func (g *Graph) Hops(from *ssb.FeedRef, plen int) []*ssb.FeedRef {
 	}
 	walked := make(map[int64]*ssb.FeedRef, 5000)
 	w := traverse.BreadthFirst{}
-	w.Walk(g.dg, nFrom, func(n graph.Node, d int) bool {
+	w.Walk(g, nFrom, func(n graph.Node, d int) bool {
 		if d < plen {
 			cn, ok := n.(contactNode)
 			if ok {
@@ -79,7 +70,7 @@ func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
 		return nil, &ErrNoSuchFrom{from}
 	}
 	return &Lookup{
-		path.DijkstraFrom(nFrom, g.dg),
+		path.DijkstraFrom(nFrom, g),
 		g.lookup,
 	}, nil
 }

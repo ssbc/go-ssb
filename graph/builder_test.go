@@ -59,12 +59,18 @@ func TestFollows(t *testing.T) {
 
 	bob, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
+
 	claire, err := ssb.NewKeyPair(nil)
+	r.NoError(err)
+	clairePublish, err := multilogs.OpenPublishLog(tRootLog, uf, *claire)
+	r.NoError(err)
+
+	debby, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
 
 	g, err := bldr.Build()
 	r.NoError(err)
-	r.Equal(0, g.Nodes())
+	r.Equal(0, g.NodeCount())
 
 	a := bldr.Authorizer(myself.Id, 0)
 
@@ -90,7 +96,7 @@ func TestFollows(t *testing.T) {
 
 	g, err = bldr.Build()
 	r.NoError(err)
-	r.Equal(3, g.Nodes())
+	r.Equal(3, g.NodeCount())
 
 	// not followed
 	err = a.Authorize(claire.Id)
@@ -118,7 +124,7 @@ func TestFollows(t *testing.T) {
 	})
 	g, err = bldr.Build()
 	r.NoError(err)
-	r.Equal(4, g.Nodes())
+	r.Equal(4, g.NodeCount())
 	r.NoError(g.RenderSVG())
 
 	// now allowed. zero hops and not friends
@@ -126,7 +132,7 @@ func TestFollows(t *testing.T) {
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
-	r.Equal(2, hopsErr.Dist)
+	r.Equal(1, hopsErr.Dist)
 	r.Equal(0, hopsErr.Max)
 
 	// alice follows me
@@ -137,16 +143,43 @@ func TestFollows(t *testing.T) {
 	})
 	g, err = bldr.Build()
 	r.NoError(err)
-	r.Equal(4, g.Nodes()) // same nodes more edges
+	r.Equal(4, g.NodeCount()) // same nodes more edges
 	r.NoError(g.RenderSVG())
 
-	// now allowed. friends but still 0 hops
+	// now allowed. friends with alice but still 0 hops
 	err = a.Authorize(claire.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
-	r.Equal(2, hopsErr.Dist)
+	r.Equal(1, hopsErr.Dist)
 	r.Equal(0, hopsErr.Max)
+
+	// works for 1 hop
+	h1 := bldr.Authorizer(myself.Id, 1)
+	err = h1.Authorize(claire.Id)
+	r.NoError(err)
+
+	// claire follows debby
+	clairePublish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   debby.Id.Ref(),
+		"following": true,
+	})
+	g, err = bldr.Build()
+	r.NoError(err)
+	r.Equal(5, g.NodeCount()) // same nodes more edges
+	r.NoError(g.RenderSVG())
+
+	err = h1.Authorize(debby.Id)
+	r.NotNil(err)
+	hopsErr, ok = err.(*ssb.ErrOutOfReach)
+	r.True(ok, "acutal err: %T\n%+v", err, err)
+	r.Equal(2, hopsErr.Dist)
+	r.Equal(1, hopsErr.Max)
+
+	h2 := bldr.Authorizer(myself.Id, 2)
+	err = h2.Authorize(debby.Id)
+	r.Nil(err)
 
 	uf.Close()
 	sinkIdx.Close()
