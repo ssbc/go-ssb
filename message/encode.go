@@ -185,6 +185,10 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 // while preserving the order in which the keys appear
 func EncodePreserveOrder(b []byte) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
+	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
+	// not particular excited to implement all of the above
+	// this keeps the original value as a string
+	dec.UseNumber()
 	var buf bytes.Buffer
 	t, err := dec.Token()
 	if err != nil {

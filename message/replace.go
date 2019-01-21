@@ -3,6 +3,7 @@ package message
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"regexp"
 	"unicode/utf8"
 
@@ -16,7 +17,11 @@ var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]
 func unicodeEscapeSome(s string) string {
 	var b bytes.Buffer
 	for i, r := range s {
-		if r < 0x20 {
+		// https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-strings
+		// the rest is already handled by %q in encode.go
+		if r == 0x00000C { // (form feed),  \f
+			b.Write([]byte{0x5C, 0x66})
+		} else if r < 0x20 {
 			// TODO: width for multibyte chars
 			runeValue, _ := utf8.DecodeRuneInString(s[i:])
 			fmt.Fprintf(&b, "\\u%04x", runeValue)
@@ -27,12 +32,13 @@ func unicodeEscapeSome(s string) string {
 	return b.String()
 }
 
+// InternalV8Binary does some funky v8 magic
 // new Buffer(in, "binary") returns soemthing like (u16 && 0xff)
 func InternalV8Binary(in []byte) ([]byte, error) {
 	var u16 bytes.Buffer
 	enc := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
 	trans := transform.NewWriter(&u16, enc)
-	if _, err := fmt.Fprint(trans, string(in)); err != nil {
+	if _, err := io.Copy(trans, bytes.NewReader(in)); err != nil {
 		return nil, errors.Wrap(err, "internalV8bin: failed to transform input to u16")
 	}
 	// now drop every 2nd byte
