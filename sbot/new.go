@@ -97,6 +97,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
 
+	/* some randos
 	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "contacts"), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open about idx")
@@ -105,7 +106,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "abouts", serveAbouts)
 	s.AboutStore = ab
 
-	/* some randos
 	// TODO: make these tests
 	feeds := []string{
 		s.KeyPair.Id.Ref(),
