@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.cryptoscope.co/ssb/indexes"
-
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
@@ -41,9 +39,9 @@ type Sbot struct {
 	KeyPair      *ssb.KeyPair
 	GraphBuilder graph.Builder
 	Node         ssb.Node
-	AboutStore   indexes.AboutStore
-	BlobStore    ssb.BlobStore
-	WantManager  ssb.WantManager
+	// AboutStore   indexes.AboutStore
+	BlobStore   ssb.BlobStore
+	WantManager ssb.WantManager
 
 	eventCounter *prometheus.Counter
 	systemGauge  *prometheus.Gauge
