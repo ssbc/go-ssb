@@ -19,7 +19,11 @@ func unicodeEscapeSome(s string) string {
 	for i, r := range s {
 		// https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-strings
 		// the rest is already handled by %q in encode.go
-		if r == 0x00000C { // (form feed),  \f
+		if r == 0x000008 {
+			// (backspace) \b
+			b.Write([]byte{0x5C, 0x62})
+		} else if r == 0x00000C {
+			// (form feed) \f
 			b.Write([]byte{0x5C, 0x66})
 		} else if r < 0x20 {
 			// TODO: width for multibyte chars
