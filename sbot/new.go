@@ -96,6 +96,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
+	s.PublishLog = publishLog
 
 	/* some randos
 	ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "contacts"), r)

@@ -37,6 +37,7 @@ type Sbot struct {
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog
 	KeyPair      *ssb.KeyPair
+	PublishLog   margaret.Log
 	GraphBuilder graph.Builder
 	Node         ssb.Node
 	// AboutStore   indexes.AboutStore
