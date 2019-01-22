@@ -112,7 +112,7 @@ type ErrOutOfReach struct {
 }
 
 func (e ErrOutOfReach) Error() string {
-	return fmt.Sprintf("sbot: peer not in reach. d:%d, max:%d", e.Dist, e.Max)
+	return fmt.Sprintf("ssb/graph: peer not in reach. d:%d, max:%d", e.Dist, e.Max)
 }
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {

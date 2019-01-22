@@ -202,15 +202,19 @@ func TestReplicate(t *testing.T) {
 }
 
 func BenchmarkReplicate(b *testing.B) {
+	r := require.New(b)
 	var wg sync.WaitGroup
 
-	srcRepo := test.LoadTestDataPeer(b, "testdata/longTestRepo")
+	srcRepo := test.LoadTestDataPeer(b, "testdata/largeRepo")
 	bench, _ := logtest.KitLogger("bench", b)
 	b.ResetTimer()
 
-	srcRootLog, _ := repo.OpenLog(srcRepo)
+	srcRootLog, err := repo.OpenLog(srcRepo)
+	r.NoError(err)
 
-	srcMlog, _, srcMlogServe, _ := multilogs.OpenUserFeeds(srcRepo)
+	srcMlog, _, srcMlogServe, err := multilogs.OpenUserFeeds(srcRepo)
+	r.NoError(err)
+
 	wg.Add(1)
 	go func() {
 		err := srcMlogServe(context.TODO(), srcRootLog)
@@ -220,7 +224,8 @@ func BenchmarkReplicate(b *testing.B) {
 
 	srcKeyPair, _ := repo.OpenKeyPair(srcRepo)
 	srcID := srcKeyPair.Id
-	srcGraphBuilder, srcGraphBuilderServe, _ := indexes.OpenContacts(bench, srcRepo)
+	srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(bench, srcRepo)
+	r.NoError(err)
 	wg.Add(1)
 	go func() {
 		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
@@ -231,8 +236,11 @@ func BenchmarkReplicate(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		dstRepo, _ := test.MakeEmptyPeer(b)
+		r.NoError(err)
 		dstRootLog, _ := repo.OpenLog(dstRepo)
+		r.NoError(err)
 		dstMlog, _, dstMlogServe, _ := multilogs.OpenUserFeeds(dstRepo)
+		r.NoError(err)
 
 		wg.Add(1)
 		go func() {

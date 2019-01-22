@@ -45,6 +45,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	// the test logger does not print anything if the command hangs, so you have an alternative
 	var info logging.Interface
 	if testing.Verbose() {
+		// TODO: multiwriter
 		info = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	} else {
 		info, _ = logtest.KitLogger("go", t)
