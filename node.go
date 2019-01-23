@@ -18,6 +18,7 @@ import (
 )
 
 type Options struct {
+	Dialer       netwrap.Dialer
 	ListenAddr   net.Addr
 	KeyPair      *KeyPair
 	AppKey       []byte
@@ -44,6 +45,7 @@ type Node interface {
 type node struct {
 	opts Options
 
+	dialer       netwrap.Dialer
 	l            net.Listener
 	secretServer *secretstream.Server
 	secretClient *secretstream.Client
@@ -64,6 +66,12 @@ func NewNode(opts Options) (Node, error) {
 	}
 
 	var err error
+
+	if opts.Dialer != nil {
+		n.dialer = opts.Dialer
+	} else {
+		n.dialer = netwrap.Dial
+	}
 
 	n.secretClient, err = secretstream.NewClient(opts.KeyPair.Pair, opts.AppKey)
 	if err != nil {
@@ -210,7 +218,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.New("node/connect: expected shs-bs address to be of type secretstream.Addr")
 	}
 
-	conn, err := netwrap.Dial(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
+	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
 		return errors.Wrap(err, "node/connect: error dialing")
 	}
