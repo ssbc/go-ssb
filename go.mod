@@ -26,7 +26,7 @@ require (
 	go.cryptoscope.co/luigi v0.3.2
 	go.cryptoscope.co/margaret v0.0.7
 	go.cryptoscope.co/muxrpc v1.3.1
-	go.cryptoscope.co/netwrap v0.0.1
+	go.cryptoscope.co/netwrap v0.0.2
 	go.cryptoscope.co/secretstream v1.1.2
 	golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
 	golang.org/x/exp v0.0.0-20190104205336-ae74f88a12a8 // indirect
