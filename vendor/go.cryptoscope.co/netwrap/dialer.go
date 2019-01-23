@@ -9,6 +9,8 @@ import (
 // ConnWrapper wraps a network connection, e.g. to encrypt the transmitted content.
 type ConnWrapper func(net.Conn) (net.Conn, error)
 
+type Dialer func(net.Addr, ...ConnWrapper) (net.Conn, error)
+
 // Dial first opens a network connection to the supplied addr, and then applies
 // all the passed connection wrappers.
 func Dial(addr net.Addr, wrappers ...ConnWrapper) (net.Conn, error) {
