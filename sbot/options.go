@@ -25,6 +25,7 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
 type Sbot struct {
 	repoPath     string
+	dialer       netwrap.Dialer
 	listenAddr   net.Addr
 	info         kitlog.Logger
 	rootCtx      context.Context
@@ -63,6 +64,13 @@ func WithListenAddr(addr string) Option {
 		var err error
 		s.listenAddr, err = net.ResolveTCPAddr("tcp", addr)
 		return errors.Wrap(err, "failed to parse tcp listen addr")
+	}
+}
+
+func WithDialer(dial netwrap.Dialer) Option {
+	return func(s *Sbot) error {
+		s.dialer = dial
+		return nil
 	}
 }
 
@@ -145,6 +153,10 @@ func New(fopts ...Option) (*Sbot, error) {
 			return nil, errors.Wrap(err, "failed to decode default appkey")
 		}
 		s.appKey = ak
+	}
+
+	if s.dialer == nil {
+		s.dialer = netwrap.Dial
 	}
 
 	if s.listenAddr == nil {

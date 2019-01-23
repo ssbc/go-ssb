@@ -152,6 +152,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	opts := ssb.Options{
 		Logger:       s.info,
+		Dialer:       s.dialer,
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
 		AppKey:       s.appKey[:],
