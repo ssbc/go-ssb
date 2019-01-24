@@ -67,6 +67,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 	s.UserFeeds = uf
 
+	mt, _, serveMT, err := multilogs.OpenMessageTypes(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open message type sublogs")
+	}
+	s.closers.addCloser(mt)
+	goThenLog(ctx, rootLog, "msgTypes", serveMT)
+	s.MessageTypes = mt
+
 	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "index", "contacts"), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open contacts idx")
