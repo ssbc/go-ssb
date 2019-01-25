@@ -6,6 +6,8 @@ package dot
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
@@ -41,6 +43,8 @@ type PortSetter interface {
 // Unmarshal parses the Graphviz DOT-encoded data and stores the result in dst.
 // If the number of graphs encoded in data is not one, an error is returned and
 // dst will hold the first graph in data.
+//
+// Attributes and IDs are unquoted during unmarshalling if appropriate.
 func Unmarshal(data []byte, dst encoding.Builder) error {
 	file, err := dot.ParseBytes(data)
 	if err != nil {
@@ -57,6 +61,8 @@ func Unmarshal(data []byte, dst encoding.Builder) error {
 // stores the result in dst.
 // If the number of graphs encoded in data is not one, an error is returned and
 // dst will hold the first graph in data.
+//
+// Attributes and IDs are unquoted during unmarshalling if appropriate.
 func UnmarshalMulti(data []byte, dst encoding.MultiBuilder) error {
 	file, err := dot.ParseBytes(data)
 	if err != nil {
@@ -88,7 +94,7 @@ func copyGraph(dst encoding.Builder, src *ast.Graph) (err error) {
 		},
 	}
 	if dst, ok := dst.(DOTIDSetter); ok {
-		dst.SetDOTID(src.ID)
+		dst.SetDOTID(unquoteID(src.ID))
 	}
 	if a, ok := dst.(AttributeSetters); ok {
 		gen.graphAttr, gen.nodeAttr, gen.edgeAttr = a.DOTAttributeSetters()
@@ -118,7 +124,7 @@ func copyMultigraph(dst encoding.MultiBuilder, src *ast.Graph) (err error) {
 		},
 	}
 	if dst, ok := dst.(DOTIDSetter); ok {
-		dst.SetDOTID(src.ID)
+		dst.SetDOTID(unquoteID(src.ID))
 	}
 	if a, ok := dst.(AttributeSetters); ok {
 		gen.graphAttr, gen.nodeAttr, gen.edgeAttr = a.DOTAttributeSetters()
@@ -154,7 +160,7 @@ func (gen *generator) node(dst graph.NodeAdder, id string) graph.Node {
 	}
 	n := dst.NewNode()
 	if n, ok := n.(DOTIDSetter); ok {
-		n.SetDOTID(id)
+		n.SetDOTID(unquoteID(id))
 	}
 	dst.AddNode(n)
 	gen.ids[id] = n
@@ -180,8 +186,8 @@ func (gen *simpleGraph) addStmt(dst encoding.Builder, stmt ast.Stmt) {
 		}
 		for _, attr := range stmt.Attrs {
 			a := encoding.Attribute{
-				Key:   attr.Key,
-				Value: attr.Val,
+				Key:   unquoteID(attr.Key),
+				Value: unquoteID(attr.Val),
 			}
 			if err := n.SetAttribute(a); err != nil {
 				panic(fmt.Errorf("unable to unmarshal node DOT attribute (%s=%s): %v", a.Key, a.Value, err))
@@ -216,8 +222,8 @@ func (gen *simpleGraph) addStmt(dst encoding.Builder, stmt ast.Stmt) {
 		}
 		for _, attr := range stmt.Attrs {
 			a := encoding.Attribute{
-				Key:   attr.Key,
-				Value: attr.Val,
+				Key:   unquoteID(attr.Key),
+				Value: unquoteID(attr.Val),
 			}
 			if err := n.SetAttribute(a); err != nil {
 				panic(fmt.Errorf("unable to unmarshal global %s DOT attribute (%s=%s): %v", dst, a.Key, a.Value, err))
@@ -240,7 +246,7 @@ func applyPortsToEdge(from ast.Vertex, to *ast.Edge, edge graph.Edge) {
 	if ps, isPortSetter := edge.(PortSetter); isPortSetter {
 		if n, vertexIsNode := from.(*ast.Node); vertexIsNode {
 			if n.Port != nil {
-				err := ps.SetFromPort(n.Port.ID, n.Port.CompassPoint.String())
+				err := ps.SetFromPort(unquoteID(n.Port.ID), n.Port.CompassPoint.String())
 				if err != nil {
 					panic(fmt.Errorf("unable to unmarshal edge port (:%s:%s)", n.Port.ID, n.Port.CompassPoint.String()))
 				}
@@ -249,7 +255,7 @@ func applyPortsToEdge(from ast.Vertex, to *ast.Edge, edge graph.Edge) {
 
 		if n, vertexIsNode := to.Vertex.(*ast.Node); vertexIsNode {
 			if n.Port != nil {
-				err := ps.SetToPort(n.Port.ID, n.Port.CompassPoint.String())
+				err := ps.SetToPort(unquoteID(n.Port.ID), n.Port.CompassPoint.String())
 				if err != nil {
 					panic(fmt.Errorf("unable to unmarshal edge DOT port (:%s:%s)", n.Port.ID, n.Port.CompassPoint.String()))
 				}
@@ -372,8 +378,8 @@ func (gen *multiGraph) addStmt(dst encoding.MultiBuilder, stmt ast.Stmt) {
 		}
 		for _, attr := range stmt.Attrs {
 			a := encoding.Attribute{
-				Key:   attr.Key,
-				Value: attr.Val,
+				Key:   unquoteID(attr.Key),
+				Value: unquoteID(attr.Val),
 			}
 			if err := n.SetAttribute(a); err != nil {
 				panic(fmt.Errorf("unable to unmarshal node DOT attribute (%s=%s): %v", a.Key, a.Value, err))
@@ -408,8 +414,8 @@ func (gen *multiGraph) addStmt(dst encoding.MultiBuilder, stmt ast.Stmt) {
 		}
 		for _, attr := range stmt.Attrs {
 			a := encoding.Attribute{
-				Key:   attr.Key,
-				Value: attr.Val,
+				Key:   unquoteID(attr.Key),
+				Value: unquoteID(attr.Val),
 			}
 			if err := n.SetAttribute(a); err != nil {
 				panic(fmt.Errorf("unable to unmarshal global %s DOT attribute (%s=%s): %v", dst, a.Key, a.Value, err))
@@ -485,11 +491,30 @@ func addEdgeAttrs(edge graph.Edge, attrs []*ast.Attr) {
 	}
 	for _, attr := range attrs {
 		a := encoding.Attribute{
-			Key:   attr.Key,
-			Value: attr.Val,
+			Key:   unquoteID(attr.Key),
+			Value: unquoteID(attr.Val),
 		}
 		if err := e.SetAttribute(a); err != nil {
 			panic(fmt.Errorf("unable to unmarshal edge DOT attribute (%s=%s): %v", a.Key, a.Value, err))
 		}
 	}
+}
+
+// unquoteID unquotes the given string if needed in the context of an ID. If s
+// is not already quoted the original string is returned.
+func unquoteID(s string) string {
+	// To make round-trips idempotent, don't unquote quoted HTML-like strings
+	//
+	//    /^"<.*>"$/
+	if len(s) >= 4 && strings.HasPrefix(s, `"<`) && strings.HasSuffix(s, `>"`) {
+		return s
+	}
+	// Unquote quoted string if possible.
+	if t, err := strconv.Unquote(s); err == nil {
+		return t
+	}
+	// On error, either s is not quoted or s is quoted but contains invalid
+	// characters, in both cases we return the original string rather than
+	// panicking.
+	return s
 }
