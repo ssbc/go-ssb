@@ -9,7 +9,7 @@ import (
 )
 
 type authorizer struct {
-	b       *builder
+	b       Builder
 	from    *ssb.FeedRef
 	maxHops int
 	log     log.Logger
