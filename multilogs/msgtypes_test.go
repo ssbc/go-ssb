@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"reflect"
 	"sync"
 	"testing"
+
+	"go.cryptoscope.co/margaret/multilog"
 
 	//"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
@@ -51,18 +52,13 @@ func TestMessageTypes(t *testing.T) {
 
 	bob, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	/*
-		bobPublish, err := OpenPublishLog(tRootLog, mt, *bob)
-		r.NoError(err)
+	bobPublish, err := OpenPublishLog(tRootLog, mt, *bob)
+	r.NoError(err)
 
-		claire, err := ssb.NewKeyPair(nil)
-		r.NoError(err)
-		clairePublish, err := OpenPublishLog(tRootLog, mt, *claire)
-		r.NoError(err)
-
-		debby, err := ssb.NewKeyPair(nil)
-		r.NoError(err)
-	*/
+	claire, err := ssb.NewKeyPair(nil)
+	r.NoError(err)
+	clairePublish, err := OpenPublishLog(tRootLog, mt, *claire)
+	r.NoError(err)
 
 	// > create contacts
 	var tmsgs = []interface{}{
@@ -70,16 +66,19 @@ func TestMessageTypes(t *testing.T) {
 			"type":      "contact",
 			"contact":   alice.Id.Ref(),
 			"following": true,
+			"test":      "alice1",
 		},
 		map[string]interface{}{
-			"type":     "contact",
-			"contact":  bob.Id.Ref(),
-			"blocking": true,
+			"type": "post",
+			"text": "something",
+			"test": "alice2",
 		},
+		"1923u1310310.nobox",
 		map[string]interface{}{
 			"type":  "about",
 			"about": bob.Id.Ref(),
 			"name":  "bob",
+			"test":  "alice3",
 		},
 	}
 	for i, msg := range tmsgs {
@@ -87,47 +86,70 @@ func TestMessageTypes(t *testing.T) {
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
-	// < create contacts
 
-	// not followed
-	contactsLog, err := mt.Get(librarian.Addr("contact"))
-	r.NoError(err, "error getting contacts log")
-	contactsSrc, err := contactsLog.Query()
-	r.NoError(err, "error querying contacts log")
+	checkTypes(t, "contact", []string{"alice1"}, tRootLog, mt)
+	checkTypes(t, "post", []string{"alice2"}, tRootLog, mt)
+	checkTypes(t, "about", []string{"alice3"}, tRootLog, mt)
 
-	var i int
+	var bobsMsgs = []interface{}{
+		map[string]interface{}{
+			"type":      "contact",
+			"contact":   bob.Id.Ref(),
+			"following": true,
+			"test":      "bob1",
+		},
+		"1923u1310310.nobox",
+		map[string]interface{}{
+			"type":  "about",
+			"about": bob.Id.Ref(),
+			"name":  "bob",
+			"test":  "bob2",
+		},
+		map[string]interface{}{
+			"type": "post",
+			"text": "hello, world",
+			"test": "bob3",
+		},
+	}
+	for i, msg := range bobsMsgs {
+		newSeq, err := bobPublish.Append(msg)
+		r.NoError(err, "failed to publish test message %d", i)
+		r.NotNil(newSeq)
+	}
 
-	contactsSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		defer func() { i++ }()
+	checkTypes(t, "contact", []string{"alice1", "bob1"}, tRootLog, mt)
+	checkTypes(t, "about", []string{"alice3", "bob2"}, tRootLog, mt)
+	checkTypes(t, "post", []string{"alice2", "bob3"}, tRootLog, mt)
 
-		if i > 1 && !luigi.IsEOS(err) {
-			if err != nil {
-				return errors.Errorf("unexpected error %q, expected EOS", v)
-			}
-			return errors.Errorf("unexpected value %v, expected EOS", v)
-		}
+	var clairesMsgs = []interface{}{
+		"1923u1310310.nobox",
+		map[string]interface{}{
+			"type": "post",
+			"text": "hello, world",
+			"test": "claire1",
+		},
+		map[string]interface{}{
+			"type":      "contact",
+			"contact":   claire.Id.Ref(),
+			"following": true,
+			"test":      "claire2",
+		},
+		map[string]interface{}{
+			"type":  "about",
+			"about": claire.Id.Ref(),
+			"name":  "claire",
+			"test":  "claire3",
+		},
+	}
+	for i, msg := range clairesMsgs {
+		newSeq, err := clairePublish.Append(msg)
+		r.NoError(err, "failed to publish test message %d", i)
+		r.NotNil(newSeq)
+	}
 
-		v, err = tRootLog.Get(v.(margaret.Seq))
-		if err != nil {
-			return errors.Errorf("error getting message from root log %q", v)
-		}
-
-		m := make(map[string]interface{})
-
-		err = json.Unmarshal(v.(message.StoredMessage).Raw, &m)
-		if err != nil {
-			return errors.Errorf("error decoding stored message %q", v)
-		}
-
-		if !reflect.DeepEqual(m["content"], tmsgs[i]) {
-			return errors.Errorf("unexpected value %+v instead of %+v at i=%v", v, tmsgs[i], i)
-		}
-
-		return nil
-	})
-
-	err = luigi.Pump(ctx, contactsSink, contactsSrc)
-	r.NoError(err, "error pumping")
+	checkTypes(t, "contact", []string{"alice1", "bob1", "claire2"}, tRootLog, mt)
+	checkTypes(t, "about", []string{"alice3", "bob2", "claire3"}, tRootLog, mt)
+	checkTypes(t, "post", []string{"alice2", "bob3", "claire1"}, tRootLog, mt)
 
 	mt.Close()
 	uf.Close()
@@ -136,6 +158,64 @@ func TestMessageTypes(t *testing.T) {
 	for err := range mergedErrors(mtErrc, ufErrc) {
 		r.NoError(err, "from chan")
 	}
+}
+
+func checkTypes(t *testing.T, tipe string, tExpected []string, rootLog margaret.Log, mt multilog.MultiLog) {
+	r := require.New(t)
+
+	typeLog, err := mt.Get(librarian.Addr(tipe))
+	r.NoError(err, "error getting contacts log")
+	typeLogQuery, err := typeLog.Query()
+	r.NoError(err, "error querying contacts log")
+
+	alice1Sink, wait := makeCompareSink(tExpected, rootLog)
+	err = luigi.Pump(context.TODO(), alice1Sink, typeLogQuery)
+	r.NoError(err, "error pumping")
+	err = alice1Sink.Close()
+	r.NoError(err, "error closing sink")
+	<-wait
+}
+
+func makeCompareSink(texpected []string, rootLog margaret.Log) (luigi.FuncSink, chan struct{}) {
+	var i int
+	closeC := make(chan struct{})
+	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		defer func() { i++ }()
+		var expectEOS = i > len(texpected)-1
+		if err != nil {
+			if luigi.IsEOS(err) {
+				if expectEOS {
+					close(closeC)
+					return nil
+				}
+				return errors.Errorf("expected more values after err %v  i%d, len%d", err, i, len(texpected))
+			}
+			return errors.Errorf("unexpected error %q", err)
+		}
+
+		v, err = rootLog.Get(v.(margaret.Seq))
+		if err != nil {
+			return errors.Errorf("error getting message from root log %q", v)
+		}
+		if expectEOS {
+			return errors.Errorf("expected EOS but got value(%d) %v", i, v)
+		}
+
+		m := make(map[string]interface{})
+
+		err = json.Unmarshal(v.(message.StoredMessage).Raw, &m)
+		if err != nil {
+			return errors.Errorf("error decoding stored message %q", v)
+		}
+		mt := m["content"].(map[string]interface{})
+		if got := mt["test"]; got != texpected[i] {
+			return errors.Errorf("unexpected value %+v instead of %+v at i=%v", got, texpected[i], i)
+		}
+
+		return nil
+	})
+
+	return snk, closeC
 }
 
 type margaretServe func(context.Context, margaret.Log) error
