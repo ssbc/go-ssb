@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"io/ioutil"
+	"log"
 	"sync"
 	"testing"
 
@@ -12,20 +13,59 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestFollows(t *testing.T) {
-	// > test boilerplate
-	// TODO: abstract serving and error channel handling
-	// Meta TODO: close handling and status of indexing
+func TestBadger(t *testing.T) {
 	r := require.New(t)
 	info, _ := logtest.KitLogger(t.Name(), t)
 
-	tRepoPath, err := ioutil.TempDir("", t.Name())
+	tRepoPath, err := ioutil.TempDir("", "badgerTest")
+	r.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	tRepo := repo.New(tRepoPath)
+	tRootLog, err := repo.OpenLog(tRepo)
+	r.NoError(err)
+	// TODO: try this
+	// tRootLog := mem.New()
+	uf, _, serveUF, err := multilogs.OpenUserFeeds(tRepo)
+	r.NoError(err)
+	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
+
+	var tc testCase
+	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) librarian.SinkIndex {
+		return NewBuilder(info, db)
+	})
+	r.NoError(err)
+	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve)
+	tc.root = tRootLog
+	tc.gbuilder = sinkIdx.(Builder)
+	tc.userLogs = uf
+
+	t.Run("scene1", tc.theScenario)
+
+	// cleanup
+	r.NoError(uf.Close())
+	r.NoError(sinkIdx.Close())
+	cancel()
+
+	for err := range mergedErrors(ufErrc, cErrc) {
+		r.NoError(err, "from chan")
+	}
+}
+
+func TestTypedLog(t *testing.T) {
+	r := require.New(t)
+	info, _ := logtest.KitLogger(t.Name(), t)
+
+	tRepoPath, err := ioutil.TempDir("", "test_mlog")
 	r.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -38,23 +78,50 @@ func TestFollows(t *testing.T) {
 	r.NoError(err)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
 
-	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) librarian.SinkIndex {
-		return NewBuilder(info, db)
-	})
-	r.NoError(err)
-	cErrc := serveLog(ctx, "contacts", tRootLog, serve)
-	bldr := sinkIdx.(Builder)
-	// < test boilerplate
+	var typeLogCase testCase
+	typeLogCase.root = tRootLog
+	typeLogCase.userLogs = uf
 
+	mt, _, serveMT, err := multilogs.OpenMessageTypes(tRepo)
+	r.NoError(err, "sbot: failed to open message type sublogs")
+	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT)
+
+	contactLog, err := mt.Get(librarian.Addr("contact"))
+	r.NoError(err, "sbot: failed to open message contact sublog")
+
+	directedContactLog := mutil.Indirect(tRootLog, contactLog)
+	typeLogCase.gbuilder, err = NewLogBuilder(info, directedContactLog)
+	r.NoError(err, "sbot: NewLogBuilder failed")
+
+	t.Run("scene1", typeLogCase.theScenario)
+
+	r.NoError(uf.Close())
+	r.NoError(mt.Close())
+	cancel()
+
+	for err := range mergedErrors(ufErrc, mtErrc) {
+		r.NoError(err, "from chan")
+	}
+}
+
+type testCase struct {
+	root     margaret.Log
+	userLogs multilog.MultiLog
+
+	gbuilder Builder
+}
+
+func (tc testCase) theScenario(t *testing.T) {
+	r := require.New(t)
 	// some new people
 	myself, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	myPublish, err := multilogs.OpenPublishLog(tRootLog, uf, *myself)
+	myPublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *myself)
 	r.NoError(err)
 
 	alice, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	alicePublish, err := multilogs.OpenPublishLog(tRootLog, uf, *alice)
+	alicePublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *alice)
 	r.NoError(err)
 
 	bob, err := ssb.NewKeyPair(nil)
@@ -62,17 +129,17 @@ func TestFollows(t *testing.T) {
 
 	claire, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	clairePublish, err := multilogs.OpenPublishLog(tRootLog, uf, *claire)
+	clairePublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *claire)
 	r.NoError(err)
 
 	debby, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
 
-	g, err := bldr.Build()
+	g, err := tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(0, g.NodeCount())
 
-	a := bldr.Authorizer(myself.Id, 0)
+	a := tc.gbuilder.Authorizer(myself.Id, 0)
 
 	// > create contacts
 	var tmsgs = []interface{}{
@@ -94,7 +161,7 @@ func TestFollows(t *testing.T) {
 	}
 	// < create contacts
 
-	g, err = bldr.Build()
+	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(3, g.NodeCount())
 
@@ -122,10 +189,10 @@ func TestFollows(t *testing.T) {
 		"contact":   claire.Id.Ref(),
 		"following": true,
 	})
-	g, err = bldr.Build()
+	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(4, g.NodeCount())
-	r.NoError(g.RenderSVG())
+	// r.NoError(g.RenderSVG())
 
 	// now allowed. zero hops and not friends
 	err = a.Authorize(claire.Id)
@@ -141,10 +208,10 @@ func TestFollows(t *testing.T) {
 		"contact":   myself.Id.Ref(),
 		"following": true,
 	})
-	g, err = bldr.Build()
+	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(4, g.NodeCount()) // same nodes more edges
-	r.NoError(g.RenderSVG())
+	// r.NoError(g.RenderSVG())
 
 	// now allowed. friends with alice but still 0 hops
 	err = a.Authorize(claire.Id)
@@ -155,7 +222,7 @@ func TestFollows(t *testing.T) {
 	r.Equal(0, hopsErr.Max)
 
 	// works for 1 hop
-	h1 := bldr.Authorizer(myself.Id, 1)
+	h1 := tc.gbuilder.Authorizer(myself.Id, 1)
 	err = h1.Authorize(claire.Id)
 	r.NoError(err)
 
@@ -165,10 +232,10 @@ func TestFollows(t *testing.T) {
 		"contact":   debby.Id.Ref(),
 		"following": true,
 	})
-	g, err = bldr.Build()
+	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(5, g.NodeCount()) // same nodes more edges
-	r.NoError(g.RenderSVG())
+	// r.NoError(g.RenderSVG())
 
 	err = h1.Authorize(debby.Id)
 	r.NotNil(err)
@@ -177,17 +244,9 @@ func TestFollows(t *testing.T) {
 	r.Equal(2, hopsErr.Dist)
 	r.Equal(1, hopsErr.Max)
 
-	h2 := bldr.Authorizer(myself.Id, 2)
+	h2 := tc.gbuilder.Authorizer(myself.Id, 2)
 	err = h2.Authorize(debby.Id)
 	r.Nil(err)
-
-	uf.Close()
-	sinkIdx.Close()
-	cancel()
-
-	for err := range mergedErrors(ufErrc, cErrc) {
-		r.NoError(err, "from chan")
-	}
 }
 
 type margaretServe func(context.Context, margaret.Log) error
@@ -197,6 +256,7 @@ func serveLog(ctx context.Context, name string, l margaret.Log, f margaretServe)
 	go func() {
 		err := f(ctx, l)
 		if err != nil {
+			log.Println("got err for", name, err)
 			errc <- errors.Wrapf(err, "%s serve exited", name)
 		}
 		close(errc)

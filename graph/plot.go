@@ -69,7 +69,10 @@ func (n contactNode) Attributes() []encoding.Attribute {
 	}
 }
 
-type contactEdge struct{ simple.WeightedEdge }
+type contactEdge struct {
+	simple.WeightedEdge
+	isBlock bool
+}
 
 func (n contactEdge) Attributes() []encoding.Attribute {
 	c := "black"

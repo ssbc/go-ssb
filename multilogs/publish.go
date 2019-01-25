@@ -148,7 +148,9 @@ func (pl publishLog) Append(val interface{}) (margaret.Seq, error) {
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
 func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp ssb.KeyPair) (margaret.Log, error) {
-
+	if sublogs == nil {
+		return nil, errors.Errorf("no sublog for publish")
+	}
 	authorLog, err := sublogs.Get(librarian.Addr(kp.Id.ID))
 	if err != nil {
 		return nil, errors.Wrap(err, "publish: failed to open sublog for author")

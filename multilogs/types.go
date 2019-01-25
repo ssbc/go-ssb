@@ -34,12 +34,12 @@ func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, *badger.DB, func(con
 			return nil
 		}
 
-		authorLog, err := mlog.Get(librarian.Addr(typeStr))
+		typedLog, err := mlog.Get(librarian.Addr(typeStr))
 		if err != nil {
 			return errors.Wrap(err, "error opening sublog")
 		}
 
-		_, err = authorLog.Append(seq)
+		_, err = typedLog.Append(seq)
 		return errors.Wrapf(err, "error appending message of type %q", typeStr)
 	})
 }

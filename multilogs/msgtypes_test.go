@@ -7,14 +7,12 @@ import (
 	"sync"
 	"testing"
 
-	"go.cryptoscope.co/margaret/multilog"
-
-	//"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"

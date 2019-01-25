@@ -101,6 +101,8 @@ func main() {
 	id := sbot.KeyPair.Id
 	uf := sbot.UserFeeds
 	gb := sbot.GraphBuilder
+	g, err := gb.Build()
+	checkFatal(err)
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -124,13 +126,23 @@ func main() {
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
 		if len(feeds) < 20 {
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f))
+			h := g.Hops(&authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f), "hops", len(h))
 		}
 		followCnt += uint(len(f))
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
-	RepoStats.With("part", "follows").Set(float64(followCnt))
+	abouts, err := sbot.MessageTypes.Get("about")
+	checkFatal(err)
+	logSeqV, err := abouts.Seq().Value()
+	checkFatal(err)
+	RepoStats.With("part", "about").Set(float64(logSeqV.(margaret.Seq).Seq()))
+	contactLog, err := sbot.MessageTypes.Get("contact")
+	checkFatal(err)
+	logSeqV, err = contactLog.Seq().Value()
+	checkFatal(err)
+	RepoStats.With("part", "contact").Set(float64(logSeqV.(margaret.Seq).Seq()))
 	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount, "follows", followCnt)
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)

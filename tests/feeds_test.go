@@ -16,14 +16,14 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	const n = 1024
+	const n = 128
 	bob, alice, done, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
 		}
 	}
-	n = 1024
+	n = 128
 	let msgs = []
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
@@ -91,7 +91,7 @@ sbot.on('rpc:connect', (rpc) => {
         t.error(err, 'query worked')
         t.equal(1, msgs.length, 'got all the messages')
         t.equal(%q, msgs[0].key, 'latest keys match')
-        t.equal(1024, msgs[0].value.sequence, 'latest sequence')
+        t.equal(128, msgs[0].value.sequence, 'latest sequence')
         exit()
       })
     )

@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"math"
@@ -20,8 +21,12 @@ import (
 type logBuilder struct {
 	//  KILL ME
 	//  KILL ME
+	// this is just a left-over from the badger-based builder
+	// it's only here to fulfil the Builder interface
+	// badger _should_ split it's indexing out of it and then we can remove this here as well
 	librarian.SinkIndex
 	//  KILL ME
+	// dont! call these methods
 	//  KILL ME
 	//  KILL ME
 
@@ -33,11 +38,26 @@ type logBuilder struct {
 	cachedGraph *Graph
 }
 
+// NewLogBuilder is a much nicer abstraction than the direct k:v implementation.
+// most likely terribly slow though. Additionally, we have to unmarshal from stored.Raw again...
+// TODO: actually compare the two with benchmarks if only to compare the 3rd!
 func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (Builder, error) {
 	lb := logBuilder{
 		logger: logger,
 		log:    contacts,
 	}
+
+	fsnk := luigi.FuncSink(func(ctx context.Context, v interface{}, closeErr error) error {
+		if closeErr != nil {
+			return closeErr
+		}
+		logger.Log("msg", "new contact invalidating graph - debounce?")
+		lb.cacheLock.Lock()
+		lb.cachedGraph = nil
+		lb.cacheLock.Unlock()
+		return nil
+	})
+	contacts.Seq().Register(fsnk)
 
 	return &lb, nil
 }
@@ -49,11 +69,6 @@ func (b *logBuilder) Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer {
 		maxHops: maxHops,
 		log:     b.logger,
 	}
-}
-
-type contactEdge struct {
-	simple.WeightedEdge
-	isBlock bool
 }
 
 func (b *logBuilder) Build() (*Graph, error) {
@@ -95,6 +110,11 @@ func (b *logBuilder) Build() (*Graph, error) {
 			return nil
 		}
 
+		if bytes.Equal(c.Author.ID, c.Content.Contact.ID) {
+			// contact self?!
+			return nil
+		}
+
 		var bfrom [32]byte
 		copy(bfrom[:], c.Author.ID)
 		nFrom, has := known[bfrom]
@@ -113,16 +133,15 @@ func (b *logBuilder) Build() (*Graph, error) {
 			known[bto] = nTo
 		}
 
+		if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
+			dg.RemoveEdge(nFrom.ID(), nTo.ID())
+		}
+
 		w := math.Inf(-1)
 		if c.Content.Following {
 			w = 1
 		} else if c.Content.Blocking {
 			w = math.Inf(1)
-		} else {
-			if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
-				dg.RemoveEdge(nFrom.ID(), nTo.ID())
-			}
-			return nil
 		}
 
 		edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}
@@ -130,7 +149,6 @@ func (b *logBuilder) Build() (*Graph, error) {
 			WeightedEdge: edg,
 			isBlock:      c.Content.Blocking,
 		})
-
 		return nil
 	})
 	err = luigi.Pump(context.TODO(), snk, src)
@@ -138,13 +156,36 @@ func (b *logBuilder) Build() (*Graph, error) {
 		return nil, errors.Wrap(err, "friends: couldn't get idx value")
 	}
 	g := &Graph{
-		dg:     dg,
-		lookup: known,
+		WeightedDirectedGraph: *dg,
+		lookup:                known,
 	}
 	b.cachedGraph = g
 	return g, nil
 }
 
-func (b *logBuilder) Follows(fr *ssb.FeedRef) ([]*ssb.FeedRef, error) {
-	panic("TODO")
+func (b *logBuilder) Follows(from *ssb.FeedRef) ([]*ssb.FeedRef, error) {
+	g, err := b.Build()
+	if err != nil {
+		return nil, errors.Wrap(err, "follows: couldn't build graph")
+	}
+
+	var fb [32]byte
+	copy(fb[:], from.ID)
+	nFrom, has := g.lookup[fb]
+	if !has {
+		return nil, ErrNoSuchFrom{from}
+	}
+
+	nodes := g.From(nFrom.ID())
+	refs := make([]*ssb.FeedRef, nodes.Len())
+
+	for i := 0; nodes.Next(); i++ {
+		cnv := nodes.Node().(contactNode)
+		// warning - ignores edge type!
+		edg := g.Edge(nFrom.ID(), cnv.ID())
+		if edg.(contactEdge).Weight() == 1 {
+			refs[i] = cnv.feed
+		}
+	}
+	return refs, nil
 }
