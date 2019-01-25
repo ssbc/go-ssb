@@ -23,6 +23,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -208,6 +209,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		kitlog.With(log, "plugin", "gossip/hist"),
 		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter)
 	pmgr.Register(hist)
+
+	// raw log plugins
+	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
+	// createLogStream
+	ctrl.Register(hist) // createHistoryStream
 
 	return s, nil
 }

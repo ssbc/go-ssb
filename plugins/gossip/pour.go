@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -13,60 +12,16 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
-func newCreateHistArgs(args []interface{}) (*message.CreateHistArgs, error) {
-	// check & parse args
-	if len(args) < 1 {
-		return nil, errors.New("ssb/message: not enough arguments, expecting feed id")
-	}
-	argMap, ok := args[0].(map[string]interface{})
-	if !ok {
-		return nil, errors.Errorf("ssb/message: not the right map - %T", args[0])
-	}
-
-	// could reflect over qrys fiields but meh - compiler knows better
-	var qry message.CreateHistArgs
-	for k, v := range argMap {
-		switch k = strings.ToLower(k); k {
-		case "live", "keys", "values", "reverse":
-			b, ok := v.(bool)
-			if !ok {
-				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
-			}
-			switch k {
-			case "live":
-				qry.Live = b
-			case "keys":
-				qry.Keys = b
-			case "values":
-				qry.Values = b
-			case "reverse":
-				qry.Reverse = b
-			}
-		case "id":
-			qry.Id, ok = v.(string)
-			if !ok {
-				return nil, errors.Errorf("ssb/message: not a string for %s", k)
-			}
-		case "seq", "limit":
-			n, ok := v.(float64)
-			if !ok {
-				return nil, errors.Errorf("ssb/message: not a float64 for %s", k)
-			}
-			switch k {
-			case "seq":
-				qry.Seq = int64(n)
-			case "limit":
-				qry.Limit = int64(n)
-			}
-		}
-	}
-
-	return &qry, nil
-}
-
 func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
-
-	qry, err := newCreateHistArgs(req.Args)
+	// check & parse args
+	if len(req.Args) < 1 {
+		return errors.New("ssb/message: not enough arguments, expecting feed id")
+	}
+	argMap, ok := req.Args[0].(map[string]interface{})
+	if !ok {
+		return errors.Errorf("ssb/message: not the right map - %T", req.Args[0])
+	}
+	qry, err := message.NewCreateHistArgsFromMap(argMap)
 	if err != nil {
 		return errors.Wrap(err, "bad request")
 	}
