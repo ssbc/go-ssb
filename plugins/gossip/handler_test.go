@@ -38,166 +38,194 @@ func ckFatal(err error) {
 	}
 }
 
-func TestReplicate(t *testing.T) {
+type tcase struct {
+	path string
+	has  margaret.BaseSeq
+	pki  string
+}
+
+func (tc *tcase) runTest(t *testing.T) {
 	r := require.New(t)
 
-	type tcase struct {
-		path string
-		has  margaret.BaseSeq
-		pki  string
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var infoAlice, infoBob logging.Interface
+	if testing.Verbose() {
+		l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		infoAlice = log.With(l, "bot", "alice")
+		infoBob = log.With(l, "bot", "bob")
+	} else {
+		infoAlice, _ = logtest.KitLogger("alice", t)
+		infoBob, _ = logtest.KitLogger("bob", t)
 	}
-	for i, tc := range []tcase{
+
+	srcRepo := test.LoadTestDataPeer(t, tc.path)
+	srcKeyPair, err := repo.OpenKeyPair(srcRepo)
+	r.NoError(err, "error opening src key pair")
+	srcID := srcKeyPair.Id
+
+	dstRepo, _ := test.MakeEmptyPeer(t)
+	dstKeyPair, err := repo.OpenKeyPair(dstRepo)
+	r.NoError(err, "error opening dst key pair")
+	dstID := dstKeyPair.Id
+
+	srcRootLog, err := repo.OpenLog(srcRepo)
+	r.NoError(err, "error getting src root log")
+	defer func() {
+		err := srcRootLog.(io.Closer).Close()
+		r.NoError(err, "error closing src root log")
+	}()
+
+	srcMlog, _, srcMlogServe, err := multilogs.OpenUserFeeds(srcRepo)
+	r.NoError(err, "error getting src userfeeds multilog")
+	defer func() {
+		err := srcMlog.Close()
+		r.NoError(err, "error closing src user feeds multilog")
+	}()
+
+	go func() {
+		err := srcMlogServe(ctx, srcRootLog)
+		ckFatal(errors.Wrap(err, "error serving src user feeds multilog"))
+	}()
+
+	srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
+	r.NoError(err, "error getting src contacts index")
+	defer func() {
+		err := srcGraphBuilder.Close()
+		r.NoError(err, "error closing src graph builder")
+	}()
+
+	go func() {
+		err := srcGraphBuilderServe(ctx, srcRootLog)
+		ckFatal(errors.Wrap(err, "error serving src contacts index"))
+	}()
+
+	dstRootLog, err := repo.OpenLog(dstRepo)
+	r.NoError(err, "error getting dst root log")
+	defer func() {
+		err := dstRootLog.(io.Closer).Close()
+		r.NoError(err, "error closing dst root log")
+	}()
+
+	dstMlog, _, dstMlogServe, err := multilogs.OpenUserFeeds(dstRepo)
+	r.NoError(err, "error getting dst userfeeds multilog")
+	defer func() {
+		err := dstMlog.Close()
+		r.NoError(err, "error closing dst userfeeds multilog")
+	}()
+
+	go func() {
+		err := dstMlogServe(ctx, dstRootLog)
+		ckFatal(errors.Wrap(err, "error serving dst user feeds multilog"))
+	}()
+
+	dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
+	r.NoError(err, "error getting dst contacts index")
+	defer func() {
+		err := dstGraphBuilder.Close()
+		r.NoError(err, "error closing dst graph builder")
+	}()
+
+	go func() {
+		err := dstGraphBuilderServe(ctx, dstRootLog)
+		ckFatal(errors.Wrap(err, "error serving dst contacts index"))
+	}()
+
+	// check full & empty
+	r.Equal(tc.pki, srcID.Ref())
+	srcMlogAddr := librarian.Addr(srcID.ID)
+	has, err := multilog.Has(srcMlog, srcMlogAddr)
+	r.NoError(err)
+	r.True(has, "source should have the testLog")
+	has, err = multilog.Has(dstMlog, srcMlogAddr)
+	r.NoError(err)
+	r.False(has, "destination should not have the testLog already")
+
+	testLog, err := srcMlog.Get(srcMlogAddr)
+	r.NoError(err, "failed to get sublog")
+	seqVal, err := testLog.Seq().Value()
+	r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+
+	start := time.Now()
+	// do the dance
+	pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
+
+	var hdone sync.WaitGroup
+	hdone.Add(2)
+
+	// create handlers
+	//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
+	h1 := &handler{
+		Id:           srcID,
+		RootLog:      srcRootLog,
+		UserFeeds:    srcMlog,
+		GraphBuilder: srcGraphBuilder,
+		Info:         infoAlice,
+		hanlderDone: func() {
+			infoAlice.Log("event", "handler done", "time-since", time.Since(start))
+			hdone.Done()
+		},
+	}
+	h2 := &handler{
+		Id:           dstID,
+		RootLog:      dstRootLog,
+		UserFeeds:    dstMlog,
+		GraphBuilder: dstGraphBuilder,
+		Info:         infoBob,
+		hanlderDone: func() {
+			infoBob.Log("event", "handler done", "time-since", time.Since(start))
+			hdone.Done()
+		},
+	}
+
+	rpc1 := muxrpc.Handle(pkr1, h1)
+	rpc2 := muxrpc.Handle(pkr2, h2)
+
+	finish := make(chan func())
+	done := make(chan struct{})
+	go func() {
+		hdone.Wait()
+		(<-finish)()
+		close(done)
+	}()
+
+	finish <- serve(rpc1, rpc2)
+	<-done
+	t.Log("after gossip")
+
+	// check data ended up on the target
+	has, err = multilog.Has(dstMlog, srcMlogAddr)
+	r.NoError(err)
+	r.True(has, "destination should now have the testLog already")
+
+	dstTestLog, err := dstMlog.Get(srcMlogAddr)
+	r.NoError(err, "failed to get sublog")
+	seqVal, err = dstTestLog.Seq().Value()
+	r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.True(seqVal.(margaret.BaseSeq) > 0, "wrong sequence value on testlog")
+
+	// do the dance - again.
+	// should not get more messages
+	// done = connectAndServe(t, srcRepo, dstRepo)
+	// <-done
+	// t.Log("after gossip#2")
+
+	// dstTestLog, err = dstMlog.Get(srcMlogAddr)
+	// r.NoError(err, "failed to get sublog")
+	// seqVal, err = dstTestLog.Seq().Value()
+	// r.NoError(err, "failed to aquire current sequence of test sublog")
+	r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
+
+}
+
+func TestReplicate(t *testing.T) {
+	for _, tc := range []tcase{
 		{"testdata/replicate1", 2, "@Z9VZfAWEFjNyo2SfuPu6dkbarqalYELwARCE4nKXyY0=.ed25519"},
 		{"testdata/largeRepo", 431, "@qhSpPqhWyJBZ0/w+ERa6WZvRWjaXu0dlep6L+Xi6PQ0=.ed25519"},
 	} {
-		t.Log("test run", i, tc.path)
-
-		var infoAlice, infoBob logging.Interface
-		if testing.Verbose() {
-			l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-			infoAlice = log.With(l, "bot", "alice")
-			infoBob = log.With(l, "bot", "bob")
-		} else {
-			infoAlice, _ = logtest.KitLogger("alice", t)
-			infoBob, _ = logtest.KitLogger("bob", t)
-		}
-
-		srcRepo := test.LoadTestDataPeer(t, tc.path)
-		srcKeyPair, err := repo.OpenKeyPair(srcRepo)
-		r.NoError(err, "error opening src key pair")
-		srcID := srcKeyPair.Id
-
-		dstRepo, dstPath := test.MakeEmptyPeer(t)
-		dstKeyPair, err := repo.OpenKeyPair(dstRepo)
-		r.NoError(err, "error opening dst key pair")
-		dstID := dstKeyPair.Id
-
-		srcRootLog, err := repo.OpenLog(srcRepo)
-		r.NoError(err, "error getting src root log")
-
-		srcMlog, _, srcMlogServe, err := multilogs.OpenUserFeeds(srcRepo)
-		r.NoError(err, "error getting src userfeeds multilog")
-
-		go func() {
-			err := srcMlogServe(context.TODO(), srcRootLog)
-			ckFatal(errors.Wrap(err, "error serving src user feeds multilog"))
-		}()
-
-		srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
-		r.NoError(err, "error getting src contacts index")
-
-		go func() {
-			err := srcGraphBuilderServe(context.TODO(), srcRootLog)
-			ckFatal(errors.Wrap(err, "error serving src contacts index"))
-		}()
-
-		dstRootLog, err := repo.OpenLog(dstRepo)
-		r.NoError(err, "error getting dst root log")
-
-		dstMlog, _, dstMlogServe, err := multilogs.OpenUserFeeds(dstRepo)
-		r.NoError(err, "error getting dst userfeeds multilog")
-
-		go func() {
-			err := dstMlogServe(context.TODO(), dstRootLog)
-			ckFatal(errors.Wrap(err, "error serving dst user feeds multilog"))
-		}()
-
-		dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
-		r.NoError(err, "error getting dst contacts index")
-
-		go func() {
-			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
-			ckFatal(errors.Wrap(err, "error serving dst contacts index"))
-		}()
-
-		// check full & empty
-		r.Equal(tc.pki, srcID.Ref())
-		srcMlogAddr := librarian.Addr(srcID.ID)
-		has, err := multilog.Has(srcMlog, srcMlogAddr)
-		r.NoError(err)
-		r.True(has, "source should have the testLog")
-		has, err = multilog.Has(dstMlog, srcMlogAddr)
-		r.NoError(err)
-		r.False(has, "destination should not have the testLog already")
-
-		testLog, err := srcMlog.Get(srcMlogAddr)
-		r.NoError(err, "failed to get sublog")
-		seqVal, err := testLog.Seq().Value()
-		r.NoError(err, "failed to aquire current sequence of test sublog")
-		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
-
-		start := time.Now()
-		// do the dance
-		pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
-
-		// create handlers
-		//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
-		h1 := &handler{
-			Id:           srcID,
-			RootLog:      srcRootLog,
-			UserFeeds:    srcMlog,
-			GraphBuilder: srcGraphBuilder,
-			Info:         infoAlice,
-		}
-		h2 := &handler{
-			Id:           dstID,
-			RootLog:      dstRootLog,
-			UserFeeds:    dstMlog,
-			GraphBuilder: dstGraphBuilder,
-			Info:         infoBob,
-		}
-
-		rpc1 := muxrpc.Handle(pkr1, h1)
-		rpc2 := muxrpc.Handle(pkr2, h2)
-
-		var hdone sync.WaitGroup
-		hdone.Add(2)
-		h1.hanlderDone = func() {
-			t.Log("h1 done", time.Since(start))
-			hdone.Done()
-		}
-		h2.hanlderDone = func() {
-			t.Log("h2 done", time.Since(start))
-			hdone.Done()
-		}
-		finish := make(chan func())
-		done := make(chan struct{})
-		go func() {
-			hdone.Wait()
-			(<-finish)()
-			close(done)
-		}()
-
-		finish <- serve(rpc1, rpc2)
-		<-done
-		t.Log("after gossip")
-
-		// check data ended up on the target
-		has, err = multilog.Has(dstMlog, srcMlogAddr)
-		r.NoError(err)
-		r.True(has, "destination should now have the testLog already")
-
-		dstTestLog, err := dstMlog.Get(srcMlogAddr)
-		r.NoError(err, "failed to get sublog")
-		seqVal, err = dstTestLog.Seq().Value()
-		r.NoError(err, "failed to aquire current sequence of test sublog")
-		r.True(seqVal.(margaret.BaseSeq) > 0, "wrong sequence value on testlog")
-
-		// do the dance - again.
-		// should not get more messages
-		// done = connectAndServe(t, srcRepo, dstRepo)
-		// <-done
-		// t.Log("after gossip#2")
-
-		// dstTestLog, err = dstMlog.Get(srcMlogAddr)
-		// r.NoError(err, "failed to get sublog")
-		// seqVal, err = dstTestLog.Seq().Value()
-		// r.NoError(err, "failed to aquire current sequence of test sublog")
-		r.Equal(tc.has, seqVal, "wrong sequence value on testlog")
-
-		if !t.Failed() {
-			os.RemoveAll(dstPath)
-		}
+		t.Run(tc.path, tc.runTest)
 	}
 }
 

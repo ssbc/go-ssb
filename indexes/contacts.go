@@ -18,12 +18,21 @@ func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, func(cont
 		return graph.NewBuilder(kitlog.With(log, "module", "graph"), db)
 	}
 
-	_, sinkIdx, serve, err := repo.OpenBadgerIndex(r, "contacts", f)
+	db, sinkIdx, serve, err := repo.OpenBadgerIndex(r, "contacts", f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting contacts index")
 	}
 
 	bldr := sinkIdx.(graph.Builder)
 
-	return bldr, serve, nil
+	nextServe := func(ctx context.Context, log margaret.Log) error {
+		err := serve(ctx, log)
+		if err != nil {
+			return err
+		}
+
+		return db.Close()
+	}
+
+	return bldr, nextServe, nil
 }
