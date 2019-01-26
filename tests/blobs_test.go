@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -38,10 +39,15 @@ func TestBlobToJS(t *testing.T) {
 	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
 
 	defer cleanup()
-	<-done
+	closeErrc := make(chan error)
+	go func() {
+		<-done
+		closeErrc <- s.Close()
+		close(closeErrc)
+	}()
 
-	for err := range errc {
-		t.Error(err)
+	for err := range mergeErrorChans(errc, closeErrc) {
+		r.NoError(err)
 	}
 
 	// TODO: check wantManager for this connection is stopped when the jsbot exited
@@ -50,7 +56,6 @@ func TestBlobToJS(t *testing.T) {
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
-	r.NoError(s.Close())
 }
 
 func TestBlobFromJS(t *testing.T) {
@@ -87,12 +92,12 @@ func TestBlobFromJS(t *testing.T) {
 
 	got := make(chan struct{})
 	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		defer close(got)
 		notif := v.(ssb.BlobStoreNotification)
-		// TODO: if this is on another goroutine we cant use require
-		t.Log(notif)
-		r.Equal(ssb.BlobStoreOp("put"), notif.Op)
-		r.Equal(fooBarRef, notif.Ref.Ref())
+		if ssb.BlobStoreOp("put") == notif.Op && fooBarRef == notif.Ref.Ref() {
+			close(got)
+		} else {
+			fmt.Println("warning: wrong blob notify!", notif)
+		}
 		return err
 	}))
 
@@ -109,15 +114,19 @@ func TestBlobFromJS(t *testing.T) {
 	r.Equal("foobar", string(foobar))
 
 	defer cleanup()
-	<-done
+	closeErrc := make(chan error)
+	go func() {
+		<-done
+		closeErrc <- s.Close()
+		close(closeErrc)
+	}()
 
-	for err := range errc {
-		t.Error(err)
+	for err := range mergeErrorChans(errc, closeErrc) {
+		r.NoError(err)
 	}
 
 	ts := <-tsChan
 	for i, dpkt := range ts.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
-	r.NoError(s.Close())
 }

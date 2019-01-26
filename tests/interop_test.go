@@ -118,8 +118,8 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 		if err != nil {
 			errc <- errors.Wrap(err, "cmd wait failed")
 		}
-		t.Log("waited")
 		close(done)
+		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
 		close(errc)
 	}()
 

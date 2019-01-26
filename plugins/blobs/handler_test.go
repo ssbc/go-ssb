@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	muxtest "go.cryptoscope.co/muxrpc/test"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -41,7 +40,7 @@ func TestReplicate(t *testing.T) {
 	dstWM := blobstore.NewWantManager(dstLog, dstBS)
 
 	// do the dance
-	pkr1, pkr2, ts, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
+	pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
 	pi1 := New(srcLog, srcBS, srcWM)
 	pi2 := New(dstLog, dstBS, dstWM)
@@ -89,7 +88,7 @@ func TestReplicate(t *testing.T) {
 
 	r.Equal("testString", string(blobStr), "blob value mismatch")
 
-	// TODO test transcript here
+	/* TODO test transcript here
 
 	spec := muxtest.MergeTranscriptSpec(
 		muxtest.UniqueMatchTranscriptSpec(
@@ -116,15 +115,15 @@ func TestReplicate(t *testing.T) {
 				),
 			),
 		0),
-		*/
+
 	)
 
-	/*
+
 		for i, dpkt := range ts.Get() {
 			t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 		}
+		spec(t, ts)
 	*/
-	spec(t, ts)
 
 	if !t.Failed() {
 		os.RemoveAll(dstPath)

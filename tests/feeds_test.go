@@ -16,14 +16,14 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	const n = 1024
+	const n = 128
 	bob, alice, done, errc, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
 		}
 	}
-	n = 1024
+	n = 128
 	let msgs = []
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
@@ -38,12 +38,9 @@ func TestFeedFromJS(t *testing.T) {
 		run() // triggers connect and after block
 	})
 `, ``)
+
 	defer cleanup()
 	<-done
-
-	for err := range errc {
-		t.Error(err)
-	}
 
 	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -95,7 +92,7 @@ sbot.on('rpc:connect', (rpc) => {
         t.error(err, 'query worked')
         t.equal(1, msgs.length, 'got all the messages')
         t.equal(%q, msgs[0].key, 'latest keys match')
-        t.equal(1024, msgs[0].value.sequence, 'latest sequence')
+        t.equal(128, msgs[0].value.sequence, 'latest sequence')
         exit()
       })
     )
@@ -122,15 +119,17 @@ pull(
 
 }) // publish`, alice.Ref(), lastMsg)
 
-	claire, done, errc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
-	for err := range errc {
-		t.Fatal(err)
-	}
+
 	<-done
 
 	r.NoError(bob.Close())
+
+	for err := range mergeErrorChans(errc, clairErrc) {
+		t.Error(err)
+	}
 }
 
 func TestFeedFromGo(t *testing.T) {
@@ -179,7 +178,7 @@ func TestFeedFromGo(t *testing.T) {
 
 }) // publish`
 
-	s, alice, done, cleanup := initInterop(t, before, "")
+	s, alice, done, errc, cleanup := initInterop(t, before, "")
 
 	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	r.NoError(err)
@@ -225,4 +224,6 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
+	r.NoError(s.Close())
+	r.NoError(<-errc)
 }
