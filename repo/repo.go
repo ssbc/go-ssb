@@ -3,7 +3,7 @@ package repo
 import (
 	"context"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -32,7 +32,7 @@ type repo struct {
 }
 
 func (r repo) GetPath(rel ...string) string {
-	return path.Join(append([]string{r.basePath}, rel...)...)
+	return filepath.Join(append([]string{r.basePath}, rel...)...)
 }
 
 // OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
