@@ -23,17 +23,49 @@ import (
 type mlogInitFunc func(ctx context.Context, r repo.Interface, log margaret.Log, newSink newErrorSinkFunc) (uf multilog.MultiLog, mt multilog.MultiLog, err error)
 
 func directMlogInit(ctx context.Context, r repo.Interface, log margaret.Log, newSink newErrorSinkFunc) (uf multilog.MultiLog, mt multilog.MultiLog, err error) {
-	var serveUF, serveMT func(context.Context, margaret.Log) error
+	var (
+		serveUF, serveMT       func(context.Context, margaret.Log) error
+		uptodateUF, uptodateMT luigi.Observable
+	)
 
-	uf, _, serveUF, err = OpenUserFeeds(r)
+	uf, _, uptodateUF, serveUF, err = OpenUserFeeds(r)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error opening user feeds multilog")
 	}
 
-	mt, _, serveMT, err = OpenMessageTypes(r)
+	mt, _, uptodateMT, serveMT, err = OpenMessageTypes(r)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error opening message types multilog")
 	}
+
+	// prepare wait for being up-to-date
+	var wg sync.WaitGroup
+
+	mkDoneSink := func() luigi.Sink {
+		var (
+			l    sync.Mutex
+			done bool
+		)
+
+		wg.Add(1)
+
+		return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+			uptodate, _ := v.(bool)
+			l.Lock()
+			defer l.Unlock()
+			if uptodate && !done {
+				wg.Done()
+				done = true
+			}
+
+			return nil
+		})
+	}
+
+	cancelUF := uptodateUF.Register(mkDoneSink())
+	defer cancelUF()
+	cancelMT := uptodateMT.Register(mkDoneSink())
+	defer cancelMT()
 
 	go func() {
 		newSink() <- errors.Wrap(serveUF(ctx, log), "user feeds: serve exited")
@@ -42,6 +74,8 @@ func directMlogInit(ctx context.Context, r repo.Interface, log margaret.Log, new
 	go func() {
 		newSink() <- errors.Wrap(serveMT(ctx, log), "message types: serve exited")
 	}()
+
+	wg.Wait()
 
 	return uf, mt, nil
 }

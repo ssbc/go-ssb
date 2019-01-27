@@ -37,7 +37,7 @@ func TestSignMessages(t *testing.T) {
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
 
-	userFeeds, _, userFeedsServe, err := OpenUserFeeds(testRepo)
+	userFeeds, _, _, userFeedsServe, err := OpenUserFeeds(testRepo)
 	r.NoError(err, "failed to get user feeds multilog")
 
 	killServe, cancel := context.WithCancel(tctx)

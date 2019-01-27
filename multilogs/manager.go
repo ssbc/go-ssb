@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb/repo"
@@ -88,12 +89,12 @@ type Manager interface {
 }
 
 func NewManager(r repo.Interface, log margaret.Log) (Manager, error) {
-	uf, _, serveUF, err := OpenUserFeeds(r)
+	uf, _, uptodateUF, serveUF, err := OpenUserFeeds(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "multilogs manager: failed to open user feeds")
 	}
 
-	mt, _, serveMT, err := OpenMessageTypes(r)
+	mt, _, uptodateMT, serveMT, err := OpenMessageTypes(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "multilogs manager: failed to open message types")
 	}
@@ -103,10 +104,17 @@ func NewManager(r repo.Interface, log margaret.Log) (Manager, error) {
 		log:  log,
 		uf:   uf,
 		mt:   mt,
+
+		uptodate: []luigi.Observable{
+			uptodateUF,
+			uptodateMT,
+		},
+
 		serves: []ServeFunc{
 			serveUF,
 			serveMT,
 		},
+
 		mc: &multiCloser{
 			cs: []io.Closer{
 				uf,
@@ -117,12 +125,13 @@ func NewManager(r repo.Interface, log margaret.Log) (Manager, error) {
 }
 
 type manager struct {
-	serves []ServeFunc
-	uf     multilog.MultiLog
-	mt     multilog.MultiLog
-	log    margaret.Log
-	repo   repo.Interface
-	mc     *multiCloser
+	serves   []ServeFunc
+	uptodate []luigi.Observable
+	uf       multilog.MultiLog
+	mt       multilog.MultiLog
+	log      margaret.Log
+	repo     repo.Interface
+	mc       *multiCloser
 }
 
 func (mgr *manager) Serve(ctx context.Context) error {
@@ -131,6 +140,36 @@ func (mgr *manager) Serve(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// prepare wait for being up-to-date
+	var wg sync.WaitGroup
+
+	mkDoneSink := func() luigi.Sink {
+		var (
+			l    sync.Mutex
+			done bool
+		)
+
+		wg.Add(1)
+
+		return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+			uptodate, _ := v.(bool)
+			l.Lock()
+			defer l.Unlock()
+			if uptodate && !done {
+				wg.Done()
+				done = true
+			}
+
+			return nil
+		})
+	}
+
+	for _, uptodate := range mgr.uptodate {
+		cancel := uptodate.Register(mkDoneSink())
+		defer cancel()
+	}
+
+	// call serve goroutines
 	for _, f := range mgr.serves {
 		go func(g ServeFunc) {
 			newSink() <- g(ctx, mgr.log)
@@ -143,6 +182,8 @@ func (mgr *manager) Serve(ctx context.Context) error {
 		me = append(me, err)
 		cancel()
 	}
+
+	wg.Wait()
 
 	return me
 }

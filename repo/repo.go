@@ -38,14 +38,14 @@ func (r repo) GetPath(rel ...string) string {
 // OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //
 // Exposes the badger db for 100% hackability. This will go away in future versions!
-func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
+func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, luigi.Observable, func(context.Context, margaret.Log) error, error) {
 	// badger + librarian as index
 	opts := badger.DefaultOptions
 
 	dbPath := r.GetPath("sublogs", name, "db")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+		return nil, nil, nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
 	}
 
 	opts.Dir = dbPath
@@ -53,15 +53,17 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
+		return nil, nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
 	}
 
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
 
+	uptodate := luigi.NewObservable(false)
+
 	statePath := r.GetPath("sublogs", name, "state.json")
 	idxStateFile, err := os.OpenFile(statePath, os.O_CREATE|os.O_RDWR, 0700)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "error opening state file")
+		return nil, nil, nil, nil, errors.Wrap(err, "error opening state file")
 	}
 
 	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
@@ -74,20 +76,40 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 				log.Printf("mlog %s: state file closed:%v", name, errors.Wrapf(idxStateFile.Close(), "failed to close index file %s", statePath))
 			}()
 		*/
-		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), mlogSink.QuerySpec())
+		src, err := rootLog.Query(margaret.SeqWrap(true), mlogSink.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying rootLog for mlog")
 		}
 
 		err = luigi.Pump(ctx, mlogSink, src)
-		if err == context.Canceled {
-			return nil
+		if err != nil {
+			if err == context.Canceled {
+				return nil
+			}
+
+			return errors.Wrap(err, "error reading query for mlog")
 		}
 
-		return errors.Wrap(err, "error reading query for mlog")
+		uptodate.Set(true)
+
+		src, err = rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), mlogSink.QuerySpec())
+		if err != nil {
+			return errors.Wrap(err, "error querying rootLog for mlog")
+		}
+
+		err = luigi.Pump(ctx, mlogSink, src)
+		if err != nil {
+			if err == context.Canceled {
+				return nil
+			}
+
+			return errors.Wrap(err, "error reading query for mlog")
+		}
+
+		return nil
 	}
 
-	return mlog, db, serve, nil
+	return mlog, db, uptodate, serve, nil
 }
 
 func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, func(context.Context, margaret.Log) error, error) {
