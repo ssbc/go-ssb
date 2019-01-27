@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 	"sync"
 	"testing"
 
@@ -19,142 +20,187 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+type mlogInitFunc func(ctx context.Context, r repo.Interface, log margaret.Log, newSink newErrorSinkFunc) (uf multilog.MultiLog, mt multilog.MultiLog, err error)
+
+func directMlogInit(ctx context.Context, r repo.Interface, log margaret.Log, newSink newErrorSinkFunc) (uf multilog.MultiLog, mt multilog.MultiLog, err error) {
+	var serveUF, serveMT func(context.Context, margaret.Log) error
+
+	uf, _, serveUF, err = OpenUserFeeds(r)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error opening user feeds multilog")
+	}
+
+	mt, _, serveMT, err = OpenMessageTypes(r)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error opening message types multilog")
+	}
+
+	go func() {
+		newSink() <- errors.Wrap(serveUF(ctx, log), "user feeds: serve exited")
+	}()
+
+	go func() {
+		newSink() <- errors.Wrap(serveMT(ctx, log), "message types: serve exited")
+	}()
+
+	return uf, mt, nil
+}
+
+func managedMlogInit(ctx context.Context, r repo.Interface, log margaret.Log, newSink newErrorSinkFunc) (uf multilog.MultiLog, mt multilog.MultiLog, err error) {
+	mgr, err := NewManager(r, log)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error initializing multilog manager")
+	}
+
+	go func() {
+		newSink() <- errors.Wrap(mgr.Serve(ctx), "user feeds: serve exited")
+	}()
+
+	return mgr.UserFeeds(), mgr.MessageTypes(), nil
+}
+
 func TestMessageTypes(t *testing.T) {
-	// > test boilerplate
-	// TODO: abstract serving and error channel handling
-	// Meta TODO: close handling and status of indexing
-	r := require.New(t)
-	//info, _ := logtest.KitLogger(t.Name(), t)
+	t.Run("mlog-direct", mkTestMessageTypes(directMlogInit))
+	t.Run("mlog-managed", mkTestMessageTypes(managedMlogInit))
+}
 
-	tRepoPath, err := ioutil.TempDir("", t.Name())
-	r.NoError(err)
+func mkTestMessageTypes(initMlog mlogInitFunc) func(*testing.T) {
+	return func(t *testing.T) {
+		// > test boilerplate
+		// Meta TODO: close handling and status of indexing
+		r := require.New(t)
+		//info, _ := logtest.KitLogger(t.Name(), t)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+		errSrc, mkErrSink := newErrorCollector()
 
-	tRepo := repo.New(tRepoPath)
-	tRootLog, err := repo.OpenLog(tRepo)
-	r.NoError(err)
+		tRepoPath, err := ioutil.TempDir("", strings.Replace(t.Name(), "/", "_", -1))
+		r.NoError(err)
 
-	uf, _, serveUF, err := OpenUserFeeds(tRepo)
-	r.NoError(err)
-	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
+		ctx, cancel := context.WithCancel(context.TODO())
 
-	mt, _, serveMT, err := OpenMessageTypes(tRepo)
-	r.NoError(err)
-	mtErrc := serveLog(ctx, "message types", tRootLog, serveMT)
+		tRepo := repo.New(tRepoPath)
+		tRootLog, err := repo.OpenLog(tRepo)
+		r.NoError(err)
 
-	alice, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	alicePublish, err := OpenPublishLog(tRootLog, mt, *alice)
-	r.NoError(err)
+		uf, mt, err := initMlog(ctx, tRepo, tRootLog, mkErrSink)
+		r.NoError(err)
+		r.NotNil(uf, "user feeds multilog is nil")
+		r.NotNil(mt, "message types multilog is nil")
 
-	bob, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	bobPublish, err := OpenPublishLog(tRootLog, mt, *bob)
-	r.NoError(err)
+		alice, err := ssb.NewKeyPair(nil)
+		r.NoError(err)
 
-	claire, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	clairePublish, err := OpenPublishLog(tRootLog, mt, *claire)
-	r.NoError(err)
+		alicePublish, err := OpenPublishLog(tRootLog, mt, *alice)
+		r.NoError(err)
 
-	// > create contacts
-	var tmsgs = []interface{}{
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   alice.Id.Ref(),
-			"following": true,
-			"test":      "alice1",
-		},
-		map[string]interface{}{
-			"type": "post",
-			"text": "something",
-			"test": "alice2",
-		},
-		"1923u1310310.nobox",
-		map[string]interface{}{
-			"type":  "about",
-			"about": bob.Id.Ref(),
-			"name":  "bob",
-			"test":  "alice3",
-		},
-	}
-	for i, msg := range tmsgs {
-		newSeq, err := alicePublish.Append(msg)
-		r.NoError(err, "failed to publish test message %d", i)
-		r.NotNil(newSeq)
-	}
+		bob, err := ssb.NewKeyPair(nil)
+		r.NoError(err)
+		bobPublish, err := OpenPublishLog(tRootLog, mt, *bob)
+		r.NoError(err)
 
-	checkTypes(t, "contact", []string{"alice1"}, tRootLog, mt)
-	checkTypes(t, "post", []string{"alice2"}, tRootLog, mt)
-	checkTypes(t, "about", []string{"alice3"}, tRootLog, mt)
+		claire, err := ssb.NewKeyPair(nil)
+		r.NoError(err)
+		clairePublish, err := OpenPublishLog(tRootLog, mt, *claire)
+		r.NoError(err)
 
-	var bobsMsgs = []interface{}{
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   bob.Id.Ref(),
-			"following": true,
-			"test":      "bob1",
-		},
-		"1923u1310310.nobox",
-		map[string]interface{}{
-			"type":  "about",
-			"about": bob.Id.Ref(),
-			"name":  "bob",
-			"test":  "bob2",
-		},
-		map[string]interface{}{
-			"type": "post",
-			"text": "hello, world",
-			"test": "bob3",
-		},
-	}
-	for i, msg := range bobsMsgs {
-		newSeq, err := bobPublish.Append(msg)
-		r.NoError(err, "failed to publish test message %d", i)
-		r.NotNil(newSeq)
-	}
+		// > create contacts
+		var tmsgs = []interface{}{
+			map[string]interface{}{
+				"type":      "contact",
+				"contact":   alice.Id.Ref(),
+				"following": true,
+				"test":      "alice1",
+			},
+			map[string]interface{}{
+				"type": "post",
+				"text": "something",
+				"test": "alice2",
+			},
+			"1923u1310310.nobox",
+			map[string]interface{}{
+				"type":  "about",
+				"about": bob.Id.Ref(),
+				"name":  "bob",
+				"test":  "alice3",
+			},
+		}
+		for i, msg := range tmsgs {
+			newSeq, err := alicePublish.Append(msg)
+			r.NoError(err, "failed to publish test message %d", i)
+			r.NotNil(newSeq)
+		}
 
-	checkTypes(t, "contact", []string{"alice1", "bob1"}, tRootLog, mt)
-	checkTypes(t, "about", []string{"alice3", "bob2"}, tRootLog, mt)
-	checkTypes(t, "post", []string{"alice2", "bob3"}, tRootLog, mt)
+		checkTypes(t, "contact", []string{"alice1"}, tRootLog, mt)
+		checkTypes(t, "post", []string{"alice2"}, tRootLog, mt)
+		checkTypes(t, "about", []string{"alice3"}, tRootLog, mt)
 
-	var clairesMsgs = []interface{}{
-		"1923u1310310.nobox",
-		map[string]interface{}{
-			"type": "post",
-			"text": "hello, world",
-			"test": "claire1",
-		},
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   claire.Id.Ref(),
-			"following": true,
-			"test":      "claire2",
-		},
-		map[string]interface{}{
-			"type":  "about",
-			"about": claire.Id.Ref(),
-			"name":  "claire",
-			"test":  "claire3",
-		},
-	}
-	for i, msg := range clairesMsgs {
-		newSeq, err := clairePublish.Append(msg)
-		r.NoError(err, "failed to publish test message %d", i)
-		r.NotNil(newSeq)
-	}
+		var bobsMsgs = []interface{}{
+			map[string]interface{}{
+				"type":      "contact",
+				"contact":   bob.Id.Ref(),
+				"following": true,
+				"test":      "bob1",
+			},
+			"1923u1310310.nobox",
+			map[string]interface{}{
+				"type":  "about",
+				"about": bob.Id.Ref(),
+				"name":  "bob",
+				"test":  "bob2",
+			},
+			map[string]interface{}{
+				"type": "post",
+				"text": "hello, world",
+				"test": "bob3",
+			},
+		}
+		for i, msg := range bobsMsgs {
+			newSeq, err := bobPublish.Append(msg)
+			r.NoError(err, "failed to publish test message %d", i)
+			r.NotNil(newSeq)
+		}
 
-	checkTypes(t, "contact", []string{"alice1", "bob1", "claire2"}, tRootLog, mt)
-	checkTypes(t, "about", []string{"alice3", "bob2", "claire3"}, tRootLog, mt)
-	checkTypes(t, "post", []string{"alice2", "bob3", "claire1"}, tRootLog, mt)
+		checkTypes(t, "contact", []string{"alice1", "bob1"}, tRootLog, mt)
+		checkTypes(t, "about", []string{"alice3", "bob2"}, tRootLog, mt)
+		checkTypes(t, "post", []string{"alice2", "bob3"}, tRootLog, mt)
 
-	mt.Close()
-	uf.Close()
-	cancel()
+		var clairesMsgs = []interface{}{
+			"1923u1310310.nobox",
+			map[string]interface{}{
+				"type": "post",
+				"text": "hello, world",
+				"test": "claire1",
+			},
+			map[string]interface{}{
+				"type":      "contact",
+				"contact":   claire.Id.Ref(),
+				"following": true,
+				"test":      "claire2",
+			},
+			map[string]interface{}{
+				"type":  "about",
+				"about": claire.Id.Ref(),
+				"name":  "claire",
+				"test":  "claire3",
+			},
+		}
+		for i, msg := range clairesMsgs {
+			newSeq, err := clairePublish.Append(msg)
+			r.NoError(err, "failed to publish test message %d", i)
+			r.NotNil(newSeq)
+		}
 
-	for err := range mergedErrors(mtErrc, ufErrc) {
-		r.NoError(err, "from chan")
+		checkTypes(t, "contact", []string{"alice1", "bob1", "claire2"}, tRootLog, mt)
+		checkTypes(t, "about", []string{"alice3", "bob2", "claire3"}, tRootLog, mt)
+		checkTypes(t, "post", []string{"alice2", "bob3", "claire1"}, tRootLog, mt)
+
+		mt.Close()
+		uf.Close()
+		cancel()
+
+		for err := range errSrc {
+			r.NoError(err, "from chan")
+		}
 	}
 }
 
