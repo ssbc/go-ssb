@@ -32,6 +32,21 @@ type offsetLog struct {
 	bcSink luigi.Sink
 }
 
+func (log *offsetLog) Close() error {
+	log.l.Lock()
+	defer log.l.Unlock()
+
+	if err := log.jrnl.Close(); err != nil {
+		return errors.Wrap(err, "journal file close failed")
+	}
+
+	if err := log.ofst.Close(); err != nil {
+		return errors.Wrap(err, "offset file close failed")
+	}
+
+	return errors.Wrap(log.data.Close(), "data file close failed")
+}
+
 // Open returns a the offset log in the directory at `name`.
 // If it is empty or does not exist, a new log will be created.
 func Open(name string, cdc margaret.Codec) (margaret.Log, error) {

@@ -76,14 +76,14 @@ github.com/shurcooL/go-goon
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
-# github.com/ugorji/go v1.1.1
+# github.com/ugorji/go/codec v0.0.0-20190126102652-8fd0f8d918c8
 github.com/ugorji/go/codec
 # go.cryptoscope.co/librarian v0.1.1
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
 # go.cryptoscope.co/luigi v0.3.2
 go.cryptoscope.co/luigi
-# go.cryptoscope.co/margaret v0.0.7
+# go.cryptoscope.co/margaret v0.0.8
 go.cryptoscope.co/margaret
 go.cryptoscope.co/margaret/codec/msgpack
 go.cryptoscope.co/margaret/framing/lengthprefixed
