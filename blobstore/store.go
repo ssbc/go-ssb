@@ -158,6 +158,13 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 
 	err = os.Rename(tmpPath, finalPath)
 	if err != nil {
+		if _, ok := err.(*os.LinkError); ok {
+			_, err1 := os.Stat(tmpPath)
+			_, err2 := os.Stat(hexDirPath)
+			log.Printf("final and hex:%d\n%s\n%s", n, err1, err2)
+		} else {
+			log.Printf("err %v %T", err, err)
+		}
 		return nil, errors.Wrapf(err, "error moving blob from temp path %q to final path %q", tmpPath, finalPath)
 	}
 

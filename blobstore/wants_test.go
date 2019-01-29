@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -54,7 +55,12 @@ func TestWantManager(t *testing.T) {
 	}
 
 	mkStore := func(name string) (ssb.BlobStore, func() error, error) {
+		var err error
 		name = strings.Replace(name, "/", "_", -1)
+		name, err = ioutil.TempDir("", name)
+		if err != nil {
+			return nil, nil, err
+		}
 		delBlobStore := func() error {
 			return os.RemoveAll(name)
 		}
@@ -169,14 +175,17 @@ func TestWantManager(t *testing.T) {
 			// would be nice to generalize this further so we can add more cases.
 
 			// should contain our wants and our size response to their want
-			a.Equal(2, len(outSlice), "output slice length mismatch")
+			r.Equal(2, len(outSlice), "output slice length mismatch")
 
 			// this should be our initial want list, but with more dist
+			ourW := wmgr.(*wantManager)
+			ourW.l.Lock()
 			a.IsType(map[string]int64{}, outSlice[0], "slice element type mismatch")
 			a.Equal(tc.localWants, outSlice[0], "map content mismatch")
 
 			a.IsType(map[string]int64{}, outSlice[1], "slice element type mismatch")
 			a.Equal(sizeWants(tc.localBlobs), outSlice[1], "map content mismatch")
+			ourW.l.Unlock()
 
 			for _, str := range tc.localLateBlobs {
 				_, err := bs.Put(strings.NewReader(str))
@@ -184,12 +193,13 @@ func TestWantManager(t *testing.T) {
 			}
 
 			outSlice = *(*[]interface{})(out)
-
+			ourW.l.Lock()
 			// should contain our wants and our size response to their want
-			a.Equal(3, len(outSlice), "output slice length mismatch")
+			r.Equal(3, len(outSlice), "output slice length mismatch")
 
 			a.IsType(map[string]int64{}, outSlice[2], "slice element type mismatch")
 			a.Equal(sizeWants(tc.localLateBlobs), outSlice[2], "map content mismatch")
+			ourW.l.Unlock()
 		}
 	}
 
