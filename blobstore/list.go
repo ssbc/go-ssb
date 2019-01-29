@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -44,7 +44,7 @@ func (src *listSource) nextDir() error {
 	var dirPath string
 	dirPath, src.dirs = src.dirs[0], src.dirs[1:]
 
-	dir, err := os.Open(path.Join(src.basePath, dirPath))
+	dir, err := os.Open(filepath.Join(src.basePath, dirPath))
 	if err != nil {
 		return errors.Wrap(err, "error opening subdirectory")
 	}
