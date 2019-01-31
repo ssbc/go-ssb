@@ -121,3 +121,9 @@ type SignedLegacyMessage struct {
 	LegacyMessage
 	Signature Signature `json:"signature"`
 }
+
+type KeyValueRaw struct {
+	Key       *ssb.MessageRef `json:"key"`
+	Value     json.RawMessage `json:"value"`
+	Timestamp int64           `json:"timestamp"`
+}
