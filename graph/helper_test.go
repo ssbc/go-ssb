@@ -28,7 +28,19 @@ func newPublisher(t *testing.T, root margaret.Log, users multilog.MultiLog) *pub
 
 	p.publish, err = multilogs.OpenPublishLog(root, users, *p.key)
 	p.r.NoError(err)
+	return p
+}
 
+func (tc testCase) newPublisher(t *testing.T) *publisher {
+	p := &publisher{}
+	p.r = require.New(t)
+
+	var err error
+	p.key, err = ssb.NewKeyPair(nil)
+	p.r.NoError(err)
+
+	p.publish, err = multilogs.OpenPublishLog(tc.root, tc.userLogs, *p.key)
+	p.r.NoError(err)
 	return p
 }
 

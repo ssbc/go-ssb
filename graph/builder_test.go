@@ -136,14 +136,14 @@ type testCase struct {
 
 func (tc testCase) theScenario(t *testing.T) {
 	r := require.New(t)
+
 	// some new people
+	myself := tc.newPublisher(t)
 
-	myself := newPublisher(t, tc.root, tc.userLogs)
-
-	alice := newPublisher(t, tc.root, tc.userLogs)
-	bob := newPublisher(t, tc.root, tc.userLogs)
-	claire := newPublisher(t, tc.root, tc.userLogs)
-	debby := newPublisher(t, tc.root, tc.userLogs)
+	alice := tc.newPublisher(t)
+	bob := tc.newPublisher(t)
+	claire := tc.newPublisher(t)
+	debby := tc.newPublisher(t)
 
 	g, err := tc.gbuilder.Build()
 	r.NoError(err)
