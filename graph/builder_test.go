@@ -21,7 +21,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestBadger(t *testing.T) {
+func makeBadger(t *testing.T) testCase {
 	r := require.New(t)
 	info, _ := logtest.KitLogger(t.Name(), t)
 
@@ -49,19 +49,29 @@ func TestBadger(t *testing.T) {
 	tc.gbuilder = sinkIdx.(Builder)
 	tc.userLogs = uf
 
-	t.Run("scene1", tc.theScenario)
+	tc.close = func() {
+		r.NoError(uf.Close())
+		r.NoError(sinkIdx.Close())
+		cancel()
 
-	// cleanup
-	r.NoError(uf.Close())
-	r.NoError(sinkIdx.Close())
-	cancel()
-
-	for err := range mergedErrors(ufErrc, cErrc) {
-		r.NoError(err, "from chan")
+		for err := range mergedErrors(ufErrc, cErrc) {
+			r.NoError(err, "from chan")
+		}
 	}
+	return tc
 }
 
-func TestTypedLog(t *testing.T) {
+func TestBadger(t *testing.T) {
+	tc := makeBadger(t)
+	t.Run("scene1", tc.theScenario)
+	tc.close()
+
+	tc = makeBadger(t)
+	t.Run("blocking", tc.blockingScenario)
+	tc.close()
+}
+
+func makeTypedLog(t *testing.T) testCase {
 	r := require.New(t)
 	info, _ := logtest.KitLogger(t.Name(), t)
 
@@ -78,9 +88,9 @@ func TestTypedLog(t *testing.T) {
 	r.NoError(err)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
 
-	var typeLogCase testCase
-	typeLogCase.root = tRootLog
-	typeLogCase.userLogs = uf
+	var tc testCase
+	tc.root = tRootLog
+	tc.userLogs = uf
 
 	mt, _, serveMT, err := multilogs.OpenMessageTypes(tRepo)
 	r.NoError(err, "sbot: failed to open message type sublogs")
@@ -90,18 +100,29 @@ func TestTypedLog(t *testing.T) {
 	r.NoError(err, "sbot: failed to open message contact sublog")
 
 	directedContactLog := mutil.Indirect(tRootLog, contactLog)
-	typeLogCase.gbuilder, err = NewLogBuilder(info, directedContactLog)
+	tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
 	r.NoError(err, "sbot: NewLogBuilder failed")
 
-	t.Run("scene1", typeLogCase.theScenario)
+	tc.close = func() {
+		r.NoError(uf.Close())
+		r.NoError(mt.Close())
+		cancel()
 
-	r.NoError(uf.Close())
-	r.NoError(mt.Close())
-	cancel()
-
-	for err := range mergedErrors(ufErrc, mtErrc) {
-		r.NoError(err, "from chan")
+		for err := range mergedErrors(ufErrc, mtErrc) {
+			r.NoError(err, "from chan")
+		}
 	}
+
+	return tc
+}
+func TestTypedLog(t *testing.T) {
+	tc := makeTypedLog(t)
+	t.Run("scene1", tc.theScenario)
+	tc.close()
+
+	tc = makeTypedLog(t)
+	t.Run("blocking", tc.blockingScenario)
+	tc.close()
 }
 
 type testCase struct {
@@ -109,6 +130,8 @@ type testCase struct {
 	userLogs multilog.MultiLog
 
 	gbuilder Builder
+
+	close func()
 }
 
 func (tc testCase) theScenario(t *testing.T) {
