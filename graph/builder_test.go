@@ -114,88 +114,56 @@ type testCase struct {
 func (tc testCase) theScenario(t *testing.T) {
 	r := require.New(t)
 	// some new people
-	myself, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	myPublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *myself)
-	r.NoError(err)
 
-	alice, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	alicePublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *alice)
-	r.NoError(err)
+	myself := newPublisher(t, tc.root, tc.userLogs)
 
-	bob, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-
-	claire, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	clairePublish, err := multilogs.OpenPublishLog(tc.root, tc.userLogs, *claire)
-	r.NoError(err)
-
-	debby, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
+	alice := newPublisher(t, tc.root, tc.userLogs)
+	bob := newPublisher(t, tc.root, tc.userLogs)
+	claire := newPublisher(t, tc.root, tc.userLogs)
+	debby := newPublisher(t, tc.root, tc.userLogs)
 
 	g, err := tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(0, g.NodeCount())
 
-	a := tc.gbuilder.Authorizer(myself.Id, 0)
+	a := tc.gbuilder.Authorizer(myself.key.Id, 0)
 
 	// > create contacts
-	var tmsgs = []interface{}{
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   alice.Id.Ref(),
-			"following": true,
-		},
-		map[string]interface{}{
-			"type":     "contact",
-			"contact":  bob.Id.Ref(),
-			"blocking": true,
-		},
-	}
-	for i, msg := range tmsgs {
-		newSeq, err := myPublish.Append(msg)
-		r.NoError(err, "failed to publish test message %d", i)
-		r.NotNil(newSeq)
-	}
-	// < create contacts
+	myself.follow(alice.key.Id)
+	myself.block(bob.key.Id)
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(3, g.NodeCount())
 
 	// not followed
-	err = a.Authorize(claire.Id)
+	err = a.Authorize(claire.key.Id)
 	r.NotNil(err, "unknown ID")
 	hopsErr, ok := err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.True(hopsErr.Dist < 0)
 
 	// following
-	err = a.Authorize(alice.Id)
+	err = a.Authorize(alice.key.Id)
 	r.Nil(err)
 
 	// blocked
-	err = a.Authorize(bob.Id)
+	err = a.Authorize(bob.key.Id)
 	r.NotNil(err, "no error for blocked peer")
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.True(hopsErr.Dist < 0)
 
 	// alice follows claire
-	alicePublish.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   claire.Id.Ref(),
-		"following": true,
-	})
+	alice.follow(claire.key.Id)
+
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(4, g.NodeCount())
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. zero hops and not friends
-	err = a.Authorize(claire.Id)
+	err = a.Authorize(claire.key.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -203,18 +171,15 @@ func (tc testCase) theScenario(t *testing.T) {
 	r.Equal(0, hopsErr.Max)
 
 	// alice follows me
-	alicePublish.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   myself.Id.Ref(),
-		"following": true,
-	})
+	alice.follow(myself.key.Id)
+
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(4, g.NodeCount()) // same nodes more edges
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. friends with alice but still 0 hops
-	err = a.Authorize(claire.Id)
+	err = a.Authorize(claire.key.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -222,30 +187,26 @@ func (tc testCase) theScenario(t *testing.T) {
 	r.Equal(0, hopsErr.Max)
 
 	// works for 1 hop
-	h1 := tc.gbuilder.Authorizer(myself.Id, 1)
-	err = h1.Authorize(claire.Id)
+	h1 := tc.gbuilder.Authorizer(myself.key.Id, 1)
+	err = h1.Authorize(claire.key.Id)
 	r.NoError(err)
 
 	// claire follows debby
-	clairePublish.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   debby.Id.Ref(),
-		"following": true,
-	})
+	claire.follow(debby.key.Id)
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(5, g.NodeCount()) // same nodes more edges
 	// r.NoError(g.RenderSVG())
 
-	err = h1.Authorize(debby.Id)
+	err = h1.Authorize(debby.key.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.Equal(2, hopsErr.Dist)
 	r.Equal(1, hopsErr.Max)
 
-	h2 := tc.gbuilder.Authorizer(myself.Id, 2)
-	err = h2.Authorize(debby.Id)
+	h2 := tc.gbuilder.Authorizer(myself.key.Id, 2)
+	err = h2.Authorize(debby.key.Id)
 	r.Nil(err)
 }
 
