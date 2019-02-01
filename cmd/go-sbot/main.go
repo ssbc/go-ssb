@@ -148,6 +148,7 @@ func main() {
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
+		// Note: This is where the serving starts ;)
 		err = sbot.Node.Serve(ctx, HandlerWithLatency(muxrpcSummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)

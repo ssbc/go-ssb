@@ -45,13 +45,14 @@ type Node interface {
 type node struct {
 	opts Options
 
-	dialer       netwrap.Dialer
-	l            net.Listener
-	secretServer *secretstream.Server
-	secretClient *secretstream.Client
-	connTracker  ConnTracker
-	log          log.Logger
-	connWrappers []netwrap.ConnWrapper
+	dialer            netwrap.Dialer
+	l                 net.Listener
+	networkAdvertiser *NetworkAdvertiser
+	secretServer      *secretstream.Server
+	secretClient      *secretstream.Client
+	connTracker       ConnTracker
+	log               log.Logger
+	connWrappers      []netwrap.ConnWrapper
 
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 	evtCtr     *prometheus.Counter
@@ -86,6 +87,11 @@ func NewNode(opts Options) (Node, error) {
 	n.l, err = netwrap.Listen(n.opts.ListenAddr, n.secretServer.ListenerWrapper())
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating listener")
+	}
+
+	n.networkAdvertiser, err = NewNetworkAdvertiser(n.opts.ListenAddr, opts.KeyPair)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating Advertiser")
 	}
 
 	n.connWrappers = opts.ConnWrappers
@@ -183,6 +189,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 }
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
+	if err := n.networkAdvertiser.Start(); err != nil {
+		return err
+	}
+
 	for {
 		conn, err := n.l.Accept()
 		if err != nil {
@@ -256,6 +266,8 @@ func (n *node) GetConnTracker() ConnTracker {
 }
 
 func (n *node) Close() error {
+	n.networkAdvertiser.Stop()
+
 	err := n.l.Close()
 	if err != nil {
 		return errors.Wrap(err, "ssb: network node failed to close it's listener")
