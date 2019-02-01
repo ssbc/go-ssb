@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 
@@ -20,25 +19,28 @@ func (g *Graph) NodeCount() int {
 	return len(g.lookup)
 }
 
-func (g *Graph) RenderSVG() error {
+func (g *Graph) RenderSVG(w io.Writer) error {
 	dotbytes, err := dot.Marshal(g, "trust", "", "")
 	if err != nil {
 		return errors.Wrap(err, "dot marshal failed")
 	}
-	os.Remove("fullgraph.dot")
-	dotFile, err := os.Create("fullgraph.dot")
+	dotR := bytes.NewReader(dotbytes)
+
+	dotCmd := exec.Command("dot", "-Tsvg")
+	dotCmd.Stdout = w
+	dotCmd.Stdin = dotR
+	// dotCmd.Stdin = io.TeeReader(dotR, dotFile)
+	return errors.Wrap(dotCmd.Run(), "RenderSVG: dot command failed")
+}
+
+func (g *Graph) RenderSVGToFile(fname string) error {
+	os.Remove(fname)
+	svgFile, err := os.Create(fname)
 	if err != nil {
-		return errors.Wrap(err, "dot file create")
+		return errors.Wrap(err, "svg file create failed")
 	}
-	defer dotFile.Close()
-	dotCmd := exec.Command("dot", "-Tsvg", "-o", "fullgraph.svg")
-	dotCmd.Stdin = io.TeeReader(bytes.NewReader(dotbytes), dotFile)
-	out, err := dotCmd.CombinedOutput()
-	if err != nil {
-		log.Println("dot program output:\n", string(out))
-		return errors.Wrap(err, "dot run failed")
-	}
-	return nil
+	defer svgFile.Close()
+	return g.RenderSVG(svgFile)
 }
 
 // https://www.graphviz.org/doc/info/attrs.html
