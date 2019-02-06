@@ -17,6 +17,9 @@ import (
 	"go.cryptoscope.co/secretstream"
 )
 
+// DefaultPort is the default listening port for ScuttleButt.
+const DefaultPort = "8008"
+
 type Options struct {
 	Dialer       netwrap.Dialer
 	ListenAddr   net.Addr

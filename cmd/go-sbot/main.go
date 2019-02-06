@@ -55,7 +55,7 @@ func init() {
 	u, err := user.Current()
 	checkFatal(err)
 
-	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.StringVar(&listenAddr, "l", ":"+ssb.DefaultPort, "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
