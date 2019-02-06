@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -80,7 +81,7 @@ func main() {
 	app.Commands = []*cli.Command{
 		{
 			Name:   "log",
-			Action: todo, //logStreamCmd,
+			Action: logStreamCmd,
 		},
 		{
 			Name:   "hist",
@@ -339,21 +340,25 @@ func publishCmd(ctx *cli.Context) error {
 	return nil
 }
 
-/*
-
 func logStreamCmd(ctx *cli.Context) error {
-	reply := make(chan map[string]interface{})
-	go func() {
-		for r := range reply {
-			goon.Dump(r)
-		}
-	}()
-	if err := client.Source("createLogStream", reply); err != nil {
+	src, err := client.Source(longctx, map[string]interface{}{}, muxrpc.Method{"createLogStream"})
+	if err != nil {
 		return errors.Wrap(err, "source stream call failed")
 	}
-	return client.Close()
+	var msgs []interface{}
+	for {
+		v, err := src.Next(longctx)
+		if luigi.IsEOS(err) {
+			break
+		} else if err != nil {
+			return errors.Wrapf(err, "createLogStream: failed to drain")
+		}
+		msgs = append(msgs, v)
+	}
+	return json.NewEncoder(os.Stdout).Encode(msgs)
 }
 
+/*
 
 func query(ctx *cli.Context) error {
 	reply := make(chan map[string]interface{})
