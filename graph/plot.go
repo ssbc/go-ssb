@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
@@ -33,9 +34,11 @@ func (g *Graph) RenderSVG(w io.Writer) error {
 	return errors.Wrap(dotCmd.Run(), "RenderSVG: dot command failed")
 }
 
-func (g *Graph) RenderSVGToFile(fname string) error {
-	os.Remove(fname)
-	svgFile, err := os.Create(fname)
+func (g *Graph) RenderSVGToFile(path string) error {
+	os.Remove(path)
+	os.MkdirAll(filepath.Dir(path), 0700)
+
+	svgFile, err := os.Create(path)
 	if err != nil {
 		return errors.Wrap(err, "svg file create failed")
 	}
@@ -58,16 +61,23 @@ func (g *Graph) Attributes() []encoding.Attribute {
 type contactNode struct {
 	graph.Node
 	feed *ssb.FeedRef
+	name string
 }
 
 func (n contactNode) String() string {
-	// TODO: inject about/name service
+	if n.name != "" {
+		return n.name
+	}
 	return n.feed.Ref()[:8]
 }
 
 func (n contactNode) Attributes() []encoding.Attribute {
+	name := fmt.Sprintf("%q", n.String())
+	if n.name != "" {
+		name = n.name
+	}
 	return []encoding.Attribute{
-		{Key: "label", Value: fmt.Sprintf("%q", n.String())},
+		{Key: "label", Value: name},
 	}
 }
 

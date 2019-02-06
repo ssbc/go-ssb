@@ -119,7 +119,7 @@ func (b *logBuilder) Build() (*Graph, error) {
 		copy(bfrom[:], c.Author.ID)
 		nFrom, has := known[bfrom]
 		if !has {
-			nFrom = contactNode{dg.NewNode(), c.Author}
+			nFrom = &contactNode{dg.NewNode(), c.Author, ""}
 			dg.AddNode(nFrom)
 			known[bfrom] = nFrom
 		}
@@ -128,7 +128,7 @@ func (b *logBuilder) Build() (*Graph, error) {
 		copy(bto[:], c.Content.Contact.ID)
 		nTo, has := known[bto]
 		if !has {
-			nTo = contactNode{dg.NewNode(), c.Content.Contact}
+			nTo = &contactNode{dg.NewNode(), c.Content.Contact, ""}
 			dg.AddNode(nTo)
 			known[bto] = nTo
 		}

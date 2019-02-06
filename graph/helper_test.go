@@ -31,24 +31,31 @@ func newPublisher(t *testing.T, root margaret.Log, users multilog.MultiLog) *pub
 	return p
 }
 
-func (tc testCase) newPublisher(t *testing.T) *publisher {
-	p := &publisher{}
-	p.r = require.New(t)
-
-	var err error
-	p.key, err = ssb.NewKeyPair(nil)
-	p.r.NoError(err)
-
-	p.publish, err = multilogs.OpenPublishLog(tc.root, tc.userLogs, *p.key)
-	p.r.NoError(err)
-	return p
-}
-
 func (p publisher) follow(ref *ssb.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   ref.Ref(),
 		"following": true,
+	})
+	p.r.NoError(err)
+	p.r.NotNil(newSeq)
+}
+
+func (p publisher) unfollow(ref *ssb.FeedRef) {
+	newSeq, err := p.publish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   ref.Ref(),
+		"following": false,
+	})
+	p.r.NoError(err)
+	p.r.NotNil(newSeq)
+}
+
+func (p publisher) unblock(ref *ssb.FeedRef) {
+	newSeq, err := p.publish.Append(map[string]interface{}{
+		"type":     "contact",
+		"contact":  ref.Ref(),
+		"blocking": false,
 	})
 	p.r.NoError(err)
 	p.r.NotNil(newSeq)

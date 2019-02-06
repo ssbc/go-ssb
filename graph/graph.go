@@ -47,7 +47,7 @@ func (g *Graph) Hops(from *ssb.FeedRef, plen int) []*ssb.FeedRef {
 	w := traverse.BreadthFirst{}
 	w.Walk(g, nFrom, func(n graph.Node, d int) bool {
 		if d < plen {
-			cn, ok := n.(contactNode)
+			cn, ok := n.(*contactNode)
 			if ok {
 				walked[cn.ID()] = cn.feed
 			}

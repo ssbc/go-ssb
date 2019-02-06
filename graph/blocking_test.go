@@ -16,8 +16,11 @@ the relation between any two peers can be in 3 states. following, not following,
 - blocking means that you will not replicate them. if they are blocked by someone you follow, and you are not following them, then you will not replicate them.
 - if a friend of blocks someone, they will not be replicated, unless another friend follows them.
 - if one friend blocks, and another follows, they will be replicated but their friends won't be (this is to stop sybil swarms)
+
+this description is awful! we need to reduce this
+
 */
-func (tc testCase) blockingScenario(t *testing.T) {
+func (tc testStore) blockingScenario(t *testing.T) {
 	r := require.New(t)
 
 	g, err := tc.gbuilder.Build()
@@ -43,7 +46,6 @@ func (tc testCase) blockingScenario(t *testing.T) {
 
 	// bob can be complicated
 	bob := tc.newPublisher(t)
-
 	claire.block(bob.key.Id)
 	myself.follow(bob.key.Id)
 

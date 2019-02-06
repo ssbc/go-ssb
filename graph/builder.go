@@ -134,7 +134,7 @@ func (b *builder) Build() (*Graph, error) {
 			copy(bfrom[:], from.ID)
 			nFrom, has := known[bfrom]
 			if !has {
-				nFrom = contactNode{dg.NewNode(), &from}
+				nFrom = &contactNode{dg.NewNode(), &from, ""}
 				dg.AddNode(nFrom)
 				known[bfrom] = nFrom
 			}
@@ -143,7 +143,7 @@ func (b *builder) Build() (*Graph, error) {
 			copy(bto[:], to.ID)
 			nTo, has := known[bto]
 			if !has {
-				nTo = contactNode{dg.NewNode(), &to}
+				nTo = &contactNode{dg.NewNode(), &to, ""}
 				dg.AddNode(nTo)
 				known[bto] = nTo
 			}

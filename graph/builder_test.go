@@ -21,7 +21,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func makeBadger(t *testing.T) testCase {
+func makeBadger(t *testing.T) testStore {
 	r := require.New(t)
 	info, _ := logtest.KitLogger(t.Name(), t)
 
@@ -39,7 +39,7 @@ func makeBadger(t *testing.T) testCase {
 	r.NoError(err)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
 
-	var tc testCase
+	var tc testStore
 	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) librarian.SinkIndex {
 		return NewBuilder(info, db)
 	})
@@ -71,7 +71,7 @@ func TestBadger(t *testing.T) {
 	tc.close()
 }
 
-func makeTypedLog(t *testing.T) testCase {
+func makeTypedLog(t *testing.T) testStore {
 	r := require.New(t)
 	info, _ := logtest.KitLogger(t.Name(), t)
 
@@ -88,7 +88,7 @@ func makeTypedLog(t *testing.T) testCase {
 	r.NoError(err)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
 
-	var tc testCase
+	var tc testStore
 	tc.root = tRootLog
 	tc.userLogs = uf
 
@@ -125,7 +125,7 @@ func TestTypedLog(t *testing.T) {
 	tc.close()
 }
 
-type testCase struct {
+type testStore struct {
 	root     margaret.Log
 	userLogs multilog.MultiLog
 
@@ -134,7 +134,11 @@ type testCase struct {
 	close func()
 }
 
-func (tc testCase) theScenario(t *testing.T) {
+func (tc testStore) newPublisher(t *testing.T) *publisher {
+	return newPublisher(t, tc.root, tc.userLogs)
+}
+
+func (tc testStore) theScenario(t *testing.T) {
 	r := require.New(t)
 
 	// some new people
