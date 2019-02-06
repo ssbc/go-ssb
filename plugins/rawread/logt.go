@@ -8,6 +8,7 @@ import (
 	"go.cryptoscope.co/luigi"
 
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/transform"
 
 	"go.cryptoscope.co/librarian"
 
@@ -65,12 +66,7 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 	case string:
 		tipe = librarian.Addr(v)
 	case map[string]interface{}:
-		mv, ok := req.Args[0].(map[string]interface{})
-		if !ok {
-			req.CloseWithError(errors.Errorf("bad request"))
-			return
-		}
-		q, err := message.NewCreateHistArgsFromMap(mv)
+		q, err := message.NewCreateHistArgsFromMap(v)
 		if err != nil {
 			req.CloseWithError(errors.Wrap(err, "bad request"))
 			return
@@ -120,11 +116,14 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		if err != nil {
 			return err
 		}
-		msg := v.(message.StoredMessage)
-		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg.Raw})
+		msg, ok := v.([]byte)
+		if !ok {
+			return errors.Errorf("b4pour: expected []byte - got %T", v)
+		}
+		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
 	})
 
-	err = luigi.Pump(ctx, snk, src)
+	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
 		return

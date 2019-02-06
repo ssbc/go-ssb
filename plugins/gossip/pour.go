@@ -3,6 +3,9 @@ package gossip
 import (
 	"context"
 
+	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/transform"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -58,29 +61,26 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 			qry.Limit = -1
 		}
 
-		userSequences, err := userLog.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
+		resolved := mutil.Indirect(h.RootLog, userLog)
+		src, err := resolved.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
 		if err != nil {
 			return errors.Wrapf(err, "invalid user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}
 
 		sent := 0
-		wrapSink := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-			v, err := h.RootLog.Get(val.(margaret.Seq))
+		snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			if err != nil {
-				return errors.Wrapf(err, "failed to load message %v", val)
+				return err
 			}
-			stMsg, ok := v.(message.StoredMessage)
+			msg, ok := v.([]byte)
 			if !ok {
-				return errors.Errorf("wrong message type. expected %T - got %T", stMsg, v)
-			}
-			if err := req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: stMsg.Raw}); err != nil {
-				return errors.Wrap(err, "failed to pour msg")
+				return errors.Errorf("b4pour: expected []byte - got %T", v)
 			}
 			sent++
-			return nil
+			return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
 		})
 
-		err = luigi.Pump(ctx, wrapSink, userSequences)
+		err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
 		if h.sysCtr != nil {
 			h.sysCtr.With("event", "gossiptx").Add(float64(sent))
 		} else {

@@ -211,9 +211,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	pmgr.Register(hist)
 
 	// raw log plugins
+	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
 	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
-	// createLogStream
-	ctrl.Register(hist) // createHistoryStream
+	ctrl.Register(hist)                           // createHistoryStream
 
 	return s, nil
 }
