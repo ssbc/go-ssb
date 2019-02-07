@@ -133,15 +133,16 @@ func (b *logBuilder) Build() (*Graph, error) {
 			known[bto] = nTo
 		}
 
-		if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
-			dg.RemoveEdge(nFrom.ID(), nTo.ID())
-		}
-
 		w := math.Inf(-1)
 		if c.Content.Following {
 			w = 1
 		} else if c.Content.Blocking {
 			w = math.Inf(1)
+		} else {
+			if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
+				dg.RemoveEdge(nFrom.ID(), nTo.ID())
+			}
+			return nil
 		}
 
 		edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}

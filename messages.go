@@ -79,9 +79,6 @@ func (c *Contact) UnmarshalJSON(b []byte) error {
 	newC.Following, _ = potential["following"].(bool)
 	newC.Blocking, _ = potential["blocking"].(bool)
 
-	if !newC.Following && !newC.Blocking {
-		return ErrMalfromedMsg{"contact: neither nor", nil}
-	}
 	*c = *newC
 	return nil
 }

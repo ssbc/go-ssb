@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"math"
+
 	"go.cryptoscope.co/ssb"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -15,25 +17,40 @@ type Graph struct {
 	lookup key2node
 }
 
-func (g *Graph) Follows(from, to *ssb.FeedRef) bool {
+func (g *Graph) getEdge(from, to *ssb.FeedRef) (graph.WeightedEdge, bool) {
 	var bfrom [32]byte
 	copy(bfrom[:], from.ID)
 	nFrom, has := g.lookup[bfrom]
 	if !has {
-		return false
+		return nil, false
 	}
 	var bto [32]byte
 	copy(bto[:], to.ID)
 	nTo, has := g.lookup[bto]
 	if !has {
-		return false
+		return nil, false
 	}
 	if !g.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
-		return false
+		return nil, false
 	}
 	edg := g.Edge(nFrom.ID(), nTo.ID())
-	w := edg.(graph.WeightedEdge)
+	return edg.(graph.WeightedEdge), true
+}
+
+func (g *Graph) Follows(from, to *ssb.FeedRef) bool {
+	w, has := g.getEdge(from, to)
+	if !has {
+		return false
+	}
 	return w.Weight() == 1
+}
+
+func (g *Graph) Blocks(from, to *ssb.FeedRef) bool {
+	w, has := g.getEdge(from, to)
+	if !has {
+		return false
+	}
+	return w.Weight() == math.Inf(1)
 }
 
 func (g *Graph) Hops(from *ssb.FeedRef, plen int) []*ssb.FeedRef {

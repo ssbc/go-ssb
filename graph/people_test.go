@@ -93,14 +93,18 @@ func (op PeopleOpUnblock) Op(state *testState) error {
 	return nil
 }
 
-type PeopleAssert func(*Graph) error
+type PeopleAssert func(Builder) error
 
 func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 	return func(state *testState) PeopleAssert {
 		a, b, err := getAliceBob(from, to, state)
-		return func(g *Graph) error {
+		return func(bld Builder) error {
 			if err != nil {
 				return errors.Wrap(err, "dist: no such peers")
+			}
+			g, err := bld.Build()
+			if err != nil {
+				return err
 			}
 			dijk, err := g.MakeDijkstra(a.key.Id)
 			if err != nil {
@@ -119,15 +123,64 @@ func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 func PeopleAssertFollows(from, to string, want bool) PeopleAssertMaker {
 	return func(state *testState) PeopleAssert {
 		a, b, err := getAliceBob(from, to, state)
-		return func(g *Graph) error {
+		return func(bld Builder) error {
 			if err != nil {
-				return errors.Wrap(err, "dist: no such peers")
+				return errors.Wrap(err, "follows: no such peers")
 			}
-
+			g, err := bld.Build()
+			if err != nil {
+				return err
+			}
 			if g.Follows(a.key.Id, b.key.Id) != want {
 				return errors.Errorf("follows assert failed - wanted %v", want)
 			}
 			return nil
+		}
+	}
+}
+
+func PeopleAssertBlocks(from, to string, want bool) PeopleAssertMaker {
+	return func(state *testState) PeopleAssert {
+		a, b, err := getAliceBob(from, to, state)
+		return func(bld Builder) error {
+			if err != nil {
+				return errors.Wrap(err, "blocks: no such peers")
+			}
+			g, err := bld.Build()
+			if err != nil {
+				return err
+			}
+			if g.Blocks(a.key.Id, b.key.Id) != want {
+				return errors.Errorf("block assert failed - wanted %v", want)
+			}
+			return nil
+		}
+	}
+}
+
+func PeopleAssertAuthorize(from, to string, hops int, want bool) PeopleAssertMaker {
+	return func(state *testState) PeopleAssert {
+		a, b, err := getAliceBob(from, to, state)
+		return func(bld Builder) error {
+			if err != nil {
+				return errors.Wrap(err, "auth: no such peers")
+			}
+
+			auth := bld.Authorizer(a.key.Id, hops)
+
+			err := auth.Authorize(b.key.Id)
+			if want {
+				if err != nil {
+					return errors.Errorf("auth assert: %s didn't allow %s", from, to)
+				}
+				return nil
+			} else {
+				if err == nil {
+					return errors.Errorf("auth assert: %s was allowed to %s", from, to)
+				}
+				// TODO compare err?
+				return nil
+			}
 		}
 	}
 }
@@ -154,18 +207,19 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			err := op.Op(&state)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
-		g, err := state.store.gbuilder.Build()
-		r.NoError(err, "failed to build graph for asserts")
-		for i, assert := range tc.asserts {
-			err := assert(&state)(g)
-			a.NoError(err, "assertion #%d failed", i)
 
-			if t.Failed() {
-				for nick, pub := range state.peers {
+		for i, assert := range tc.asserts {
+			err := assert(&state)(state.store.gbuilder)
+			if !a.NoError(err, "assertion #%d failed", i) {
+
+				// if t.Failed() { ??
+				g, err := state.store.gbuilder.Build()
+				r.NoError(err, "failed to build graph for debugging")
+				for nick, pub := range state.peers { // punch in nicks
 					var newKey [32]byte
 					copy(newKey[:], pub.key.Id.ID)
 					node, ok := g.lookup[newKey]
-					r.True(ok, "did not find peer!?")
+					r.True(ok, "did not find peer!? %s", nick)
 					cn := node.(*contactNode)
 					cn.name = nick
 				}
@@ -188,6 +242,9 @@ func TestPeople(t *testing.T) {
 			asserts: []PeopleAssertMaker{
 				PeopleAssertFollows("alice", "bob", true),
 				PeopleAssertFollows("bob", "alice", false),
+
+				PeopleAssertAuthorize("alice", "bob", 0, true),
+				PeopleAssertAuthorize("bob", "alice", 0, false),
 			},
 		},
 
@@ -202,7 +259,8 @@ func TestPeople(t *testing.T) {
 			asserts: []PeopleAssertMaker{
 				PeopleAssertFollows("alice", "bob", false),
 				PeopleAssertFollows("bob", "alice", false),
-				// PeopleAssertPathDist("alice", "bob", 999),
+
+				PeopleAssertAuthorize("alice", "bob", 0, false),
 			},
 		},
 
@@ -223,6 +281,12 @@ func TestPeople(t *testing.T) {
 				PeopleAssertFollows("bob", "alice", true),
 				PeopleAssertFollows("alice", "claire", false),
 				PeopleAssertPathDist("alice", "claire", 1),
+
+				PeopleAssertAuthorize("alice", "bob", 0, true),
+				PeopleAssertAuthorize("bob", "alice", 0, true),
+
+				PeopleAssertAuthorize("alice", "claire", 0, false),
+				PeopleAssertAuthorize("alice", "claire", 1, true),
 			},
 		},
 
@@ -248,6 +312,10 @@ func TestPeople(t *testing.T) {
 				PeopleAssertFollows("bob", "alice", true),
 				PeopleAssertFollows("bob", "claire", true),
 				PeopleAssertPathDist("alice", "debora", 2),
+
+				PeopleAssertAuthorize("alice", "debora", 0, false),
+				PeopleAssertAuthorize("alice", "debora", 1, false),
+				PeopleAssertAuthorize("alice", "debora", 2, true),
 			},
 		},
 
@@ -256,17 +324,32 @@ func TestPeople(t *testing.T) {
 			ops: []PeopleOp{
 				PeopleOpNewPeer{"alice"},
 				PeopleOpNewPeer{"bob"},
-				PeopleOpFollow{"alice", "bob"},
-				PeopleOpUnfollow{"alice", "bob"},
+				PeopleOpBlock{"alice", "bob"},
 			},
 			asserts: []PeopleAssertMaker{
-				PeopleAssertPathDist("alice", "bob", 9999),
+				PeopleAssertFollows("alice", "bob", false),
+				PeopleAssertBlocks("alice", "bob", true),
 			},
 		},
+		{
+			name: "unblock",
+			ops: []PeopleOp{
+				PeopleOpNewPeer{"alice"},
+				PeopleOpNewPeer{"bob"},
+				PeopleOpBlock{"alice", "bob"},
+				PeopleOpUnblock{"alice", "bob"},
+			},
+			asserts: []PeopleAssertMaker{
+				PeopleAssertFollows("alice", "bob", false),
+				PeopleAssertBlocks("alice", "bob", false),
+			},
+		},
+
+		// old test scene from builder_test
 	}
 
 	for _, tc := range tcs {
-		t.Run("badger/"+tc.name, tc.run(makeBadger))
-		t.Run("tlog/"+tc.name, tc.run(makeTypedLog))
+		t.Run(tc.name+"/badger", tc.run(makeBadger))
+		t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
 	}
 }
