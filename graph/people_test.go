@@ -331,6 +331,7 @@ func TestPeople(t *testing.T) {
 				PeopleAssertBlocks("alice", "bob", true),
 			},
 		},
+
 		{
 			name: "unblock",
 			ops: []PeopleOp{
@@ -344,10 +345,9 @@ func TestPeople(t *testing.T) {
 				PeopleAssertBlocks("alice", "bob", false),
 			},
 		},
-
-		// old test scene from builder_test
 	}
 
+	tcs = append(tcs, blockScenarios...)
 	for _, tc := range tcs {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))
 		t.Run(tc.name+"/tlog", tc.run(makeTypedLog))

@@ -66,9 +66,6 @@ func TestBadger(t *testing.T) {
 	t.Run("scene1", tc.theScenario)
 	tc.close()
 
-	tc = makeBadger(t)
-	t.Run("blocking", tc.blockingScenario)
-	tc.close()
 }
 
 func makeTypedLog(t *testing.T) testStore {
@@ -118,10 +115,6 @@ func makeTypedLog(t *testing.T) testStore {
 func TestTypedLog(t *testing.T) {
 	tc := makeTypedLog(t)
 	t.Run("scene1", tc.theScenario)
-	tc.close()
-
-	tc = makeTypedLog(t)
-	t.Run("blocking", tc.blockingScenario)
 	tc.close()
 }
 
