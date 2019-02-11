@@ -11,16 +11,19 @@ import (
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -69,13 +72,23 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 	s.UserFeeds = uf
 
-	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "index", "contacts"), r)
+	mt, _, serveMT, err := multilogs.OpenMessageTypes(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open contacts idx")
+		return nil, errors.Wrap(err, "sbot: failed to open message type sublogs")
 	}
-	s.closers.addCloser(gb)
-	goThenLog(ctx, rootLog, "contacts", serveContacts)
-	s.GraphBuilder = gb
+	s.closers.addCloser(mt)
+	goThenLog(ctx, rootLog, "msgTypes", serveMT)
+	s.MessageTypes = mt
+
+	contactLog, err := mt.Get(librarian.Addr("contact"))
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
+	}
+
+	s.GraphBuilder, err = graph.NewLogBuilder(s.info, mutil.Indirect(s.RootLog, contactLog))
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
+	}
 
 	bs, err := repo.OpenBlobStore(r)
 	if err != nil {
@@ -92,7 +105,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 	id := s.KeyPair.Id
-	auth := gb.Authorizer(id, 4)
+	auth := s.GraphBuilder.Authorizer(id, 2)
 
 	publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	if err != nil {
@@ -189,15 +202,20 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// outgoing gossip behavior
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, gb, s.systemGauge, s.eventCounter,
+		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter,
 		gossip.HopCount(3),
 	))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, gb, s.systemGauge, s.eventCounter)
+		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter)
 	pmgr.Register(hist)
+
+	// raw log plugins
+	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
+	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
+	ctrl.Register(hist)                           // createHistoryStream
 
 	return s, nil
 }

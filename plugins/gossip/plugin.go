@@ -86,7 +86,7 @@ type histPlugin struct {
 	h *handler
 }
 
-func (hp histPlugin) Name() string { return "gossip" }
+func (hp histPlugin) Name() string { return "createHistoryStream" }
 
 func (histPlugin) Method() muxrpc.Method {
 	return muxrpc.Method{"createHistoryStream"}
