@@ -158,9 +158,9 @@ func PeopleAssertBlocks(from, to string, want bool) PeopleAssertMaker {
 	}
 }
 
-func PeopleAssertAuthorize(from, to string, hops int, want bool) PeopleAssertMaker {
+func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAssertMaker {
 	return func(state *testState) PeopleAssert {
-		a, b, err := getAliceBob(from, to, state)
+		a, b, err := getAliceBob(host, remote, state)
 		return func(bld Builder) error {
 			if err != nil {
 				return errors.Wrap(err, "auth: no such peers")
@@ -171,12 +171,12 @@ func PeopleAssertAuthorize(from, to string, hops int, want bool) PeopleAssertMak
 			err := auth.Authorize(b.key.Id)
 			if want {
 				if err != nil {
-					return errors.Errorf("auth assert: %s didn't allow %s", from, to)
+					return errors.Errorf("auth assert: %s didn't allow %s", host, remote)
 				}
 				return nil
 			} else {
 				if err == nil {
-					return errors.Errorf("auth assert: %s was allowed to %s", from, to)
+					return errors.Errorf("auth assert: host(%s) accepted remote(%s)", host, remote)
 				}
 				// TODO compare err?
 				return nil
