@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
-	"path"
-	"syscall"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,12 +37,12 @@ func parseBlobRef(refStr string) (*ssb.BlobRef, error) {
 }
 
 func New(basePath string) (ssb.BlobStore, error) {
-	err := os.MkdirAll(path.Join(basePath, "sha256"), 0700)
+	err := os.MkdirAll(filepath.Join(basePath, "sha256"), 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "error making dir for hash sha256")
 	}
 
-	err = os.MkdirAll(path.Join(basePath, "tmp"), 0700)
+	err = os.MkdirAll(filepath.Join(basePath, "tmp"), 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "error making tmp dir")
 	}
@@ -72,9 +72,9 @@ func (store *blobStore) getPath(ref *ssb.BlobRef) (string, error) {
 	}
 
 	hexHash := hex.EncodeToString(ref.Hash)
-	relPath := path.Join(ref.Algo, hexHash[:2], hexHash[2:])
+	relPath := filepath.Join(ref.Algo, hexHash[:2], hexHash[2:])
 
-	return path.Join(store.basePath, relPath), nil
+	return filepath.Join(store.basePath, relPath), nil
 }
 
 func (store *blobStore) getHexDirPath(ref *ssb.BlobRef) (string, error) {
@@ -86,14 +86,17 @@ func (store *blobStore) getHexDirPath(ref *ssb.BlobRef) (string, error) {
 	}
 
 	hexHash := hex.EncodeToString(ref.Hash)
-	relPath := path.Join(ref.Algo, hexHash[:2])
+	relPath := filepath.Join(ref.Algo, hexHash[:2])
 
-	return path.Join(store.basePath, relPath), nil
+	return filepath.Join(store.basePath, relPath), nil
 }
 
+var i = 0
+
 func (store *blobStore) getTmpPath() string {
-	relPath := fmt.Sprint(time.Now().UnixNano())
-	return path.Join(store.basePath, "tmp", relPath)
+	i++
+	relPath := fmt.Sprintf("%d-%d", time.Now().UnixNano(), i)
+	return filepath.Join(store.basePath, "tmp", relPath)
 }
 
 func (store *blobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
@@ -104,11 +107,9 @@ func (store *blobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
 
 	f, err := os.Open(blobPath)
 	if err != nil {
-		perr, ok := err.(*os.PathError)
-		if ok && perr.Err == syscall.ENOENT {
+		if os.IsNotExist(err) {
 			return nil, ErrNoSuchBlob
 		}
-
 		return nil, errors.Wrap(err, "error opening blob file")
 	}
 
@@ -117,15 +118,13 @@ func (store *blobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
 
 func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 	tmpPath := store.getTmpPath()
-
 	f, err := os.Create(tmpPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "blobstore.Put: error creating tmp file at %q", tmpPath)
 	}
 
 	h := sha256.New()
-	tee := io.TeeReader(blob, h)
-	_, err = io.Copy(f, tee)
+	n, err := io.Copy(io.MultiWriter(f, h), blob)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, errors.Wrap(err, "blobstore.Put: error copying")
 	}
@@ -135,16 +134,19 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 		Algo: "sha256",
 	}
 
+	if err := f.Close(); err != nil {
+		return nil, errors.Wrap(err, "blobstore.Put: error closing tmp file")
+	}
+
 	hexDirPath, err := store.getHexDirPath(ref)
 	if err != nil {
 		return nil, errors.Wrap(err, "blobstore.Put: error getting hex dir path")
 	}
 
-	err = os.Mkdir(hexDirPath, 0700)
+	err = os.MkdirAll(hexDirPath, 0700)
 	if err != nil {
-		perr, ok := err.(*os.PathError)
 		// ignore errors that indicate that the directory already exists
-		if !ok || perr.Err != syscall.EEXIST {
+		if !os.IsExist(err) {
 			return nil, errors.Wrap(err, "blobstore.Put: error creating hex dir")
 		}
 	}
@@ -156,6 +158,13 @@ func (store *blobStore) Put(blob io.Reader) (*ssb.BlobRef, error) {
 
 	err = os.Rename(tmpPath, finalPath)
 	if err != nil {
+		if _, ok := err.(*os.LinkError); ok {
+			_, err1 := os.Stat(tmpPath)
+			_, err2 := os.Stat(hexDirPath)
+			log.Printf("final and hex:%d\n%s\n%s", n, err1, err2)
+		} else {
+			log.Printf("err %v %T", err, err)
+		}
 		return nil, errors.Wrapf(err, "error moving blob from temp path %q to final path %q", tmpPath, finalPath)
 	}
 
@@ -175,11 +184,9 @@ func (store *blobStore) Delete(ref *ssb.BlobRef) error {
 
 	err = os.Remove(p)
 	if err != nil {
-		perr, ok := err.(*os.PathError)
-		if ok && perr.Err == syscall.ENOENT {
+		if os.IsNotExist(err) {
 			return ErrNoSuchBlob
 		}
-
 		return errors.Wrap(err, "error removing file")
 	}
 
@@ -193,7 +200,7 @@ func (store *blobStore) Delete(ref *ssb.BlobRef) error {
 
 func (store *blobStore) List() luigi.Source {
 	return &listSource{
-		basePath: path.Join(store.basePath, "sha256"),
+		basePath: filepath.Join(store.basePath, "sha256"),
 	}
 }
 
@@ -205,8 +212,7 @@ func (store *blobStore) Size(ref *ssb.BlobRef) (int64, error) {
 
 	fi, err := os.Stat(blobPath)
 	if err != nil {
-		perr, ok := err.(*os.PathError)
-		if ok && perr.Err == syscall.ENOENT {
+		if os.IsNotExist(err) {
 			return 0, ErrNoSuchBlob
 		}
 

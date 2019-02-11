@@ -38,11 +38,13 @@ func (s *Sbot) Close() error {
 	return s.closers.Close()
 }
 
+type margaretServe func(context.Context, margaret.Log) error
+
 func initSbot(s *Sbot) (*Sbot, error) {
 	log := s.info
 	ctx := s.rootCtx
 
-	goThenLog := func(ctx context.Context, l margaret.Log, name string, f func(context.Context, margaret.Log) error) {
+	goThenLog := func(ctx context.Context, l margaret.Log, name string, f margaretServe) {
 		go func() {
 			err := f(ctx, l)
 			if err != nil {

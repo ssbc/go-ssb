@@ -53,20 +53,20 @@ github.com/pmezard/go-difflib/difflib
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
-# github.com/prometheus/client_model v0.0.0-20190109181635-f287a105a20e
+# github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20190107103113-2998b132700a
+# github.com/prometheus/common v0.1.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20190104112138-b1a0a9a36d74
+# github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1
 github.com/prometheus/procfs
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
 github.com/prometheus/procfs/internal/util
 # github.com/sergi/go-diff v1.0.0
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/shurcooL/go v0.0.0-20181215222900-0143a8f55f04
+# github.com/shurcooL/go v0.0.0-20190121191506-3fef8c783dec
 github.com/shurcooL/go/reflectsource
 github.com/shurcooL/go/parserutil
 github.com/shurcooL/go/printerutil
@@ -76,14 +76,14 @@ github.com/shurcooL/go-goon
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
-# github.com/ugorji/go v1.1.1
+# github.com/ugorji/go/codec v0.0.0-20190126102652-8fd0f8d918c8
 github.com/ugorji/go/codec
 # go.cryptoscope.co/librarian v0.1.1
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
 # go.cryptoscope.co/luigi v0.3.2
 go.cryptoscope.co/luigi
-# go.cryptoscope.co/margaret v0.0.7
+# go.cryptoscope.co/margaret v0.0.8
 go.cryptoscope.co/margaret
 go.cryptoscope.co/margaret/codec/msgpack
 go.cryptoscope.co/margaret/framing/lengthprefixed
@@ -103,7 +103,7 @@ go.cryptoscope.co/netwrap
 go.cryptoscope.co/secretstream
 go.cryptoscope.co/secretstream/secrethandshake
 go.cryptoscope.co/secretstream/boxstream
-# golang.org/x/crypto v0.0.0-20190103213133-ff983b9c42bc
+# golang.org/x/crypto v0.0.0-20190123085648-057139ce5d2b
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/nacl/box
@@ -112,12 +112,12 @@ golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
-# golang.org/x/exp v0.0.0-20190104205336-ae74f88a12a8
+# golang.org/x/exp v0.0.0-20190125153040-c74c464bbbf2
 golang.org/x/exp/rand
-# golang.org/x/net v0.0.0-20190110044637-be1c187aa6c6
+# golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3
 golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
-# golang.org/x/sys v0.0.0-20190109145017-48ac38b7c8cb
+# golang.org/x/sys v0.0.0-20190124100055-b90733256f2e
 golang.org/x/sys/unix
 # golang.org/x/text v0.3.0
 golang.org/x/text/encoding/unicode
@@ -127,7 +127,7 @@ golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
-# gonum.org/v1/gonum v0.0.0-20190110111800-20cf5b65417a
+# gonum.org/v1/gonum v0.0.0-20190123113241-dd4cc715c58a
 gonum.org/v1/gonum/graph
 gonum.org/v1/gonum/graph/encoding/dot
 gonum.org/v1/gonum/graph/path

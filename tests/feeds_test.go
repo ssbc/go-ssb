@@ -17,7 +17,7 @@ import (
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
 	const n = 128
-	bob, alice, done, cleanup := initInterop(t, `
+	bob, alice, done, errc, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -29,8 +29,8 @@ func TestFeedFromJS(t *testing.T) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
 
-    // be done when the other party is done
-    sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
+	// be done when the other party is done
+	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 
 	parallel(msgs, function(err, results) {
 		t.error(err, "parallel of publish")
@@ -38,6 +38,7 @@ func TestFeedFromJS(t *testing.T) {
 		run() // triggers connect and after block
 	})
 `, ``)
+
 	defer cleanup()
 	<-done
 
@@ -118,12 +119,17 @@ pull(
 
 }) // publish`, alice.Ref(), lastMsg)
 
-	claire, done := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
+
 	<-done
 
 	r.NoError(bob.Close())
+
+	for err := range mergeErrorChans(errc, clairErrc) {
+		t.Error(err)
+	}
 }
 
 func TestFeedFromGo(t *testing.T) {
@@ -172,7 +178,7 @@ func TestFeedFromGo(t *testing.T) {
 
 }) // publish`
 
-	s, alice, done, cleanup := initInterop(t, before, "")
+	s, alice, done, errc, cleanup := initInterop(t, before, "")
 
 	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	r.NoError(err)
@@ -218,4 +224,6 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
+	r.NoError(s.Close())
+	r.NoError(<-errc)
 }

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 
 func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	r := require.New(t)
-	dstPath, err := ioutil.TempDir("", t.Name())
+	dstPath, err := ioutil.TempDir("", strings.Replace(t.Name(), "/", "_", -1))
 	r.NoError(err)
 	dstRepo := repo.New(dstPath)
 	return dstRepo, dstPath
@@ -83,25 +84,25 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 
 	var ts muxtest.Transcript
 
-	conn1 = muxtest.WrapConn(&ts, conn1)
+	//conn1 = muxtest.WrapConn(&ts, conn1)
 
 	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), &ts, func(rpc1, rpc2 muxrpc.Endpoint) func() {
 		ctx := context.Background()
 		ctx, cancel := context.WithCancel(ctx)
 
-		var wg sync.WaitGroup
+		var (
+			wg         sync.WaitGroup
+			err1, err2 error
+		)
+
 		wg.Add(2)
 		go func() {
-			err := rpc1.(muxrpc.Server).Serve(ctx)
-			// TODO: use error chan
-			r.NoError(err, "rpc1 serve err")
+			err1 = rpc1.(muxrpc.Server).Serve(ctx)
 			wg.Done()
 		}()
 
 		go func() {
-			err := rpc2.(muxrpc.Server).Serve(ctx)
-			// TODO: use error chan
-			r.NoError(err, "rpc2 serve err")
+			err2 = rpc2.(muxrpc.Server).Serve(ctx)
 			wg.Done()
 		}()
 
@@ -112,6 +113,8 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 			r.NoError(rpc2.Terminate())
 
 			wg.Wait()
+			r.NoError(err1, "rpc1 serve err")
+			r.NoError(err2, "rpc2 serve err")
 		}
 	}
 }

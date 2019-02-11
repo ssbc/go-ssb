@@ -117,49 +117,19 @@ func (qry *query) Next(ctx context.Context) (interface{}, error) {
 		return errors.Wrap(err, "error unmarshaling data")
 	})
 	if err != nil {
-		// if key is not found, we haven't written that far yet
-		if errors.Cause(err) == badger.ErrKeyNotFound {
-			// abort if not a live query, else wait until it's written
-			if !qry.live {
-				return nil, luigi.EOS{}
-			}
-
-			wait := make(chan struct{})
-			closed := make(chan struct{})
-
-			var cancel func()
-			cancel = qry.log.seq.Register(luigi.FuncSink(
-				func(ctx context.Context, v interface{}, err error) error {
-					if err != nil {
-						close(closed)
-						return nil
-					}
-					if v.(margaret.Seq).Seq() >= qry.nextSeq.Seq() {
-						close(wait)
-					}
-
-					return nil
-				}))
-			defer cancel()
-
-			err := func() error {
-				qry.l.Unlock()
-				defer qry.l.Lock()
-
-				select {
-				case <-wait:
-				case <-closed:
-					return errors.New("seq observable closed")
-				case <-ctx.Done():
-					return errors.Wrap(ctx.Err(), "cancelled while waiting for value to be written")
-				}
-				return nil
-			}()
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		if errors.Cause(err) != badger.ErrKeyNotFound {
 			return nil, errors.Wrap(err, "error in read transaction")
+		}
+
+		// key not found, so we reached the end
+		// abort if not a live query, else wait until it's written
+		if !qry.live {
+			return nil, luigi.EOS{}
+		}
+
+		v, err = qry.livequery(ctx)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -170,4 +140,47 @@ func (qry *query) Next(ctx context.Context) (interface{}, error) {
 	}
 
 	return v, nil
+}
+
+func (qry *query) livequery(ctx context.Context) (interface{}, error) {
+	wait := make(chan interface{})
+	closed := make(chan struct{})
+
+	// register waiter for new message
+	var cancel func()
+	cancel = qry.log.seq.Register(luigi.FuncSink(
+		func(ctx context.Context, v interface{}, err error) error {
+			if err != nil {
+				close(closed)
+				return nil
+			}
+
+			// TODO: maybe only accept == and throw error on >?
+			if v.(margaret.Seq).Seq() >= qry.nextSeq.Seq() {
+				wait <- v
+			}
+
+			return nil
+		}))
+	defer cancel()
+
+	// release the lock so we don't block, but re-acquire it to increment nextSeq
+	qry.l.Unlock()
+	defer qry.l.Lock()
+
+	var (
+		v   interface{}
+		err error
+	)
+
+	select {
+	case w := <-wait:
+		v = w
+	case <-closed:
+		err = errors.New("seq observable closed")
+	case <-ctx.Done():
+		err = errors.Wrap(ctx.Err(), "cancelled while waiting for value to be written")
+	}
+
+	return v, err
 }
