@@ -92,8 +92,8 @@ func main() {
 				&cli.IntFlag{Name: "seq", Value: 0},
 				&cli.BoolFlag{Name: "reverse"},
 				&cli.BoolFlag{Name: "live"},
-				&cli.BoolFlag{Name: "keys", Value: true},
-				&cli.BoolFlag{Name: "values", Value: true},
+				&cli.BoolFlag{Name: "keys", Value: false},
+				&cli.BoolFlag{Name: "values", Value: false},
 			},
 		},
 		{
