@@ -11,14 +11,12 @@ import (
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/graph"
-	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
@@ -72,6 +70,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 	s.UserFeeds = uf
 
+	/* new style graph builder
 	mt, _, serveMT, err := multilogs.OpenMessageTypes(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message type sublogs")
@@ -84,11 +83,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
 	}
-
 	s.GraphBuilder, err = graph.NewLogBuilder(s.info, mutil.Indirect(s.RootLog, contactLog))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
 	}
+	*/
+
+	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: OpenContacts failed")
+	}
+	goThenLog(ctx, rootLog, "contacts", serveContacts)
+	s.GraphBuilder = gb
 
 	bs, err := repo.OpenBlobStore(r)
 	if err != nil {
@@ -213,9 +219,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	pmgr.Register(hist)
 
 	// raw log plugins
-	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
-	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
-	ctrl.Register(hist)                           // createHistoryStream
+	ctrl.Register(rawread.NewRXLog(rootLog)) // createLogStream
+	// ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
+	ctrl.Register(hist) // createHistoryStream
 
 	return s, nil
 }
