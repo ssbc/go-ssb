@@ -55,7 +55,11 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
 
 	statePath := r.GetPath("sublogs", name, "state.json")
-	idxStateFile, err := os.OpenFile(statePath, os.O_CREATE|os.O_RDWR, 0700)
+	mode := os.O_RDWR | os.O_EXCL
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		mode |= os.O_CREATE
+	}
+	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error opening state file")
 	}
