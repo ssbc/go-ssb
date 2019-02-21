@@ -7,7 +7,6 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/luigi"
