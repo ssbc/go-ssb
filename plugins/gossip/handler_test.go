@@ -16,7 +16,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -24,7 +23,9 @@ import (
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/test"
 	"go.cryptoscope.co/ssb/repo"
@@ -47,7 +48,7 @@ type tcase struct {
 func (tc *tcase) runTest(t *testing.T) {
 	r := require.New(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	defer cancel()
 
 	var infoAlice, infoBob logging.Interface
