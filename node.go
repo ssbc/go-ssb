@@ -106,6 +106,8 @@ func NewNode(opts Options) (Node, error) {
 	return n, nil
 }
 
+var ErrShuttingDown = errors.Errorf("ssb: shutting down now") // this is fine
+
 type ErrOutOfReach struct {
 	Dist int
 	Max  int

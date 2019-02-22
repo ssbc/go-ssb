@@ -79,7 +79,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		}
 
 		err = luigi.Pump(ctx, mlogSink, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 
@@ -118,7 +118,7 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 
@@ -156,7 +156,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 

@@ -24,16 +24,19 @@ import (
 type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
 type Sbot struct {
-	repoPath     string
-	dialer       netwrap.Dialer
-	listenAddr   net.Addr
-	info         kitlog.Logger
-	rootCtx      context.Context
-	appKey       []byte
-	closers      multiCloser
-	connWrappers []netwrap.ConnWrapper
+	info kitlog.Logger
 
-	edpWrapper MuxrpcEndpointWrapper
+	repoPath   string
+	dialer     netwrap.Dialer
+	listenAddr net.Addr
+
+	rootCtx        context.Context
+	shutdownCancel context.CancelFunc
+	closers        multiCloser
+
+	appKey       []byte
+	connWrappers []netwrap.ConnWrapper
+	edpWrapper   MuxrpcEndpointWrapper
 
 	RootLog      margaret.Log
 	UserFeeds    multilog.MultiLog

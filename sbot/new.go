@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
@@ -33,6 +34,10 @@ type Interface interface {
 var _ Interface = (*Sbot)(nil)
 
 func (s *Sbot) Close() error {
+	s.shutdownCancel()
+	// TODO: just a sleep-kludge
+	// would be better to have a busy-loop or channel thing to see once everything is closed
+	time.Sleep(time.Second * 1)
 	return s.closers.Close()
 }
 
@@ -40,7 +45,8 @@ type margaretServe func(context.Context, margaret.Log) error
 
 func initSbot(s *Sbot) (*Sbot, error) {
 	log := s.info
-	ctx := s.rootCtx
+	var ctx context.Context
+	ctx, s.shutdownCancel = ctxutils.WithError(s.rootCtx, ssb.ErrShuttingDown)
 
 	goThenLog := func(ctx context.Context, l margaret.Log, name string, f margaretServe) {
 		go func() {
