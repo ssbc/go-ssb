@@ -3,21 +3,18 @@ package rawread
 import (
 	"context"
 
-	"go.cryptoscope.co/ssb/message"
-
-	"go.cryptoscope.co/luigi"
-
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/transform"
-
-	"go.cryptoscope.co/librarian"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/transform"
+	"go.cryptoscope.co/ssb/message"
 )
 
 //  messagesByType --help

@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -29,7 +30,7 @@ func TestMessageTypes(t *testing.T) {
 	tRepoPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 
 	tRepo := repo.New(tRepoPath)
 	tRootLog, err := repo.OpenLog(tRepo)

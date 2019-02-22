@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -74,7 +75,7 @@ func TestMakeSomeMessages(t *testing.T) {
 	userFeeds, _, userFeedsServe, err := OpenUserFeeds(testRepo)
 	r.NoError(err, "failed to get user feeds multilog")
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	errc := make(chan error)
 	go func() {
 		err := userFeedsServe(ctx, rl)

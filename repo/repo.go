@@ -7,7 +7,6 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/luigi"
@@ -55,7 +54,11 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
 
 	statePath := r.GetPath("sublogs", name, "state.json")
-	idxStateFile, err := os.OpenFile(statePath, os.O_CREATE|os.O_RDWR, 0700)
+	mode := os.O_RDWR | os.O_EXCL
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		mode |= os.O_CREATE
+	}
+	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error opening state file")
 	}
@@ -76,7 +79,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		}
 
 		err = luigi.Pump(ctx, mlogSink, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 
@@ -115,7 +118,7 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 
@@ -153,7 +156,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 		}
 
 		err = luigi.Pump(ctx, sinkidx, src)
-		if err == context.Canceled {
+		if err == ssb.ErrShuttingDown {
 			return nil
 		}
 

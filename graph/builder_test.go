@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
@@ -28,7 +29,7 @@ func makeBadger(t *testing.T) testStore {
 	tRepoPath, err := ioutil.TempDir("", "badgerTest")
 	r.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 
 	tRepo := repo.New(tRepoPath)
 	tRootLog, err := repo.OpenLog(tRepo)
@@ -75,7 +76,7 @@ func makeTypedLog(t *testing.T) testStore {
 	tRepoPath, err := ioutil.TempDir("", "test_mlog")
 	r.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 
 	tRepo := repo.New(tRepoPath)
 	tRootLog, err := repo.OpenLog(tRepo)
