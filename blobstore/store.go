@@ -91,12 +91,8 @@ func (store *blobStore) getHexDirPath(ref *ssb.BlobRef) (string, error) {
 	return filepath.Join(store.basePath, relPath), nil
 }
 
-var i = 0
-
 func (store *blobStore) getTmpPath() string {
-	i++
-	relPath := fmt.Sprintf("%d-%d", time.Now().UnixNano(), i)
-	return filepath.Join(store.basePath, "tmp", relPath)
+	return filepath.Join(store.basePath, "tmp", fmt.Sprint(time.Now().UnixNano()))
 }
 
 func (store *blobStore) Get(ref *ssb.BlobRef) (io.Reader, error) {
