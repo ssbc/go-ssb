@@ -14,6 +14,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -44,7 +45,6 @@ func checkAndLog(err error) {
 }
 
 func init() {
-
 	logging.SetupLogging(nil)
 	log = logging.Logger("sbot")
 
@@ -64,7 +64,7 @@ func init() {
 
 func main() {
 	ctx := context.Background()
-	ctx, shutdown := context.WithCancel(ctx)
+	ctx, shutdown := ctxutils.WithError(ctx, ssb.ErrShuttingDown)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -89,11 +89,12 @@ func main() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
 		shutdown()
+		time.Sleep(2 * time.Second)
 
 		err := sbot.Close()
 		checkAndLog(err)
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(c)
@@ -133,16 +134,16 @@ func main() {
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
-	abouts, err := sbot.MessageTypes.Get("about")
-	checkFatal(err)
-	logSeqV, err := abouts.Seq().Value()
-	checkFatal(err)
-	RepoStats.With("part", "about").Set(float64(logSeqV.(margaret.Seq).Seq()))
-	contactLog, err := sbot.MessageTypes.Get("contact")
-	checkFatal(err)
-	logSeqV, err = contactLog.Seq().Value()
-	checkFatal(err)
-	RepoStats.With("part", "contact").Set(float64(logSeqV.(margaret.Seq).Seq()))
+	// abouts, err := sbot.MessageTypes.Get("about")
+	// checkFatal(err)
+	// logSeqV, err := abouts.Seq().Value()
+	// checkFatal(err)
+	// RepoStats.With("part", "about").Set(float64(logSeqV.(margaret.Seq).Seq()))
+	// contactLog, err := sbot.MessageTypes.Get("contact")
+	// checkFatal(err)
+	// logSeqV, err := contactLog.Seq().Value()
+	// checkFatal(err)
+	// RepoStats.With("part", "contact").Set(float64(logSeqV.(margaret.Seq).Seq()))
 	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount, "follows", followCnt)
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
