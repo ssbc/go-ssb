@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"os/user"
@@ -23,6 +24,7 @@ import (
 
 var (
 	// flags
+	flagEnAdv   bool
 	flagPromisc bool
 	listenAddr  string
 	debugAddr   string
@@ -55,9 +57,10 @@ func init() {
 	u, err := user.Current()
 	checkFatal(err)
 
-	flag.StringVar(&listenAddr, "l", ":"+ssb.DefaultPort, "address to listen on")
+	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", ssb.DefaultPort), "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
+	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
 
 	flag.Parse()
 }
@@ -80,7 +83,8 @@ func main() {
 		mksbot.WithAppKey(appKey),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
-		mksbot.WithListenAddr(listenAddr))
+		mksbot.WithListenAddr(listenAddr),
+		mksbot.EnableAdvertismentBroadcasts(flagEnAdv))
 	checkFatal(err)
 
 	c := make(chan os.Signal)

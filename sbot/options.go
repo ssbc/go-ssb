@@ -26,9 +26,10 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 type Sbot struct {
 	info kitlog.Logger
 
-	repoPath   string
-	dialer     netwrap.Dialer
-	listenAddr net.Addr
+	repoPath      string
+	dialer        netwrap.Dialer
+	listenAddr    net.Addr
+	enableAdverts bool
 
 	rootCtx        context.Context
 	shutdownCancel context.CancelFunc
@@ -134,6 +135,13 @@ func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
 	}
 }
 
+func EnableAdvertismentBroadcasts(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableAdverts = do
+		return nil
+	}
+}
+
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
 	for i, opt := range fopts {
@@ -165,7 +173,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	if s.listenAddr == nil {
-		s.listenAddr = &net.TCPAddr{Port: 8008}
+		s.listenAddr = &net.TCPAddr{Port: ssb.DefaultPort}
 	}
 
 	if s.info == nil {

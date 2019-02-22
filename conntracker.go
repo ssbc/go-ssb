@@ -33,6 +33,10 @@ func (ict instrumentedConnTracker) CloseAll() {
 	ict.root.CloseAll()
 }
 
+func (ict instrumentedConnTracker) Active(a net.Addr) bool {
+	return ict.root.Active(a)
+}
+
 func (ict instrumentedConnTracker) OnAccept(conn net.Conn) bool {
 	ok := ict.root.OnAccept(conn)
 	if ok {
@@ -51,6 +55,7 @@ func (ict instrumentedConnTracker) OnClose(conn net.Conn) time.Duration {
 }
 
 type ConnTracker interface {
+	Active(net.Addr) bool
 	OnAccept(conn net.Conn) bool
 	OnClose(conn net.Conn) time.Duration
 	Count() uint
@@ -100,6 +105,14 @@ func toActive(a net.Addr) [32]byte {
 		copy(pk[:], shs.PubKey)
 	}
 	return pk
+}
+
+func (ct *connTracker) Active(a net.Addr) bool {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	k := toActive(a)
+	_, ok := ct.active[k]
+	return ok
 }
 
 func (ct *connTracker) OnAccept(conn net.Conn) bool {

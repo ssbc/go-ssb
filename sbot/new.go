@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/node"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -190,13 +191,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	opts := ssb.Options{
-		Logger:       s.info,
-		Dialer:       s.dialer,
-		ListenAddr:   s.listenAddr,
-		KeyPair:      s.KeyPair,
-		AppKey:       s.appKey[:],
-		MakeHandler:  mkHandler,
-		ConnWrappers: s.connWrappers,
+		Logger:        s.info,
+		Dialer:        s.dialer,
+		ListenAddr:    s.listenAddr,
+		EnableAdverts: s.enableAdverts,
+		KeyPair:       s.KeyPair,
+		AppKey:        s.appKey[:],
+		MakeHandler:   mkHandler,
+		ConnWrappers:  s.connWrappers,
 
 		EventCounter:    s.eventCounter,
 		SystemGauge:     s.systemGauge,
@@ -204,7 +206,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		Latency:         s.latency,
 	}
 
-	node, err := ssb.NewNode(opts)
+	node, err := node.New(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create node")
 	}
