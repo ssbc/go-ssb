@@ -112,8 +112,8 @@ type Eigen struct {
 	left  bool // have the left eigenvectors been computed
 
 	values   []complex128
-	rVectors *Dense
-	lVectors *Dense
+	rVectors *CDense
+	lVectors *CDense
 }
 
 // succFact returns whether the receiver contains a successful factorization.
@@ -127,7 +127,7 @@ func (e *Eigen) succFact() bool {
 // A right eigenvalue/eigenvector combination is defined by
 //  A * x_r = λ * x_r
 // where x_r is the column vector called an eigenvector, and λ is the corresponding
-// eigenvector.
+// eigenvalue.
 //
 // Similarly, a left eigenvalue/eigenvector combination is defined by
 //  x_l * A = λ * x_l
@@ -135,16 +135,13 @@ func (e *Eigen) succFact() bool {
 //
 // Typically eigenvectors refer to right eigenvectors.
 //
-// In all cases, Eigen computes the eigenvalues of the matrix. If right and left
+// In all cases, Factorize computes the eigenvalues of the matrix. If right and left
 // are true, then the right and left eigenvectors will be computed, respectively.
 // Eigen panics if the input matrix is not square.
 //
 // Factorize returns whether the decomposition succeeded. If the decomposition
 // failed, methods that require a successful factorization will panic.
 func (e *Eigen) Factorize(a Matrix, left, right bool) (ok bool) {
-	// TODO(btracey): Change implementation to store VecDenses as a *CMat when
-	// #308 is resolved.
-
 	// Copy a because it is modified during the Lapack call.
 	r, c := a.Dims()
 	if r != c {
@@ -159,10 +156,15 @@ func (e *Eigen) Factorize(a Matrix, left, right bool) (ok bool) {
 	if left {
 		vl = *NewDense(r, r, nil)
 		jobvl = lapack.LeftEVCompute
+	} else {
+		vl.mat.Stride = 1
 	}
+
 	if right {
 		vr = *NewDense(c, c, nil)
 		jobvr = lapack.RightEVCompute
+	} else {
+		vr.mat.Stride = 1
 	}
 
 	wr := getFloats(c, false)
@@ -183,13 +185,30 @@ func (e *Eigen) Factorize(a Matrix, left, right bool) (ok bool) {
 	e.n = r
 	e.right = right
 	e.left = left
-	e.lVectors = &vl
-	e.rVectors = &vr
+
+	// Construct complex eigenvalues from float64 data.
 	values := make([]complex128, r)
 	for i, v := range wr {
 		values[i] = complex(v, wi[i])
 	}
 	e.values = values
+
+	// Construct complex eigenvectors from float64 data.
+	var cvl, cvr CDense
+	if left {
+		cvl = *NewCDense(r, r, nil)
+		e.complexEigenTo(&cvl, &vl)
+		e.lVectors = &cvl
+	} else {
+		e.lVectors = nil
+	}
+	if right {
+		cvr = *NewCDense(c, c, nil)
+		e.complexEigenTo(&cvr, &vr)
+		e.rVectors = &cvr
+	} else {
+		e.rVectors = nil
+	}
 	return true
 }
 
@@ -214,48 +233,84 @@ func (e *Eigen) Values(dst []complex128) []complex128 {
 	return dst
 }
 
-// Vectors returns the right eigenvectors of the decomposition. Vectors
+// complexEigenTo extracts the complex eigenvectors from the real matrix d
+// and stores them into the complex matrix dst.
+//
+// The columns of the returned n×n dense matrix contain the eigenvectors of the
+// decomposition in the same order as the eigenvalues.
+// If the j-th eigenvalue is real, then
+//  dst[:,j] = d[:,j],
+// and if it is not real, then the elements of the j-th and (j+1)-th columns of d
+// form complex conjugate pairs and the eigenvectors are recovered as
+//  dst[:,j]   = d[:,j] + i*d[:,j+1],
+//  dst[:,j+1] = d[:,j] - i*d[:,j+1],
+// where i is the imaginary unit.
+func (e *Eigen) complexEigenTo(dst *CDense, d *Dense) {
+	r, c := d.Dims()
+	cr, cc := dst.Dims()
+	if r != cr {
+		panic("size mismatch")
+	}
+	if c != cc {
+		panic("size mismatch")
+	}
+	for j := 0; j < c; j++ {
+		if imag(e.values[j]) == 0 {
+			for i := 0; i < r; i++ {
+				dst.set(i, j, complex(d.at(i, j), 0))
+			}
+			continue
+		}
+		for i := 0; i < r; i++ {
+			real := d.at(i, j)
+			imag := d.at(i, j+1)
+			dst.set(i, j, complex(real, imag))
+			dst.set(i, j+1, complex(real, -imag))
+		}
+		j++
+	}
+}
+
+// VectorsTo returns the right eigenvectors of the decomposition. VectorsTo
 // will panic if the right eigenvectors were not computed during the factorization,
 // or if the factorization was not successful.
 //
-// The returned matrix will contain the right eigenvectors of the decomposition
-// in the columns of the n×n matrix in the same order as their eigenvalues.
-// If the j-th eigenvalue is real, then
-//  u_j = VL[:,j],
-//  v_j = VR[:,j],
-// and if it is not real, then j and j+1 form a complex conjugate pair and the
-// eigenvectors can be recovered as
-//  u_j     = VL[:,j] + i*VL[:,j+1],
-//  u_{j+1} = VL[:,j] - i*VL[:,j+1],
-//  v_j     = VR[:,j] + i*VR[:,j+1],
-//  v_{j+1} = VR[:,j] - i*VR[:,j+1],
-// where i is the imaginary unit. The computed eigenvectors are normalized to
-// have Euclidean norm equal to 1 and largest component real.
-//
-// BUG: This signature and behavior will change when issue #308 is resolved.
-func (e *Eigen) Vectors() *Dense {
+// The computed eigenvectors are normalized to have Euclidean norm equal to 1
+// and largest component real.
+func (e *Eigen) VectorsTo(dst *CDense) *CDense {
 	if !e.succFact() {
 		panic(badFact)
 	}
 	if !e.right {
 		panic(badNoVect)
 	}
-	return DenseCopyOf(e.rVectors)
+	if dst == nil {
+		dst = NewCDense(e.n, e.n, nil)
+	} else {
+		dst.reuseAs(e.n, e.n)
+	}
+	dst.Copy(e.rVectors)
+	return dst
 }
 
-// LeftVectors returns the left eigenvectors of the decomposition. LeftVectors
-// will panic if the left eigenvectors were not computed during the factorization.
+// LeftVectorsTo returns the left eigenvectors of the decomposition. LeftVectorsTo
+// will panic if the left eigenvectors were not computed during the factorization,
 // or if the factorization was not successful.
 //
-// See the documentation in lapack64.Geev for the format of the vectors.
-//
-// BUG: This signature and behavior will change when issue #308 is resolved.
-func (e *Eigen) LeftVectors() *Dense {
+// The computed eigenvectors are normalized to have Euclidean norm equal to 1
+// and largest component real.
+func (e *Eigen) LeftVectorsTo(dst *CDense) *CDense {
 	if !e.succFact() {
 		panic(badFact)
 	}
 	if !e.left {
 		panic(badNoVect)
 	}
-	return DenseCopyOf(e.lVectors)
+	if dst == nil {
+		dst = NewCDense(e.n, e.n, nil)
+	} else {
+		dst.reuseAs(e.n, e.n)
+	}
+	dst.Copy(e.lVectors)
+	return dst
 }

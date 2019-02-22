@@ -53,14 +53,15 @@ github.com/pmezard/go-difflib/difflib
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
-# github.com/prometheus/client_model v0.0.0-20190115171406-56726106282f
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.1.0
+# github.com/prometheus/common v0.2.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1
+# github.com/prometheus/procfs v0.0.0-20190219184716-e4d4a2206da0
 github.com/prometheus/procfs
+github.com/prometheus/procfs/iostats
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
 github.com/prometheus/procfs/internal/util
@@ -76,13 +77,14 @@ github.com/shurcooL/go-goon
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
-# github.com/ugorji/go/codec v0.0.0-20190126102652-8fd0f8d918c8
+# github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 github.com/ugorji/go/codec
 # go.cryptoscope.co/librarian v0.1.1
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
 # go.cryptoscope.co/luigi v0.3.2
 go.cryptoscope.co/luigi
+go.cryptoscope.co/luigi/mfr
 # go.cryptoscope.co/margaret v0.0.8
 go.cryptoscope.co/margaret
 go.cryptoscope.co/margaret/codec/msgpack
@@ -103,7 +105,7 @@ go.cryptoscope.co/netwrap
 go.cryptoscope.co/secretstream
 go.cryptoscope.co/secretstream/secrethandshake
 go.cryptoscope.co/secretstream/boxstream
-# golang.org/x/crypto v0.0.0-20190123085648-057139ce5d2b
+# golang.org/x/crypto v0.0.0-20190219172222-a4c6cb3142f2
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/nacl/box
@@ -112,12 +114,12 @@ golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
-# golang.org/x/exp v0.0.0-20190125153040-c74c464bbbf2
+# golang.org/x/exp v0.0.0-20190221220918-438050ddec5e
 golang.org/x/exp/rand
-# golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3
+# golang.org/x/net v0.0.0-20190213061140-3a22650c66bd
 golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
-# golang.org/x/sys v0.0.0-20190124100055-b90733256f2e
+# golang.org/x/sys v0.0.0-20190221222158-ec7b60b042fd
 golang.org/x/sys/unix
 # golang.org/x/text v0.3.0
 golang.org/x/text/encoding/unicode
@@ -127,27 +129,28 @@ golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
-# gonum.org/v1/gonum v0.0.0-20190123113241-dd4cc715c58a
+# gonum.org/v1/gonum v0.0.0-20190221132855-8ea67971a689
 gonum.org/v1/gonum/graph
+gonum.org/v1/gonum/graph/encoding
 gonum.org/v1/gonum/graph/encoding/dot
 gonum.org/v1/gonum/graph/path
 gonum.org/v1/gonum/graph/simple
 gonum.org/v1/gonum/graph/traverse
-gonum.org/v1/gonum/graph/encoding
 gonum.org/v1/gonum/graph/formats/dot
 gonum.org/v1/gonum/graph/formats/dot/ast
 gonum.org/v1/gonum/graph/internal/ordered
 gonum.org/v1/gonum/graph/internal/set
+gonum.org/v1/gonum/floats
 gonum.org/v1/gonum/graph/iterator
 gonum.org/v1/gonum/mat
 gonum.org/v1/gonum/graph/internal/uid
 gonum.org/v1/gonum/graph/internal/linear
 gonum.org/v1/gonum/graph/formats/dot/internal/lexer
 gonum.org/v1/gonum/graph/formats/dot/internal/parser
+gonum.org/v1/gonum/internal/asm/f64
 gonum.org/v1/gonum/blas
 gonum.org/v1/gonum/blas/blas64
-gonum.org/v1/gonum/floats
-gonum.org/v1/gonum/internal/asm/f64
+gonum.org/v1/gonum/blas/cblas128
 gonum.org/v1/gonum/lapack
 gonum.org/v1/gonum/lapack/lapack64
 gonum.org/v1/gonum/graph/formats/dot/internal/token
