@@ -56,13 +56,13 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		}
 
 		if qry.Live && qry.Limit == 0 {
-			// currently having live streams is not implemented
+			// currently having live streams is not tested
 			// it might work but we have some problems with dangling rpc routines which we like to fix first
 			qry.Limit = -1
 		}
 
 		resolved := mutil.Indirect(h.RootLog, userLog)
-		src, err := resolved.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)))
+		src, err := resolved.Query(margaret.Gte(margaret.BaseSeq(qry.Seq)), margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
 		if err != nil {
 			return errors.Wrapf(err, "invalid user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}
