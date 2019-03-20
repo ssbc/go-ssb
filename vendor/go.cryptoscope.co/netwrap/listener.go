@@ -58,6 +58,10 @@ func (l *listener) Accept() (net.Conn, error) {
 		return nil, errors.Wrap(err, "error accepting underlying connection")
 	}
 
-	conn, err = l.connWrapper(conn)
-	return conn, errors.Wrap(err, "error in listerner wrapping function")
+	wrappedConn, err := l.connWrapper(conn)
+	if err != nil {
+		conn.Close()
+		return nil, errors.Wrap(err, "error in listerner wrapping function")
+	}
+	return wrappedConn, nil
 }
