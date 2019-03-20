@@ -100,12 +100,13 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	tGraph, err := g.GraphBuilder.Build()
+	// tGraph, err := g.GraphBuilder.Build()
+	follows, err := g.GraphBuilder.Follows(g.Id)
 	if err != nil {
-		g.Info.Log("handleConnect", "fetchFeed hops listing", "err", err)
+		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return
 	}
-	for _, addr := range tGraph.Hops(g.Id, g.hopCount) {
+	for _, addr := range follows { // tGraph.Hops(g.Id, g.hopCount) {
 		if !isIn(ufaddrs, addr) {
 			err = g.fetchFeed(ctx, addr, e)
 			if err != nil {
