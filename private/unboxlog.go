@@ -77,13 +77,14 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 			return nil, errors.Wrap(err, "unboxLog: failed to make contentVal")
 		}
 
-		var unboxedMsg message.LegacyMessage
+		var unboxedMsg message.SignedLegacyMessage
 		unboxedMsg.Previous = msg.Previous
 		unboxedMsg.Author = msg.Author.Ref()
 		unboxedMsg.Sequence = msg.Sequence
 		unboxedMsg.Timestamp = msg.Timestamp.UnixNano() / 100000
-		unboxedMsg.Hash = "unboxed"
+		unboxedMsg.Hash = "go-ssb-unboxed"
 		unboxedMsg.Content = contentVal
+		unboxedMsg.Signature = "go-ssb-unboxed"
 
 		msg.Raw, err = json.Marshal(unboxedMsg)
 		return msg, errors.Wrap(err, "unboxLog: failed to encode unboxed msg")
