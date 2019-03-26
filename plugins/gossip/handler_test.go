@@ -159,6 +159,7 @@ func (tc *tcase) runTest(t *testing.T) {
 	// create handlers
 	//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
 	h1 := &handler{
+		promisc:      true,
 		Id:           srcID,
 		RootLog:      srcRootLog,
 		UserFeeds:    srcMlog,
@@ -170,6 +171,7 @@ func (tc *tcase) runTest(t *testing.T) {
 		},
 	}
 	h2 := &handler{
+		promisc:      true,
 		Id:           dstID,
 		RootLog:      dstRootLog,
 		UserFeeds:    dstMlog,

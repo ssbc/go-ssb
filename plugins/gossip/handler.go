@@ -27,7 +27,9 @@ type handler struct {
 	Info         logging.Interface
 
 	hopCount int
+	promisc  bool // ask for remote feed even if it's not on owns fetch list
 
+	activeLock  sync.Mutex
 	activeFetch sync.Map
 
 	hanlderDone func()
@@ -38,13 +40,10 @@ type handler struct {
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	defer func() {
+		// TODO: just used for testing...
+		// maybe make an interface wrapper instead
 		g.hanlderDone()
 	}()
-	remote := e.(muxrpc.Server).Remote()
-	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
-	if !ok {
-		return
-	}
 
 	hasOwn, err := multilog.Has(g.UserFeeds, librarian.Addr(g.Id.ID))
 	if err != nil {
@@ -61,24 +60,31 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("fetchFeed", "done self")
 	}
 
-	remoteRef := &ssb.FeedRef{
-		Algo: "ed25519",
-		ID:   remoteAddr.PubKey,
-	}
-
-	hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
-	if err != nil {
-		g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
-		return
-	}
-
-	if !hasCallee {
-		g.Info.Log("handleConnect", "oops - dont have calling feed. requesting")
-		if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
-			g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", remoteRef.Ref(), "err", err)
+	if g.promisc {
+		remote := e.(muxrpc.Server).Remote()
+		remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
+		if !ok {
 			return
 		}
-		g.Info.Log("fetchFeed", "done callee", "ref", remoteRef.Ref())
+		remoteRef := &ssb.FeedRef{
+			Algo: "ed25519",
+			ID:   remoteAddr.PubKey,
+		}
+
+		hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
+		if err != nil {
+			g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
+			return
+		}
+
+		if !hasCallee {
+			g.Info.Log("handleConnect", "oops - dont have calling feed. requesting")
+			if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
+				g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", remoteRef.Ref(), "err", err)
+				return
+			}
+			g.Info.Log("fetchFeed", "done callee", "ref", remoteRef.Ref())
+		}
 	}
 
 	ufaddrs, err := g.UserFeeds.List()
@@ -86,39 +92,80 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.Info.Log("handleConnect", "UserFeeds listing failed", "err", err)
 		return
 	}
-	for _, addr := range ufaddrs {
-		userRef := &ssb.FeedRef{
-			Algo: "ed25519",
-			ID:   []byte(addr),
-		}
-		err = g.fetchFeed(ctx, userRef, e)
-		if err != nil {
-			g.Info.Log("handleConnect", "fetchFeed stored failed", "err", err, "uxer", remoteRef.Ref()[1:5])
-			if muxrpc.IsSinkClosed(err) {
-				return
-			}
-		}
-	}
 
-	// tGraph, err := g.GraphBuilder.Build()
-	follows, err := g.GraphBuilder.Follows(g.Id)
+	tGraph, err := g.GraphBuilder.Build()
 	if err != nil {
 		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return
 	}
-	for _, addr := range follows { // tGraph.Hops(g.Id, g.hopCount) {
-		if !isIn(ufaddrs, addr) {
-			err = g.fetchFeed(ctx, addr, e)
-			if err != nil {
-				g.Info.Log("handleConnect", "fetchFeed hops failed", "err", err, "uxer", remoteRef.Ref()[1:5])
-				if muxrpc.IsSinkClosed(err) {
-					return
-				}
-			}
+
+	var blockedAddr []librarian.Addr
+	blocked := tGraph.BlockedList(g.Id)
+	for _, ref := range ufaddrs {
+		var k [32]byte
+		copy(k[:], []byte(ref))
+		if _, isBlocked := blocked[k]; isBlocked {
+			blockedAddr = append(blockedAddr, ref)
 		}
 	}
+
+	err = g.fetchAllLib(ctx, e, ufaddrs)
+	if muxrpc.IsSinkClosed(err) {
+		return
+	}
+
+	// follows, err := g.GraphBuilder.Follows(g.Id)
+	// if err != nil {
+	// 	g.Info.Log("msg", "fetchFeed follows listing", "err", err)
+	// 	return
+	// }
+	// g.fetchAllMinus(ctx, e, follows, ufaddrs)
+
+	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
+	g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+	g.Info.Log("msg", "fetchHops done", "n", hops.Count())
+
 }
 
+func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []librarian.Addr) error {
+	var refs = graph.NewFeedSet(len(lst))
+	for _, addr := range lst {
+		refs.AddAddr(addr)
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet, got []librarian.Addr) error {
+	lst := fs.List()
+	var refs = graph.NewFeedSet(len(lst))
+	for _, ref := range lst {
+		if !isIn(got, ref) {
+			refs.AddRef(ref)
+		}
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet) error {
+	// var wg sync.WaitGroup
+	lst := fs.List()
+	// wg.Add(len(lst))
+	for _, r := range lst {
+
+		// go func(ref *ssb.FeedRef, wg *sync.WaitGroup) {
+		// 	defer wg.Done()
+		err := h.fetchFeed(ctx, r, e)
+		if muxrpc.IsSinkClosed(err) {
+			return err
+		} else if err != nil {
+			// assuming forked feed for instance
+			h.Info.Log("msg", "fetchFeed stored failed", "err", err)
+		}
+		// }(r, &wg)
+	}
+	return nil
+	// wg.Wait()
+}
 func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 	for _, el := range list {
 		if bytes.Compare([]byte(el), a.ID) == 0 {
@@ -181,13 +228,10 @@ func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 }
 
 func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
-	//g.Info.Log("event", "ping", "args", fmt.Sprintf("%v", req.Args))
-	for i := 0; i < 50; i++ {
-		err := req.Stream.Pour(ctx, time.Now().Unix())
-		if err != nil {
-			return errors.Wrapf(err, "pour(%d) failed to pong", i)
-		}
-		time.Sleep(time.Second)
+	err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
+	if err != nil {
+		return errors.Wrapf(err, "pour failed to pong")
 	}
-	return req.Stream.CloseWithError(errors.New("TODO:dos0day"))
+	// just leave it open..
+	return nil
 }

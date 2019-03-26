@@ -102,8 +102,6 @@ func main() {
 	id := sbot.KeyPair.Id
 	uf := sbot.UserFeeds
 	gb := sbot.GraphBuilder
-	g, err := gb.Build()
-	checkFatal(err)
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -127,10 +125,10 @@ func main() {
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
 		if len(feeds) < 20 {
-			h := g.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f), "hops", len(h))
+			h := gb.Hops(&authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", f.Count(), "hops", h.Count())
 		}
-		followCnt += uint(len(f))
+		followCnt += uint(f.Count())
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))

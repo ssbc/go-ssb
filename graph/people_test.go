@@ -14,9 +14,10 @@ type PeopleOp interface {
 }
 
 type testState struct {
-	t     *testing.T
-	peers map[string]*publisher
-	store testStore
+	t         *testing.T
+	peers     map[string]*publisher
+	refToName map[string]string
+	store     testStore
 }
 
 type PeopleOpNewPeer struct {
@@ -26,6 +27,8 @@ type PeopleOpNewPeer struct {
 func (op PeopleOpNewPeer) Op(state *testState) error {
 	publisher := newPublisher(state.t, state.store.root, state.store.userLogs)
 	state.peers[op.name] = publisher
+	ref := publisher.key.Id.Ref()
+	state.refToName[ref] = op.name
 	return nil
 }
 
@@ -200,6 +203,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 
 		var state testState
 		state.peers = make(map[string]*publisher)
+		state.refToName = make(map[string]string)
 		state.store = mk(t)
 		state.t = t
 
@@ -208,25 +212,28 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
 
+		// punch in nicks
+		g, err := state.store.gbuilder.Build()
+		r.NoError(err, "failed to build graph for debugging")
+		for nick, pub := range state.peers {
+			var newKey [32]byte
+			copy(newKey[:], pub.key.Id.ID)
+			node, ok := g.lookup[newKey]
+			r.True(ok, "did not find peer!? %s", nick)
+			cn := node.(*contactNode)
+			cn.name = nick
+		}
+
 		for i, assert := range tc.asserts {
 			err := assert(&state)(state.store.gbuilder)
 			if !a.NoError(err, "assertion #%d failed", i) {
 
-				// if t.Failed() { ??
-				g, err := state.store.gbuilder.Build()
-				r.NoError(err, "failed to build graph for debugging")
-				for nick, pub := range state.peers { // punch in nicks
-					var newKey [32]byte
-					copy(newKey[:], pub.key.Id.ID)
-					node, ok := g.lookup[newKey]
-					r.True(ok, "did not find peer!? %s", nick)
-					cn := node.(*contactNode)
-					cn.name = nick
-				}
 				err = g.RenderSVGToFile(fmt.Sprintf("%s-%d.svg", t.Name(), i))
 				r.NoError(err)
 			}
 		}
+
+		state.store.close()
 	}
 }
 
@@ -237,11 +244,15 @@ func TestPeople(t *testing.T) {
 			ops: []PeopleOp{
 				PeopleOpNewPeer{"alice"},
 				PeopleOpNewPeer{"bob"},
+				PeopleOpNewPeer{"claire"},
 				PeopleOpFollow{"alice", "bob"},
+				PeopleOpFollow{"alice", "claire"},
 			},
 			asserts: []PeopleAssertMaker{
 				PeopleAssertFollows("alice", "bob", true),
+				PeopleAssertFollows("alice", "claire", true),
 				PeopleAssertFollows("bob", "alice", false),
+				PeopleAssertFollows("bob", "claire", false),
 
 				PeopleAssertAuthorize("alice", "bob", 0, true),
 				PeopleAssertAuthorize("bob", "alice", 0, false),
@@ -348,8 +359,10 @@ func TestPeople(t *testing.T) {
 	}
 
 	tcs = append(tcs, blockScenarios...)
+	tcs = append(tcs, hopsScenarios...)
+
 	for _, tc := range tcs {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))
-		t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
+		// t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
 	}
 }

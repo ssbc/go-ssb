@@ -3,6 +3,7 @@ package gossip
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -15,19 +16,32 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
+type ErrWrongSequence struct {
+	Ref             *ssb.FeedRef
+	Indexed, Stored margaret.Seq
+}
+
+func (e ErrWrongSequence) Error() string {
+	return fmt.Sprintf("consistency error: wrong stored message sequence for feed %s. stored:%d indexed:%d",
+		e.Ref.Ref(), e.Stored, e.Indexed)
+}
+
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.Endpoint) error {
 	// check our latest
 	addr := librarian.Addr(fr.ID)
+	g.activeLock.Lock()
 	_, ok := g.activeFetch.Load(addr)
 	if ok {
 		// errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
+		g.activeLock.Unlock()
 		return nil
 	}
 	if g.sysGauge != nil {
 		g.sysGauge.With("part", "fetches").Add(1)
 	}
 	g.activeFetch.Store(addr, true)
+	g.activeLock.Unlock()
 	defer func() {
 		g.activeFetch.Delete(addr)
 		if g.sysGauge != nil {
@@ -66,7 +80,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 			}
 
 			if latestMsg.Sequence != latestSeq {
-				return errors.Errorf("wrong stored message sequence. stored:%d indexed:%d", latestMsg.Sequence, latestSeq)
+				return &ErrWrongSequence{Stored: latestMsg.Sequence, Indexed: latestSeq, Ref: fr}
 			}
 		}
 	}
@@ -81,7 +95,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	}
 	start := time.Now()
 
-	toLong, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	toLong, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer func() {
 		cancel()
 		if n := latestSeq - startSeq; n > 0 {
@@ -90,9 +104,8 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 			}
 			if g.sysCtr != nil {
 				g.sysCtr.With("event", "gossiprx").Add(float64(n))
-			} else {
-				info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
 			}
+			info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
 		}
 	}()
 

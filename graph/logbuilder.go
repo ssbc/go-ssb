@@ -164,7 +164,7 @@ func (b *logBuilder) Build() (*Graph, error) {
 	return g, nil
 }
 
-func (b *logBuilder) Follows(from *ssb.FeedRef) ([]*ssb.FeedRef, error) {
+func (b *logBuilder) Follows(from *ssb.FeedRef) (FeedSet, error) {
 	g, err := b.Build()
 	if err != nil {
 		return nil, errors.Wrap(err, "follows: couldn't build graph")
@@ -178,15 +178,21 @@ func (b *logBuilder) Follows(from *ssb.FeedRef) ([]*ssb.FeedRef, error) {
 	}
 
 	nodes := g.From(nFrom.ID())
-	refs := make([]*ssb.FeedRef, nodes.Len())
 
-	for i := 0; nodes.Next(); i++ {
+	refs := NewFeedSet(nodes.Len())
+
+	for nodes.Next() {
 		cnv := nodes.Node().(contactNode)
 		// warning - ignores edge type!
 		edg := g.Edge(nFrom.ID(), cnv.ID())
 		if edg.(contactEdge).Weight() == 1 {
-			refs[i] = cnv.feed
+			refs.AddRef(cnv.feed)
 		}
 	}
 	return refs, nil
+}
+
+func (b *logBuilder) Hops(from *ssb.FeedRef, max int) FeedSet {
+	// it would be terrible to do this without some kind of filtering/caching
+	panic("TODO:unsupported")
 }

@@ -1,0 +1,137 @@
+package graph
+
+import (
+	"fmt"
+)
+
+var hopsScenarios = []PeopleTestCase{
+	{
+		name: "hops 0",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice"},
+			PeopleOpNewPeer{"bob"},
+			PeopleOpNewPeer{"claire"},
+
+			// alice is interested in
+			PeopleOpFollow{"alice", "bob"},
+			PeopleOpFollow{"alice", "claire"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
+		},
+	},
+
+	{
+		name: "hops 1",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice"},
+			PeopleOpNewPeer{"bob"},
+			PeopleOpNewPeer{"claire"},
+
+			// alice is interested in
+			PeopleOpFollow{"alice", "bob"},
+			PeopleOpFollow{"alice", "claire"},
+
+			// bobs friends
+			PeopleOpNewPeer{"bobf1"},
+			PeopleOpNewPeer{"bobf2"},
+			PeopleOpFollow{"bob", "bobf1"},
+			PeopleOpFollow{"bob", "bobf2"},
+
+			PeopleOpFollow{"bob", "alice"},
+
+			// claire is not friends with alice
+			PeopleOpNewPeer{"off"},
+			PeopleOpNewPeer{"off2"},
+			PeopleOpFollow{"claire", "off"},
+			PeopleOpFollow{"claire", "off2"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
+			PeopleAssertHops("alice", 1, "alice", "bob", "claire", "bobf1", "bobf2"),
+		},
+	},
+
+	{
+		name: "hops 2",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice"},
+			PeopleOpNewPeer{"bob"},
+			PeopleOpNewPeer{"claire"},
+
+			// alice is interested in
+			PeopleOpFollow{"alice", "bob"},
+			PeopleOpFollow{"alice", "claire"},
+
+			// bobs friends
+			PeopleOpNewPeer{"bobf1"},
+			PeopleOpNewPeer{"bobf2"},
+			PeopleOpFollow{"bob", "bobf1"},
+			PeopleOpFollow{"bob", "bobf2"},
+
+			PeopleOpFollow{"bob", "alice"},
+
+			// hops 2
+			PeopleOpNewPeer{"bobfam1"},
+			PeopleOpNewPeer{"bobfam2"},
+			PeopleOpNewPeer{"bobfam3"},
+			PeopleOpFollow{"bobf1", "bobfam1"},
+			PeopleOpFollow{"bobf1", "bobfam2"},
+			PeopleOpFollow{"bobf1", "bobfam3"},
+
+			PeopleOpFollow{"bobf1", "bob"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
+			PeopleAssertHops("alice", 1, "alice", "bob", "claire", "bobf1", "bobf2"),
+			PeopleAssertHops("alice", 2, "alice", "bob", "claire", "bobf1", "bobf2", "bobfam1", "bobfam2", "bobfam3"),
+		},
+	},
+}
+
+func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
+	return func(state *testState) PeopleAssert {
+
+		return func(bld Builder) error {
+
+			alice, ok := state.peers[from]
+			if !ok {
+				return fmt.Errorf("no such from peer")
+			}
+
+			hopSet := bld.Hops(alice.key.Id, hops)
+			hopList := hopSet.List()
+			hitMap := make(map[string]bool, len(hopList))
+			for _, h := range hopList {
+				hitMap[h.Ref()] = false
+			}
+			// if n, m := len(hopList), len(tos); n != m {
+			// 	return fmt.Errorf("count mismatch between want(%d) and got(%d)", m, n)
+			// }
+			for _, nick := range tos {
+				bob, ok := state.peers[nick]
+				if !ok {
+					return fmt.Errorf("wanted peer not in known-peers list: %s", nick)
+				}
+				bobRef := bob.key.Id.Ref()
+
+				_, ok = hitMap[bobRef]
+				if !ok {
+					return fmt.Errorf("wanted peer not in hops list: %s (len: %d)", nick, len(hopList))
+				}
+				hitMap[bobRef] = true
+			}
+
+			var unwanted []string
+			for k, hit := range hitMap {
+				if !hit {
+					unwanted = append(unwanted, state.refToName[k])
+				}
+			}
+			if len(unwanted) > 0 {
+				return fmt.Errorf("unwanted peers still in hit list: %v", unwanted)
+			}
+			return nil
+		}
+	}
+}
