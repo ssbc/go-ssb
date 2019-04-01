@@ -61,25 +61,25 @@ func TestParseNetAddress(t *testing.T) {
 			input: "net:10.10.0.1:8008~shs:invalid",
 			err:   ErrNoSHSKey,
 		},
+		//{
+		//	name:  "weird v6",
+		//	input: `net:fe80::14fe:529f:e269:7796:8008~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=;ws://[::]:8989~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=`,
+		//	// _could_ error this since shoudl really be [v6]:port, no?
+		//	want: &NetAddress{
+		//		Host: net.ParseIP("fe80::14fe:529f:e269:7796"),
+		//		Port: 8008,
+		//		Ref:  mustParseFeedRef("@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519"),
+		//	},
+		//},
 		{
-			name:  "weird v6",
-			input: `net:fe80::14fe:529f:e269:7796:8008~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=;ws://[::]:8989~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=`,
-			// _could_ error this since shoudl really be [v6]:port, no?
+			name:  "valid v6",
+			input: `net:[fe80::beee:7bff:fe8c:6ffc]:8008~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=;ws://[::]:8989~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=`,
 			want: &NetAddress{
-				Host: net.ParseIP("fe80::14fe:529f:e269:7796"),
+				Host: net.ParseIP("fe80::beee:7bff:fe8c:6ffc"),
 				Port: 8008,
 				Ref:  mustParseFeedRef("@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519"),
 			},
 		},
-		// { maybe i got my spiderwires crossed?!
-		// 	name:  "valid v6",
-		// 	input: `net:[fe80::beee:7bff:fe8c:6ffc]:8008~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=;ws://[::]:8989~shs:p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=`,
-		// 	want: &NetAddress{
-		// 		Host: net.ParseIP("fe80::beee:7bff:fe8c:6ffc"),
-		// 		Port: 8008,
-		// 		Ref:  mustParseFeedRef("@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519"),
-		// 	},
-		// },
 	}
 
 	for _, tc := range cases {

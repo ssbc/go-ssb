@@ -38,8 +38,8 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 
 			// port and address handling
 			if bytes.HasSuffix(netPart, []byte(":8008")) {
-				ipPart := string(bytes.TrimSuffix(netPart, []byte(":8008")))
-				na.Host = net.ParseIP(ipPart)
+				host, _, _ := net.SplitHostPort(string(netPart))
+				na.Host = net.ParseIP(host)
 				if na.Host == nil {
 					return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid IP in net: section")
 				}
