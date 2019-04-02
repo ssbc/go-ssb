@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,13 +37,16 @@ func newPublicKeyString(keyPair *ssb.KeyPair) string {
 	return base64.StdEncoding.EncodeToString(publicKey)
 }
 
-// TODO: Fix sourcing of address
 func newAdvertisement(local *net.UDPAddr, keyPair *ssb.KeyPair) (string, error) {
 	if local == nil {
 		return "", errors.Errorf("ssb: passed nil local address")
 	}
+
+	withoutZone := *local
+	withoutZone.Zone = ""
+
 	// crunchy way of making a https://github.com/ssbc/multiserver/
-	msg := fmt.Sprintf("net:%s~shs:%s", local, newPublicKeyString(keyPair))
+	msg := fmt.Sprintf("net:%s~shs:%s", &withoutZone, newPublicKeyString(keyPair))
 	_, err := multiserver.ParseNetAddress([]byte(msg))
 	return msg, err
 }
@@ -78,15 +82,45 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 }
 
 func (b *Advertiser) advertise() error {
-	msg, err := newAdvertisement(
-		b.local,
-		b.keyPair,
-	)
+	localAddresses, err := findSiteLocalNetworkAddresses(b.local)
 	if err != nil {
 		return errors.Wrap(err, "ssb: failed to make new advertisment")
 	}
-	_, err = b.conn.WriteTo([]byte(msg), b.remote)
-	return errors.Wrap(err, "ssb: could not send advertisement")
+
+	for _, localAddress := range localAddresses {
+		localUDP, err := net.ResolveUDPAddr("udp", net.JoinHostPort(localAddress.String(), "0"))
+		if err != nil {
+			return errors.Wrap(err, "ssb: failed to resolve addr for advertiser")
+		}
+
+		broadcastAddress, err := localBroadcastAddress(localAddress)
+		if err != nil {
+			return errors.Wrap(err, "ssb: failed to find site local address broadcast address")
+		}
+		remoteUDP, err := net.ResolveUDPAddr("udp", net.JoinHostPort(broadcastAddress, strconv.Itoa(ssb.DefaultPort)))
+		if err != nil {
+			return errors.Wrap(err, "ssb: failed to resolve addr for advertiser")
+		}
+
+		msg, err := newAdvertisement(
+			localUDP,
+			b.keyPair,
+		)
+		if err != nil {
+			return err
+		}
+		broadcastConn, err := net.DialUDP("udp", localUDP, remoteUDP)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+		_, err = fmt.Fprint(broadcastConn, msg)
+		_ = broadcastConn.Close()
+		if err != nil {
+			log.Println(err.Error())
+		}
+	}
+	return nil
 }
 
 func (b *Advertiser) Start() error {
