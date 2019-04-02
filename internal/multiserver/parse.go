@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"net"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
@@ -37,16 +38,19 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 			shsPart := p[keyStart+5:]
 
 			// port and address handling
-			if bytes.HasSuffix(netPart, []byte(":8008")) {
-				host, _, _ := net.SplitHostPort(string(netPart))
-				na.Host = net.ParseIP(host)
-				if na.Host == nil {
-					return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid IP in net: section")
-				}
-				na.Port = 8008
-			} else { // regexp portnumber?
-				return nil, errors.Errorf("unusual net: %s", string(netPart))
+			host, portStr, err := net.SplitHostPort(string(netPart))
+			if err != nil {
+				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid Host + Port combination")
 			}
+			na.Host = net.ParseIP(host)
+			if na.Host == nil {
+				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid IP in net: section")
+			}
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: badly formatted port")
+			}
+			na.Port = port
 
 			keyBytes := make([]byte, 35)
 			n, err := base64.StdEncoding.Decode(keyBytes, shsPart)
