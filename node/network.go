@@ -48,7 +48,7 @@ func associatedIPAddresses(arg net.Addr) ([]net.Addr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ipAddr != nil && !ipAddr.IsUnspecified() {
+	if ipAddr != nil && !ipAddr.IsUnspecified() { // unspecified, like wildcard 0.0.0.0 or [::]
 		return []net.Addr{arg}, nil
 	}
 
@@ -59,6 +59,10 @@ func associatedIPAddresses(arg net.Addr) ([]net.Addr, error) {
 		return nil, err
 	}
 	for _, netIf := range netIfs {
+		if netIf.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+
 		addrs, err := netIf.Addrs()
 		if err != nil {
 			return nil, err
