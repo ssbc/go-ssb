@@ -84,8 +84,7 @@ func TestUDPSend(t *testing.T) {
 	ch, done := adv.Notify()
 
 	addr := <-ch
-	r.Equal("127.0.0.1", addr.Host.String())
-	r.Equal(8008, addr.Port)
+	r.Equal("127.0.0.1:8008", addr.String())
 	done()
 
 	adv.Stop()
