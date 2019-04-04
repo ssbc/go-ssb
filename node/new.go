@@ -156,22 +156,26 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	if n.networkAdvertiser != nil {
-		if err := n.networkAdvertiser.Start(); err != nil {
-			return err
-		}
+		err := n.networkAdvertiser.Start()
+		if err == nil {
+			// should also be called when ctx canceled?
+			// or pass ctx to adv start?
+			defer n.networkAdvertiser.Stop()
 
-		go func() {
-			ch, done := n.networkAdvertiser.Notify()
-			defer done() // might trigger close of closed panic
-			for a := range ch {
-				if n.connTracker.Active(a) {
-					continue
+			go func() {
+				ch, done := n.networkAdvertiser.Notify()
+				defer done() // might trigger close of closed panic
+				for a := range ch {
+					if n.connTracker.Active(a) {
+						continue
+					}
+					if err := n.Connect(ctx, a); err != nil {
+						n.log.Log("event", "debug", "msg", "advert dialback failed", "err", err)
+					}
 				}
-				if err := n.Connect(ctx, a); err != nil {
-					n.log.Log("event", "debug", "msg", "advert dialback failed", "err", err)
-				}
-			}
-		}()
+			}()
+		}
+		n.log.Log("event", "advstart failed", "err", err)
 	}
 
 	for {
@@ -247,10 +251,6 @@ func (n *node) GetConnTracker() ssb.ConnTracker {
 }
 
 func (n *node) Close() error {
-	if n.networkAdvertiser != nil {
-		n.networkAdvertiser.Stop()
-	}
-
 	err := n.l.Close()
 	if err != nil {
 		return errors.Wrap(err, "ssb: network node failed to close it's listener")

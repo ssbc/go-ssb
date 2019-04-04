@@ -29,6 +29,7 @@ var (
 	listenAddr  string
 	debugAddr   string
 	repoDir     string
+	dbgLogDir   string
 
 	// helper
 	log        logging.Interface
@@ -47,10 +48,8 @@ func checkAndLog(err error) {
 }
 
 func init() {
-	logging.SetupLogging(nil)
-	log = logging.Logger("sbot")
-
 	var err error
+
 	appKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
 	checkFatal(err)
 
@@ -58,11 +57,28 @@ func init() {
 	checkFatal(err)
 
 	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", ssb.DefaultPort), "address to listen on")
+	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
 
 	flag.Parse()
+
+	if dbgLogDir != "" {
+		logDir := filepath.Join(repoDir, dbgLogDir)
+		os.MkdirAll(logDir, 0700) // nearly everything is a log here so..
+		logFileName := fmt.Sprintf("%s-%s.log",
+			filepath.Base(os.Args[0]),
+			time.Now().Format("2006-01-02_15-04"))
+		logFile, err := os.Create(filepath.Join(logDir, logFileName))
+		if err != nil {
+			panic(err) // logging not ready yet...
+		}
+		logging.SetupLogging(logFile)
+	} else {
+		logging.SetupLogging(os.Stderr)
+	}
+	log = logging.Logger("sbot")
 }
 
 func main() {

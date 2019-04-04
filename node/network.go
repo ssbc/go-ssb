@@ -52,13 +52,17 @@ func associatedIPAddresses(arg net.Addr) ([]net.Addr, error) {
 		return []net.Addr{arg}, nil
 	}
 
+	// iterate over all interfaces to get link-local / broadcast addresses
 	var ret []net.Addr
-
 	netIfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
 	for _, netIf := range netIfs {
+		if netIf.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
 		addrs, err := netIf.Addrs()
 		if err != nil {
 			return nil, err
@@ -66,9 +70,7 @@ func associatedIPAddresses(arg net.Addr) ([]net.Addr, error) {
 		for _, addr := range addrs {
 			ipNet, ok := addr.(*net.IPNet)
 			if !ok {
-				continue
-			}
-			if isIPv4(ipNet.IP) != isIPv4(ipAddr) {
+				// log.Print("DBG: ignoring non-net", ipNet.String())
 				continue
 			}
 			ipAddr := &net.IPAddr{

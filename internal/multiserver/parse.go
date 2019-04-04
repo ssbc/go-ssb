@@ -44,7 +44,11 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 			}
 			na.Host = net.ParseIP(host)
 			if na.Host == nil {
-				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid IP in net: section")
+				ipAddr, err := net.ResolveIPAddr("ip", host)
+				if err != nil {
+					return nil, errors.Wrap(ErrNoNetAddr, "multiserver: failed to fallback to resolving addr")
+				}
+				na.Host = ipAddr.IP
 			}
 			port, err := strconv.Atoi(portStr)
 			if err != nil {

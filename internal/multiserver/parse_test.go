@@ -46,6 +46,17 @@ func TestParseNetAddress(t *testing.T) {
 				Ref:  mustParseFeedRef("@EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519"),
 			},
 		},
+
+		{
+			name:  "net-with-hostname",
+			input: "net:localhost:12352~shs:x9a730cuA8I83lxfkYo0eewzaojxWryhDm07hVqnnLY=",
+			want: &NetAddress{
+				Host: net.ParseIP("127.0.0.1"),
+				Port: 12352,
+				Ref:  mustParseFeedRef("@x9a730cuA8I83lxfkYo0eewzaojxWryhDm07hVqnnLY=.ed25519"),
+			},
+		},
+
 		{
 			name:  "no-net",
 			input: "ws://192.168.1.171:8989~shs:EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=",

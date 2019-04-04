@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -59,7 +60,9 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 		udpAddr = new(net.UDPAddr)
 		udpAddr.IP = nv.IP
 		udpAddr.Port = nv.Port
-		udpAddr.Zone = nv.Zone
+		if !isIPv4(nv.IP) {
+			udpAddr.Zone = nv.Zone
+		}
 	case *net.UDPAddr:
 		udpAddr = nv
 	default:
@@ -69,7 +72,7 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 
 	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb: failed to resolve addr for advertiser")
+		return nil, errors.Wrap(err, "ssb/NewAdvertiser: failed to resolve v4 broadcast addr")
 	}
 
 	return &Advertiser{
@@ -88,18 +91,37 @@ func (b *Advertiser) advertise() error {
 	}
 
 	for _, localAddress := range localAddresses {
-		localUDP, err := net.ResolveUDPAddr("udp", net.JoinHostPort(localAddress.String(), "0"))
-		if err != nil {
-			return errors.Wrap(err, "ssb: failed to resolve addr for advertiser")
+		// log.Print("DBG23: using", localAddress)
+		var localUDP = new(net.UDPAddr)
+		// carry port from address or use default one
+		switch v := localAddress.(type) {
+		case *net.IPAddr:
+			localUDP.IP = v.IP
+			if !isIPv4(v.IP) {
+				localUDP.Zone = v.Zone
+			}
+			localUDP.Port = ssb.DefaultPort
+		case *net.IPNet:
+			localUDP.IP = v.IP
+			localUDP.Port = ssb.DefaultPort
+		case *net.TCPAddr:
+			localUDP.IP = v.IP
+			localUDP.Port = v.Port
+		case *net.UDPAddr:
+			localUDP.IP = v.IP
+			localUDP.Port = v.Port
+		default:
+			return errors.Errorf("cannot get Port for network type %s", localAddress.Network())
 		}
 
 		broadcastAddress, err := localBroadcastAddress(localAddress)
 		if err != nil {
 			return errors.Wrap(err, "ssb: failed to find site local address broadcast address")
 		}
-		remoteUDP, err := net.ResolveUDPAddr("udp", net.JoinHostPort(broadcastAddress, strconv.Itoa(ssb.DefaultPort)))
+		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(ssb.DefaultPort))
+		remoteUDP, err := net.ResolveUDPAddr("udp", dstStr)
 		if err != nil {
-			return errors.Wrap(err, "ssb: failed to resolve addr for advertiser")
+			return errors.Wrapf(err, "ssb: failed to resolve broadcast dest addr for advertiser: %s", dstStr)
 		}
 
 		msg, err := newAdvertisement(
@@ -109,9 +131,9 @@ func (b *Advertiser) advertise() error {
 		if err != nil {
 			return err
 		}
-		broadcastConn, err := net.DialUDP("udp", localUDP, remoteUDP)
+		broadcastConn, err := reuseport.Dial("udp", localUDP.String(), remoteUDP.String())
 		if err != nil {
-			log.Println(err.Error())
+			log.Println("adv dial failed", err.Error())
 			continue
 		}
 		_, err = fmt.Fprint(broadcastConn, msg)
@@ -125,11 +147,12 @@ func (b *Advertiser) advertise() error {
 
 func (b *Advertiser) Start() error {
 	b.ticker = time.NewTicker(b.waitTime)
+	// TODO: notice interface changes
+	// net.IPv6linklocalallnodes
 	var err error
-
-	lis, err := reuseport.ListenPacket("udp4", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
+	lis, err := reuseport.ListenPacket("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
 	if err != nil {
-		return errors.Wrap(err, "ssb: could not on local address")
+		return errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
 	}
 	switch v := lis.(type) {
 	case *net.UDPConn:
@@ -164,11 +187,16 @@ func (b *Advertiser) Start() error {
 			}
 
 			buf = buf[:n] // strip of zero bytes
+
 			// log.Printf("raw: %q", string(buf))
 			na, err := multiserver.ParseNetAddress(buf)
 			if err != nil {
 				// log.Println("rx adv err", err.Error())
 				// TODO: _could_ try to get key out if just ws://[::]~shs:... and dial pkt origin
+				continue
+			}
+
+			if bytes.Equal(na.Ref.ID, b.keyPair.Id.ID) {
 				continue
 			}
 
@@ -182,8 +210,8 @@ func (b *Advertiser) Start() error {
 
 			// TODO: check if adv.Host == addr ?
 			wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
-				// IP:   na.Host,
-				IP:   ua.IP,
+				IP: na.Host,
+				// IP:   ua.IP,
 				Port: na.Port,
 			}, secretstream.Addr{PubKey: na.Ref.ID})
 			b.brLock.Lock()
@@ -193,6 +221,7 @@ func (b *Advertiser) Start() error {
 			b.brLock.Unlock()
 		}
 	}()
+
 	return nil
 }
 
@@ -203,8 +232,11 @@ func (b *Advertiser) Stop() {
 		close(ch)
 		delete(b.brodcasts, i)
 	}
+	if b.conn != nil {
+		b.conn.Close()
+		b.conn = nil
+	}
 	b.brLock.Unlock()
-	b.conn.Close()
 }
 
 func (b *Advertiser) Notify() (<-chan net.Addr, func()) {
