@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	mksbot "go.cryptoscope.co/ssb/sbot"
@@ -27,6 +30,7 @@ var (
 	listenAddr  string
 	debugAddr   string
 	repoDir     string
+	dbgLogDir   string
 
 	// helper
 	log        logging.Interface
@@ -57,6 +61,7 @@ func init() {
 
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
+	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
 	flag.Parse()
@@ -75,12 +80,34 @@ func main() {
 	startDebug()
 
 	sbot, err := mksbot.New(
+		// TODO: hops
+		// TOOD: promisc
 		mksbot.WithInfo(log),
 		mksbot.WithContext(ctx),
 		mksbot.WithAppKey(appKey),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
-		mksbot.WithListenAddr(listenAddr))
+		mksbot.WithListenAddr(listenAddr),
+		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			if dbgLogDir == "" {
+				return conn, nil
+			}
+
+			parts := strings.Split(conn.RemoteAddr().String(), "|")
+
+			if len(parts) != 2 {
+				return conn, nil
+			}
+
+			muxrpcDumpDir := filepath.Join(
+				repoDir,
+				dbgLogDir,
+				parts[1], // key first
+				parts[0],
+			)
+
+			return debug.WrapDump(muxrpcDumpDir, conn)
+		}))
 	checkFatal(err)
 
 	c := make(chan os.Signal)
