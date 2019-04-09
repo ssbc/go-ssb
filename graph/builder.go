@@ -52,6 +52,13 @@ func NewBuilder(log log.Logger, db *badger.DB) Builder {
 		b.cacheLock.Lock()
 		defer b.cacheLock.Unlock()
 
+		if nulled, ok := val.(error); ok {
+			if margaret.IsErrNulled(nulled) {
+				return nil
+			}
+			return nulled
+		}
+
 		msg := val.(message.StoredMessage)
 		var dmsg message.DeserializedMessage
 		err := json.Unmarshal(msg.Raw, &dmsg)

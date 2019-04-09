@@ -14,8 +14,16 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
-	return repo.OpenMultiLog(r, "msgTypes", func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+const IndexNameTypes = "msgTypes"
+
+func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
+	return repo.OpenMultiLog(r, IndexNameTypes, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+		if nulled, ok := value.(error); ok {
+			if margaret.IsErrNulled(nulled) {
+				return nil
+			}
+			return nulled
+		}
 		msg, ok := value.(message.StoredMessage)
 		if !ok {
 			return errors.Errorf("error casting message. got type %T", value)

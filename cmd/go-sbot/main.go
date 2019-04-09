@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/base64"
 	"flag"
 	"net"
@@ -17,7 +16,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -68,8 +66,6 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
-	ctx, shutdown := ctxutils.WithError(ctx, ssb.ErrShuttingDown)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -83,7 +79,6 @@ func main() {
 		// TODO: hops
 		// TOOD: promisc
 		mksbot.WithInfo(log),
-		mksbot.WithContext(ctx),
 		mksbot.WithAppKey(appKey),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
@@ -115,7 +110,7 @@ func main() {
 	go func() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
-		shutdown()
+		sbot.Shutdown()
 		time.Sleep(2 * time.Second)
 
 		err := sbot.Close()

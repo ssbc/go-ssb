@@ -34,13 +34,17 @@ func (r repo) GetPath(rel ...string) string {
 	return filepath.Join(append([]string{r.basePath}, rel...)...)
 }
 
+const PrefixMultiLog = "sublogs"
+
+type ServeFunc func(context.Context, margaret.Log, bool) error
+
 // OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //
 // Exposes the badger db for 100% hackability. This will go away in future versions!
 // badger + librarian as index
-func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
+func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, *badger.DB, ServeFunc, error) {
 
-	dbPath := r.GetPath("sublogs", name, "db")
+	dbPath := r.GetPath(PrefixMultiLog, name, "db")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
@@ -53,7 +57,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
 
-	statePath := r.GetPath("sublogs", name, "state.json")
+	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE
@@ -65,7 +69,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 
 	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
 
-	serve := func(ctx context.Context, rootLog margaret.Log) error {
+	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
 		/*
 			defer func() {
 				// todo: fsck
@@ -73,7 +77,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 				log.Printf("mlog %s: state file closed:%v", name, errors.Wrapf(idxStateFile.Close(), "failed to close index file %s", statePath))
 			}()
 		*/
-		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), mlogSink.QuerySpec())
+		src, err := rootLog.Query(margaret.Live(live), margaret.SeqWrap(true), mlogSink.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying rootLog for mlog")
 		}
@@ -89,8 +93,10 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	return mlog, db, serve, nil
 }
 
-func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, func(context.Context, margaret.Log) error, error) {
-	pth := r.GetPath("indexes", name, "db")
+const PrefixIndex = "indexes"
+
+func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, ServeFunc, error) {
+	pth := r.GetPath(PrefixIndex, name, "db")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error making index directory")
@@ -104,7 +110,7 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 	idx := libbadger.NewIndex(db, 0)
 	sinkidx := f(idx)
 
-	serve := func(ctx context.Context, rootLog margaret.Log) error {
+	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
 		/*
 			defer func() {
 				// todo: register "waiters" on repo to implement sane closing
@@ -112,7 +118,7 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 				log.Printf("idx %s: closed: %v", name, err)
 			}()
 		*/
-		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
+		src, err := rootLog.Query(margaret.Live(live), margaret.SeqWrap(true), sinkidx.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying root log")
 		}
@@ -128,8 +134,8 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 	return idx, db, serve, nil
 }
 
-func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, func(context.Context, margaret.Log) error, error) {
-	pth := r.GetPath("indexes", name, "db")
+func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, ServeFunc, error) {
+	pth := r.GetPath(PrefixIndex, name, "db")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "error making index directory")
@@ -142,7 +148,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 
 	sinkidx := f(db)
 
-	serve := func(ctx context.Context, rootLog margaret.Log) error {
+	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
 		/*
 			defer func() {
 				// todo: register "waiters" on repo to implement sane closing
@@ -150,7 +156,7 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 				log.Printf("badger idx %s: closed: %v", name, err)
 			}()
 		*/
-		src, err := rootLog.Query(margaret.Live(true), margaret.SeqWrap(true), sinkidx.QuerySpec())
+		src, err := rootLog.Query(margaret.Live(live), margaret.SeqWrap(true), sinkidx.QuerySpec())
 		if err != nil {
 			return errors.Wrap(err, "error querying root log")
 		}
