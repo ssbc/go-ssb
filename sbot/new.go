@@ -3,7 +3,6 @@ package sbot
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -40,16 +39,16 @@ type Interface interface {
 var _ Interface = (*Sbot)(nil)
 
 func (s *Sbot) Close() error {
-	fmt.Print("sbot close waiting for idxes")
+	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
 
 	s.idxDone.Wait()
 	// TODO: timeout?
-	fmt.Print("waited")
+	s.info.Log("event", "closing", "msg", "waited")
 
 	if err := s.closers.Close(); err != nil {
 		return err
 	}
-	fmt.Print("closers closed")
+	s.info.Log("event", "closing", "msg", "closers closed")
 	return nil
 }
 

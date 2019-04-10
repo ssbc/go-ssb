@@ -86,7 +86,7 @@ func (tc *tcase) runTest(t *testing.T) {
 	}()
 
 	go func() {
-		err := srcMlogServe(ctx, srcRootLog)
+		err := srcMlogServe(ctx, srcRootLog, true)
 		ckFatal(errors.Wrap(err, "error serving src user feeds multilog"))
 	}()
 
@@ -98,7 +98,7 @@ func (tc *tcase) runTest(t *testing.T) {
 	}()
 
 	go func() {
-		err := srcGraphBuilderServe(ctx, srcRootLog)
+		err := srcGraphBuilderServe(ctx, srcRootLog, true)
 		ckFatal(errors.Wrap(err, "error serving src contacts index"))
 	}()
 
@@ -117,7 +117,7 @@ func (tc *tcase) runTest(t *testing.T) {
 	}()
 
 	go func() {
-		err := dstMlogServe(ctx, dstRootLog)
+		err := dstMlogServe(ctx, dstRootLog, true)
 		ckFatal(errors.Wrap(err, "error serving dst user feeds multilog"))
 	}()
 
@@ -129,7 +129,7 @@ func (tc *tcase) runTest(t *testing.T) {
 	}()
 
 	go func() {
-		err := dstGraphBuilderServe(ctx, dstRootLog)
+		err := dstGraphBuilderServe(ctx, dstRootLog, true)
 		ckFatal(errors.Wrap(err, "error serving dst contacts index"))
 	}()
 
@@ -246,7 +246,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 	wg.Add(1)
 	go func() {
-		err := srcMlogServe(context.TODO(), srcRootLog)
+		err := srcMlogServe(context.TODO(), srcRootLog, true)
 		ckFatal(errors.Wrap(err, "srcMlogServe error"))
 		wg.Done()
 	}()
@@ -257,7 +257,7 @@ func BenchmarkReplicate(b *testing.B) {
 	r.NoError(err)
 	wg.Add(1)
 	go func() {
-		err := srcGraphBuilderServe(context.TODO(), srcRootLog)
+		err := srcGraphBuilderServe(context.TODO(), srcRootLog, true)
 		ckFatal(errors.Wrap(err, "srcGraphBuilderServe error"))
 		wg.Done()
 	}()
@@ -273,7 +273,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 		wg.Add(1)
 		go func() {
-			err := dstMlogServe(context.TODO(), dstRootLog)
+			err := dstMlogServe(context.TODO(), dstRootLog, true)
 			b.Log("dstMlogServe error:", err)
 			wg.Done()
 		}()
@@ -283,7 +283,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 		wg.Add(1)
 		go func() {
-			err := dstGraphBuilderServe(context.TODO(), dstRootLog)
+			err := dstGraphBuilderServe(context.TODO(), dstRootLog, true)
 			b.Log("dstGraphBuilderServe error:", err)
 			wg.Done()
 		}()

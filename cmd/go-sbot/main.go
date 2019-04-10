@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"flag"
 	"net"
@@ -66,8 +67,9 @@ func init() {
 }
 
 func main() {
-
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
+		cancel()
 		if r := recover(); r != nil {
 			logging.LogPanicWithStack(log, "main-panic", r)
 		}
@@ -110,6 +112,7 @@ func main() {
 	go func() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
+		cancel()
 		sbot.Shutdown()
 		time.Sleep(2 * time.Second)
 

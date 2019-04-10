@@ -80,7 +80,7 @@ func main() {
 		if !ok {
 			return errors.Errorf("")
 		}
-		fmt.Printf("\rdropped", seq.Seq())
+		fmt.Printf("\rdropped %d", seq.Seq())
 		return alterLog.Null(seq)
 	})
 	err = luigi.Pump(ctx, snk, src)

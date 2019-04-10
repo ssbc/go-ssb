@@ -78,7 +78,7 @@ func TestMakeSomeMessages(t *testing.T) {
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	errc := make(chan error)
 	go func() {
-		err := userFeedsServe(ctx, rl)
+		err := userFeedsServe(ctx, rl, true)
 		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
 	}()
 	staticRand := rand.New(rand.NewSource(42))

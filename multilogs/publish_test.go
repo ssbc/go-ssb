@@ -44,7 +44,7 @@ func TestSignMessages(t *testing.T) {
 	defer cancel()
 	errc := make(chan error)
 	go func() {
-		err := userFeedsServe(killServe, rl)
+		err := userFeedsServe(killServe, rl, true)
 		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
 	}()
 
