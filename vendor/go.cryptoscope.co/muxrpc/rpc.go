@@ -344,10 +344,14 @@ func (r *rpc) Serve(ctx context.Context) (err error) {
 			r.rLock.Lock()
 			defer r.rLock.Unlock()
 			if n := len(r.reqs); n > 0 {
-				log.Println("muxrpc: serve loop returning - closing open reqs:", n)
+				log.Printf("muxrpc(%v): serve loop returning (%v) - closing open reqs: %d", r.remote, err, n)
+				if err == nil {
+					cerr = errors.Errorf("muxrpc: unexpected end of session")
+				} else {
+					cerr = err
+				}
 				for id, req := range r.reqs {
-					unexpected := errors.Wrap(err, "muxrpc: unexpected end of session")
-					if err := req.CloseWithError(unexpected); err != nil && !luigi.IsEOS(errors.Cause(err)) {
+					if err := req.CloseWithError(cerr); err != nil && !luigi.IsEOS(errors.Cause(err)) {
 						log.Printf("muxrpc: failed to close dangling request(%d) %v: %s", id, req.Method, err)
 					}
 				}

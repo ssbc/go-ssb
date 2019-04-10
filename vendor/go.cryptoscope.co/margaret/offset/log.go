@@ -47,6 +47,26 @@ func New(f *os.File, framing margaret.Framing, cdc margaret.Codec) (margaret.Log
 	return log, nil
 }
 
+func (log *offsetLog) Close() error {
+	log.l.Lock()
+	defer log.l.Unlock()
+	if log.f == nil {
+		return io.ErrClosedPipe // already closed
+	}
+
+	// log.bcSink.Pour() // errClosed?
+	if err := log.bcSink.Close(); err != nil {
+		return errors.Wrap(err, "offsetLog failed to close broadcast")
+	}
+
+	if err := log.f.Close(); err != nil {
+		return errors.Wrap(err, "offsetLog failed to close backing file")
+	}
+	log.f = nil
+
+	return nil
+}
+
 func (log *offsetLog) Seq() luigi.Observable {
 	return log.seq
 }
@@ -54,6 +74,9 @@ func (log *offsetLog) Seq() luigi.Observable {
 func (log *offsetLog) Get(seq margaret.Seq) (interface{}, error) {
 	log.l.Lock()
 	defer log.l.Unlock()
+	if log.f == nil {
+		return nil, io.ErrClosedPipe // already closed
+	}
 
 	return log.readFrame(seq)
 }
@@ -88,6 +111,9 @@ func (log *offsetLog) readFrame(seq margaret.Seq) (interface{}, error) {
 func (log *offsetLog) Query(specs ...margaret.QuerySpec) (luigi.Source, error) {
 	log.l.Lock()
 	defer log.l.Unlock()
+	if log.f == nil {
+		return nil, io.ErrClosedPipe // already closed
+	}
 
 	qry := &offsetQuery{
 		log:   log,
@@ -120,6 +146,9 @@ func (log *offsetLog) Append(v interface{}) (margaret.Seq, error) {
 
 	log.l.Lock()
 	defer log.l.Unlock()
+	if log.f == nil {
+		return nil, io.ErrClosedPipe // already closed
+	}
 
 	frame, err := log.framing.EncodeFrame(data)
 	if err != nil {

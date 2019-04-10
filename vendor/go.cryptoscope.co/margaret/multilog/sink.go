@@ -8,7 +8,6 @@ import (
 
 	"github.com/keks/persist"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 )
@@ -69,8 +68,35 @@ func (slog *sinkLog) Pour(ctx context.Context, v interface{}) error {
 	return errors.Wrap(err, "error in processing function")
 }
 
-// Close closes the root-log..? seems wrong
-func (slog *sinkLog) Close() error { return nil } // slog.mlog.Close() }
+// Close does nothing. Users of this might reuse the backing multilog in several places.
+// Please clean up yourself.
+func (slog *sinkLog) Close() error { return nil }
+
+/* oor..?
+// Close closes the backing state file and mlog. don't share these!
+func (slog *sinkLog) Close() error {
+	fErr := slog.file.Close()
+	mlErr := slog.mlog.Close()
+
+	var err []error
+	if fErr != nil {
+		err = append(err, errors.Wrap(fErr, "failed to close state file"))
+	}
+
+	if mlErr != nil {
+		err = append(err, errors.Wrap(mlErr, "failed to close multilog file"))
+	}
+
+	switch {
+	case len(err) == 1:
+		return errors.Wrap(err[0], "sinkLog close failed")
+	case len(err) > 1:
+		return errors.Errorf("sinkLog: multiple closing errors: file:%s mlog:%s", err[0], err[1])
+	default:
+		return nil
+	}
+}
+*/
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
 func (slog *sinkLog) QuerySpec() margaret.QuerySpec {
