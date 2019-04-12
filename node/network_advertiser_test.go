@@ -66,8 +66,8 @@ func TestBendTCPAddr(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 	adv.Stop()
-
 }
+
 func TestUDPSend(t *testing.T) {
 	r := require.New(t)
 
