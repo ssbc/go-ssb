@@ -150,7 +150,7 @@ func (b *Advertiser) Start() error {
 	// TODO: notice interface changes
 	// net.IPv6linklocalallnodes
 	var err error
-	lis, err := reuseport.ListenPacket("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
+	lis, err := reuseport.ListenPacket("udp", b.local.String())
 	if err != nil {
 		return errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
 	}
