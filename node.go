@@ -157,7 +157,16 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	pkr = muxrpc.NewPacker(conn)
-	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
+	edp := muxrpc.Handle(pkr, h)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
+
+	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+		go func() {
+			<-cn.Closed()
+			cancel = func() {}
+		}()
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
 
@@ -173,7 +182,6 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		edp = n.edpWrapper(edp)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
 	go func() {
 		defer cancel()
 		time.Sleep(15 * time.Minute)
