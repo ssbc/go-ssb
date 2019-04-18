@@ -177,13 +177,12 @@ func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAsser
 					return errors.Errorf("auth assert: %s didn't allow %s", host, remote)
 				}
 				return nil
-			} else {
-				if err == nil {
-					return errors.Errorf("auth assert: host(%s) accepted remote(%s)", host, remote)
-				}
-				// TODO compare err?
-				return nil
 			}
+			if err == nil {
+				return errors.Errorf("auth assert: host(%s) accepted remote(%s)", host, remote)
+			}
+			// TODO compare err?
+			return nil
 		}
 	}
 }

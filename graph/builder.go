@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
+// Builder can build a trust graph and answer other questions
 type Builder interface {
 	librarian.SinkIndex
 
@@ -40,6 +41,7 @@ type builder struct {
 	cachedGraph *Graph
 }
 
+// NewBuilder creates a Builder that is backed by a badger database
 func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 	contactsIdx := libbadger.NewIndex(db, 0)
 
@@ -219,7 +221,7 @@ func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
 		defer iter.Close()
 
 		prefix := append(fr.ID, ':')
-
+		i := 0
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -229,8 +231,11 @@ func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
 				return errors.Wrap(err, "friends: couldnt get idx value")
 			}
 			if len(v) >= 1 && v[0] == '1' {
-				fs.addB(k[33:])
+				if err := fs.AddB(k[33:]); err != nil {
+					return errors.Wrapf(err, "invalid follow entry(%d) addr for feed:%s", i, fr.Ref())
+				}
 			}
+			i++
 		}
 		return nil
 	})
@@ -246,37 +251,50 @@ func (b *builder) Hops(from *ssb.FeedRef, max int) FeedSet {
 	max++
 	var walked feedSet
 	walked.set = make(feedMap)
-	walked.AddRef(from)
-
-	b.recurseHops(&walked, from, max)
-
+	err := walked.AddRef(from)
+	if err != nil {
+		b.log.Log("event", "error", "msg", "add failed", "err", err)
+		return nil
+	}
+	err = b.recurseHops(&walked, from, max)
+	if err != nil {
+		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
+		return nil
+	}
 	return &walked
 }
 
-func (b *builder) recurseHops(walked *feedSet, from *ssb.FeedRef, depth int) {
+func (b *builder) recurseHops(walked *feedSet, from *ssb.FeedRef, depth int) error {
 	// b.log.Log("recursing", from.Ref(), "d", depth)
 	if depth == 0 {
-		return
+		return nil
 	}
 
 	fromFollows, err := b.Follows(from)
 	if err != nil {
-		b.log.Log("msg", "from follow listing failed", "err", err)
-		return
+		return errors.Wrapf(err, "recurseHops(%d): from follow listing failed", depth)
 	}
 
-	for _, k := range fromFollows.List() {
-		walked.AddRef(k)
+	lst, err := fromFollows.List()
+	if err != nil {
+		return errors.Wrapf(err, "recurseHops(%d): invalid entry in feed set", depth)
+	}
+	for i, k := range lst {
+		err := walked.AddRef(k)
+		if err != nil {
+			return errors.Wrapf(err, "recurseHops(%d): add list entry(%d) failed", depth, i)
+		}
+
 		dstFollows, err := b.Follows(k)
 		if err != nil {
-			b.log.Log("msg", "src follow failed", "err", err)
-			return
+			return errors.Wrapf(err, "recurseHops(%d): follows from entry(%d) failed", depth, i)
 		}
 
 		isF := dstFollows.Has(from)
 		// b.log.Log("checking", k.Ref(), "friend", isF, "len:", len(dstFollows.List()))
 		if isF { // found a friend, recurse
-			b.recurseHops(walked, k, depth-1)
+			return b.recurseHops(walked, k, depth-1)
 		}
 	}
+	return nil
 }

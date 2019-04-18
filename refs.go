@@ -104,15 +104,15 @@ type FeedRef struct {
 	Algo string
 }
 
-func NewFeedRefEd25519(b [32]byte) *FeedRef {
+func NewFeedRefEd25519(b [32]byte) (*FeedRef, error) {
 	var r FeedRef
 	r.Algo = RefAlgoEd25519
 	if len(b) != 32 {
-		panic(ErrInvalidRef)
+		return nil, ErrInvalidRef
 	}
 	r.ID = make([]byte, 32)
 	copy(r.ID, b[:])
-	return &r
+	return &r, nil
 }
 
 func (ref FeedRef) Ref() string {

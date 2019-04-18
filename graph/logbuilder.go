@@ -186,7 +186,9 @@ func (b *logBuilder) Follows(from *ssb.FeedRef) (FeedSet, error) {
 		// warning - ignores edge type!
 		edg := g.Edge(nFrom.ID(), cnv.ID())
 		if edg.(contactEdge).Weight() == 1 {
-			refs.AddRef(cnv.feed)
+			if err := refs.AddRef(cnv.feed); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return refs, nil

@@ -100,7 +100,11 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 			}
 
 			hopSet := bld.Hops(alice.key.Id, hops)
-			hopList := hopSet.List()
+			hopList, err := hopSet.List()
+			if err != nil {
+				return err
+			}
+
 			hitMap := make(map[string]bool, len(hopList))
 			for _, h := range hopList {
 				hitMap[h.Ref()] = false
@@ -117,6 +121,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 
 				_, ok = hitMap[bobRef]
 				if !ok {
+					dumpMap(hitMap, state)
 					return fmt.Errorf("wanted peer not in hops list: %s (len: %d)", nick, len(hopList))
 				}
 				hitMap[bobRef] = true
@@ -133,5 +138,11 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 			}
 			return nil
 		}
+	}
+}
+
+func dumpMap(m map[string]bool, s *testState) {
+	for k, v := range m {
+		s.t.Logf("%v:%v", s.refToName[k], v)
 	}
 }

@@ -122,7 +122,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	// g.fetchAllMinus(ctx, e, follows, ufaddrs)
 
 	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
-	g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+	if hops != nil {
+		g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+	}
 	g.Info.Log("msg", "fetchHops done", "n", hops.Count())
 
 }
@@ -130,30 +132,44 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []librarian.Addr) error {
 	var refs = graph.NewFeedSet(len(lst))
 	for _, addr := range lst {
-		refs.AddAddr(addr)
+		err := refs.AddAddr(addr)
+		if err != nil {
+			return err
+		}
 	}
 	return h.fetchAll(ctx, e, refs)
 }
 
 func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet, got []librarian.Addr) error {
-	lst := fs.List()
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
 	var refs = graph.NewFeedSet(len(lst))
 	for _, ref := range lst {
 		if !isIn(got, ref) {
-			refs.AddRef(ref)
+			err := refs.AddRef(ref)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return h.fetchAll(ctx, e, refs)
 }
 
 func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet) error {
-	// var wg sync.WaitGroup
-	lst := fs.List()
-	// wg.Add(len(lst))
-	for _, r := range lst {
+	// we don't just want them all parallel right nw
+	// this kind of concurrency is way to harsh on the runtime
+	// we need some kind of FeedManager, similar to Blobs
+	// which we can ask for which feeds aren't in transit,
+	// due for a (probabilistic) update
+	// and manage live feeds more granularly across open connections
 
-		// go func(ref *ssb.FeedRef, wg *sync.WaitGroup) {
-		// 	defer wg.Done()
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
+	for _, r := range lst {
 		err := h.fetchFeed(ctx, r, e)
 		if muxrpc.IsSinkClosed(err) {
 			return err

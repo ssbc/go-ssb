@@ -126,9 +126,9 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 	var pkr muxrpc.Packer
 
-	var closed bool
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
+
 	defer func() {
-		closed = true
 		durr := n.connTracker.OnClose(conn)
 		var err error
 		if pkr != nil {
@@ -136,7 +136,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		} else {
 			err = errors.Wrap(conn.Close(), "direct conn closing")
 		}
-		n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
+		if err != nil {
+			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
+		}
+		cancel()
 	}()
 
 	if n.evtCtr != nil {
@@ -152,6 +155,12 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		return
 	}
 
+	conn, err = n.applyConnWrappers(conn)
+	if err != nil {
+		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
+		return
+	}
+
 	for _, hw := range hws {
 		h = hw(h)
 	}
@@ -159,40 +168,16 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	pkr = muxrpc.NewPacker(conn)
 	edp := muxrpc.Handle(pkr, h)
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
-
-	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
-		go func() {
-			<-cn.Closed()
-			cancel = func() {}
-		}()
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
-
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
 		go func() {
 			<-cn.Closed()
 			cancel()
-			cancel = func() {}
 		}()
 	}
 
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
 	}
-
-	go func() {
-		defer cancel()
-		time.Sleep(15 * time.Minute)
-		if closed {
-			return
-		}
-		err := pkr.Close()
-		n.log.Log("conn", "long close", "err", err, "connErr", conn.Close())
-		n.connTracker.OnClose(conn)
-		pkr = nil
-	}()
 
 	srv := edp.(muxrpc.Server)
 	if err := srv.Serve(ctx); err != nil {
@@ -210,12 +195,6 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				return nil
 			}
 			n.log.Log("msg", "node/Serve: failed to accepting connection", "err", err)
-			continue
-		}
-
-		conn, err = n.applyConnWrappers(conn)
-		if err != nil {
-			n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
 			continue
 		}
 
@@ -241,11 +220,6 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
 		return errors.Wrap(err, "node/connect: error dialing")
-	}
-
-	conn, err = n.applyConnWrappers(conn)
-	if err != nil {
-		return errors.Wrap(err, "node/connect: wrap failed")
 	}
 
 	go func(c net.Conn) {
