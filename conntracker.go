@@ -56,14 +56,11 @@ type ConnTracker interface {
 	Count() uint
 	CloseAll()
 }
-
 type connEntry struct {
 	c       net.Conn
 	started time.Time
 }
-
-// string is the localAddr (could use port but thats tcp?)
-type connLookupMap map[[32]byte]map[string]connEntry
+type connLookupMap map[[32]byte]connEntry
 
 func NewConnTracker() ConnTracker {
 	return &connTracker{active: make(connLookupMap)}
@@ -78,11 +75,9 @@ type connTracker struct {
 func (ct *connTracker) CloseAll() {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
-	for k, conns := range ct.active {
-		for _, c := range conns {
-			if err := c.c.Close(); err != nil {
-				log.Printf("failed to close %x: %v\n", k[:5], err)
-			}
+	for k, c := range ct.active {
+		if err := c.c.Close(); err != nil {
+			log.Printf("failed to close %x: %v\n", k[:5], err)
 		}
 	}
 }
@@ -106,14 +101,11 @@ func (ct *connTracker) OnAccept(conn net.Conn) bool {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 	k := toActive(conn.RemoteAddr())
-	conns, ok := ct.active[k]
-	if !ok {
-		ct.active[k] = make(map[string]connEntry)
-	}
-	if len(conns) > 5 {
+	_, ok := ct.active[k]
+	if ok {
 		return false
 	}
-	ct.active[k][conn.LocalAddr().String()] = connEntry{
+	ct.active[k] = connEntry{
 		c:       conn,
 		started: time.Now(),
 	}
@@ -125,17 +117,10 @@ func (ct *connTracker) OnClose(conn net.Conn) time.Duration {
 	defer ct.activeLock.Unlock()
 
 	k := toActive(conn.RemoteAddr())
-	conns, ok := ct.active[k]
+	who, ok := ct.active[k]
 	if !ok {
 		return 0
 	}
-
-	if len(conns) == 1 {
-		delete(ct.active, k)
-	}
-	lkey := conn.LocalAddr().String()
-	who := conns[lkey]
-	delete(conns, lkey)
-
+	delete(ct.active, k)
 	return time.Since(who.started)
 }
