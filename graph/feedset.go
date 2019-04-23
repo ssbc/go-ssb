@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -32,17 +31,11 @@ func NewFeedSet(size int) FeedSet {
 	}
 }
 
-type errKeyLen int
-
-func (e errKeyLen) Error() string {
-	return fmt.Sprintf("invalid keylen for feedSet: %d", int(e))
-}
-
 func (fs *feedSet) AddB(b []byte) error {
 	fs.Lock()
 	defer fs.Unlock()
 	if n := len(b); n != 32 {
-		return errKeyLen(n)
+		return ssb.NewFeedRefLenError(n)
 	}
 	k, err := copyKeyBytes(b)
 	if err != nil {
@@ -56,7 +49,7 @@ func (fs *feedSet) AddAddr(addr librarian.Addr) error {
 	fs.Lock()
 	defer fs.Unlock()
 	if n := len(addr); n != 32 {
-		return errKeyLen(n)
+		return ssb.NewFeedRefLenError(n)
 	}
 	k, err := copyKeyBytes([]byte(addr))
 	if err != nil {
@@ -70,7 +63,7 @@ func (fs *feedSet) AddRef(ref *ssb.FeedRef) error {
 	fs.Lock()
 	defer fs.Unlock()
 	if n := len(ref.ID); n != 32 {
-		return errKeyLen(n)
+		return ssb.NewFeedRefLenError(n)
 	}
 	k, err := copyKeyBytes(ref.ID)
 	if err != nil {
@@ -83,7 +76,7 @@ func (fs *feedSet) AddRef(ref *ssb.FeedRef) error {
 func copyKeyBytes(b []byte) ([32]byte, error) {
 	var k [32]byte
 	if n := copy(k[:], b); n != 32 {
-		return k, errKeyLen(n)
+		return k, ssb.NewFeedRefLenError(n)
 	}
 	return k, nil
 }

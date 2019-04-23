@@ -26,6 +26,23 @@ var (
 	ErrInvalidHash    = errors.New("Invalid Hash")
 )
 
+type ErrRefLen struct {
+	algo string
+	n    int
+}
+
+func (e ErrRefLen) Error() string {
+	return fmt.Sprintf("ssb: Invalid reference len for %s: %d", e.algo, e.n)
+}
+
+func NewFeedRefLenError(n int) error {
+	return ErrRefLen{algo: RefAlgoEd25519, n: n}
+}
+
+func NewHashLenError(n int) error {
+	return ErrRefLen{algo: RefAlgoSHA256, n: n}
+}
+
 func ParseRef(str string) (Ref, error) {
 	if len(str) == 0 {
 		return nil, ErrInvalidRef
@@ -49,7 +66,9 @@ func ParseRef(str string) (Ref, error) {
 		if split[1] != "ed25519" {
 			return nil, ErrInvalidRefAlgo
 		}
-
+		if n := len(raw); n != 32 {
+			return nil, NewFeedRefLenError(n)
+		}
 		return &FeedRef{
 			ID:   raw,
 			Algo: RefAlgoEd25519,
@@ -58,7 +77,9 @@ func ParseRef(str string) (Ref, error) {
 		if split[1] != "sha256" {
 			return nil, ErrInvalidRefAlgo
 		}
-
+		if n := len(raw); n != 32 {
+			return nil, NewHashLenError(n)
+		}
 		return &MessageRef{
 			Hash: raw,
 			Algo: RefAlgoSHA256,
@@ -67,7 +88,9 @@ func ParseRef(str string) (Ref, error) {
 		if split[1] != "sha256" {
 			return nil, ErrInvalidRefAlgo
 		}
-
+		if n := len(raw); n != 32 {
+			return nil, NewHashLenError(n)
+		}
 		return &BlobRef{
 			Hash: raw,
 			Algo: RefAlgoSHA256,
