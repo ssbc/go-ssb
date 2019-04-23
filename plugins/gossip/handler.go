@@ -86,6 +86,14 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
+	// TODO: ctx to build and list?!
+	// or pass rootCtx to their constructor but than we can't cancel sessions
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
 	ufaddrs, err := g.UserFeeds.List()
 	if err != nil {
 		g.Info.Log("handleConnect", "UserFeeds listing failed", "err", err)
@@ -118,9 +126,8 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	<-ctx.Done()
 	g.Info.Log("msg", "fetchHops done", "n", hops.Count())
-
+	<-ctx.Done()
 }
 
 func (g *handler) check(err error) {

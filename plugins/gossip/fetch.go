@@ -90,6 +90,11 @@ func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.Endpoint) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	// check our latest
 	addr := librarian.Addr(fr.ID)
 	g.activeLock.Lock()

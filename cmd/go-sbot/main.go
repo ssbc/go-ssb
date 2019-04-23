@@ -175,5 +175,10 @@ func main() {
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			os.Exit(0)
+		default:
+		}
 	}
 }

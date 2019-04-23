@@ -335,13 +335,10 @@ func callCmd(ctx *cli.Context) error {
 func connectCmd(ctx *cli.Context) error {
 	to := ctx.Args().Get(0)
 	if to == "" {
-		return errors.New("connect: host argument can't be empty")
+		return errors.New("connect: multiserv addr argument can't be empty")
 	}
-	fields := strings.Split(to, ":")
-	if n := len(fields); n != 3 {
-		return errors.Errorf("connect: expecting host:port:pubkey - only got %d fields.", n)
-	}
-	val, err := client.Async(longctx, map[string]interface{}{}, muxrpc.Method{"ctrl", "connect"}, to)
+	var val interface{}
+	val, err := client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
 	if err != nil {
 		return errors.Wrapf(err, "connect: async call failed.")
 	}

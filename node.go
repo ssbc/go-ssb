@@ -166,7 +166,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	pkr = muxrpc.NewPacker(conn)
-	edp := muxrpc.Handle(pkr, h)
+	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
 		go func() {
@@ -187,6 +187,11 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		conn, err := n.l.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
