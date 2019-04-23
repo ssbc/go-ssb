@@ -38,11 +38,19 @@ type Interface interface {
 var _ Interface = (*Sbot)(nil)
 
 func (s *Sbot) Close() error {
-	s.shutdownCancel()
-	// TODO: just a sleep-kludge
-	// would be better to have a busy-loop or channel thing to see once everything is closed
-	time.Sleep(time.Second * 1)
-	return s.closers.Close()
+	s.Node.GetConnTracker().CloseAll()
+	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
+
+	s.idxDone.Wait()
+	// TODO: timeout?
+	s.info.Log("event", "closing", "msg", "waited")
+
+	if err := s.closers.Close(); err != nil {
+		return err
+	}
+
+	s.info.Log("event", "closing", "msg", "closers closed")
+	return nil
 }
 
 type margaretServe func(context.Context, margaret.Log) error
