@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.cryptoscope.co/ssb/internal/statematrix"
+
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -107,6 +109,8 @@ type Sbot struct {
 	liveIndexUpdates bool
 	indexStateMu     sync.Mutex
 	indexStates      map[string]string
+
+	ebtState *statematrix.StateMatrix
 
 	GraphBuilder graph.Builder
 

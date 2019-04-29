@@ -4,6 +4,7 @@
 package message
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -163,9 +164,8 @@ var errSkip = errors.New("ValidateNext: already got message")
 func ValidateNext(current, next refs.Message) error {
 	nextSeq := next.Seq()
 	currSeq := current.Seq()
-	shouldSkip := next.Seq() > currSeq+1
-
 	author := current.Author()
+
 	if !author.Equal(next.Author()) {
 		return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
 	}
@@ -177,9 +177,19 @@ func ValidateNext(current, next refs.Message) error {
 		return nil
 	}
 
+	if bytes.Compare(current.Key().Hash, next.Previous().Hash) != 0 {
+		return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
+			author.Ref(),
+			current.Seq(),
+			current.Key().Ref(),
+			next.Previous().Ref(),
+		)
+	}
+
 	currKey := current.Key()
 
 	if currSeq+1 != nextSeq {
+		shouldSkip := next.Seq() > currSeq+1
 		if shouldSkip {
 			return errSkip
 		}

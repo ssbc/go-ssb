@@ -321,10 +321,10 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	}
 	n.addRemote(edp)
 
-	defer edp.Terminate()
 	srv := edp.(muxrpc.Server)
 
 	err = srv.Serve(ctx)
+	level.Warn(n.log).Log("conn", "serve-return", "err", err)
 	if err != nil {
 		causeErr := errors.Cause(err)
 		if !neterr.IsConnBrokenErr(causeErr) && causeErr != context.Canceled {
@@ -332,6 +332,10 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		}
 	}
 	n.removeRemote(edp)
+
+	panic("serve exited")
+	err = edp.Terminate()
+	level.Error(n.log).Log("conn", "serve-defer-terminate", "err", err)
 }
 
 // Serve starts the network listener and configured resources like local discovery.

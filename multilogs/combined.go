@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/private"
@@ -38,6 +39,7 @@ func NewCombinedIndex(
 	res *repo.SequenceResolver,
 	u, p, bt, tan *roaring.MultiLog,
 	oh multilog.MultiLog,
+	sm *statematrix.StateMatrix,
 ) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
 	statePath := r.GetPath(repo.PrefixMultiLog, "combined", "state.json")
@@ -60,6 +62,8 @@ func NewCombinedIndex(
 		private: p,
 		byType:  bt,
 		tangles: tan,
+
+		ebtState: sm,
 
 		// timestamp sorting
 		seqresolver: res,
@@ -90,6 +94,8 @@ type CombinedIndex struct {
 	orderdHelper multilog.MultiLog
 
 	seqresolver *repo.SequenceResolver
+
+	ebtState *statematrix.StateMatrix
 
 	file *os.File
 	l    *sync.Mutex
@@ -207,6 +213,17 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	_, err = authorLog.Append(margaret.BaseSeq(seq))
 	if err != nil {
 		return errors.Wrap(err, "error updating author sublog")
+	}
+
+	// batch/debounce me
+	err = slog.ebtState.Fill(slog.self, []statematrix.ObservedFeed{{
+		Feed:      author,
+		Len:       uint64(msg.Seq()),
+		Receive:   true,
+		Replicate: true, // This field might be impractical
+	}})
+	if err != nil {
+		return errors.Wrap(err, "ebt update failed")
 	}
 
 	// decrypt box 1 & 2

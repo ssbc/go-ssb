@@ -183,10 +183,9 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	// var lastMsg string
 	for i := 0; i < n; i++ {
-		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(1+i))
+		//r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
 		msg, err := bob.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)

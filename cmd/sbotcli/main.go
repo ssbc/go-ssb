@@ -25,6 +25,7 @@ import (
 	"github.com/go-kit/kit/log/term"
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -94,6 +95,7 @@ var app = cli.App{
 		connectCmd,
 		publishCmd,
 		groupsCmd,
+		tryEBTCmd,
 	},
 }
 
@@ -462,4 +464,58 @@ var groupsJoinCmd = &cli.Command{
 	Name:   "join",
 	Usage:  "manually join a group by adding the group key",
 	Action: todo,
+}
+
+// EBT HACKZ
+var tryEBTCmd = &cli.Command{
+	Name: "ebt",
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var opt = map[string]interface{}{
+			"version": 2,
+		}
+		var msgs map[string]interface{}
+		src, snk, err := client.Duplex(longctx, msgs, muxrpc.Method{"ebt", "replicate"}, opt)
+		log.Log("event", "call replicate", "err", err)
+		if err != nil {
+			return err
+		}
+		go pump(longctx, snk)
+		drain(longctx, src)
+		// snk.Close()
+		// <-longctx.Done()
+		return nil
+	},
+}
+
+func pump(ctx context.Context, snk luigi.Sink) {
+	for i := 0; i < 10; i++ {
+		err := snk.Pour(ctx, map[string]interface{}{
+			"@k53z9zrXEsxytIE+38qaApl44ZJS68XvkepQ0fyJLdg=.ed25519": 100 + i,
+			"@vZeAPvi6rMuB0bbGCciXzqJEmORnGt4rojCWVmOYXXU=.ed25519": 0,
+		})
+		log.Log("event", "pump done", "err", err, "i", i)
+		time.Sleep(10 * time.Second)
+	}
+	snk.Close()
+}
+
+func drain(ctx context.Context, src luigi.Source) {
+	snk := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
+		if err != nil {
+			if luigi.IsEOS(err) {
+				return nil
+			}
+			return err
+		}
+		log.Log("event", "drain got")
+		goon.Dump(val)
+		return nil
+	})
+	err := luigi.Pump(ctx, snk, src)
+	log.Log("event", "drain done", "err", err)
 }

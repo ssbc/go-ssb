@@ -48,6 +48,8 @@ const manifestBlob = `
 	"messagesByType": "source",
 	"createHistoryStream": "source",
 
+	"ebt": { "replicate": "duplex" },
+
 	"partialReplication":{
 	 	"getFeed": "source",
 	 	"getFeedReverse": "source",

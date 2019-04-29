@@ -30,12 +30,16 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/numberedfeeds"
+	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -55,6 +59,42 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
+
+func (sbot *Sbot) Replicate(r *refs.FeedRef) {
+	slog, err := sbot.Users.Get(r.StoredAddr())
+	if err != nil {
+		panic(err)
+	}
+	l := uint64(0)
+	v, err := slog.Seq().Value()
+	if err == nil {
+		l = uint64(v.(margaret.Seq).Seq() + 1)
+	}
+
+	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+		{Feed: r, Len: l, Receive: true, Replicate: true},
+	})
+	fmt.Println("ebt updated", r.Ref(), l)
+	sbot.Replicator.Replicate(r)
+}
+
+func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
+	slog, err := sbot.Users.Get(r.StoredAddr())
+	if err != nil {
+		panic(err)
+	}
+	l := uint64(0)
+	v, err := slog.Seq().Value()
+	if err == nil {
+		l = uint64(v.(margaret.Seq).Seq() + 1)
+	}
+
+	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+		{Feed: r, Len: l, Receive: false, Replicate: true},
+	})
+
+	sbot.Replicator.DontReplicate(r)
+}
 
 // ShutdownContext returns a context that returns ssb.ErrShuttingDown when canceld.
 // The server internals use this error to cleanly shut down index processing.
@@ -137,6 +177,29 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	nf, err := numberedfeeds.New(r.GetPath("numberedfeeds"))
+	if err != nil {
+		return nil, err
+	}
+	s.closers.addCloser(nf)
+
+	nSelf, err := nf.NumberFor(s.KeyPair.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	level.Debug(s.info).Log("self-feed-number", nSelf)
+	if nSelf != 0 {
+		panic("TODO: statematrix has peer=0 as self")
+	}
+
+	sm, err := statematrix.New(r.GetPath("ebt-state-matrix"), nf)
+	if err != nil {
+		return nil, err
+	}
+	s.closers.addCloser(sm)
+	s.ebtState = sm
+
 	s.SeqResolver, err = repo.NewSequenceResolver(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening sequence resolver")
@@ -187,6 +250,23 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
+	// l, err := s.Users.Get(s.KeyPair.Id.StoredAddr())
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "failed to get user log %s")
+	// }
+	// sv, err := l.Seq().Value()
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "failed to get sequence for user log:%s")
+	// }
+
+	// err = s.ebtState.Fill(s.KeyPair.Id, []statematrix.ObservedFeed{
+	// 	{Feed: s.KeyPair.Id, Len: uint64(sv.(margaret.BaseSeq).Seq() + 1), Receive: true, Replicate: true},
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// fmt.Println("FULL OF IT")
+
 	// groups2
 	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
 	err = os.MkdirAll(pth, 0700)
@@ -227,6 +307,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.ByType,
 		s.Tangles,
 		groupsHelperMlog,
+		sm,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
@@ -426,6 +507,33 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
+	// REAL ebt
+
+	go func() {
+		for range time.NewTicker(3 * time.Second).C {
+			l, err := sm.HasLonger()
+			if err != nil {
+				level.Error(s.info).Log("err", err, "from", "ebt-spew")
+				return
+			}
+			if len(l) == 0 {
+				continue
+			}
+			fmt.Printf("%+v\n", l)
+		}
+	}()
+
+	ebtPlug := ebt.NewPlug(
+		kitlog.With(log, "plugin", "ebt"),
+		s.KeyPair.Id,
+		s.RootLog,
+		s.Users,
+		s.Replicator.Lister(),
+		nf,
+		sm,
+	)
+	s.public.Register(ebtPlug)
+
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
 		gossip.Promisc(s.promisc),
@@ -453,11 +561,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.systemGauge,
 		s.eventCounter,
 	)
-	s.public.Register(gossip.NewFetcher(ctx,
-		kitlog.With(log, "unit", "gossip"),
-		r,
-		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
-		histOpts...))
+	// TODO: need to unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
+	// s.public.Register(gossip.NewFetcher(ctx,
+	// 	kitlog.With(log, "plugin", "gossip"),
+	// 	s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+	// 	histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewServer(ctx,

@@ -32,6 +32,7 @@ require (
 	go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
+	go.mindeco.de/rumorlog v1.0.0
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
 	go.mindeco.de/ssb-refs v0.1.1-0.20201123094321-75dc1fe9e1e4
@@ -42,6 +43,7 @@ require (
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
 	modernc.org/kv v1.0.0
+	modernc.org/ql v1.1.0
 )
 
 // We need our internal/extra25519 since agl pulled his repo recently.
@@ -53,3 +55,7 @@ require (
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
 
 replace go.mindeco.de/ssb-refs => /home/cryptix/go-repos/ssb-refs
+
+replace go.mindeco.de/rumorlog => /home/cryptix/go-repos/go-rumorlog
+
+replace go.cryptoscope.co/muxrpc => /home/cryptix/go-repos/muxrpc
