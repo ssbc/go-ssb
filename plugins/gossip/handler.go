@@ -109,22 +109,17 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	err = g.fetchAllLib(ctx, e, ufaddrs)
-	if muxrpc.IsSinkClosed(err) {
-		return
-	}
-
-	// follows, err := g.GraphBuilder.Follows(g.Id)
-	// if err != nil {
-	// 	g.Info.Log("msg", "fetchFeed follows listing", "err", err)
-	// 	return
-	// }
-	// g.fetchAllMinus(ctx, e, follows, ufaddrs)
-
 	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
 	if hops != nil {
 		g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
 	}
+
+	err = g.fetchAllLib(ctx, e, ufaddrs)
+	if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
+		return
+	}
+
+	<-ctx.Done()
 	g.Info.Log("msg", "fetchHops done", "n", hops.Count())
 
 }
