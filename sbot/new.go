@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -31,6 +32,7 @@ import (
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -48,8 +50,6 @@ import (
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
-
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
 func (s *Sbot) Close() error {
@@ -372,6 +372,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
+
+	// fake ebt
+	ebtPlug := ebt.NewPlug(kitlog.With(log, "plugin", "ebt"), s.KeyPair.Id, s.RootLog, s.Users, s.GraphBuilder)
+	s.public.Register(ebtPlug)
 
 	// outgoing gossip behavior
 	var histOpts = []interface{}{

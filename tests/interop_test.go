@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	mrand "math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -106,6 +107,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
 		// }),
+
 	}, sbotOpts...)
 
 	if ts.keySHS != nil {
@@ -154,14 +156,11 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *refs.FeedRef {
 // returns the jsbots pubkey
 func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.FeedRef {
 	r := require.New(ts.t)
-	cmd := exec.Command("node", "./sbot.js")
+	cmd := exec.Command("node", "./sbot_client.js")
 	cmd.Stderr = os.Stderr
+
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
-
-	if name == "" {
-		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
-	}
 
 	jsBotCnt++
 	env := []string{
@@ -171,11 +170,10 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
 	}
-	jsBotCnt++
+
 	if ts.keySHS != nil {
 		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
 	}
-
 	if ts.keyHMAC != nil {
 		env = append(env, "TEST_HMACKEY="+base64.StdEncoding.EncodeToString(ts.keyHMAC))
 	}
@@ -203,6 +201,60 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	r.NoError(err, "failed to get alice key from JS process")
 	ts.t.Logf("JS alice: %d  %s", jsBotCnt, alice.Ref())
 	return alice
+}
+
+func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs.FeedRef, int) {
+	r := require.New(ts.t)
+	cmd := exec.Command("node", "./sbot_serv.js")
+	cmd.Stderr = os.Stderr
+
+	outrc, err := cmd.StdoutPipe()
+	r.NoError(err)
+
+	if name == "" {
+		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+	}
+
+	var port = 1024 + mrand.Intn(23000)
+
+	env := []string{
+		"TEST_NAME=" + name,
+		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
+		fmt.Sprintf("TEST_PORT=%d", port),
+		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
+		"TEST_AFTER=" + writeFile(ts.t, jsafter),
+	}
+	if ts.keySHS != nil {
+		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
+	}
+	if ts.keyHMAC != nil {
+		env = append(env, "TEST_HMACKEY="+base64.StdEncoding.EncodeToString(ts.keyHMAC))
+	}
+
+	cmd.Env = env
+	r.NoError(cmd.Start(), "failed to init test js-sbot")
+
+	var done = make(chan struct{})
+	var errc = make(chan error, 1)
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			errc <- errors.Wrap(err, "cmd wait failed")
+		}
+		close(done)
+		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
+		close(errc)
+	}()
+	ts.doneJS = done
+	ts.backgroundErrs = append(ts.backgroundErrs, errc)
+
+	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
+	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
+
+	alice, err := refs.ParseFeedRef(pubScanner.Text())
+	r.NoError(err, "failed to get alice key from JS process")
+	ts.t.Logf("JS alice: %s port: %d", alice.Ref(), port)
+	return alice, port
 }
 
 func (ts *testSession) wait() {

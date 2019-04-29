@@ -10,12 +10,12 @@ const ssbCaps = require('ssb-caps')
 const testSHSappKey = bufFromEnv('TEST_APPKEY')
 const testHMACkey = bufFromEnv('TEST_HMACKEY')
 
-let testAppkey = ssbCaps.shs
+let testAppkey = Buffer.from(ssbCaps.shs, 'base64')
 if (testSHSappKey !== false) {
   testAppkey = testSHSappKey
 }
 
-const createSbot = theStack({caps: {shs: Buffer.from(testAppkey, 'base64') } })
+const createSbot = theStack({caps: {shs: testAppkey } })
   .use(require('ssb-db'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
@@ -28,6 +28,7 @@ const createSbot = theStack({caps: {shs: Buffer.from(testAppkey, 'base64') } })
   .use(require('ssb-identities'))
   .use(require('ssb-peer-invites'))
   .use(require('ssb-invite'))
+  // .use(require('ssb-ebt'))
 
 const testName = process.env.TEST_NAME
 const testBob = process.env.TEST_BOB
