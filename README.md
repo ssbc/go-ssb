@@ -144,10 +144,6 @@ go-sbot &
 sbotcli connect "host:port:@pubkey"
 ```
 
-### muxrpc closing
-
-There is race in our muxrpc port that sometimes leaves querys hanging and thus doesn't free memory or TCP connections. TODO: issue link
-
 ## Stack links
 
 * [secret-handshake](https://secret-handshake.club) key exchange using [secretstream](https://godoc.org/go.cryptoscope.co/secretstream)
