@@ -2,12 +2,14 @@
 
 This is a work-in-progress full-stack implementaion of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
+WARNING: Backwards incompatible changes will be made. You can vendor this code for a more stable experience but before v1 the naming of types and functions will change for a more coherent experiance.
+
 ## Server Features
 
 * [x] Follow-graph implementation (based on [gonum](https://www.gonum.org)) to authorize incomming connections
 * [x] [Blobs](https://ssbc.github.io/scuttlebutt-protocol-guide/#blobs) store and replication
 * [x] _Legacy_ gossip [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream) ([ebt](https://github.com/dominictarr/epidemic-broadcast-trees) not implementation yet)
-* [ ] Publishing new messages to the log
+* [x] Publishing new messages to the log
 * [ ] Invite mechanics (might wait for direct-user-invites to stabalize)
 
 ## Building
@@ -99,15 +101,145 @@ $ npm ci
 $ go test -v
 ```
 
+## Running go-sbot
+
+The tool in `cmd/go-sbot` is similar to [ssb-server]() (previously called scuttlebot or sbot for short)
+
 ## Bootstrapping from an existing key-pair
 
-Until we implemented _publish_, the way to use our pub implementation requires an existing feed with published `type:contact` messages. To get this going you copy the key-pair (`$HOME/.ssb/secret` by default) to `$HOME/.ssb-go/secret` and start the program.
+If you have an existing feed with published `contact` messages, you can just resync it from another go or js server. To get this going you copy the key-pair (`$HOME/.ssb/secret` by default) to `$HOME/.ssb-go/secret`, start the program and connect to the server (using the [multiserver address format](https://github.com/ssbc/multiserver/#address-format)).
 
 ```bash
 mkdir $HOME/.ssb-go
 cp $HOME/.ssb/secret $HOME/.ssb-go
 go-sbot &
-sbotcli connect "host:port:@pubKey.edd25519"
+sbotcli connect "net:some.ho.st:8008~shs:SomeActuallyValidPubKey="
+```
+
+## Publishing
+
+This currently constructs _legacy_ SSB messages, that _still_ have the signature inside the signed value:
+
+```json
+{
+  "key": "%EMr6LTquV6Y8qkSaQ96ncL6oymbx4IddLdQKVGqYgGI=.sha256",
+  "value": {
+    "previous": "%rkJMoEspdU75c1RpGbwjEH7eZxM/PJPFubpZTtynhsg=.sha256",
+    "author": "@iL6NzQoOLFP18pCpprkbY80DMtiG4JFFtVSVUaoGsOQ=.ed25519",
+    "sequence": 793,
+    "timestamp": 1457694632215,
+    "hash": "sha256",
+    "content": {
+      "type": "post",
+      "text": "@dust \n> this feels like the cultural opposite of self-dogfooding, and naturally, leaves a bad taste in my mouth \n \n\"This\" meaning this thread? Or something in particular in this thread? And if this thread or something in it, how so? I don't want to leave a bad taste in your mouth.",
+      "root": "%I3yWHMF2kqC7fLZrC8FB+Kuu/6MQZIKzJGIjR3fVv9g=.sha256",
+      "branch": "%cNJgO+1R4ci/jgTup4LLACoaKZRtYtsO7BzRCDJh6Gg=.sha256",
+      "mentions": [
+        {
+          "link": "@/02iw6SFEPIHl8nMkYSwcCgRWxiG6VP547Wcp1NW8Bo=.ed25519",
+          "name": "dust"
+        }
+      ],
+      "channel": "patchwork-dev"
+    },
+    "signature": "bbjj+zyNubLNEV+hhUf6Of4KYOlQBavQnvdW9rF2nKqTHQTBiFBnRehfveCft3OGSIIr4VgD4ePICCTlBuTdAg==.sig.ed25519"
+  },
+  "timestamp": 1550074432723.0059
+}
+```
+
+The problem with this (for Go and others) is removing the `signature` field from `value` without changing any of the values or field ordering of the object, which is required to compute the exact same bytes that were used for creating the signature. Signing JSON was a bad idea. There is also other problems around this (like producing the same byte/string encoding for floats that v8 produces) and a new, canonical format is badly needed.
+
+What you are free to input is the `content` object, the rest is filled in for you. Author is determained by the keypair used by go-sbot. Multiple identities are supported through the API.
+
+### over muxrpc
+
+go-sbot also exposes the same async [publish](https://scuttlebot.io/apis/scuttlebot/ssb.html#publish-async) method that ssb-server has. So you can also use it with ssb-client!
+
+### Through Go API
+
+To do this programatically in go, you construct a [margaret.Log](https://godoc.org/go.cryptoscope.co/margaret#Log) using `multilogs.OpenPublishLog` ([godoc](https://godoc.org/go.cryptoscope.co/ssb/multilogs#OpenPublishLog)) that publishes the content portion you `Append()` to it the feed of the keypair.
+
+Example:
+
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/pkg/errors"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/sbot"
+)
+
+func main() {
+	sbot, err := sbot.New()
+	check(err)
+
+	publish, err := multilogs.OpenPublishLog(sbot.RootLog, sbot.UserFeeds, *sbot.KeyPair)
+	check(err)
+
+	alice, err := ssb.ParseFeedRef("@alicesKeyInActualBase64Bytes.ed25519")
+	check(err)
+
+	var someMsgs = []interface{}{
+		map[string]interface{}{
+			"type":  "about",
+			"about": sbot.KeyPair.Id.Ref(),
+			"name":  "my user",
+		},
+		map[string]interface{}{
+			"type":      "contact",
+			"contact":   alice.Ref(),
+			"following": true,
+		},
+		map[string]interface{}{
+			"type": "post",
+			"text": `# hello world!`,
+		},
+		map[string]interface{}{
+			"type":  "about",
+			"about": alice.Ref(),
+			"name":  "test alice",
+		},
+	}
+	for i, msg := range someMsgs {
+		newSeq, err := publish.Append(msg)
+		check(errors.Wrapf(err, "failed to publish test message %d", i))
+		log.Println("new message:", newSeq)
+	}
+
+	err = sbot.Close()
+	check(err)
+}
+
+func check(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+### sbotcli
+
+Has some commands to publish frequently used messages like `post`, `vote` and `contact`:
+
+```bash
+sbotcli publish contact --following '@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519'
+sbotcli publish contact --blocking '@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519'
+sbotcli publish about --name "cryptix" '@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519'
+```
+
+They all support passing multiple `--recps` flags to publish private messages as well:
+```bash
+sbotcli publish post --recps "@key1" --recps "@key2" "what's up?"
+```
+
+For more dynamic use, you can also just pipe JSON into stdin:
+```bash
+cat some.json | sbotcli publish raw
 ```
 
 ## Known Bugs
@@ -141,7 +273,7 @@ Our current workaround is to do a full resync from the network:
 kill $(pgrep go-sbot)
 rm -rf $HOME/.ssb-go/{log,sublogs,indicies}
 go-sbot &
-sbotcli connect "host:port:@pubkey"
+sbotcli connect "net:some.ho.st:8008~shs:SomeActuallyValidPubKey="
 ```
 
 ## Stack links
