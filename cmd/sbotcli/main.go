@@ -92,6 +92,12 @@ func main() {
 			Flags:  streamFlags,
 		},
 		{
+			Name:      "bytype",
+			UsageText: "aka messagesByType",
+			Action:    typeStreamCmd,
+			Flags:     streamFlags,
+		},
+		{
 			Name:   "hist",
 			Action: historyStreamCmd,
 			Flags:  append(streamFlags, &cli.StringFlag{Name: "id"}),
