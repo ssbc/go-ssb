@@ -13,6 +13,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/message"
 )
 
@@ -24,6 +25,67 @@ type ErrWrongSequence struct {
 func (e ErrWrongSequence) Error() string {
 	return fmt.Sprintf("consistency error: wrong stored message sequence for feed %s. stored:%d indexed:%d",
 		e.Ref.Ref(), e.Stored, e.Indexed)
+}
+
+func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []librarian.Addr) error {
+	var refs = graph.NewFeedSet(len(lst))
+	for _, addr := range lst {
+		err := refs.AddAddr(addr)
+		if err != nil {
+			return err
+		}
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet, got []librarian.Addr) error {
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
+	var refs = graph.NewFeedSet(len(lst))
+	for _, ref := range lst {
+		if !isIn(got, ref) {
+			err := refs.AddRef(ref)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet) error {
+	// we don't just want them all parallel right nw
+	// this kind of concurrency is way to harsh on the runtime
+	// we need some kind of FeedManager, similar to Blobs
+	// which we can ask for which feeds aren't in transit,
+	// due for a (probabilistic) update
+	// and manage live feeds more granularly across open connections
+
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
+	for _, r := range lst {
+		err := h.fetchFeed(ctx, r, e)
+		if muxrpc.IsSinkClosed(err) {
+			return err
+		} else if err != nil {
+			// assuming forked feed for instance
+			h.Info.Log("msg", "fetchFeed stored failed", "err", err)
+		}
+	}
+	return nil
+}
+
+func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
+	for _, el := range list {
+		if bytes.Compare([]byte(el), a.ID) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
