@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -26,26 +27,28 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 type Sbot struct {
 	info kitlog.Logger
 
-	repoPath   string
-	dialer     netwrap.Dialer
-	listenAddr net.Addr
+	rootCtx  context.Context
+	Shutdown context.CancelFunc
+	closers  multiCloser
+	idxDone  sync.WaitGroup
 
-	rootCtx        context.Context
-	shutdownCancel context.CancelFunc
-	closers        multiCloser
+	disableNetwork bool
+	dialer         netwrap.Dialer
+	listenAddr     net.Addr
+	appKey         []byte
+	connWrappers   []netwrap.ConnWrapper
+	edpWrapper     MuxrpcEndpointWrapper
 
-	appKey       []byte
-	connWrappers []netwrap.ConnWrapper
-	edpWrapper   MuxrpcEndpointWrapper
-
-	RootLog      margaret.Log
-	UserFeeds    multilog.MultiLog
-	MessageTypes multilog.MultiLog
-	PrivateLogs  multilog.MultiLog
-	KeyPair      *ssb.KeyPair
-	PublishLog   margaret.Log
-	GraphBuilder graph.Builder
-	Node         ssb.Node
+	repoPath         string
+	RootLog          margaret.Log
+	liveIndexUpdates bool
+	UserFeeds        multilog.MultiLog
+	MessageTypes     multilog.MultiLog
+	PrivateLogs      multilog.MultiLog
+	KeyPair          *ssb.KeyPair
+	PublishLog       margaret.Log
+	GraphBuilder     graph.Builder
+	Node             ssb.Node
 	// AboutStore   indexes.AboutStore
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
@@ -134,8 +137,24 @@ func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
 	}
 }
 
+func DisableNetworkNode() Option {
+	return func(s *Sbot) error {
+		s.disableNetwork = true
+		return nil
+	}
+}
+
+func DisableLiveIndexMode() Option {
+	return func(s *Sbot) error {
+		s.liveIndexUpdates = false
+		return nil
+	}
+}
+
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
+	s.liveIndexUpdates = true
+
 	for i, opt := range fopts {
 		err := opt(&s)
 		if err != nil {

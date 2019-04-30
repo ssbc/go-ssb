@@ -42,6 +42,7 @@ func TestBlobToJS(t *testing.T) {
 	closeErrc := make(chan error)
 	go func() {
 		<-done
+		s.Shutdown()
 		closeErrc <- s.Close()
 		close(closeErrc)
 	}()
@@ -117,6 +118,7 @@ func TestBlobFromJS(t *testing.T) {
 	closeErrc := make(chan error)
 	go func() {
 		<-done
+		s.Shutdown()
 		closeErrc <- s.Close()
 		close(closeErrc)
 	}()

@@ -22,7 +22,7 @@ require (
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43 // indirect
 	go.cryptoscope.co/librarian v0.1.1
 	go.cryptoscope.co/luigi v0.3.2
-	go.cryptoscope.co/margaret v0.0.8
+	go.cryptoscope.co/margaret v0.0.9-0.20190410085406-3878e7f3905d
 	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.2

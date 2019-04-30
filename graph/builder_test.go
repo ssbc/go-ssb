@@ -231,12 +231,10 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.Nil(err)
 }
 
-type margaretServe func(context.Context, margaret.Log) error
-
-func serveLog(ctx context.Context, name string, l margaret.Log, f margaretServe) <-chan error {
+func serveLog(ctx context.Context, name string, l margaret.Log, f repo.ServeFunc) <-chan error {
 	errc := make(chan error)
 	go func() {
-		err := f(ctx, l)
+		err := f(ctx, l, true)
 		if err != nil {
 			log.Println("got err for", name, err)
 			errc <- errors.Wrapf(err, "%s serve exited", name)
