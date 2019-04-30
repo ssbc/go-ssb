@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -21,9 +22,17 @@ import (
 	"go.cryptoscope.co/ssb/sbot"
 )
 
+func init() {
+	err := os.RemoveAll("testrun")
+	if err != nil {
+		fmt.Println("failed to clean testrun dir")
+		panic(err)
+	}
+}
+
 func writeFile(t *testing.T, data string) string {
 	r := require.New(t)
-	f, err := ioutil.TempFile("", t.Name())
+	f, err := ioutil.TempFile("testrun/"+t.Name(), "*.js")
 	r.NoError(err)
 	_, err = fmt.Fprintf(f, "%s", data)
 	r.NoError(err)
@@ -37,8 +46,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 	r := require.New(t)
 	ctx := context.Background()
 
-	dir, err := ioutil.TempDir("", t.Name())
-	r.NoError(err, "failed to create testdir for repo")
+	dir := filepath.Join("testrun", t.Name())
 
 	// Choose you logger!
 	// use the "logtest" line if you want to log through calls to `t.Log`

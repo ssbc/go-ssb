@@ -125,6 +125,7 @@ pull(
 
 	<-done
 
+	bob.Shutdown()
 	r.NoError(bob.Close())
 
 	for err := range mergeErrorChans(errc, clairErrc) {
@@ -224,6 +225,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
+	s.Shutdown()
 	r.NoError(s.Close())
 	r.NoError(<-errc)
 }

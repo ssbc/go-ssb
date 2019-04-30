@@ -30,5 +30,5 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
-go.cryptoscope.co/luigi v0.3.1 h1:GjAsd/WyZ6liGQFulsjX7z1rizEFx+qrWyV8Jo1WRZA=
-go.cryptoscope.co/luigi v0.3.1/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLUnvks=
+go.cryptoscope.co/luigi v0.3.2 h1:nRMOZz3wBII8zEsYDJdGJK/a+ZZDU3pPjkdMvLpngdA=
+go.cryptoscope.co/luigi v0.3.2/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLUnvks=

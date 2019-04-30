@@ -113,6 +113,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
+	s.Shutdown()
 	r.NoError(s.Close())
 
 	for err := range errc {
@@ -192,6 +193,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		r.Equal("test", clearObj.Tipe)
 	}
 
+	bob.Shutdown()
 	r.NoError(bob.Close())
 
 	for err := range errc {

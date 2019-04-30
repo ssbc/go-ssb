@@ -4,17 +4,19 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -27,6 +29,7 @@ var (
 	listenAddr  string
 	debugAddr   string
 	repoDir     string
+	dbgLogDir   string
 
 	// helper
 	log        logging.Interface
@@ -57,16 +60,16 @@ func init() {
 
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
+	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
 	flag.Parse()
 }
 
 func main() {
-	ctx := context.Background()
-	ctx, shutdown := ctxutils.WithError(ctx, ssb.ErrShuttingDown)
-
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
+		cancel()
 		if r := recover(); r != nil {
 			logging.LogPanicWithStack(log, "main-panic", r)
 		}
@@ -75,12 +78,33 @@ func main() {
 	startDebug()
 
 	sbot, err := mksbot.New(
+		// TODO: hops
+		// TOOD: promisc
 		mksbot.WithInfo(log),
-		mksbot.WithContext(ctx),
 		mksbot.WithAppKey(appKey),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
-		mksbot.WithListenAddr(listenAddr))
+		mksbot.WithListenAddr(listenAddr),
+		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			if dbgLogDir == "" {
+				return conn, nil
+			}
+
+			parts := strings.Split(conn.RemoteAddr().String(), "|")
+
+			if len(parts) != 2 {
+				return conn, nil
+			}
+
+			muxrpcDumpDir := filepath.Join(
+				repoDir,
+				dbgLogDir,
+				parts[1], // key first
+				parts[0],
+			)
+
+			return debug.WrapDump(muxrpcDumpDir, conn)
+		}))
 	checkFatal(err)
 
 	c := make(chan os.Signal)
@@ -88,7 +112,8 @@ func main() {
 	go func() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
-		shutdown()
+		cancel()
+		sbot.Shutdown()
 		time.Sleep(2 * time.Second)
 
 		err := sbot.Close()
@@ -102,8 +127,6 @@ func main() {
 	id := sbot.KeyPair.Id
 	uf := sbot.UserFeeds
 	gb := sbot.GraphBuilder
-	g, err := gb.Build()
-	checkFatal(err)
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -127,10 +150,10 @@ func main() {
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
 		if len(feeds) < 20 {
-			h := g.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f), "hops", len(h))
+			h := gb.Hops(&authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", f.Count(), "hops", h.Count())
 		}
-		followCnt += uint(len(f))
+		followCnt += uint(f.Count())
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
@@ -152,5 +175,10 @@ func main() {
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			os.Exit(0)
+		default:
+		}
 	}
 }

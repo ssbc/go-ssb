@@ -17,9 +17,18 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+const IndexNamePrivates = "privates"
+
 // not strictly a multilog but allows multiple keys and gives us the good resumption
-func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (multilog.MultiLog, *badger.DB, func(context.Context, margaret.Log) error, error) {
-	return repo.OpenMultiLog(r, "privates", func(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {
+func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
+	return repo.OpenMultiLog(r, IndexNamePrivates, func(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {
+		if nulled, ok := val.(error); ok {
+			if margaret.IsErrNulled(nulled) {
+				return nil
+			}
+			return nulled
+		}
+
 		msg := val.(message.StoredMessage)
 		var dmsg struct {
 			Content interface{} `json:"content"`

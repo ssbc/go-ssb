@@ -86,7 +86,10 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		} else {
 			h.Info.Log("event", "gossiptx", "n", sent)
 		}
-		if err != nil {
+		if errors.Cause(err) == context.Canceled {
+			req.Stream.Close()
+			return nil
+		} else if err != nil {
 			return errors.Wrap(err, "failed to pump messages to peer")
 		}
 

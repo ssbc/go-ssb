@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger"
-	"github.com/go-kit/kit/log"
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
@@ -21,11 +21,13 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
+// Builder can build a trust graph and answer other questions
 type Builder interface {
 	librarian.SinkIndex
 
 	Build() (*Graph, error)
-	Follows(*ssb.FeedRef) ([]*ssb.FeedRef, error)
+	Follows(*ssb.FeedRef) (FeedSet, error)
+	Hops(*ssb.FeedRef, int) FeedSet
 	Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer
 }
 
@@ -33,13 +35,14 @@ type builder struct {
 	librarian.SinkIndex
 	kv  *badger.DB
 	idx librarian.Index
-	log log.Logger
+	log kitlog.Logger
 
 	cacheLock   sync.Mutex
 	cachedGraph *Graph
 }
 
-func NewBuilder(log log.Logger, db *badger.DB) Builder {
+// NewBuilder creates a Builder that is backed by a badger database
+func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 	contactsIdx := libbadger.NewIndex(db, 0)
 
 	b := &builder{
@@ -51,6 +54,13 @@ func NewBuilder(log log.Logger, db *badger.DB) Builder {
 	b.SinkIndex = librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
 		b.cacheLock.Lock()
 		defer b.cacheLock.Unlock()
+
+		if nulled, ok := val.(error); ok {
+			if margaret.IsErrNulled(nulled) {
+				return nil
+			}
+			return nulled
+		}
 
 		msg := val.(message.StoredMessage)
 		var dmsg message.DeserializedMessage
@@ -207,31 +217,91 @@ func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (b *builder) Follows(fr *ssb.FeedRef) ([]*ssb.FeedRef, error) {
-	var friends []*ssb.FeedRef
+func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
+	if fr == nil {
+		panic("nil feed ref")
+	}
+	var fs feedSet
+	fs.set = make(feedMap)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
 		prefix := append(fr.ID, ':')
-
+		i := 0
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			c := ssb.FeedRef{
-				Algo: "ed25519",
-				ID:   k[33:],
-			}
+
 			v, err := it.Value()
 			if err != nil {
-				return errors.Wrap(err, "friends: counldnt get idx value")
+				return errors.Wrap(err, "friends: couldnt get idx value")
 			}
 			if len(v) >= 1 && v[0] == '1' {
-				friends = append(friends, &c)
+				if err := fs.AddB(k[33:]); err != nil {
+					return errors.Wrapf(err, "invalid follow entry(%d) addr for feed:%s", i, fr.Ref())
+				}
 			}
+			i++
 		}
 		return nil
 	})
 
-	return friends, err
+	return &fs, err
+}
+
+// Hops returns a slice of feed refrences that are in a particulare range of from
+// max == 0: only direct follows of from
+// max == 1: max:0 + follows of friends of from
+// max == 2: max:1 + follows of their friends
+func (b *builder) Hops(from *ssb.FeedRef, max int) FeedSet {
+	max++
+	var walked feedSet
+	walked.set = make(feedMap)
+	err := walked.AddRef(from)
+	if err != nil {
+		b.log.Log("event", "error", "msg", "add failed", "err", err)
+		return nil
+	}
+	err = b.recurseHops(&walked, from, max)
+	if err != nil {
+		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
+		return nil
+	}
+	return &walked
+}
+
+func (b *builder) recurseHops(walked *feedSet, from *ssb.FeedRef, depth int) error {
+	// b.log.Log("recursing", from.Ref(), "d", depth)
+	if depth == 0 {
+		return nil
+	}
+
+	fromFollows, err := b.Follows(from)
+	if err != nil {
+		return errors.Wrapf(err, "recurseHops(%d): from follow listing failed", depth)
+	}
+
+	lst, err := fromFollows.List()
+	if err != nil {
+		return errors.Wrapf(err, "recurseHops(%d): invalid entry in feed set", depth)
+	}
+	for i, k := range lst {
+		err := walked.AddRef(k)
+		if err != nil {
+			return errors.Wrapf(err, "recurseHops(%d): add list entry(%d) failed", depth, i)
+		}
+
+		dstFollows, err := b.Follows(k)
+		if err != nil {
+			return errors.Wrapf(err, "recurseHops(%d): follows from entry(%d) failed", depth, i)
+		}
+
+		isF := dstFollows.Has(from)
+		// b.log.Log("checking", k.Ref(), "friend", isF, "len:", len(dstFollows.List()))
+		if isF { // found a friend, recurse
+			return b.recurseHops(walked, k, depth-1)
+		}
+	}
+	return nil
 }

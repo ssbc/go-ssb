@@ -1,3 +1,6 @@
+// this tool copies an offset log v1 (from) into a v2 (to)
+// v1 was a single file log
+// v2 offers a much denser encoding (less gaps)
 package main
 
 import (
