@@ -191,14 +191,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	opts := network.Options{
-		Logger:        s.info,
-		Dialer:        s.dialer,
-		ListenAddr:    s.listenAddr,
-		EnableAdverts: s.enableAdverts,
-		KeyPair:       s.KeyPair,
-		AppKey:        s.appKey[:],
-		MakeHandler:   mkHandler,
-		ConnWrappers:  s.connWrappers,
+		Logger:           s.info,
+		Dialer:           s.dialer,
+		ListenAddr:       s.listenAddr,
+		AdvertsSend:      s.enableAdverts,
+		AdvertsConnectTo: s.enableDiscovery,
+		KeyPair:          s.KeyPair,
+		AppKey:           s.appKey[:],
+		MakeHandler:      mkHandler,
+		ConnWrappers:     s.connWrappers,
 
 		EventCounter:    s.eventCounter,
 		SystemGauge:     s.systemGauge,

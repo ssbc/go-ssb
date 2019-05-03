@@ -21,9 +21,11 @@ import (
 const DefaultPort = 8008
 
 type Options struct {
-	Dialer        netwrap.Dialer
-	ListenAddr    net.Addr
-	EnableAdverts bool
+	Dialer     netwrap.Dialer
+	ListenAddr net.Addr
+
+	AdvertsSend      bool
+	AdvertsConnectTo bool
 
 	KeyPair      *ssb.KeyPair
 	AppKey       []byte
@@ -40,14 +42,15 @@ type Options struct {
 type node struct {
 	opts Options
 
-	dialer            netwrap.Dialer
-	l                 net.Listener
-	networkAdvertiser *Advertiser
-	secretServer      *secretstream.Server
-	secretClient      *secretstream.Client
-	connTracker       ssb.ConnTracker
-	log               log.Logger
-	connWrappers      []netwrap.ConnWrapper
+	dialer        netwrap.Dialer
+	l             net.Listener
+	localDiscovRx *Discoverer
+	localDiscovTx *Advertiser
+	secretServer  *secretstream.Server
+	secretClient  *secretstream.Client
+	connTracker   ssb.ConnTracker
+	log           log.Logger
+	connWrappers  []netwrap.ConnWrapper
 
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 	evtCtr     *prometheus.Counter
@@ -84,8 +87,15 @@ func New(opts Options) (ssb.Network, error) {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
 
-	if n.opts.EnableAdverts {
-		n.networkAdvertiser, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
+	if n.opts.AdvertsSend {
+		n.localDiscovTx, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "error creating Advertiser")
+		}
+	}
+
+	if n.opts.AdvertsConnectTo {
+		n.localDiscovRx, err = NewDiscoverer(opts.KeyPair)
 		if err != nil {
 			return nil, errors.Wrap(err, "error creating Advertiser")
 		}
@@ -118,9 +128,9 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 	var pkr muxrpc.Packer
 
-	var closed bool
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
+
 	defer func() {
-		closed = true
 		durr := n.connTracker.OnClose(conn)
 		var err error
 		if pkr != nil {
@@ -128,7 +138,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		} else {
 			err = errors.Wrap(conn.Close(), "direct conn closing")
 		}
-		n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
+		if err != nil {
+			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
+		}
+		cancel()
 	}()
 
 	if n.evtCtr != nil {
@@ -144,6 +157,12 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		return
 	}
 
+	conn, err = n.applyConnWrappers(conn)
+	if err != nil {
+		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
+		return
+	}
+
 	for _, hw := range hws {
 		h = hw(h)
 	}
@@ -151,22 +170,16 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	pkr = muxrpc.NewPacker(conn)
 	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
+	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+		go func() {
+			<-cn.Closed()
+			cancel()
+		}()
+	}
+
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
-	go func() {
-		defer cancel()
-		time.Sleep(15 * time.Minute)
-		if closed {
-			return
-		}
-		err := pkr.Close()
-		n.log.Log("conn", "long close", "err", err, "connErr", conn.Close())
-		n.connTracker.OnClose(conn)
-		pkr = nil
-	}()
 
 	srv := edp.(muxrpc.Server)
 	if err := srv.Serve(ctx); err != nil {
@@ -175,34 +188,35 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 }
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
-	if n.networkAdvertiser != nil {
+	if n.localDiscovTx != nil {
 		// should also be called when ctx canceled?
 		// or pass ctx to adv start?
-		n.networkAdvertiser.Start()
+		n.localDiscovTx.Start()
 
-		defer n.networkAdvertiser.Stop()
+		defer n.localDiscovTx.Stop()
 	}
 
-	disc, err := NewDiscoverer(n.opts.KeyPair)
-	if err != nil {
-		n.log.Log("event", "advstart failed", "err", err)
-		return err
-	}
-
-	ch, done := disc.Notify()
-	defer done() // might trigger close of closed panic
-	go func() {
-		for a := range ch {
-			if n.connTracker.Active(a) {
-				n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
-				continue
+	if n.localDiscovRx != nil {
+		ch, done := n.localDiscovRx.Notify()
+		defer done() // might trigger close of closed panic
+		go func() {
+			for a := range ch {
+				if n.connTracker.Active(a) {
+					n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
+					continue
+				}
+				err := n.Connect(ctx, a)
+				n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
 			}
-			err := n.Connect(ctx, a)
-			n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
-		}
-	}()
+		}()
+	}
 
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		conn, err := n.l.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
@@ -211,12 +225,6 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				return nil
 			}
 			n.log.Log("msg", "node/Serve: failed to accepting connection", "err", err)
-			continue
-		}
-
-		conn, err = n.applyConnWrappers(conn)
-		if err != nil {
-			n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
 			continue
 		}
 
@@ -242,11 +250,6 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
 	if err != nil {
 		return errors.Wrap(err, "node/connect: error dialing")
-	}
-
-	conn, err = n.applyConnWrappers(conn)
-	if err != nil {
-		return errors.Wrap(err, "node/connect: wrap failed")
 	}
 
 	go func(c net.Conn) {
