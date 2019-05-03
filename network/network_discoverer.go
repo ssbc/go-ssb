@@ -19,7 +19,8 @@ import (
 type Discoverer struct {
 	local *ssb.KeyPair // to ignore our own
 
-	rx net.PacketConn
+	rx4 net.PacketConn
+	rx6 net.PacketConn
 
 	brLock    sync.Mutex
 	brodcasts map[int]chan net.Addr
@@ -36,68 +37,83 @@ func NewDiscoverer(local *ssb.KeyPair) (*Discoverer, error) {
 func (d *Discoverer) start() error {
 
 	var err error
-	lis, err := reuseport.ListenPacket("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, DefaultPort))
+	d.rx4, err = makePktConn("udp4")
 	if err != nil {
-		return errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
+		return err
+	}
+
+	d.rx6, err = makePktConn("udp6")
+	if err != nil {
+		return err
+	}
+
+	go d.work(d.rx4)
+	go d.work(d.rx6)
+
+	return nil
+}
+
+func makePktConn(n string) (net.PacketConn, error) {
+	lis, err := reuseport.ListenPacket(n, fmt.Sprintf(":%d", DefaultPort))
+	if err != nil {
+		return nil, errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
 	}
 	switch v := lis.(type) {
 	case *net.UDPConn:
-		d.rx = v
+		return v, nil
 	default:
-		return errors.Errorf("node Advertise: invalid rx listen type: %T", lis)
+		return nil, errors.Errorf("node Advertise: invalid rx listen type: %T", lis)
 	}
+}
 
-	go func() {
+func (d *Discoverer) work(rx net.PacketConn) {
 
-		for {
-			d.rx.SetReadDeadline(time.Now().Add(time.Second * 1))
-			buf := make([]byte, 128)
-			n, addr, err := d.rx.ReadFrom(buf)
-			if err != nil {
-				if !os.IsTimeout(err) {
-					log.Printf("rx adv err, breaking (%s)", err.Error())
-					break
-				}
-				continue
+	for {
+		rx.SetReadDeadline(time.Now().Add(time.Second * 1))
+		buf := make([]byte, 128)
+		n, addr, err := rx.ReadFrom(buf)
+		if err != nil {
+			if !os.IsTimeout(err) {
+				log.Printf("rx adv err, breaking (%s)", err.Error())
+				break
 			}
-
-			buf = buf[:n] // strip of zero bytes
-
-			log.Printf("dbg adv raw: %q", string(buf))
-			na, err := multiserver.ParseNetAddress(buf)
-			if err != nil {
-				log.Println("rx adv err", err.Error())
-				// TODO: _could_ try to get key out if just ws://[::]~shs:... and dial pkt origin
-				continue
-			}
-
-			// if bytes.Equal(na.Ref.ID, d.local.Id.ID) {
-			// 	continue
-			// }
-
-			// ua := addr.(*net.UDPAddr)
-			// if d.local.IP.Equal(ua.IP) {
-			// 	// ignore same origin
-			// 	continue
-			// }
-
-			log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
-
-			// TODO: check if adv.Host == addr ?
-			wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
-				IP: na.Host,
-				// IP:   ua.IP,
-				Port: na.Port,
-			}, secretstream.Addr{PubKey: na.Ref.ID})
-			d.brLock.Lock()
-			for _, ch := range d.brodcasts {
-				ch <- wrappedAddr
-			}
-			d.brLock.Unlock()
+			continue
 		}
-	}()
 
-	return nil
+		buf = buf[:n] // strip of zero bytes
+
+		log.Printf("dbg adv raw: %q", string(buf))
+		na, err := multiserver.ParseNetAddress(buf)
+		if err != nil {
+			log.Println("rx adv err", err.Error())
+			// TODO: _could_ try to get key out if just ws://[::]~shs:... and dial pkt origin
+			continue
+		}
+
+		// if bytes.Equal(na.Ref.ID, d.local.Id.ID) {
+		// 	continue
+		// }
+
+		// ua := addr.(*net.UDPAddr)
+		// if d.local.IP.Equal(ua.IP) {
+		// 	// ignore same origin
+		// 	continue
+		// }
+
+		log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
+
+		// TODO: check if adv.Host == addr ?
+		wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
+			IP: na.Host,
+			// IP:   ua.IP,
+			Port: na.Port,
+		}, secretstream.Addr{PubKey: na.Ref.ID})
+		d.brLock.Lock()
+		for _, ch := range d.brodcasts {
+			ch <- wrappedAddr
+		}
+		d.brLock.Unlock()
+	}
 }
 
 func (d *Discoverer) Stop() {
@@ -106,9 +122,13 @@ func (d *Discoverer) Stop() {
 		close(ch)
 		delete(d.brodcasts, i)
 	}
-	if d.rx != nil {
-		d.rx.Close()
-		d.rx = nil
+	if d.rx4 != nil {
+		d.rx4.Close()
+		d.rx4 = nil
+	}
+	if d.rx6 != nil {
+		d.rx6.Close()
+		d.rx6 = nil
 	}
 	d.brLock.Unlock()
 	return

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"go.cryptoscope.co/ssb/internal/multiserver"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,19 +199,27 @@ func TestAdvertisementReceived(t *testing.T) {
 
 	ch, cleanup := disc.Notify()
 
-	addr, ok := <-ch
-	if !ok {
-		fmt.Println("rx ch closed")
-		return
-	}
-
-	require.Equal(t, recvAdv, addr.String())
-
 	go func() {
 		time.Sleep(30 * time.Second)
 		cleanup()
 		fmt.Println("warning timeout!")
 	}()
+
+	addr, ok := <-ch
+	if !ok {
+		t.Fatal("rx ch closed")
+		return
+	}
+	ms, err := multiserver.ParseNetAddress([]byte(recvAdv))
+	require.NoError(t, err)
+
+	require.Contains(t, addr.String(), ms.Host)
+	require.Contains(t, addr.String(), ms.Port)
+
+	addrRef, err := ssb.GetFeedRefFromAddr(addr)
+	require.NoError(t, err)
+	require.Equal(t, ms.Ref.ID, addrRef.ID)
+
 	disc.Stop()
 	t.Log("done")
 }
