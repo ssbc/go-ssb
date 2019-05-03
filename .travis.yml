@@ -1,3 +1,5 @@
+sudo: true
+
 language: go
 
 # bummer.. go.mod still fetches the code to it's cache even if vendor/ is filled
@@ -5,11 +7,11 @@ language: go
 matrix:
   include:
   - go: "1.10.x"
-    script: go test -race ./...
+    script: go test -tags integration -race ./...
   - go: "1.11.x"
-    script: go test -race -mod=vendor ./...
+    script: go test -tags integration -race -mod=vendor ./...
   - go: "1.x"
-    script: go test -race -mod=vendor ./...
+    script: go test -tags integration -race -mod=vendor ./...
 
 env:
   - GO111MODULE="on"
