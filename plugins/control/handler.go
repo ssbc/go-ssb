@@ -15,11 +15,11 @@ import (
 )
 
 type handler struct {
-	node ssb.Node
+	node ssb.Network
 	info logging.Interface
 }
 
-func New(i logging.Interface, n ssb.Node) muxrpc.Handler {
+func New(i logging.Interface, n ssb.Network) muxrpc.Handler {
 	return &handler{
 		info: i,
 		node: n,

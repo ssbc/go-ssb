@@ -10,7 +10,7 @@ type connectPlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, n ssb.Node) ssb.Plugin {
+func NewPlug(i logging.Interface, n ssb.Network) ssb.Plugin {
 	return &connectPlug{h: New(i, n)}
 }
 

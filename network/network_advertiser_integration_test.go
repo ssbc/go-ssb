@@ -1,6 +1,6 @@
 // +build integration
 
-package node
+package network
 
 import (
 	"bytes"

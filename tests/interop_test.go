@@ -68,7 +68,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 
 	var errc = make(chan error, 1)
 	go func() {
-		err := sbot.Node.Serve(ctx)
+		err := sbot.Network.Serve(ctx)
 		if err != nil {
 			errc <- errors.Wrap(err, "node serve exited")
 		}
@@ -79,7 +79,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		jsbefore,
 		jsafter,
 		sbot.KeyPair.Id.Ref(),
-		netwrap.GetAddr(sbot.Node.GetListenAddr(), "tcp").String())
+		netwrap.GetAddr(sbot.Network.GetListenAddr(), "tcp").String())
 
 	return sbot, alice, done, mergeErrorChans(nodeErrc, errc), func() {
 		<-done

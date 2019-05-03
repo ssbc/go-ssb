@@ -1,4 +1,4 @@
-package node
+package network
 
 import (
 	"bytes"
@@ -70,7 +70,7 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 	}
 	log.Printf("adverstiser using local address %s", udpAddr)
 
-	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
+	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, DefaultPort))
 	if err != nil {
 		return nil, errors.Wrap(err, "ssb/NewAdvertiser: failed to resolve v4 broadcast addr")
 	}
@@ -100,10 +100,10 @@ func (b *Advertiser) advertise() error {
 			if !isIPv4(v.IP) {
 				localUDP.Zone = v.Zone
 			}
-			localUDP.Port = ssb.DefaultPort
+			localUDP.Port = DefaultPort
 		case *net.IPNet:
 			localUDP.IP = v.IP
-			localUDP.Port = ssb.DefaultPort
+			localUDP.Port = DefaultPort
 		case *net.TCPAddr:
 			localUDP.IP = v.IP
 			localUDP.Port = v.Port
@@ -118,7 +118,7 @@ func (b *Advertiser) advertise() error {
 		if err != nil {
 			return errors.Wrap(err, "ssb: failed to find site local address broadcast address")
 		}
-		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(ssb.DefaultPort))
+		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(DefaultPort))
 		remoteUDP, err := net.ResolveUDPAddr("udp", dstStr)
 		if err != nil {
 			return errors.Wrapf(err, "ssb: failed to resolve broadcast dest addr for advertiser: %s", dstStr)

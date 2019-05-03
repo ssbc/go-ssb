@@ -19,6 +19,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/network"
 )
 
 type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
@@ -46,7 +47,7 @@ type Sbot struct {
 	KeyPair      *ssb.KeyPair
 	PublishLog   margaret.Log
 	GraphBuilder graph.Builder
-	Node         ssb.Node
+	Network      ssb.Network
 	// AboutStore   indexes.AboutStore
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
@@ -173,7 +174,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	if s.listenAddr == nil {
-		s.listenAddr = &net.TCPAddr{Port: ssb.DefaultPort}
+		s.listenAddr = &net.TCPAddr{Port: network.DefaultPort}
 	}
 
 	if s.info == nil {

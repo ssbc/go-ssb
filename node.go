@@ -6,34 +6,11 @@ import (
 	"io"
 	"net"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/netwrap"
 )
 
-// DefaultPort is the default listening port for ScuttleButt.
-const DefaultPort = 8008
-
-type Options struct {
-	Dialer        netwrap.Dialer
-	ListenAddr    net.Addr
-	EnableAdverts bool
-
-	KeyPair      *KeyPair
-	AppKey       []byte
-	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
-	Logger       log.Logger
-	ConnWrappers []netwrap.ConnWrapper
-
-	EventCounter    *prometheus.Counter
-	SystemGauge     *prometheus.Gauge
-	Latency         *prometheus.Summary
-	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
-}
-
-type Node interface {
+type Network interface {
 	Connect(ctx context.Context, addr net.Addr) error
 	Serve(context.Context, ...muxrpc.HandlerWrapper) error
 	GetListenAddr() net.Addr

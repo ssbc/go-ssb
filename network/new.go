@@ -1,4 +1,4 @@
-package node
+package network
 
 import (
 	"context"
@@ -17,8 +17,28 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
+// DefaultPort is the default listening port for ScuttleButt.
+const DefaultPort = 8008
+
+type Options struct {
+	Dialer        netwrap.Dialer
+	ListenAddr    net.Addr
+	EnableAdverts bool
+
+	KeyPair      *ssb.KeyPair
+	AppKey       []byte
+	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
+	Logger       log.Logger
+	ConnWrappers []netwrap.ConnWrapper
+
+	EventCounter    *prometheus.Counter
+	SystemGauge     *prometheus.Gauge
+	Latency         *prometheus.Summary
+	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
+}
+
 type node struct {
-	opts ssb.Options
+	opts Options
 
 	dialer            netwrap.Dialer
 	l                 net.Listener
@@ -35,7 +55,7 @@ type node struct {
 	latency    *prometheus.Summary
 }
 
-func New(opts ssb.Options) (ssb.Node, error) {
+func New(opts Options) (ssb.Network, error) {
 	n := &node{
 		opts:        opts,
 		connTracker: ssb.NewConnTracker(),

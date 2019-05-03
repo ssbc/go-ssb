@@ -119,7 +119,7 @@ pull(
 
 }) // publish`, alice.Ref(), lastMsg)
 
-	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Network.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
 
