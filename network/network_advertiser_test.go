@@ -20,6 +20,14 @@ func makeTestPubKey(t *testing.T) *ssb.KeyPair {
 	return &kp
 }
 
+func makeRandPubkey(t *testing.T) *ssb.KeyPair {
+	kp, err := ssb.NewKeyPair(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return kp
+}
+
 func TestNewAdvertisement(t *testing.T) {
 	type tcase struct {
 		local       *net.UDPAddr
@@ -62,7 +70,7 @@ func XTestBendTCPAddr(t *testing.T) {
 	adv, err := NewAdvertiser(senderAddr, pk)
 	r.NoError(err)
 
-	r.NoError(adv.Start(), "couldn't start 1")
+	adv.Start()
 
 	time.Sleep(time.Second * 2)
 	adv.Stop()
@@ -79,7 +87,7 @@ func XTestUDPSend(t *testing.T) {
 	adv, err := NewAdvertiser(senderAddr, pk)
 	r.NoError(err)
 
-	r.NoError(adv.Start(), "couldn't start 1")
+	adv.Start()
 
 	// ch, done := adv.Notify()
 

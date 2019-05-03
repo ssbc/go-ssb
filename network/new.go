@@ -176,27 +176,31 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	if n.networkAdvertiser != nil {
-		err := n.networkAdvertiser.Start()
-		if err == nil {
-			// should also be called when ctx canceled?
-			// or pass ctx to adv start?
-			defer n.networkAdvertiser.Stop()
+		// should also be called when ctx canceled?
+		// or pass ctx to adv start?
+		n.networkAdvertiser.Start()
 
-			go func() {
-				ch, done := n.networkAdvertiser.Notify()
-				defer done() // might trigger close of closed panic
-				for a := range ch {
-					if n.connTracker.Active(a) {
-						continue
-					}
-					if err := n.Connect(ctx, a); err != nil {
-						n.log.Log("event", "debug", "msg", "advert dialback failed", "err", err)
-					}
-				}
-			}()
-		}
-		n.log.Log("event", "advstart failed", "err", err)
+		defer n.networkAdvertiser.Stop()
 	}
+
+	disc, err := NewDiscoverer(n.opts.KeyPair)
+	if err != nil {
+		n.log.Log("event", "advstart failed", "err", err)
+		return err
+	}
+
+	ch, done := disc.Notify()
+	defer done() // might trigger close of closed panic
+	go func() {
+		for a := range ch {
+			if n.connTracker.Active(a) {
+				n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
+				continue
+			}
+			err := n.Connect(ctx, a)
+			n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
+		}
+	}()
 
 	for {
 		conn, err := n.l.Accept()
