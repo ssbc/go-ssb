@@ -27,6 +27,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/network"
 	cli "gopkg.in/urfave/cli.v2"
 )
 
@@ -81,7 +82,7 @@ func main() {
 	}
 
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{Name: "addr", Value: fmt.Sprintf("localhost:%d", ssb.DefaultPort), Usage: "tcp address of the sbot to connect to (or listen on)"},
+		&cli.StringFlag{Name: "addr", Value: fmt.Sprintf("localhost:%d", network.DefaultPort), Usage: "tcp address of the sbot to connect to (or listen on)"},
 		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
 		&cli.StringFlag{Name: "key,k", Value: defaultKeyFile},
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},

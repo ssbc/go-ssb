@@ -1,20 +1,16 @@
-package node
+package network
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/libp2p/go-reuseport"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/multiserver"
 )
@@ -22,15 +18,11 @@ import (
 type Advertiser struct {
 	keyPair *ssb.KeyPair
 
-	conn   net.PacketConn
 	local  *net.UDPAddr // Local listening address, may not be needed (auto-detect?).
 	remote *net.UDPAddr // Address being broadcasted to, this should be deduced form 'local'.
 
 	waitTime time.Duration
 	ticker   *time.Ticker
-
-	brLock    sync.Mutex
-	brodcasts map[int]chan net.Addr
 }
 
 func newPublicKeyString(keyPair *ssb.KeyPair) string {
@@ -70,17 +62,16 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 	}
 	log.Printf("adverstiser using local address %s", udpAddr)
 
-	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, ssb.DefaultPort))
+	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, DefaultPort))
 	if err != nil {
 		return nil, errors.Wrap(err, "ssb/NewAdvertiser: failed to resolve v4 broadcast addr")
 	}
 
 	return &Advertiser{
-		local:     udpAddr,
-		remote:    remote,
-		waitTime:  time.Second * 1,
-		keyPair:   keyPair,
-		brodcasts: make(map[int]chan net.Addr),
+		local:    udpAddr,
+		remote:   remote,
+		waitTime: time.Second * 1,
+		keyPair:  keyPair,
 	}, nil
 }
 
@@ -100,10 +91,10 @@ func (b *Advertiser) advertise() error {
 			if !isIPv4(v.IP) {
 				localUDP.Zone = v.Zone
 			}
-			localUDP.Port = ssb.DefaultPort
+			localUDP.Port = DefaultPort
 		case *net.IPNet:
 			localUDP.IP = v.IP
-			localUDP.Port = ssb.DefaultPort
+			localUDP.Port = DefaultPort
 		case *net.TCPAddr:
 			localUDP.IP = v.IP
 			localUDP.Port = v.Port
@@ -118,7 +109,7 @@ func (b *Advertiser) advertise() error {
 		if err != nil {
 			return errors.Wrap(err, "ssb: failed to find site local address broadcast address")
 		}
-		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(ssb.DefaultPort))
+		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(DefaultPort))
 		remoteUDP, err := net.ResolveUDPAddr("udp", dstStr)
 		if err != nil {
 			return errors.Wrapf(err, "ssb: failed to resolve broadcast dest addr for advertiser: %s", dstStr)
@@ -133,125 +124,38 @@ func (b *Advertiser) advertise() error {
 		}
 		broadcastConn, err := reuseport.Dial("udp", localUDP.String(), remoteUDP.String())
 		if err != nil {
-			log.Println("adv dial failed", err.Error())
-			continue
+			return errors.Wrap(err, "adv dial failed")
 		}
 		_, err = fmt.Fprint(broadcastConn, msg)
+		if err != nil {
+			return errors.Wrapf(err, "adv send of msg failed")
+		}
 		_ = broadcastConn.Close()
 		if err != nil {
-			log.Println(err.Error())
+			return errors.Wrapf(err, "close of con failed")
 		}
+		// log.Println("adv pkt sent:", msg)
 	}
 	return nil
 }
 
-func (b *Advertiser) Start() error {
+func (b *Advertiser) Start() {
 	b.ticker = time.NewTicker(b.waitTime)
 	// TODO: notice interface changes
 	// net.IPv6linklocalallnodes
-	var err error
-	lis, err := reuseport.ListenPacket("udp", b.local.String())
-	if err != nil {
-		return errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
-	}
-	switch v := lis.(type) {
-	case *net.UDPConn:
-		b.conn = v
-	default:
-		return errors.Errorf("node Advertise: invalid rx listen type: %T", lis)
-	}
+
 	go func() {
 		for range b.ticker.C {
 			err := b.advertise()
 			if err != nil {
 				if !os.IsTimeout(err) {
 					log.Printf("tx adv err, breaking (%s)", err.Error())
-					break
 				}
 			}
 		}
 	}()
-
-	go func() {
-
-		for {
-			b.conn.SetReadDeadline(time.Now().Add(time.Second * 1))
-			buf := make([]byte, 128)
-			n, addr, err := b.conn.ReadFrom(buf)
-			if err != nil {
-				if !os.IsTimeout(err) {
-					log.Printf("rx adv err, breaking (%s)", err.Error())
-					break
-				}
-				continue
-			}
-
-			buf = buf[:n] // strip of zero bytes
-
-			// log.Printf("raw: %q", string(buf))
-			na, err := multiserver.ParseNetAddress(buf)
-			if err != nil {
-				// log.Println("rx adv err", err.Error())
-				// TODO: _could_ try to get key out if just ws://[::]~shs:... and dial pkt origin
-				continue
-			}
-
-			if bytes.Equal(na.Ref.ID, b.keyPair.Id.ID) {
-				continue
-			}
-
-			ua := addr.(*net.UDPAddr)
-			if b.local.IP.Equal(ua.IP) {
-				// ignore same origin
-				continue
-			}
-
-			log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
-
-			// TODO: check if adv.Host == addr ?
-			wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
-				IP: na.Host,
-				// IP:   ua.IP,
-				Port: na.Port,
-			}, secretstream.Addr{PubKey: na.Ref.ID})
-			b.brLock.Lock()
-			for _, ch := range b.brodcasts {
-				ch <- wrappedAddr
-			}
-			b.brLock.Unlock()
-		}
-	}()
-
-	return nil
 }
 
 func (b *Advertiser) Stop() {
 	b.ticker.Stop()
-	b.brLock.Lock()
-	for i, ch := range b.brodcasts {
-		close(ch)
-		delete(b.brodcasts, i)
-	}
-	if b.conn != nil {
-		b.conn.Close()
-		b.conn = nil
-	}
-	b.brLock.Unlock()
-}
-
-func (b *Advertiser) Notify() (<-chan net.Addr, func()) {
-	ch := make(chan net.Addr)
-	b.brLock.Lock()
-	i := len(b.brodcasts)
-	b.brodcasts[i] = ch
-	b.brLock.Unlock()
-	return ch, func() {
-		b.brLock.Lock()
-		_, open := b.brodcasts[i]
-		if open {
-			close(ch)
-			delete(b.brodcasts, i)
-		}
-		b.brLock.Unlock()
-	}
 }

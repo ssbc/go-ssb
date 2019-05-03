@@ -24,7 +24,7 @@ require (
 	go.cryptoscope.co/librarian v0.1.1
 	go.cryptoscope.co/luigi v0.3.2
 	go.cryptoscope.co/margaret v0.0.8
-	go.cryptoscope.co/muxrpc v1.3.1
+	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.2
 	golang.org/x/crypto v0.0.0-20190219172222-a4c6cb3142f2

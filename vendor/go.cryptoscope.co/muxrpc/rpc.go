@@ -68,8 +68,18 @@ func handle(pkr Packer, handler Handler, remote net.Addr) Endpoint {
 		root:   handler,
 	}
 
+	ctx := context.TODO()
+	if cn, ok := pkr.(CloseNotifier); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		go func() {
+			<-cn.Closed()
+			cancel()
+		}()
+	}
+
 	go func() {
-		handler.HandleConnect(context.TODO(), r)
+		handler.HandleConnect(ctx, r)
 	}()
 
 	return r
@@ -311,6 +321,15 @@ func (r *rpc) Serve(ctx context.Context) (err error) {
 		}
 	}()
 
+	if cn, ok := r.pkr.(CloseNotifier); ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		go func() {
+			<-cn.Closed()
+			cancel()
+		}()
+	}
+
 	for {
 		var vpkt interface{}
 
@@ -344,10 +363,14 @@ func (r *rpc) Serve(ctx context.Context) (err error) {
 			r.rLock.Lock()
 			defer r.rLock.Unlock()
 			if n := len(r.reqs); n > 0 {
-				log.Println("muxrpc: serve loop returning - closing open reqs:", n)
+				log.Printf("muxrpc(%v): serve loop returning (%v) - closing open reqs: %d", r.remote, err, n)
+				if err == nil {
+					cerr = errors.Errorf("muxrpc: unexpected end of session")
+				} else {
+					cerr = err
+				}
 				for id, req := range r.reqs {
-					unexpected := errors.Wrap(err, "muxrpc: unexpected end of session")
-					if err := req.CloseWithError(unexpected); err != nil && !luigi.IsEOS(errors.Cause(err)) {
+					if err := req.CloseWithError(cerr); err != nil && !luigi.IsEOS(errors.Cause(err)) {
 						log.Printf("muxrpc: failed to close dangling request(%d) %v: %s", id, req.Method, err)
 					}
 				}

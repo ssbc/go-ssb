@@ -1,4 +1,4 @@
-package ssb
+package network
 
 import (
 	"log"
@@ -9,16 +9,17 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
 )
 
 type instrumentedConnTracker struct {
-	root ConnTracker
+	root ssb.ConnTracker
 
 	count     metrics.Gauge
 	durration metrics.Histogram
 }
 
-func NewInstrumentedConnTracker(r ConnTracker, ct metrics.Gauge, h metrics.Histogram) ConnTracker {
+func NewInstrumentedConnTracker(r ssb.ConnTracker, ct metrics.Gauge, h metrics.Histogram) ssb.ConnTracker {
 	i := instrumentedConnTracker{root: r, count: ct, durration: h}
 	return &i
 }
@@ -54,14 +55,6 @@ func (ict instrumentedConnTracker) OnClose(conn net.Conn) time.Duration {
 	return durr
 }
 
-type ConnTracker interface {
-	Active(net.Addr) bool
-	OnAccept(conn net.Conn) bool
-	OnClose(conn net.Conn) time.Duration
-	Count() uint
-	CloseAll()
-}
-
 type connEntry struct {
 	c       net.Conn
 	started time.Time
@@ -70,7 +63,7 @@ type connEntry struct {
 // string is the localAddr (could use port but thats tcp?)
 type connLookupMap map[[32]byte]map[string]connEntry
 
-func NewConnTracker() ConnTracker {
+func NewConnTracker() ssb.ConnTracker {
 	return &connTracker{active: make(connLookupMap)}
 }
 

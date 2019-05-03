@@ -130,6 +130,7 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 
 	if pkt.Flag.Get(codec.FlagEndErr) {
 		// TODO: return error body?
+		// log.Println("muxrpc: stream %d got error: %q", pkt.Req, string(pkt.Body))
 		return nil, luigi.EOS{}
 	}
 
@@ -146,11 +147,10 @@ func (str *stream) Next(ctx context.Context) (interface{}, error) {
 
 			dst = reflect.New(t).Interface()
 		} else {
-			dst = &dst
 			ptrType = true
 		}
 
-		err := json.Unmarshal(pkt.Body, dst)
+		err := json.Unmarshal(pkt.Body, &dst)
 		if err != nil {
 			return nil, errors.Wrap(err, "error unmarshaling json")
 		}

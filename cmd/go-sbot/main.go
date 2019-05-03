@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/network"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -56,7 +57,7 @@ func init() {
 	u, err := user.Current()
 	checkFatal(err)
 
-	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", ssb.DefaultPort), "address to listen on")
+	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", network.DefaultPort), "address to listen on")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
@@ -169,7 +170,7 @@ func main() {
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
 		// Note: This is where the serving starts ;)
-		err = sbot.Node.Serve(ctx, HandlerWithLatency(muxrpcSummary))
+		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)

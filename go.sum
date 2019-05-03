@@ -127,6 +127,8 @@ go.cryptoscope.co/margaret v0.0.8 h1:AUFUxKZuTK8/qGj+g6LF7LCFwyrG4hJL4mobegzdibc
 go.cryptoscope.co/margaret v0.0.8/go.mod h1:VbP0bqavqW5osTmdNvgukrqtmqvZC5sXyPSBUW5rzv8=
 go.cryptoscope.co/muxrpc v1.3.1 h1:dzsWk0JfWrpDicuw/bsvfl79GsTzrYtbtzZaWmphakM=
 go.cryptoscope.co/muxrpc v1.3.1/go.mod h1:2LrWj19ruDnavBsmUylR7PfI/2YVLxVD0RYVxxiujo8=
+go.cryptoscope.co/muxrpc v1.4.0 h1:jMttbDLLKhAKtVOEWlkF3mtXX7pYyHIUI0UzN41HZBc=
+go.cryptoscope.co/muxrpc v1.4.0/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3 h1:jmVmhJws6zjq94Szb1ZCr3s0WRYCCfudWLuMwtbmY5o=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.2 h1:DkiNgafRMbAgO9ke0z0ov8Yy5zot78PvYbE7dVI+okw=

@@ -1,10 +1,11 @@
 // +build integration
 
-package node
+package network
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -14,24 +15,28 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/netwrap"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/multiserver"
 )
 
 // To ensure this works, add this to the SUDO file, where USER is your username.
-//
-// Defaults env_keep += "SEND_ADV RECV_ADV"
-// USER ALL=(ALL) NOPASSWD: /sbin/ip
-// USER ALL=(ALL) NOPASSWD: ! /sbin/ip netns exec *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local ip *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer ip *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec testNet sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /usr/sbin/brctl
+/*
+Defaults env_keep += "SEND_ADV RECV_ADV"
+USER ALL=(ALL) NOPASSWD: /sbin/ip
+USER ALL=(ALL) NOPASSWD: ! /sbin/ip netns exec *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local ip *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer ip *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec testNet sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /usr/sbin/brctl
+*/
 
 func sudo(args ...string) *exec.Cmd {
 	ret := exec.Command("sudo", args...)
-	ret.Stderr = os.Stdout
+	ret.Stderr = os.Stderr
 	return ret
 }
 
@@ -41,77 +46,79 @@ type NetConfig struct {
 	Broadcast string
 }
 
-func createTestNetwork(name string, gateway NetConfig) (func(), error) {
+func createTestNetwork(name string, gateway NetConfig) error {
+	// remove previous runs
+	_ = sudo("ip", "link", "set", "dev", name, "down").Run()
+	_ = sudo("brctl", "delbr", name).Run()
+
 	err := sudo("brctl", "addbr", name).Run()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = sudo("brctl", "stp", name, "off").Run()
 	if err != nil {
-		return nil, errors.Wrap(err, "stp")
+		return errors.Wrap(err, "stp")
 	}
 	err = sudo("ip", "link", "set", "dev", name, "up").Run()
 	if err != nil {
-		return nil, errors.Wrap(err, "setting dev up")
+		return errors.Wrap(err, "setting dev up")
 	}
 
 	// Set gateway address
 	if gateway.Address != "" {
 		err = sudo("ip", "addr", "add", gateway.Address, "dev", name).Run()
 		if err != nil {
-			return nil, errors.Wrap(err, "setting gateway address")
+			return errors.Wrap(err, "setting gateway address")
 		}
 	}
 
-	removeBridge := func() {
-		_ = sudo("ip", "link", "set", "dev", name, "down").Run()
-		_ = sudo("brctl", "delbr", name).Run()
-	}
-	return removeBridge, nil
+	return nil
 }
 
-func addNode(nodeName string, netName string, addresses ...NetConfig) (func(), error) {
+func addNode(nodeName string, netName string, addresses ...NetConfig) error {
 	vethNode := nodeName
 	vethHost := "br-" + nodeName
+
+	bridgeName := netName
+	netns := nodeName
+
+	// wipe previous run
+	_ = sudo("ip", "link", "del", vethHost).Run()
+	_ = sudo("ip", "netns", "del", netns).Run()
+	_ = sudo("brctl", "delif", bridgeName).Run()
+
+	// make new
 	err := sudo("ip", "link", "add",
 		vethNode, "type", "veth", "peer", "name", vethHost,
 	).Run()
 	if err != nil {
-		return nil, errors.Wrap(err, "adding veth "+vethHost)
-	}
-
-	bridgeName := netName
-	netns := nodeName
-	rmNode := func() {
-		_ = sudo("ip", "link", "del", vethHost).Run()
-		_ = sudo("ip", "netns", "del", netns).Run()
-		_ = sudo("brctl", "delif", bridgeName).Run()
+		return errors.Wrap(err, "adding veth "+vethHost)
 	}
 
 	// Add to test net using bridge
 	err = sudo("brctl", "addif", bridgeName, vethHost).Run()
 	if err != nil {
-		return rmNode, errors.Wrap(err, "brctl addif")
+		return errors.Wrap(err, "brctl addif")
 	}
 
 	// Setup node's network namespace
 	err = sudo("ip", "netns", "add", netns).Run()
 	if err != nil {
-		return rmNode, errors.Wrap(err, "ip netns add")
+		return errors.Wrap(err, "ip netns add")
 	}
 	err = sudo("ip", "link", "set", vethNode, "netns", netns).Run()
 	if err != nil {
-		return rmNode, errors.Wrap(err, "ip link set netns")
+		return errors.Wrap(err, "ip link set netns")
 	}
 
 	// Bring up
 	err = sudo("ip", "link", "set", "dev", vethHost, "up").Run()
 	if err != nil {
-		return rmNode, errors.Wrap(err, "setting "+vethHost+" up")
+		return errors.Wrap(err, "setting "+vethHost+" up")
 	}
 	err = sudo("ip", "netns", "exec", netns, "ip", "link", "set", "dev", vethNode, "up").Run()
 	if err != nil {
-		return rmNode, errors.Wrap(err, "setting "+vethNode+" up")
+		return errors.Wrap(err, "setting "+vethNode+" up")
 	}
 
 	// Set up IP addresses
@@ -124,25 +131,27 @@ func addNode(nodeName string, netName string, addresses ...NetConfig) (func(), e
 		err = sudo(cmd...).Run()
 		err = errors.Wrap(err, "setting "+address.Address+" up")
 		if err != nil {
-			return rmNode, err
+			return err
 		}
 		if address.Gateway != "" {
 			err = sudo("ip", "netns", "exec", netns, "ip", "route", "add", "default", "via", address.Gateway).Run()
 			err = errors.Wrap(err, "setting route up")
 			if err != nil {
-				return rmNode, err
+				return err
 			}
 		}
 	}
 
-	return rmNode, err
+	return err
 }
 
-func assertSendAdvertisement(t *testing.T, nodeName string, keyPair *ssb.KeyPair) bool {
+func assertSendAdvertisement(nodeName string, keyPair *ssb.KeyPair) (*exec.Cmd, error) {
 	envVar := "SEND_ADV"
 	value := bytes.NewBuffer(nil)
 	err := json.NewEncoder(value).Encode(keyPair)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to encode keypair")
+	}
 
 	user := os.Getenv("USER")
 	cmd := sudo("ip", "netns", "exec", nodeName, "sudo", "-u", user, "--",
@@ -151,8 +160,7 @@ func assertSendAdvertisement(t *testing.T, nodeName string, keyPair *ssb.KeyPair
 	cmd.Env = append(os.Environ(), envVar+"="+string(value.String()))
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	return assert.NoError(t, err, "did not receive advertisement")
+	return cmd, nil
 }
 
 func TestSendAdvertisement(t *testing.T) {
@@ -172,9 +180,9 @@ func TestSendAdvertisement(t *testing.T) {
 	adv, err := NewAdvertiser(localAddr, &keyPair)
 	require.NoError(t, err, "could not send advertisement")
 
-	err = adv.Start()
+	adv.Start()
 	require.NoError(t, err, "could not start advertiser")
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 	adv.Stop()
 }
 
@@ -184,17 +192,35 @@ func TestAdvertisementReceived(t *testing.T) {
 		return
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", ":8008")
-	require.NoError(t, err)
-	conn, err := net.ListenUDP("udp", addr)
+	wantAddr, err := multiserver.ParseNetAddress([]byte(recvAdv))
 	require.NoError(t, err)
 
-	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
-
-	buf := make([]byte, 128)
-	n, _, err := conn.ReadFrom(buf)
+	kp := makeRandPubkey(t)
+	disc, err := NewDiscoverer(kp)
 	require.NoError(t, err)
-	require.Equal(t, recvAdv, string(buf[:n]))
+
+	ch, cleanup := disc.Notify()
+
+	addr, ok := <-ch
+	if !ok {
+		t.Fatal("rx ch closed")
+		return
+	}
+
+	addrV := netwrap.GetAddr(addr, "tcp")
+	require.NotNil(t, addrV, "wrong addr: %+v", addr)
+	udpAddr, ok := addrV.(*net.TCPAddr)
+	require.True(t, ok)
+
+	require.True(t, udpAddr.IP.Equal(wantAddr.Host), "ips not equal. %s vs %s", udpAddr, wantAddr.Host)
+	require.Equal(t, udpAddr.Port, wantAddr.Port)
+
+	addrRef, err := ssb.GetFeedRefFromAddr(addr)
+	require.NoError(t, err)
+	require.Equal(t, wantAddr.Ref.ID, addrRef.ID)
+
+	disc.Stop()
+	cleanup()
 }
 
 func assertReceiveAdvertisement(t *testing.T, nodeName string, expected string) bool {
@@ -212,6 +238,7 @@ func assertReceiveAdvertisement(t *testing.T, nodeName string, expected string) 
 
 func TestAdvertisementsOnIPSubnets(t *testing.T) {
 	pubKey := makeTestPubKey(t)
+
 	tests := []struct {
 		Name                string
 		Gateway             NetConfig
@@ -242,7 +269,7 @@ func TestAdvertisementsOnIPSubnets(t *testing.T) {
 			PeerReceived: "net:10.0.0.2:8008~shs:LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=",
 		},
 		{
-			Name: "192.168.0.0/24",
+			Name: "192.168.0.0 net:8",
 			Gateway: NetConfig{
 				Address:   "192.168.0.1",
 				Broadcast: "192.168.255.255",
@@ -322,28 +349,43 @@ func TestAdvertisementsOnIPSubnets(t *testing.T) {
 	testNet := "testNet"
 
 	for _, test := range tests {
-		func(t *testing.T) {
-			t.Log(test.Name)
+		fmt.Println(test.Name, "starting")
+		// Construct test network
+		err := createTestNetwork(testNet, test.Gateway)
+		require.NoError(t, err)
 
-			// Construct test network
-			stopNet, err := createTestNetwork(testNet, test.Gateway)
-			require.NoError(t, err)
-			defer stopNet()
+		err = addNode("local", testNet, test.Advertiser...)
+		require.NoError(t, err)
 
-			rmLocalNode, err := addNode("local", testNet, test.Advertiser...)
-			require.NoError(t, err)
-			defer rmLocalNode()
+		err = addNode("peer", testNet, test.Peer)
+		require.NoError(t, err)
 
-			rmPeerNode, err := addNode("peer", testNet, test.Peer)
-			require.NoError(t, err)
-			defer rmPeerNode()
+		txCmd, err := assertSendAdvertisement("local", test.AdvertiserPublicKey)
+		require.NoError(t, err)
+		done := make(chan struct{})
+		go func(n string) {
 
-			go func() {
-				// Wait for settings to materialize
-				time.Sleep(3 * time.Second)
-				assertSendAdvertisement(t, "local", test.AdvertiserPublicKey)
-			}()
-			assertReceiveAdvertisement(t, "peer", test.PeerReceived)
-		}(t)
+			if err := txCmd.Start(); err != nil {
+				fmt.Println(n, "- txcmd not started", err)
+			}
+			done <- struct{}{}
+
+			fmt.Println(n, "txcmd running")
+
+			if err := txCmd.Wait(); err != nil {
+				fmt.Println(n, " - txcmd wait failed", err)
+			}
+			fmt.Println(n, "txcmd done")
+			close(done)
+		}(test.Name)
+
+		<-done
+
+		assertReceiveAdvertisement(t, "peer", test.PeerReceived)
+
+		fmt.Println(test.Name, "received")
+		// thats only the ip netns exec ..
+		// txCmd.Process.Signal(os.Interrupt)
+		<-done
 	}
 }
