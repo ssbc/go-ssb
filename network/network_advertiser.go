@@ -134,7 +134,7 @@ func (b *Advertiser) advertise() error {
 		if err != nil {
 			return errors.Wrapf(err, "close of con failed")
 		}
-		log.Println("adv pkt sent:", msg)
+		// log.Println("adv pkt sent:", msg)
 	}
 	return nil
 }
@@ -150,7 +150,6 @@ func (b *Advertiser) Start() {
 			if err != nil {
 				if !os.IsTimeout(err) {
 					log.Printf("tx adv err, breaking (%s)", err.Error())
-					break
 				}
 			}
 		}

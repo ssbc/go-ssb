@@ -12,25 +12,27 @@ import (
 	"testing"
 	"time"
 
-	"go.cryptoscope.co/ssb/internal/multiserver"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/netwrap"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/multiserver"
 )
 
 // To ensure this works, add this to the SUDO file, where USER is your username.
-//
-// Defaults env_keep += "SEND_ADV RECV_ADV"
-// USER ALL=(ALL) NOPASSWD: /sbin/ip
-// USER ALL=(ALL) NOPASSWD: ! /sbin/ip netns exec *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local ip *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer ip *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec testNet sudo -u USER -- *
-// USER ALL=(ALL) NOPASSWD: /usr/sbin/brctl
+/*
+Defaults env_keep += "SEND_ADV RECV_ADV"
+USER ALL=(ALL) NOPASSWD: /sbin/ip
+USER ALL=(ALL) NOPASSWD: ! /sbin/ip netns exec *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local ip *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec local sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer ip *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec peer sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /sbin/ip netns exec testNet sudo -u USER -- *
+USER ALL=(ALL) NOPASSWD: /usr/sbin/brctl
+*/
 
 func sudo(args ...string) *exec.Cmd {
 	ret := exec.Command("sudo", args...)
@@ -143,12 +145,12 @@ func addNode(nodeName string, netName string, addresses ...NetConfig) error {
 	return err
 }
 
-func assertSendAdvertisement(nodeName string, keyPair *ssb.KeyPair) error {
+func assertSendAdvertisement(nodeName string, keyPair *ssb.KeyPair) (*exec.Cmd, error) {
 	envVar := "SEND_ADV"
 	value := bytes.NewBuffer(nil)
 	err := json.NewEncoder(value).Encode(keyPair)
 	if err != nil {
-		return errors.Wrap(err, "failed to encode keypair")
+		return nil, errors.Wrap(err, "failed to encode keypair")
 	}
 
 	user := os.Getenv("USER")
@@ -158,8 +160,7 @@ func assertSendAdvertisement(nodeName string, keyPair *ssb.KeyPair) error {
 	cmd.Env = append(os.Environ(), envVar+"="+string(value.String()))
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	return errors.Wrap(err, "did not receive advertisement")
+	return cmd, nil
 }
 
 func TestSendAdvertisement(t *testing.T) {
@@ -181,7 +182,7 @@ func TestSendAdvertisement(t *testing.T) {
 
 	adv.Start()
 	require.NoError(t, err, "could not start advertiser")
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 	adv.Stop()
 }
 
@@ -191,7 +192,8 @@ func TestAdvertisementReceived(t *testing.T) {
 		return
 	}
 
-	t.Log(recvAdv)
+	wantAddr, err := multiserver.ParseNetAddress([]byte(recvAdv))
+	require.NoError(t, err)
 
 	kp := makeRandPubkey(t)
 	disc, err := NewDiscoverer(kp)
@@ -199,29 +201,26 @@ func TestAdvertisementReceived(t *testing.T) {
 
 	ch, cleanup := disc.Notify()
 
-	go func() {
-		time.Sleep(30 * time.Second)
-		cleanup()
-		fmt.Println("warning timeout!")
-	}()
-
 	addr, ok := <-ch
 	if !ok {
 		t.Fatal("rx ch closed")
 		return
 	}
-	ms, err := multiserver.ParseNetAddress([]byte(recvAdv))
-	require.NoError(t, err)
 
-	require.Contains(t, addr.String(), ms.Host)
-	require.Contains(t, addr.String(), ms.Port)
+	addrV := netwrap.GetAddr(addr, "tcp")
+	require.NotNil(t, addrV, "wrong addr: %+v", addr)
+	udpAddr, ok := addrV.(*net.TCPAddr)
+	require.True(t, ok)
+
+	require.True(t, udpAddr.IP.Equal(wantAddr.Host), "ips not equal. %s vs %s", udpAddr, wantAddr.Host)
+	require.Equal(t, udpAddr.Port, wantAddr.Port)
 
 	addrRef, err := ssb.GetFeedRefFromAddr(addr)
 	require.NoError(t, err)
-	require.Equal(t, ms.Ref.ID, addrRef.ID)
+	require.Equal(t, wantAddr.Ref.ID, addrRef.ID)
 
 	disc.Stop()
-	t.Log("done")
+	cleanup()
 }
 
 func assertReceiveAdvertisement(t *testing.T, nodeName string, expected string) bool {
@@ -238,7 +237,8 @@ func assertReceiveAdvertisement(t *testing.T, nodeName string, expected string) 
 }
 
 func TestAdvertisementsOnIPSubnets(t *testing.T) {
-	pubKey := makeRandPubkey(t)
+	pubKey := makeTestPubKey(t)
+
 	tests := []struct {
 		Name                string
 		Gateway             NetConfig
@@ -269,7 +269,7 @@ func TestAdvertisementsOnIPSubnets(t *testing.T) {
 			PeerReceived: "net:10.0.0.2:8008~shs:LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=",
 		},
 		{
-			Name: "192.168.0.0/24",
+			Name: "192.168.0.0 net:8",
 			Gateway: NetConfig{
 				Address:   "192.168.0.1",
 				Broadcast: "192.168.255.255",
@@ -349,29 +349,43 @@ func TestAdvertisementsOnIPSubnets(t *testing.T) {
 	testNet := "testNet"
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		fmt.Println(test.Name, "starting")
+		// Construct test network
+		err := createTestNetwork(testNet, test.Gateway)
+		require.NoError(t, err)
 
-			// Construct test network
-			err := createTestNetwork(testNet, test.Gateway)
-			require.NoError(t, err)
+		err = addNode("local", testNet, test.Advertiser...)
+		require.NoError(t, err)
 
-			err = addNode("local", testNet, test.Advertiser...)
-			require.NoError(t, err)
+		err = addNode("peer", testNet, test.Peer)
+		require.NoError(t, err)
 
-			err = addNode("peer", testNet, test.Peer)
-			require.NoError(t, err)
+		txCmd, err := assertSendAdvertisement("local", test.AdvertiserPublicKey)
+		require.NoError(t, err)
+		done := make(chan struct{})
+		go func(n string) {
 
-			go func() {
-				// Wait for settings to materialize
-				time.Sleep(3 * time.Second)
-				// you can't use t in other goroutines!
-				err := assertSendAdvertisement("local", test.AdvertiserPublicKey)
-				if err != nil {
-					fmt.Println("local send faild", err)
-					os.Exit(1)
-				}
-			}()
-			assertReceiveAdvertisement(t, "peer", test.PeerReceived)
-		})
+			if err := txCmd.Start(); err != nil {
+				fmt.Println(n, "- txcmd not started", err)
+			}
+			done <- struct{}{}
+
+			fmt.Println(n, "txcmd running")
+
+			if err := txCmd.Wait(); err != nil {
+				fmt.Println(n, " - txcmd wait failed", err)
+			}
+			fmt.Println(n, "txcmd done")
+			close(done)
+		}(test.Name)
+
+		<-done
+
+		assertReceiveAdvertisement(t, "peer", test.PeerReceived)
+
+		fmt.Println(test.Name, "received")
+		// thats only the ip netns exec ..
+		// txCmd.Process.Signal(os.Interrupt)
+		<-done
 	}
 }

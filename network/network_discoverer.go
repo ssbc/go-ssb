@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -81,8 +82,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 		}
 
 		buf = buf[:n] // strip of zero bytes
-
-		log.Printf("dbg adv raw: %q", string(buf))
+		// log.Printf("dbg adv raw: %q", string(buf))
 		na, err := multiserver.ParseNetAddress(buf)
 		if err != nil {
 			log.Println("rx adv err", err.Error())
@@ -90,9 +90,9 @@ func (d *Discoverer) work(rx net.PacketConn) {
 			continue
 		}
 
-		// if bytes.Equal(na.Ref.ID, d.local.Id.ID) {
-		// 	continue
-		// }
+		if bytes.Equal(na.Ref.ID, d.local.Id.ID) {
+			continue
+		}
 
 		// ua := addr.(*net.UDPAddr)
 		// if d.local.IP.Equal(ua.IP) {
