@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -29,7 +28,6 @@ func fail(err error) {
 }
 
 func main() {
-	ctx := context.TODO()
 	if len(os.Args) < 3 {
 		fmt.Fprintf(os.Stderr, "usage: %s <repo> <@feed=...>\n", os.Args[0])
 		os.Exit(1)

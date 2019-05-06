@@ -16,14 +16,14 @@ import (
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
-	const n = 128
+	const n = 23
 	bob, alice, done, errc, cleanup := initInterop(t, `
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
 		}
 	}
-	n = 128
+	n = 23
 	let msgs = []
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
@@ -39,6 +39,17 @@ func TestFeedFromJS(t *testing.T) {
 	})
 `, ``)
 
+	publish, err := multilogs.OpenPublishLog(bob.RootLog, bob.UserFeeds, *bob.KeyPair)
+	r.NoError(err)
+
+	newSeq, err := publish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
+
 	defer cleanup()
 	<-done
 
@@ -53,7 +64,7 @@ func TestFeedFromJS(t *testing.T) {
 		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(i))
+		r.Equal(seqMsg, margaret.BaseSeq(i+1))
 
 		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
@@ -92,7 +103,7 @@ sbot.on('rpc:connect', (rpc) => {
         t.error(err, 'query worked')
         t.equal(1, msgs.length, 'got all the messages')
         t.equal(%q, msgs[0].key, 'latest keys match')
-        t.equal(128, msgs[0].value.sequence, 'latest sequence')
+        t.equal(23, msgs[0].value.sequence, 'latest sequence')
         exit()
       })
     )
@@ -122,6 +133,13 @@ pull(
 	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
 
 	t.Logf("started claire: %s", claire.Ref())
+	newSeq, err = publish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   claire.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish 2nd contact message")
+	r.NotNil(newSeq)
 
 	<-done
 
@@ -170,7 +188,7 @@ func TestFeedFromGo(t *testing.T) {
 					t.equal(0, vals.length)
 					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, function(err, msg) {
 						t.error(err, 'about:' + msg.key)
-						run()
+						setTimeout(run, 1000) // give go bot a moment to publish
 					})
 				})
 			)
@@ -192,7 +210,7 @@ func TestFeedFromGo(t *testing.T) {
 		},
 		map[string]interface{}{
 			"type":      "contact",
-			"about":     alice.Ref(),
+			"contact":   alice.Ref(),
 			"following": true,
 		},
 		map[string]interface{}{

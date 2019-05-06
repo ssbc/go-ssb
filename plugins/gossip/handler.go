@@ -25,6 +25,7 @@ type handler struct {
 	GraphBuilder graph.Builder
 	Info         logging.Interface
 
+	hmacSec  HMACSecret
 	hopCount int
 	promisc  bool // ask for remote feed even if it's not on owns fetch list
 
@@ -118,7 +119,10 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
 	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
 	if hops != nil {
-		g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+		err := g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
+			return
+		}
 	}
 
 	err = g.fetchAllLib(ctx, e, ufaddrs)
@@ -126,8 +130,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	g.Info.Log("msg", "fetchHops done", "n", hops.Count())
-	<-ctx.Done()
+	g.Info.Log("msg", "fetchHops done", "hops", hops.Count(), "stored", len(ufaddrs))
 }
 
 func (g *handler) check(err error) {

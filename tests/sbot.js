@@ -50,8 +50,6 @@ tape(testName, function (t) {
   })
   const alice = sbot.whoami()
 
-  const replicate_changes = sbot.replicate.changes()
-
   t.comment("sbot spawned, running before")
   console.log(alice.id) // tell go process who's incoming
   eval(scriptBefore)

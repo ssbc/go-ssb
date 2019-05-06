@@ -47,12 +47,14 @@ type Sbot struct {
 	PrivateLogs      multilog.MultiLog
 	KeyPair          *ssb.KeyPair
 	PublishLog       margaret.Log
+	signHMACsecret   []byte
 	GraphBuilder     graph.Builder
 	Node             ssb.Node
 	// AboutStore   indexes.AboutStore
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
 
+	// TODO: wrap better
 	eventCounter *prometheus.Counter
 	systemGauge  *prometheus.Gauge
 	latency      *prometheus.Summary
@@ -133,6 +135,16 @@ func WithEventMetrics(ctr *prometheus.Counter, lvls *prometheus.Gauge, lat *prom
 func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
 	return func(s *Sbot) error {
 		s.edpWrapper = mw
+		return nil
+	}
+}
+
+func WithHMACSigning(key []byte) Option {
+	return func(s *Sbot) error {
+		if n := len(key); n != 32 {
+			return errors.Errorf("WithHMACSigning: wrong key length (%d)", n)
+		}
+		s.signHMACsecret = key
 		return nil
 	}
 }

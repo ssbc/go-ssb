@@ -27,22 +27,22 @@ func TestPrivMsgsFromGo(t *testing.T) {
 					t.error(err, 'private read worked')
 					t.equal(msgs.length, 6, 'got all the messages')
 
-					t.equal(msgs[0].value.sequence, 1, 'sequence:0')
+					t.equal(msgs[0].value.sequence, 2, 'sequence:0')
 					t.deepEqual(msgs[0].value.content, [1,2,3,4,5], 'sequence:0 val')
 
-					t.equal(msgs[1].value.sequence, 2, 'sequence:1')
+					t.equal(msgs[1].value.sequence, 3, 'sequence:1')
 					t.equal(msgs[1].value.content.some, 1, 'sequence:1 val')
 
-					t.equal(msgs[2].value.sequence, 3, 'sequence:2')
+					t.equal(msgs[2].value.sequence, 4, 'sequence:2')
 					t.equal(msgs[2].value.content.hello, true, 'sequence:2 val')
 
-					t.equal(msgs[3].value.sequence, 4, 'sequence:3')
+					t.equal(msgs[3].value.sequence, 5, 'sequence:3')
 					t.equal(msgs[3].value.content, "plainStringLikeABlob", 'sequence:3 val')
 
-					t.equal(msgs[4].value.sequence, 5, 'sequence:4')
+					t.equal(msgs[4].value.sequence, 6, 'sequence:4')
 					t.equal(msgs[4].value.content.hello, false, 'sequence:4 val')
 
-					t.equal(msgs[5].value.sequence, 6, 'sequence:5')
+					t.equal(msgs[5].value.sequence, 7, 'sequence:5')
 					t.equal(msgs[5].value.content.hello, true, 'sequence:5 val')
 					exit()
 				})
@@ -78,6 +78,14 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
 	r.NoError(err)
+
+	newSeq, err := publish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
 
 	var tmsgs = [][]byte{
 		[]byte(`[1,2,3,4,5]`),
@@ -147,6 +155,15 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		run() // triggers connect and after block
 	})
 `, ``)
+	publish, err := multilogs.OpenPublishLog(bob.RootLog, bob.UserFeeds, *bob.KeyPair)
+	r.NoError(err)
+	newSeq, err := publish.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
 	defer cleanup()
 	<-done
 
@@ -161,7 +178,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(i))
+		r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
 		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)

@@ -36,7 +36,8 @@ var (
 	checkFatal = logging.CheckFatal
 
 	// juicy bits
-	appKey []byte
+	appKey  string
+	hmacSec string
 )
 
 func checkAndLog(err error) {
@@ -51,13 +52,11 @@ func init() {
 	logging.SetupLogging(nil)
 	log = logging.Logger("sbot")
 
-	var err error
-	appKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
-	checkFatal(err)
-
 	u, err := user.Current()
 	checkFatal(err)
 
+	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
+	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
@@ -75,13 +74,15 @@ func main() {
 		}
 	}()
 
-	startDebug()
+	ak, err := base64.StdEncoding.DecodeString(appKey)
+	checkFatal(err)
 
-	sbot, err := mksbot.New(
+	startDebug()
+	opts := []mksbot.Option{
 		// TODO: hops
 		// TOOD: promisc
 		mksbot.WithInfo(log),
-		mksbot.WithAppKey(appKey),
+		mksbot.WithAppKey(ak),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr),
@@ -104,7 +105,16 @@ func main() {
 			)
 
 			return debug.WrapDump(muxrpcDumpDir, conn)
-		}))
+		}),
+	}
+
+	if hmacSec != "" {
+		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
+		checkFatal(err)
+		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
+	}
+
+	sbot, err := mksbot.New(opts...)
 	checkFatal(err)
 
 	c := make(chan os.Signal)

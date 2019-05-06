@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/sbot"
@@ -68,6 +70,9 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(dir),
 		sbot.WithContext(ctx),
+		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapConn(info, conn), nil
+		}),
 	}, sbotOpts...)
 
 	sbot, err := sbot.New(sbotOpts...)
