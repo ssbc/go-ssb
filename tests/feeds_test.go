@@ -8,16 +8,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func TestFeedFromJS(t *testing.T) {
 	r := require.New(t)
 	const n = 23
-	bob, alice, done, errc, cleanup := initInterop(t, `
+
+	ts := newRandomSession(t)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
+	alice := ts.startJSBot(`
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -39,10 +43,7 @@ func TestFeedFromJS(t *testing.T) {
 	})
 `, ``)
 
-	publish, err := multilogs.OpenPublishLog(bob.RootLog, bob.UserFeeds, *bob.KeyPair)
-	r.NoError(err)
-
-	newSeq, err := publish.Append(map[string]interface{}{
+	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   alice.Ref(),
 		"following": true,
@@ -50,8 +51,7 @@ func TestFeedFromJS(t *testing.T) {
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
 
-	defer cleanup()
-	<-done
+	<-ts.doneJS
 
 	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -130,10 +130,10 @@ pull(
 
 }) // publish`, alice.Ref(), lastMsg)
 
-	claire, done, clairErrc := startJSBot(t, before, "", bob.KeyPair.Id.Ref(), netwrap.GetAddr(bob.Node.GetListenAddr(), "tcp").String())
+	claire := ts.startJSBot(before, "")
 
 	t.Logf("started claire: %s", claire.Ref())
-	newSeq, err = publish.Append(map[string]interface{}{
+	newSeq, err = bob.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   claire.Ref(),
 		"following": true,
@@ -141,22 +141,21 @@ pull(
 	r.NoError(err, "failed to publish 2nd contact message")
 	r.NotNil(newSeq)
 
-	<-done
-
-	bob.Shutdown()
-	r.NoError(bob.Close())
-
-	for err := range mergeErrorChans(errc, clairErrc) {
-		t.Error(err)
-	}
+	ts.wait()
 }
 
 func TestFeedFromGo(t *testing.T) {
 	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	s := ts.gobot
+
 	before := `fromKey = testBob
-	
 	sbot.on('rpc:connect', (rpc) => {
-		rpc.on('closed', () => { 
+		rpc.on('closed', () => {
 			t.comment('now should have feed:' + fromKey)
 			pull(
 				sbot.createUserStream({id:fromKey, reverse:true, limit: 4}),
@@ -172,14 +171,14 @@ func TestFeedFromGo(t *testing.T) {
 			)
 		})
 	})
-	
+
 	sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
 		t.error(err, 'follow:' + fromKey)
-		
+
 		sbot.friends.get({src: alice.id, dest: fromKey}, function(err, val) {
 			t.error(err, 'friends.get of new contact')
 			t.equals(val[alice.id], true, 'is following')
-			
+
 			t.comment('shouldnt have bobs feed:' + fromKey)
 			pull(
 				sbot.createUserStream({id:fromKey}),
@@ -188,7 +187,7 @@ func TestFeedFromGo(t *testing.T) {
 					t.equal(0, vals.length)
 					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, function(err, msg) {
 						t.error(err, 'about:' + msg.key)
-						setTimeout(run, 1000) // give go bot a moment to publish
+						setTimeout(run, 3000) // give go bot a moment to publish
 					})
 				})
 			)
@@ -197,10 +196,7 @@ func TestFeedFromGo(t *testing.T) {
 
 }) // publish`
 
-	s, alice, done, errc, cleanup := initInterop(t, before, "")
-
-	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
-	r.NoError(err)
+	alice := ts.startJSBot(before, "")
 
 	var tmsgs = []interface{}{
 		map[string]interface{}{
@@ -224,13 +220,12 @@ func TestFeedFromGo(t *testing.T) {
 		},
 	}
 	for i, msg := range tmsgs {
-		newSeq, err := publish.Append(msg)
+		newSeq, err := s.PublishLog.Append(msg)
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
 
-	defer cleanup()
-	<-done
+	<-ts.doneJS
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -243,7 +238,5 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
-	s.Shutdown()
-	r.NoError(s.Close())
-	r.NoError(<-errc)
+	ts.wait()
 }

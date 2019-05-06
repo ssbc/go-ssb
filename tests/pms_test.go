@@ -10,12 +10,18 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
 	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	s := ts.gobot
+
 	before := `fromKey = testBob
 
 	sbot.on('rpc:connect', (rpc) => {
@@ -74,12 +80,9 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 }) // publish`
 
-	s, alice, done, errc, cleanup := initInterop(t, before, "")
+	alice := ts.startJSBot(before, "")
 
-	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
-	r.NoError(err)
-
-	newSeq, err := publish.Append(map[string]interface{}{
+	newSeq, err := s.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   alice.Ref(),
 		"following": true,
@@ -102,13 +105,12 @@ func TestPrivMsgsFromGo(t *testing.T) {
 		r.NoError(err, "failed to create ciphertext %d", i)
 		r.True(strings.HasSuffix(sbox, ".box"), "suffix")
 
-		newSeq, err := publish.Append(sbox)
+		newSeq, err := s.PublishLog.Append(sbox)
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
 
-	defer cleanup()
-	<-done
+	<-ts.doneJS
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -121,20 +123,20 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
-	s.Shutdown()
-	r.NoError(s.Close())
-
-	for err := range errc {
-		r.NoError(err)
-	}
-
+	ts.wait()
 }
 
 func TestPrivMsgsFromJS(t *testing.T) {
 	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
 	const n = 16
-	bob, alice, done, errc, cleanup := initInterop(t, `
-	let recps = [ testBob, alice.id ]
+	alice := ts.startJSBot(`let recps = [ testBob, alice.id ]
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.private.publish(msg, recps, cb)
@@ -155,17 +157,16 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		run() // triggers connect and after block
 	})
 `, ``)
-	publish, err := multilogs.OpenPublishLog(bob.RootLog, bob.UserFeeds, *bob.KeyPair)
-	r.NoError(err)
-	newSeq, err := publish.Append(map[string]interface{}{
+
+	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   alice.Ref(),
 		"following": true,
 	})
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
-	defer cleanup()
-	<-done
+
+	<-ts.doneJS
 
 	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -210,10 +211,5 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		r.Equal("test", clearObj.Tipe)
 	}
 
-	bob.Shutdown()
-	r.NoError(bob.Close())
-
-	for err := range errc {
-		r.NoError(err)
-	}
+	ts.wait()
 }

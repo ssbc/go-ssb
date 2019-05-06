@@ -3,6 +3,8 @@ package tests
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -43,12 +45,47 @@ func writeFile(t *testing.T, data string) string {
 	return f.Name()
 }
 
+type testSession struct {
+	t *testing.T
+
+	keySHS, keyHMAC []byte
+
+	// since we can't pass *testing.T to other goroutines, we use this to collect errors from background taskts
+	backgroundErrs []<-chan error
+
+	gobot *sbot.Sbot
+
+	doneJS, doneGo <-chan struct{}
+}
+
+// TODO: restrucuture so that we can test both with the same Code
+
+// rolls random values for secret-handshake app-key and HMAC
+func newRandomSession(t *testing.T) *testSession {
+	appKey := make([]byte, 32)
+	rand.Read(appKey)
+	hmacKey := make([]byte, 32)
+	rand.Read(hmacKey)
+	return newSession(t, appKey, hmacKey)
+}
+
+// if appKey is nil, the default value is used
+// if hmac is nil, the object string is signed instead
+func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
+	return &testSession{
+		t:       t,
+		keySHS:  appKey,
+		keyHMAC: hmacKey,
+	}
+}
+
 // returns the created go-sbot, the pubkey of the jsbot, a wait and a cleanup function
-func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option) (*sbot.Sbot, *ssb.FeedRef, <-chan bool, <-chan error, func()) {
-	r := require.New(t)
+func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
+	r := require.New(ts.t)
 	ctx := context.Background()
 
-	dir := filepath.Join("testrun", t.Name())
+	dir := filepath.Join("testrun", ts.t.Name())
+	os.RemoveAll(dir)
 
 	// Choose you logger!
 	// use the "logtest" line if you want to log through calls to `t.Log`
@@ -59,7 +96,7 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		// TODO: multiwriter
 		info = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	} else {
-		info, _ = logtest.KitLogger("go", t)
+		info, _ = logtest.KitLogger("go", ts.t)
 	}
 	// timestamps!
 	info = log.With(info, "ts", log.TimestampFormat(time.Now, "3:04:05.000"))
@@ -75,56 +112,65 @@ func initInterop(t *testing.T, jsbefore, jsafter string, sbotOpts ...sbot.Option
 		}),
 	}, sbotOpts...)
 
+	if ts.keySHS != nil {
+		sbotOpts = append(sbotOpts, sbot.WithAppKey(ts.keySHS))
+	}
+	if ts.keyHMAC != nil {
+		sbotOpts = append(sbotOpts, sbot.WithHMACSigning(ts.keyHMAC))
+	}
+
 	sbot, err := sbot.New(sbotOpts...)
 	r.NoError(err, "failed to init test go-sbot")
-	t.Logf("go-sbot: %s", sbot.KeyPair.Id.Ref())
+	ts.t.Logf("go-sbot: %s", sbot.KeyPair.Id.Ref())
 
+	var done = make(chan struct{})
 	var errc = make(chan error, 1)
 	go func() {
 		err := sbot.Node.Serve(ctx)
 		if err != nil {
 			errc <- errors.Wrap(err, "node serve exited")
 		}
+		close(done)
 		close(errc)
 	}()
+	ts.doneGo = done
+	ts.backgroundErrs = append(ts.backgroundErrs, errc)
+	ts.gobot = sbot
 
-	alice, done, nodeErrc := startJSBot(t,
-		jsbefore,
-		jsafter,
-		sbot.KeyPair.Id.Ref(),
-		netwrap.GetAddr(sbot.Node.GetListenAddr(), "tcp").String())
-
-	return sbot, alice, done, mergeErrorChans(nodeErrc, errc), func() {
-		<-done
-		if !t.Failed() {
-			r.NoError(os.RemoveAll(dir), "error removing test directory")
-		}
-	}
+	// TODO: make muxrpc client and connect to whoami for _ready_ ?
+	return
 }
 
-// returns the jsbots pubkey, a wait func and a done channel
-func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.FeedRef, <-chan bool, <-chan error) {
-	r := require.New(t)
+// returns the jsbots pubkey
+func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
+	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot.js")
 	if testing.Verbose() {
 		cmd.Stderr = os.Stderr
 	} else {
-		cmd.Stderr = logtest.Logger("js", t)
+		cmd.Stderr = logtest.Logger("js", ts.t)
 	}
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
-	cmd.Env = []string{
-		"TEST_NAME=" + t.Name(),
-		"TEST_BOB=" + goRef,
-		"TEST_GOADDR=" + goAddr,
-		"TEST_BEFORE=" + writeFile(t, jsbefore),
-		"TEST_AFTER=" + writeFile(t, jsafter),
+	env := []string{
+		"TEST_NAME=" + ts.t.Name(),
+		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
+		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Node.GetListenAddr(), "tcp").String(),
+		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
+		"TEST_AFTER=" + writeFile(ts.t, jsafter),
+	}
+	if ts.keySHS != nil {
+		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
 	}
 
+	if ts.keyHMAC != nil {
+		env = append(env, "TEST_HMACKEY="+base64.StdEncoding.EncodeToString(ts.keyHMAC))
+	}
+	cmd.Env = env
 	r.NoError(cmd.Start(), "failed to init test js-sbot")
 
-	var done = make(chan bool)
+	var done = make(chan struct{})
 	var errc = make(chan error, 1)
 	go func() {
 		err := cmd.Wait()
@@ -135,14 +181,40 @@ func startJSBot(t *testing.T, jsbefore, jsafter, goRef, goAddr string) (*ssb.Fee
 		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
 		close(errc)
 	}()
+	ts.doneJS = done
+	ts.backgroundErrs = append(ts.backgroundErrs, errc)
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
 	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
 
 	alice, err := ssb.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get alice key from JS process")
-	t.Logf("JS alice: %s", alice.Ref())
-	return alice, done, errc
+	ts.t.Logf("JS alice: %s", alice.Ref())
+	return alice
+}
+
+func (ts *testSession) wait() {
+	closeErrc := make(chan error)
+
+	go func() {
+		tick := time.NewTicker(2 * time.Minute) // would be nice to get -test.timeout for this
+		select {
+		case <-ts.doneJS:
+
+		case <-ts.doneGo:
+
+		case <-tick.C:
+
+		}
+
+		ts.gobot.Shutdown()
+		closeErrc <- ts.gobot.Close()
+		close(closeErrc)
+	}()
+
+	for err := range mergeErrorChans(append(ts.backgroundErrs, closeErrc)...) {
+		require.NoError(ts.t, err)
+	}
 }
 
 // utils

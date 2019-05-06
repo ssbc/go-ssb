@@ -20,6 +20,17 @@ const testAddr = process.env['TEST_GOADDR']
 const scriptBefore = readFileSync(process.env['TEST_BEFORE']).toString()
 const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
 
+let testSHSappKey = bufFromEnv('TEST_APPKEY')
+let testHMACkey = bufFromEnv('TEST_HMACKEY')
+
+function bufFromEnv(evname) {
+  const has = process.env[evname]
+  if (has) {
+    return Buffer.from(has, "base64")
+  }
+  return false
+}
+
 tape.createStream().pipe(process.stderr);
 tape(testName, function (t) {
   t.timeoutAfter(30000) // doesn't exit the process
@@ -43,11 +54,22 @@ tape(testName, function (t) {
     clearTimeout(tapeTimeout)
     t.end()
   }
-
-  const sbot = createSbot({
+  let opts = {
     temp: testName,
     keys: generate(),
-  })
+  }
+
+  if (testSHSappKey !== false) {
+    opts.caps = opts.caps ? opts.caps : {}
+    opts.caps.shs = testSHSappKey
+  }
+
+  if (testHMACkey !== false) {
+    opts.caps = opts.caps ? opts.caps : {}
+    opts.caps.sign = testHMACkey
+  }
+
+  const sbot = createSbot(opts)
   const alice = sbot.whoami()
 
   t.comment("sbot spawned, running before")
