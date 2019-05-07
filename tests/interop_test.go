@@ -156,7 +156,7 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 	env := []string{
 		"TEST_NAME=" + ts.t.Name(),
 		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
-		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Node.GetListenAddr(), "tcp").String(),
+		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Network.GetListenAddr(), "tcp").String(),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
 	}

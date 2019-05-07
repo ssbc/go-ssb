@@ -69,7 +69,7 @@ func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.Feed
 	}
 	for _, r := range lst {
 		err := h.fetchFeed(ctx, r, e)
-		if muxrpc.IsSinkClosed(err) {
+		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
 			return err
 		} else if err != nil {
 			// assuming forked feed for instance

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
-	"net"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
@@ -18,7 +18,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/network"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
@@ -28,12 +27,13 @@ import (
 
 var (
 	// flags
-	flagEnAdv   bool
-	flagPromisc bool
-	listenAddr  string
-	debugAddr   string
-	repoDir     string
-	dbgLogDir   string
+	flagEnAdv    bool
+	flagEnDiscov bool
+	flagPromisc  bool
+	listenAddr   string
+	debugAddr    string
+	repoDir      string
+	dbgLogDir    string
 
 	// helper
 	log        logging.Interface
@@ -53,20 +53,17 @@ func checkAndLog(err error) {
 }
 
 func init() {
-	logging.SetupLogging(nil)
-	log = logging.Logger("sbot")
-
 	u, err := user.Current()
 	checkFatal(err)
-	
+
 	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
 	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
 	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", network.DefaultPort), "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
-	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
-
+	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
+	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
 	flag.Parse()
 
 	if dbgLogDir != "" {
@@ -107,6 +104,8 @@ func main() {
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr),
+		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
+		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			if dbgLogDir == "" {
 				return conn, nil
@@ -126,7 +125,7 @@ func main() {
 			)
 
 			return debug.WrapDump(muxrpcDumpDir, conn)
-		}))
+		}),
 	}
 
 	if hmacSec != "" {
@@ -136,7 +135,7 @@ func main() {
 	}
 
 	sbot, err := mksbot.New(opts...)
-		mksbot.EnableAdvertismentBroadcasts(flagEnAdv))
+
 	checkFatal(err)
 
 	c := make(chan os.Signal)

@@ -140,56 +140,40 @@ func (g *handler) check(err error) {
 }
 
 func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// g.Info.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	if req.Type == "" {
 		req.Type = "async"
 	}
 
-	var closed bool
-	checkAndClose := func(err error) {
+	closeIfErr := func(err error) {
 		g.check(err)
 		if err != nil {
-			closed = true
 			closeErr := req.Stream.CloseWithError(err)
 			g.check(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
 		}
 	}
 
-	defer func() {
-		if !closed {
-			g.check(errors.Wrapf(req.Stream.Close(), "gossip: error closing call: %s", req.Method))
-		}
-	}()
-
 	switch req.Method.String() {
 
 	case "createHistoryStream":
 		if req.Type != "source" {
-			checkAndClose(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
+			closeIfErr(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
 			return
 		}
 		if err := g.pourFeed(ctx, req); err != nil {
-			checkAndClose(errors.Wrap(err, "createHistoryStream failed"))
+			closeIfErr(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
-		return
 
 	case "gossip.ping":
-		if err := g.ping(ctx, req); err != nil {
-			checkAndClose(errors.Wrap(err, "gossip.ping failed."))
+		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
+		if err != nil {
+			closeIfErr(errors.Wrapf(err, "pour failed to pong"))
 			return
 		}
+		// just leave this stream open.
+		// some versions of ssb-gossip don't like if the stream is closed without an error
 
 	default:
-		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
+		closeIfErr(errors.Errorf("unknown command: %s", req.Method))
 	}
-}
-
-func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
-	err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
-	if err != nil {
-		return errors.Wrapf(err, "pour failed to pong")
-	}
-	// just leave it open..
-	return nil
 }
