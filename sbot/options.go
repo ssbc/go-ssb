@@ -49,7 +49,7 @@ type Sbot struct {
 	KeyPair      *ssb.KeyPair
 	PublishLog   margaret.Log
 	GraphBuilder graph.Builder
-	Network      network.Interface
+	Network      ssb.Network
 	// AboutStore   indexes.AboutStore
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
