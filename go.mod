@@ -20,11 +20,12 @@ require (
 	github.com/prometheus/procfs v0.0.0-20190507043628-bc6930f2d510 // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
+	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	go.cryptoscope.co/librarian v0.1.2
 	go.cryptoscope.co/luigi v0.3.2
 	go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
-	go.cryptoscope.co/muxrpc v1.4.0
+	go.cryptoscope.co/muxrpc v1.4.1-0.20190507165850-51dd9c9b9c3a
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.3
 	golang.org/x/crypto v0.0.0-20190506204251-e1dfcc566284

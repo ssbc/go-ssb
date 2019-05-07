@@ -31,9 +31,8 @@ type Request struct {
 	// in is the sink that incoming packets are passed to
 	in luigi.Sink
 
-	// pkt is the packet that initiated the connection.
-	// Allows quick access to data like request ID.
-	pkt *codec.Packet
+	// same as packet.Req - the numerical identifier for the stream
+	id int32
 
 	// tipe is a value that has the type of data we expect to receive.
 	// This is needed for unmarshaling JSON.
