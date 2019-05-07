@@ -13,8 +13,15 @@ type Node interface {
 // edge is given from -> to, otherwise the edge is semantically
 // unordered.
 type Edge interface {
+	// From returns the from node of the edge.
 	From() Node
+
+	// To returns the to node of the edge.
 	To() Node
+
+	// ReversedEdge returns an edge that has
+	// the end points of the receiver swapped.
+	ReversedEdge() Edge
 }
 
 // WeightedEdge is a weighted graph edge. In directed graphs, the direction
@@ -237,10 +244,11 @@ func Copy(dst Builder, src Graph) {
 	nodes.Reset()
 	for nodes.Next() {
 		u := nodes.Node()
-		to := src.From(u.ID())
+		uid := u.ID()
+		to := src.From(uid)
 		for to.Next() {
 			v := to.Node()
-			dst.SetEdge(dst.NewEdge(u, v))
+			dst.SetEdge(src.Edge(uid, v.ID()))
 		}
 	}
 }
@@ -264,10 +272,11 @@ func CopyWeighted(dst WeightedBuilder, src Weighted) {
 	nodes.Reset()
 	for nodes.Next() {
 		u := nodes.Node()
-		to := src.From(u.ID())
+		uid := u.ID()
+		to := src.From(uid)
 		for to.Next() {
 			v := to.Node()
-			dst.SetWeightedEdge(dst.NewWeightedEdge(u, v, src.WeightedEdge(u.ID(), v.ID()).Weight()))
+			dst.SetWeightedEdge(src.WeightedEdge(uid, v.ID()))
 		}
 	}
 }
