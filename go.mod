@@ -1,7 +1,6 @@
 module go.cryptoscope.co/ssb
 
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/beorn7/perks v1.0.0 // indirect
@@ -9,9 +8,7 @@ require (
 	github.com/cryptix/go v1.3.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v1.5.4
-	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/go-kit/kit v0.8.0
-	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
 	github.com/kylelemons/godebug v1.1.0
@@ -21,19 +18,16 @@ require (
 	github.com/prometheus/common v0.3.0 // indirect
 	github.com/prometheus/procfs v0.0.0-20190507043628-bc6930f2d510 // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
-	github.com/shurcooL/go v0.0.0-20190330031554-6713ea532688 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.3.0
-	go.cryptoscope.co/librarian v0.1.1
+	go.cryptoscope.co/librarian v0.1.2
 	go.cryptoscope.co/luigi v0.3.2
-	go.cryptoscope.co/margaret v0.0.9-0.20190410085406-3878e7f3905d
+	go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
 	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.3
 	golang.org/x/crypto v0.0.0-20190506204251-e1dfcc566284
 	golang.org/x/exp v0.0.0-20190429183610-475c5042d3f1 // indirect
-	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c // indirect
-	golang.org/x/sys v0.0.0-20190507053917-2953c62de483 // indirect
 	golang.org/x/text v0.3.2
 	gonum.org/v1/gonum v0.0.0-20190506115330-fb5cd163d924
 	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect

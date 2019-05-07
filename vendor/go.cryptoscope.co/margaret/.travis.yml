@@ -2,10 +2,7 @@ language: go
 
 go:
   - "1.x"
-  # disabled because we rely on gomod to give us a
-  # version of badger before they broke the API
-  #- "1.9.x"
-  #- "1.10.x"
+  - "1.11.x"
   - master
 
 env:
