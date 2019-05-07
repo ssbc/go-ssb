@@ -19,25 +19,32 @@ along with go-muxrpc.  If not, see <http://www.gnu.org/licenses/>.
 var MRPC = require('muxrpc')
 var pull = require('pull-stream')
 var toPull = require('stream-to-pull-stream')
+var pushable = require('pull-pushable')
 
 var api = {
   finalCall: 'async',
   version: 'sync',
   hello: 'async',
-  callme: {
+  callme: { // start calling back
     'async': 'async',
     'source': 'async',
+    'magic': 'async'
   },
   object: 'async',
-  stuff: 'source'
+  stuff: 'source',
+  magic: 'duplex'
 }
 
 var server = MRPC(api, api)({
   finalCall: function(delay, cb) {
     setTimeout(() => {
+      cb(null, "ty")
+
       server.close()
-    },delay)
-    cb(null, "ty")
+      setTimeout(() => {
+        process.exit(0)
+      },1000)
+    }, delay)
   },
   version: function(some, args, i) {
     console.warn(arguments)
@@ -66,6 +73,32 @@ var server = MRPC(api, api)({
         console.error('callme:async:ok')
         cb(err, "call done")
       })
+    },
+    'magic': function(cb) {
+      console.error('callme:magic:starting')
+      var p = pushable()
+      var i  = 0
+      setInterval(() => {
+        p.push(i)
+        i++
+        // if (i > 10) {
+        //   p.end()
+        // }
+      }, 150)
+      
+      pull(
+        p,
+        server.magic(function (err) {
+          console.error('duplex cb err:', err)
+          cb(err, "yey")
+        }),
+        pull.drain(function (value) {
+          console.error("node got:", value)
+          if (value && value.RXJS && value.RXJS === 9) {
+            p.end()
+          }
+        })
+      )
     }
   },
   object: function (cb) {
@@ -75,6 +108,28 @@ var server = MRPC(api, api)({
   stuff: function () {
     console.error('stuff called')
     return pull.values([{ "a": 1 }, { "a": 2 }, { "a": 3 }, { "a": 4 }])
+  },
+  magic: function () {
+
+    // normally, we'd use pull.values and pull.collect
+    // however, pull.values sends 'end' onto the stream, which closes the muxrpc stream immediately
+    // ...and we need the stream to stay open for the drain to collect
+    var p = pushable()
+    var i  = 0
+    setInterval(() => {
+      p.push(i)
+      i++
+    },150)
+    return {
+      source: p,
+      sink: pull.drain(function(value) {
+        if (value == 'e') {
+          // server.close()
+          // process.exit(1)
+          p.end()
+        }
+      })
+    }
   }
 })
 

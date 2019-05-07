@@ -18,13 +18,13 @@ along with go-muxrpc.  If not, see <http://www.gnu.org/licenses/>.
 package debug
 
 import (
-	"fmt"
+	"bytes"
 	"io"
 	"net"
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc/codec"
@@ -78,7 +78,12 @@ func (lw *logWriter) work() (func(), chan error) {
 
 				return
 			}
-			lw.l.Log("pkt", fmt.Sprintf("%+v", pkt))
+			if pkt.Flag.Get(codec.FlagJSON) {
+
+				lw.l.Log("req", pkt.Req, "flag", pkt.Flag, "body", bytes.Replace(pkt.Body, []byte(`"`), []byte("'"), -1))
+			} else {
+				lw.l.Log("req", pkt.Req, "flag", pkt.Flag, "body", pkt.Body)
+			}
 		}
 	}()
 

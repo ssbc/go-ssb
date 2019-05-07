@@ -5,7 +5,8 @@ import (
 	"sync"
 )
 
-// withCloseCtx returns a cancellable context where ctx.Err() is luigi.EOS instead of "context cancelled"
+// withError returns a cancellable context where ctx.Err() is the passed err instead of "context cancelled"
+// TODO: put this somewhere nicer
 func withError(ctx context.Context, err error) (context.Context, context.CancelFunc) {
 	ch := make(chan struct{})
 	next := &closeCtx{

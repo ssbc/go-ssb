@@ -8,5 +8,5 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.3.0
-	go.cryptoscope.co/luigi v0.3.1
+	go.cryptoscope.co/luigi v0.3.2
 )
