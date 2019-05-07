@@ -126,7 +126,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	var done = make(chan struct{})
 	var errc = make(chan error, 1)
 	go func() {
-		err := sbot.Node.Serve(ctx)
+		err := sbot.Network.Serve(ctx)
 		if err != nil {
 			errc <- errors.Wrap(err, "node serve exited")
 		}

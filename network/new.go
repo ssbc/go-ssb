@@ -1,9 +1,8 @@
-package ssb
+package network
 
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"strings"
 	"time"
@@ -15,12 +14,20 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
 )
 
+// DefaultPort is the default listening port for ScuttleButt.
+const DefaultPort = 8008
+
 type Options struct {
-	Dialer       netwrap.Dialer
-	ListenAddr   net.Addr
-	KeyPair      *KeyPair
+	Dialer     netwrap.Dialer
+	ListenAddr net.Addr
+
+	AdvertsSend      bool
+	AdvertsConnectTo bool
+
+	KeyPair      *ssb.KeyPair
 	AppKey       []byte
 	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
 	Logger       log.Logger
@@ -32,26 +39,18 @@ type Options struct {
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 }
 
-type Node interface {
-	Connect(ctx context.Context, addr net.Addr) error
-	Serve(context.Context, ...muxrpc.HandlerWrapper) error
-	GetListenAddr() net.Addr
-
-	GetConnTracker() ConnTracker
-
-	io.Closer
-}
-
 type node struct {
 	opts Options
 
-	dialer       netwrap.Dialer
-	l            net.Listener
-	secretServer *secretstream.Server
-	secretClient *secretstream.Client
-	connTracker  ConnTracker
-	log          log.Logger
-	connWrappers []netwrap.ConnWrapper
+	dialer        netwrap.Dialer
+	l             net.Listener
+	localDiscovRx *Discoverer
+	localDiscovTx *Advertiser
+	secretServer  *secretstream.Server
+	secretClient  *secretstream.Client
+	connTracker   ssb.ConnTracker
+	log           log.Logger
+	connWrappers  []netwrap.ConnWrapper
 
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 	evtCtr     *prometheus.Counter
@@ -59,7 +58,7 @@ type node struct {
 	latency    *prometheus.Summary
 }
 
-func NewNode(opts Options) (Node, error) {
+func New(opts Options) (ssb.Network, error) {
 	n := &node{
 		opts:        opts,
 		connTracker: NewConnTracker(),
@@ -88,6 +87,20 @@ func NewNode(opts Options) (Node, error) {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
 
+	if n.opts.AdvertsSend {
+		n.localDiscovTx, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "error creating Advertiser")
+		}
+	}
+
+	if n.opts.AdvertsConnectTo {
+		n.localDiscovRx, err = NewDiscoverer(opts.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "error creating Advertiser")
+		}
+	}
+
 	n.connWrappers = opts.ConnWrappers
 
 	n.edpWrapper = opts.EndpointWrapper
@@ -104,17 +117,6 @@ func NewNode(opts Options) (Node, error) {
 	n.log = opts.Logger
 
 	return n, nil
-}
-
-var ErrShuttingDown = errors.Errorf("ssb: shutting down now") // this is fine
-
-type ErrOutOfReach struct {
-	Dist int
-	Max  int
-}
-
-func (e ErrOutOfReach) Error() string {
-	return fmt.Sprintf("ssb/graph: peer not in reach. d:%d, max:%d", e.Dist, e.Max)
 }
 
 func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
@@ -148,7 +150,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
-		if _, ok := errors.Cause(err).(*ErrOutOfReach); ok {
+		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
 			return // ignore silently
 		}
 		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
@@ -186,6 +188,29 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 }
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
+	if n.localDiscovTx != nil {
+		// should also be called when ctx canceled?
+		// or pass ctx to adv start?
+		n.localDiscovTx.Start()
+
+		defer n.localDiscovTx.Stop()
+	}
+
+	if n.localDiscovRx != nil {
+		ch, done := n.localDiscovRx.Notify()
+		defer done() // might trigger close of closed panic
+		go func() {
+			for a := range ch {
+				if n.connTracker.Active(a) {
+					n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
+					continue
+				}
+				err := n.Connect(ctx, a)
+				n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
+			}
+		}()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -248,7 +273,7 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	return conn, nil
 }
 
-func (n *node) GetConnTracker() ConnTracker {
+func (n *node) GetConnTracker() ssb.ConnTracker {
 	return n.connTracker
 }
 

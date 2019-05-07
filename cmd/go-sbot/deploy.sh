@@ -17,5 +17,5 @@ gzip go-sbot
 scp go-sbot.gz aufdie12:.
 # todo: restart
 scp go-sbot.gz vmbox:.
-# todo: restart
+ssh aufdie12 ./bin/restartGobot.sh
 rm go-sbot.gz

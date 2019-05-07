@@ -20,6 +20,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/network"
 )
 
 type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
@@ -27,11 +28,15 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 type Sbot struct {
 	info kitlog.Logger
 
+	// TODO: this thing is way to big right now
+	// because it's options and the resulting thing at once
+
 	rootCtx  context.Context
 	Shutdown context.CancelFunc
 	closers  multiCloser
 	idxDone  sync.WaitGroup
 
+	Network        ssb.Network
 	disableNetwork bool
 	dialer         netwrap.Dialer
 	listenAddr     net.Addr
@@ -39,18 +44,22 @@ type Sbot struct {
 	connWrappers   []netwrap.ConnWrapper
 	edpWrapper     MuxrpcEndpointWrapper
 
+	enableAdverts   bool
+	enableDiscovery bool
+
 	repoPath         string
+	KeyPair          *ssb.KeyPair
 	RootLog          margaret.Log
 	liveIndexUpdates bool
 	UserFeeds        multilog.MultiLog
 	MessageTypes     multilog.MultiLog
 	PrivateLogs      multilog.MultiLog
-	KeyPair          *ssb.KeyPair
-	PublishLog       margaret.Log
-	signHMACsecret   []byte
-	GraphBuilder     graph.Builder
-	Node             ssb.Node
 	// AboutStore   indexes.AboutStore
+	PublishLog     margaret.Log
+	signHMACsecret []byte
+
+	GraphBuilder graph.Builder
+
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
 
@@ -65,6 +74,36 @@ type Option func(*Sbot) error
 func WithRepoPath(path string) Option {
 	return func(s *Sbot) error {
 		s.repoPath = path
+		return nil
+	}
+}
+
+func DisableLiveIndexMode() Option {
+	return func(s *Sbot) error {
+		s.liveIndexUpdates = false
+		return nil
+	}
+}
+
+func DisableNetworkNode() Option {
+	return func(s *Sbot) error {
+		s.disableNetwork = true
+		return nil
+	}
+}
+
+// EnableAdvertismentBroadcasts controls local peer discovery through sending UDP broadcasts
+func EnableAdvertismentBroadcasts(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableAdverts = do
+		return nil
+	}
+}
+
+// EnableAdvertismentBroadcasts controls local peer discovery through listening for and connecting to UDP broadcasts
+func EnableAdvertismentDialing(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableDiscovery = do
 		return nil
 	}
 }
@@ -149,20 +188,6 @@ func WithHMACSigning(key []byte) Option {
 	}
 }
 
-func DisableNetworkNode() Option {
-	return func(s *Sbot) error {
-		s.disableNetwork = true
-		return nil
-	}
-}
-
-func DisableLiveIndexMode() Option {
-	return func(s *Sbot) error {
-		s.liveIndexUpdates = false
-		return nil
-	}
-}
-
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
 	s.liveIndexUpdates = true
@@ -196,7 +221,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	if s.listenAddr == nil {
-		s.listenAddr = &net.TCPAddr{Port: 8008}
+		s.listenAddr = &net.TCPAddr{Port: network.DefaultPort}
 	}
 
 	if s.info == nil {

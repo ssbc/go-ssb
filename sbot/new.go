@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -210,14 +211,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return pmgr.MakeHandler(conn)
 	}
 
-	opts := ssb.Options{
-		Logger:       s.info,
-		Dialer:       s.dialer,
-		ListenAddr:   s.listenAddr,
-		KeyPair:      s.KeyPair,
-		AppKey:       s.appKey,
-		MakeHandler:  mkHandler,
-		ConnWrappers: s.connWrappers,
+	opts := network.Options{
+		Logger:           s.info,
+		Dialer:           s.dialer,
+		ListenAddr:       s.listenAddr,
+		AdvertsSend:      s.enableAdverts,
+		AdvertsConnectTo: s.enableDiscovery,
+		KeyPair:          s.KeyPair,
+		AppKey:           s.appKey[:],
+		MakeHandler:      mkHandler,
+		ConnWrappers:     s.connWrappers,
 
 		EventCounter:    s.eventCounter,
 		SystemGauge:     s.systemGauge,
@@ -225,12 +228,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		Latency:         s.latency,
 	}
 
-	node, err := ssb.NewNode(opts)
+	node, err := network.New(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create node")
+		return nil, errors.Wrap(err, "failed to create network node")
 	}
-	s.Node = node
-	s.closers.addCloser(s.Node)
+	s.Network = node
+	s.closers.addCloser(s.Network)
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))

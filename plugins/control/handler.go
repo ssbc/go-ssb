@@ -3,22 +3,23 @@ package control
 import (
 	"context"
 	"net"
-	"strings"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/multiserver"
 )
 
 type handler struct {
-	node ssb.Node
+	node ssb.Network
 	info logging.Interface
 }
 
-func New(i logging.Interface, n ssb.Node) muxrpc.Handler {
+func New(i logging.Interface, n ssb.Network) muxrpc.Handler {
 	return &handler{
 		info: i,
 		node: n,
@@ -82,27 +83,17 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 }
 
 func (h *handler) connect(ctx context.Context, dest string) error {
-	splitted := strings.Split(dest, ":")
-	if n := len(splitted); n != 3 {
-		return errors.Errorf("gossip.connect: bad request. expected 3 parts, got %d", n)
-	}
-
-	addr, err := net.ResolveTCPAddr("tcp", strings.Join(splitted[:2], ":"))
+	msaddr, err := multiserver.ParseNetAddress([]byte(dest))
 	if err != nil {
-		return errors.Wrapf(err, "gossip.connect call: error resolving network address %q", splitted[:2])
+		return errors.Wrapf(err, "gossip.connect call: failed to parse input: %s", dest)
 	}
 
-	ref, err := ssb.ParseRef(splitted[2])
-	if err != nil {
-		return errors.Wrapf(err, "gossip.connect call: failed to parse FeedRef %s", splitted[2])
+	addr := &net.TCPAddr{
+		IP:   msaddr.Host,
+		Port: msaddr.Port,
 	}
 
-	remoteFeed, ok := ref.(*ssb.FeedRef)
-	if !ok {
-		return errors.Errorf("gossip.connect: expected FeedRef got %T", ref)
-	}
-
-	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: remoteFeed.ID})
+	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: msaddr.Ref.ID})
 	h.info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
 	err = h.node.Connect(ctx, wrappedAddr)
 	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", addr)

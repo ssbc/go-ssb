@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"net"
+	"fmt"
 	"os"
 	"os/signal"
 	"os/user"
@@ -17,6 +18,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/network"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -25,6 +28,7 @@ import (
 
 var (
 	// flags
+	flagEnAdv   bool
 	flagPromisc bool
 	listenAddr  string
 	debugAddr   string
@@ -54,15 +58,32 @@ func init() {
 
 	u, err := user.Current()
 	checkFatal(err)
-
+	
 	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
 	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
-	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", network.DefaultPort), "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
+	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
 
 	flag.Parse()
+
+	if dbgLogDir != "" {
+		logDir := filepath.Join(repoDir, dbgLogDir)
+		os.MkdirAll(logDir, 0700) // nearly everything is a log here so..
+		logFileName := fmt.Sprintf("%s-%s.log",
+			filepath.Base(os.Args[0]),
+			time.Now().Format("2006-01-02_15-04"))
+		logFile, err := os.Create(filepath.Join(logDir, logFileName))
+		if err != nil {
+			panic(err) // logging not ready yet...
+		}
+		logging.SetupLogging(logFile)
+	} else {
+		logging.SetupLogging(os.Stderr)
+	}
+	log = logging.Logger("sbot")
 }
 
 func main() {
@@ -105,7 +126,7 @@ func main() {
 			)
 
 			return debug.WrapDump(muxrpcDumpDir, conn)
-		}),
+		}))
 	}
 
 	if hmacSec != "" {
@@ -115,6 +136,7 @@ func main() {
 	}
 
 	sbot, err := mksbot.New(opts...)
+		mksbot.EnableAdvertismentBroadcasts(flagEnAdv))
 	checkFatal(err)
 
 	c := make(chan os.Signal)
@@ -181,7 +203,8 @@ func main() {
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
-		err = sbot.Node.Serve(ctx, HandlerWithLatency(muxrpcSummary))
+		// Note: This is where the serving starts ;)
+		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)

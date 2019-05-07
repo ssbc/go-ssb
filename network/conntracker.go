@@ -1,4 +1,4 @@
-package ssb
+package network
 
 import (
 	"log"
@@ -9,16 +9,17 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
 )
 
 type instrumentedConnTracker struct {
-	root ConnTracker
+	root ssb.ConnTracker
 
 	count     metrics.Gauge
 	durration metrics.Histogram
 }
 
-func NewInstrumentedConnTracker(r ConnTracker, ct metrics.Gauge, h metrics.Histogram) ConnTracker {
+func NewInstrumentedConnTracker(r ssb.ConnTracker, ct metrics.Gauge, h metrics.Histogram) ssb.ConnTracker {
 	i := instrumentedConnTracker{root: r, count: ct, durration: h}
 	return &i
 }
@@ -31,6 +32,10 @@ func (ict instrumentedConnTracker) Count() uint {
 
 func (ict instrumentedConnTracker) CloseAll() {
 	ict.root.CloseAll()
+}
+
+func (ict instrumentedConnTracker) Active(a net.Addr) bool {
+	return ict.root.Active(a)
 }
 
 func (ict instrumentedConnTracker) OnAccept(conn net.Conn) bool {
@@ -50,19 +55,13 @@ func (ict instrumentedConnTracker) OnClose(conn net.Conn) time.Duration {
 	return durr
 }
 
-type ConnTracker interface {
-	OnAccept(conn net.Conn) bool
-	OnClose(conn net.Conn) time.Duration
-	Count() uint
-	CloseAll()
-}
 type connEntry struct {
 	c       net.Conn
 	started time.Time
 }
 type connLookupMap map[[32]byte]connEntry
 
-func NewConnTracker() ConnTracker {
+func NewConnTracker() ssb.ConnTracker {
 	return &connTracker{active: make(connLookupMap)}
 }
 
@@ -95,6 +94,14 @@ func toActive(a net.Addr) [32]byte {
 		copy(pk[:], shs.PubKey)
 	}
 	return pk
+}
+
+func (ct *connTracker) Active(a net.Addr) bool {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	k := toActive(a)
+	_, ok := ct.active[k]
+	return ok
 }
 
 func (ct *connTracker) OnAccept(conn net.Conn) bool {
