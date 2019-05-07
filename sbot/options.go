@@ -27,10 +27,12 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 type Sbot struct {
 	info kitlog.Logger
 
-	repoPath      string
-	dialer        netwrap.Dialer
-	listenAddr    net.Addr
-	enableAdverts bool
+	repoPath   string
+	dialer     netwrap.Dialer
+	listenAddr net.Addr
+
+	enableAdverts   bool
+	enableDiscovery bool
 
 	rootCtx        context.Context
 	shutdownCancel context.CancelFunc
@@ -47,7 +49,7 @@ type Sbot struct {
 	KeyPair      *ssb.KeyPair
 	PublishLog   margaret.Log
 	GraphBuilder graph.Builder
-	Network      ssb.Network
+	Network      network.Interface
 	// AboutStore   indexes.AboutStore
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
@@ -136,9 +138,18 @@ func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
 	}
 }
 
+// EnableAdvertismentBroadcasts controls local peer discovery through sending UDP broadcasts
 func EnableAdvertismentBroadcasts(do bool) Option {
 	return func(s *Sbot) error {
 		s.enableAdverts = do
+		return nil
+	}
+}
+
+// EnableAdvertismentBroadcasts controls local peer discovery through listening for and connecting to UDP broadcasts
+func EnableAdvertismentDialing(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableDiscovery = do
 		return nil
 	}
 }

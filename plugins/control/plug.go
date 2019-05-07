@@ -4,13 +4,14 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/network"
 )
 
 type connectPlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, n ssb.Network) ssb.Plugin {
+func NewPlug(i logging.Interface, n network.Interface) ssb.Plugin {
 	return &connectPlug{h: New(i, n)}
 }
 

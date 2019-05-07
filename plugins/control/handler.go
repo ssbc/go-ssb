@@ -10,16 +10,16 @@ import (
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/multiserver"
+	"go.cryptoscope.co/ssb/network"
 )
 
 type handler struct {
-	node ssb.Network
+	node network.Interface
 	info logging.Interface
 }
 
-func New(i logging.Interface, n ssb.Network) muxrpc.Handler {
+func New(i logging.Interface, n network.Interface) muxrpc.Handler {
 	return &handler{
 		info: i,
 		node: n,

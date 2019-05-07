@@ -1,4 +1,4 @@
-package ssb
+package network
 
 import (
 	"log"

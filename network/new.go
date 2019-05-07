@@ -48,7 +48,7 @@ type node struct {
 	localDiscovTx *Advertiser
 	secretServer  *secretstream.Server
 	secretClient  *secretstream.Client
-	connTracker   ssb.ConnTracker
+	connTracker   ConnTracker
 	log           log.Logger
 	connWrappers  []netwrap.ConnWrapper
 
@@ -58,10 +58,10 @@ type node struct {
 	latency    *prometheus.Summary
 }
 
-func New(opts Options) (ssb.Network, error) {
+func New(opts Options) (Interface, error) {
 	n := &node{
 		opts:        opts,
-		connTracker: ssb.NewConnTracker(),
+		connTracker: NewConnTracker(),
 	}
 
 	var err error
@@ -112,7 +112,7 @@ func New(opts Options) (ssb.Network, error) {
 		n.sysGauge.With("part", "conns").Set(0)
 		n.sysGauge.With("part", "fetches").Set(0)
 
-		n.connTracker = ssb.NewInstrumentedConnTracker(n.connTracker, n.sysGauge, n.latency)
+		n.connTracker = NewInstrumentedConnTracker(n.connTracker, n.sysGauge, n.latency)
 	}
 	n.log = opts.Logger
 
@@ -273,7 +273,7 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	return conn, nil
 }
 
-func (n *node) GetConnTracker() ssb.ConnTracker {
+func (n *node) GetConnTracker() ConnTracker {
 	return n.connTracker
 }
 
