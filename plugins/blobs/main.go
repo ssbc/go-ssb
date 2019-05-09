@@ -49,26 +49,26 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 		log: log,
 		bs:  bs,
 	})
-	rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{
-		log: log,
-		bs:  bs,
-	})
-	rootHdlr.Register(muxrpc.Method{"blobs", "list"}, listHandler{
-		log: log,
-		bs:  bs,
-	})
+	// rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{
+	// 	log: log,
+	// 	bs:  bs,
+	// })
+	// rootHdlr.Register(muxrpc.Method{"blobs", "list"}, listHandler{
+	// 	log: log,
+	// 	bs:  bs,
+	// })
 	rootHdlr.Register(muxrpc.Method{"blobs", "has"}, hasHandler{
 		log: log,
 		bs:  bs,
 	})
-	rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{
-		log: log,
-		bs:  bs,
-	})
-	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{
-		log: log,
-		wm:  wm,
-	})
+	// rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{
+	// 	log: log,
+	// 	bs:  bs,
+	// })
+	// rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{
+	// 	log: log,
+	// 	wm:  wm,
+	// })
 	rootHdlr.Register(muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
 		log:     log,
 		bs:      bs,
