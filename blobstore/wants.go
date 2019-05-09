@@ -213,6 +213,14 @@ func (proc *wantProc) init() {
 				return errors.Wrap(err, "wmanager broadcast error")
 			}
 			w := v.(want)
+
+			if err := proc.getBlob(ctx, w.Ref); err != nil {
+				proc.wmgr.info.Log("event", "blob fetch err", "ref", w.Ref.Ref(), "error", err.Error())
+			} else {
+				// TODO: unwant?!
+				return nil
+			}
+
 			proc.wmgr.info.Log("op", "sending want we now want", "want", w.Ref.Ref())
 			return proc.out.Pour(ctx, WantMsg{w})
 		}))
@@ -235,6 +243,25 @@ func (proc *wantProc) init() {
 	if err != nil {
 		proc.wmgr.info.Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
+}
+
+func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
+	src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
+	if err != nil {
+		return errors.Wrap(err, "blob create source failed")
+	}
+
+	r := muxrpc.NewSourceReader(src)
+	newBr, err := proc.bs.Put(r)
+	if err != nil {
+		return errors.Wrap(err, "blob blob data piping failed")
+	}
+
+	if newBr.Ref() != ref.Ref() {
+		// TODO: make this a type of error (forks)
+		return errors.Wrapf(err, "blob inconsitency - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
+	}
+	return nil
 }
 
 func (proc *wantProc) Close() error {
@@ -269,22 +296,8 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 				proc.wmgr.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
 				go func(ref *ssb.BlobRef) {
 					// cryptix: feel like we might need to wrap rootCtx in, too?
-					src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
-					if err != nil {
+					if err := proc.getBlob(ctx, ref); err != nil {
 						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
-						return
-					}
-
-					r := muxrpc.NewSourceReader(src)
-					newBr, err := proc.bs.Put(r)
-					if err != nil {
-						proc.wmgr.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
-						return
-					}
-
-					if newBr.Ref() != ref.Ref() {
-						proc.wmgr.info.Log("event", "blob fetch err", "actualRef", newBr.Ref(), "expectedRef", ref.Ref(), "error", "ref did not match expected ref")
-						return
 					}
 				}(w.Ref)
 			}
