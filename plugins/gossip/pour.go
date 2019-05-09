@@ -43,16 +43,13 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
-
 	// act accordingly
 	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
 	case margaret.BaseSeq:
-		if qry.Seq >= int64(v) { // more than we got
+		qry.Seq--               // our idx is 0 based
+		if qry.Seq > int64(v) { // more than we got
 			return errors.Wrap(req.Stream.Close(), "pour: failed to close")
-		}
-		if qry.Seq >= 1 {
-			qry.Seq-- // out internals are 0-indexed
 		}
 
 		if qry.Live && qry.Limit == 0 {
