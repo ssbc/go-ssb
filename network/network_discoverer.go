@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"sync"
@@ -72,10 +71,10 @@ func (d *Discoverer) work(rx net.PacketConn) {
 	for {
 		rx.SetReadDeadline(time.Now().Add(time.Second * 1))
 		buf := make([]byte, 128)
-		n, addr, err := rx.ReadFrom(buf)
+		n, _, err := rx.ReadFrom(buf)
 		if err != nil {
 			if !os.IsTimeout(err) {
-				log.Printf("rx adv err, breaking (%s)", err.Error())
+				// log.Printf("rx adv err, breaking (%s)", err.Error())
 				break
 			}
 			continue
@@ -85,7 +84,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 		// log.Printf("dbg adv raw: %q", string(buf))
 		na, err := multiserver.ParseNetAddress(buf)
 		if err != nil {
-			log.Println("rx adv err", err.Error())
+			// log.Println("rx adv err", err.Error())
 			// TODO: _could_ try to get key out if just ws://[::]~shs:... and dial pkt origin
 			continue
 		}
@@ -100,7 +99,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 		// 	continue
 		// }
 
-		log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
+		// log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
 
 		// TODO: check if adv.Host == addr ?
 		wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
