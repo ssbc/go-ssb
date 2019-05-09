@@ -131,3 +131,24 @@ func (ct *connTracker) OnClose(conn net.Conn) time.Duration {
 	delete(ct.active, k)
 	return time.Since(who.started)
 }
+
+// NewLastWinsTracker returns a conntracker that just kills the previous connection and let's the new one in.
+func NewLastWinsTracker() ssb.ConnTracker {
+	return &trackerLastWins{connTracker{active: make(connLookupMap)}}
+}
+
+type trackerLastWins struct {
+	connTracker
+}
+
+func (ct *trackerLastWins) OnAccept(conn net.Conn) bool {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	k := toActive(conn.RemoteAddr())
+	who, ok := ct.active[k]
+	if ok {
+		who.c.Close()
+		delete(ct.active, k)
+	}
+	return true
+}
