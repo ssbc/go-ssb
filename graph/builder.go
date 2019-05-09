@@ -66,7 +66,9 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 		var dmsg message.DeserializedMessage
 		err := json.Unmarshal(msg.Raw, &dmsg)
 		if err != nil {
-			return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
+			err = errors.Wrapf(err, "db/idx contacts: first json unmarshal failed (msg: %s)", msg.Key.Ref())
+			log.Log("msg", "skipped contact message", "reason", err)
+			return nil
 		}
 
 		var c ssb.Contact
@@ -75,7 +77,7 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 			if ssb.IsMessageUnusable(err) {
 				return nil
 			}
-			log.Log("msg", "skipped contact message", "reason", err)
+			log.Log("msg", "skipped contact message", "reason", err, "key", msg.Key.Ref())
 			return nil
 		}
 
