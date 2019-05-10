@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"time"
@@ -45,32 +46,21 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		g.hanlderDone()
 	}()
 
-	hasOwn, err := multilog.Has(g.UserFeeds, librarian.Addr(g.Id.ID))
-	if err != nil {
-		g.Info.Log("handleConnect", "multilog.Has(g.UserFeeds,myID)", "err", err)
+	remote := e.Remote()
+	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
+	if !ok {
+		return
+	}
+	remoteRef := &ssb.FeedRef{
+		Algo: "ed25519",
+		ID:   remoteAddr.PubKey,
+	}
+
+	if bytes.Equal(remoteRef.ID, g.Id.ID) {
 		return
 	}
 
-	if !hasOwn {
-		g.Info.Log("handleConnect", "oops - dont have my own feed. requesting")
-		if err := g.fetchFeed(ctx, g.Id, e); err != nil {
-			g.Info.Log("handleConnect", "my fetchFeed failed", "r", g.Id.Ref(), "err", err)
-			return
-		}
-		g.Info.Log("fetchFeed", "done self")
-	}
-
 	if g.promisc {
-		remote := e.(muxrpc.Server).Remote()
-		remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
-		if !ok {
-			return
-		}
-		remoteRef := &ssb.FeedRef{
-			Algo: "ed25519",
-			ID:   remoteAddr.PubKey,
-		}
-
 		hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
 		if err != nil {
 			g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
@@ -78,7 +68,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 
 		if !hasCallee {
-			g.Info.Log("handleConnect", "oops - dont have calling feed. requesting")
+			g.Info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
 			if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
 				g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", remoteRef.Ref(), "err", err)
 				return
@@ -140,56 +130,40 @@ func (g *handler) check(err error) {
 }
 
 func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// g.Info.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	if req.Type == "" {
 		req.Type = "async"
 	}
 
-	var closed bool
-	checkAndClose := func(err error) {
+	closeIfErr := func(err error) {
 		g.check(err)
 		if err != nil {
-			closed = true
 			closeErr := req.Stream.CloseWithError(err)
 			g.check(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
 		}
 	}
 
-	defer func() {
-		if !closed {
-			g.check(errors.Wrapf(req.Stream.Close(), "gossip: error closing call: %s", req.Method))
-		}
-	}()
-
 	switch req.Method.String() {
 
 	case "createHistoryStream":
 		if req.Type != "source" {
-			checkAndClose(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
+			closeIfErr(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
 			return
 		}
 		if err := g.pourFeed(ctx, req); err != nil {
-			checkAndClose(errors.Wrap(err, "createHistoryStream failed"))
+			closeIfErr(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
-		return
 
 	case "gossip.ping":
-		if err := g.ping(ctx, req); err != nil {
-			checkAndClose(errors.Wrap(err, "gossip.ping failed."))
+		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
+		if err != nil {
+			closeIfErr(errors.Wrapf(err, "pour failed to pong"))
 			return
 		}
+		// just leave this stream open.
+		// some versions of ssb-gossip don't like if the stream is closed without an error
 
 	default:
-		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
+		closeIfErr(errors.Errorf("unknown command: %s", req.Method))
 	}
-}
-
-func (g *handler) ping(ctx context.Context, req *muxrpc.Request) error {
-	err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
-	if err != nil {
-		return errors.Wrapf(err, "pour failed to pong")
-	}
-	// just leave it open..
-	return nil
 }

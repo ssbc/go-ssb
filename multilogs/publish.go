@@ -2,6 +2,7 @@ package multilogs
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 )
 
 type publishLog struct {
+	sync.Mutex
 	margaret.Log
 	rootLog margaret.Log
 	key     ssb.KeyPair
@@ -42,6 +44,8 @@ TODO: do the same for Query()? but how?
 */
 
 func (pl publishLog) Append(val interface{}) (margaret.Seq, error) {
+	pl.Lock()
+	defer pl.Unlock()
 
 	// set metadata
 	var newMsg message.LegacyMessage

@@ -40,7 +40,10 @@ type Interface interface {
 var _ Interface = (*Sbot)(nil)
 
 func (s *Sbot) Close() error {
-	s.Node.GetConnTracker().CloseAll()
+	// TODO: if already closed?
+	if s.Network != nil {
+		s.Network.GetConnTracker().CloseAll()
+	}
 	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
 
 	s.idxDone.Wait()

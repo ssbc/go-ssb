@@ -2,6 +2,8 @@ package graph
 
 import (
 	"fmt"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var hopsScenarios = []PeopleTestCase{
@@ -100,6 +102,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 			}
 
 			hopSet := bld.Hops(alice.key.Id, hops)
+			assert.Equal(state.t, len(tos), hopSet.Count(), "set count incorrect")
 			hopList, err := hopSet.List()
 			if err != nil {
 				return err
@@ -122,9 +125,10 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 				_, ok = hitMap[bobRef]
 				if !ok {
 					dumpMap(hitMap, state)
-					return fmt.Errorf("wanted peer not in hops list: %s (len: %d)", nick, len(hopList))
+					assert.True(state.t, ok, "wanted peer not in hops list: %s", nick)
+				} else {
+					hitMap[bobRef] = true
 				}
-				hitMap[bobRef] = true
 			}
 
 			var unwanted []string

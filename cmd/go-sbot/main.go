@@ -19,6 +19,7 @@ import (
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/message"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -113,6 +114,7 @@ func main() {
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
+		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			if dbgLogDir == "" {
 				return conn, nil
@@ -173,22 +175,35 @@ func main() {
 
 	var followCnt, msgCount uint
 	for _, author := range feeds {
-		subLog, err := uf.Get(author)
-		checkFatal(err)
-
-		currSeq, err := subLog.Seq().Value()
-		checkFatal(err)
-		msgCount += uint(currSeq.(margaret.BaseSeq))
-
 		authorRef := ssb.FeedRef{
 			Algo: "ed25519",
 			ID:   []byte(author),
 		}
+
+		subLog, err := uf.Get(author)
+		checkFatal(err)
+
+		userLogV, err := subLog.Seq().Value()
+		checkFatal(err)
+		userLogSeq := userLogV.(margaret.BaseSeq)
+		rlSeq, err := subLog.Get(userLogSeq)
+		checkFatal(err)
+		rv, err := sbot.RootLog.Get(rlSeq.(margaret.BaseSeq))
+		checkFatal(err)
+		msg := rv.(message.StoredMessage)
+
+		if msg.Sequence != userLogSeq+1 {
+			checkFatal(fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Sequence, userLogSeq))
+		}
+
+		msgCount += uint(msg.Sequence)
+
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
+
 		if len(feeds) < 20 {
 			h := gb.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", f.Count(), "hops", h.Count())
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Sequence, "follows", f.Count(), "hops", h.Count())
 		}
 		followCnt += uint(f.Count())
 	}

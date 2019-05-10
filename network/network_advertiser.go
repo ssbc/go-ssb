@@ -124,15 +124,21 @@ func (b *Advertiser) advertise() error {
 		}
 		broadcastConn, err := reuseport.Dial("udp", localUDP.String(), remoteUDP.String())
 		if err != nil {
-			return errors.Wrap(err, "adv dial failed")
+			// err = errors.Wrap(err, "adv dial failed")
+			// log.Println("debug,cont:", err)
+			continue
 		}
 		_, err = fmt.Fprint(broadcastConn, msg)
 		if err != nil {
-			return errors.Wrapf(err, "adv send of msg failed")
+			// err = errors.Wrapf(err, "adv send of msg failed")
+			// log.Println("debug,cont:", err)
+			continue
 		}
 		_ = broadcastConn.Close()
 		if err != nil {
-			return errors.Wrapf(err, "close of con failed")
+			// err = errors.Wrapf(err, "close of con failed")
+			// log.Println("debug,cont:", err)
+			continue
 		}
 		// log.Println("adv pkt sent:", msg)
 	}
@@ -149,7 +155,8 @@ func (b *Advertiser) Start() {
 			err := b.advertise()
 			if err != nil {
 				if !os.IsTimeout(err) {
-					log.Printf("tx adv err, breaking (%s)", err.Error())
+					// TODO debug leveled logging
+					// log.Printf("tx adv err (%s)", err.Error())
 				}
 			}
 		}

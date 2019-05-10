@@ -66,7 +66,9 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 		var dmsg message.DeserializedMessage
 		err := json.Unmarshal(msg.Raw, &dmsg)
 		if err != nil {
-			return errors.Wrap(err, "db/idx contacts: first json unmarshal failed")
+			err = errors.Wrapf(err, "db/idx contacts: first json unmarshal failed (msg: %s)", msg.Key.Ref())
+			log.Log("msg", "skipped contact message", "reason", err)
+			return nil
 		}
 
 		var c ssb.Contact
@@ -75,7 +77,7 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 			if ssb.IsMessageUnusable(err) {
 				return nil
 			}
-			log.Log("msg", "skipped contact message", "reason", err)
+			log.Log("msg", "skipped contact message", "reason", err, "key", msg.Key.Ref())
 			return nil
 		}
 
@@ -282,26 +284,29 @@ func (b *builder) recurseHops(walked *feedSet, from *ssb.FeedRef, depth int) err
 		return errors.Wrapf(err, "recurseHops(%d): from follow listing failed", depth)
 	}
 
-	lst, err := fromFollows.List()
+	followLst, err := fromFollows.List()
 	if err != nil {
 		return errors.Wrapf(err, "recurseHops(%d): invalid entry in feed set", depth)
 	}
-	for i, k := range lst {
-		err := walked.AddRef(k)
+
+	for i, followedByFrom := range followLst {
+		err := walked.AddRef(followedByFrom)
 		if err != nil {
 			return errors.Wrapf(err, "recurseHops(%d): add list entry(%d) failed", depth, i)
 		}
 
-		dstFollows, err := b.Follows(k)
+		dstFollows, err := b.Follows(followedByFrom)
 		if err != nil {
 			return errors.Wrapf(err, "recurseHops(%d): follows from entry(%d) failed", depth, i)
 		}
 
 		isF := dstFollows.Has(from)
-		// b.log.Log("checking", k.Ref(), "friend", isF, "len:", len(dstFollows.List()))
 		if isF { // found a friend, recurse
-			return b.recurseHops(walked, k, depth-1)
+			if err := b.recurseHops(walked, followedByFrom, depth-1); err != nil {
+				return err
+			}
 		}
+		// b.log.Log("depth", depth, "from", from.Ref()[1:5], "follows", followedByFrom.Ref()[1:5], "friend", isF, "cnt", dstFollows.Count())
 	}
 	return nil
 }

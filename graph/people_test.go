@@ -29,6 +29,7 @@ func (op PeopleOpNewPeer) Op(state *testState) error {
 	state.peers[op.name] = publisher
 	ref := publisher.key.Id.Ref()
 	state.refToName[ref] = op.name
+	state.t.Logf("creted %s as %s", op.name, ref)
 	return nil
 }
 
@@ -228,7 +229,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			if !a.NoError(err, "assertion #%d failed", i) {
 
 				err = g.RenderSVGToFile(fmt.Sprintf("%s-%d.svg", t.Name(), i))
-				r.NoError(err)
+				if err != nil {
+					t.Log("warning: failed to dump graph to SVG", err)
+				}
 			}
 		}
 

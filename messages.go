@@ -7,8 +7,10 @@ import (
 )
 
 type Contact struct {
-	Contact             *FeedRef
-	Following, Blocking bool
+	Type      string   `json:"type"`
+	Contact   *FeedRef `json:"contact"`
+	Following bool     `json:"following"`
+	Blocking  bool     `json:"blocking"`
 }
 
 func (c *Contact) UnmarshalJSON(b []byte) error {

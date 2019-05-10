@@ -62,7 +62,7 @@ type node struct {
 func New(opts Options) (ssb.Network, error) {
 	n := &node{
 		opts:        opts,
-		connTracker: NewConnTracker(),
+		connTracker: NewLastWinsTracker(),
 	}
 
 	var err error
@@ -203,7 +203,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 		go func() {
 			for a := range ch {
 				if n.connTracker.Active(a) {
-					n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
+					//n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
 					continue
 				}
 				err := n.Connect(ctx, a)

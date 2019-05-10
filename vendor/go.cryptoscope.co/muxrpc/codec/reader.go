@@ -55,7 +55,7 @@ func (r *Reader) ReadPacket() (*Packet, error) {
 
 	_, err = io.ReadFull(r.r, p.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "pkt-codec: read body failed. Packet: %+v", p)
+		return nil, errors.Wrap(err, "pkt-codec: read body failed.")
 	}
 
 	return &p, nil
