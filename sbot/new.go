@@ -131,7 +131,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 	id := s.KeyPair.Id
-	auth := s.GraphBuilder.Authorizer(id, 2)
+	auth := s.GraphBuilder.Authorizer(id, int(s.hopCount))
 
 	if s.signHMACsecret != nil {
 		publishLog, err := multilogs.OpenPublishLogWithHMAC(s.RootLog, s.UserFeeds, *s.KeyPair, s.signHMACsecret)
@@ -200,13 +200,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return ctrl.MakeHandler(conn)
 		}
 
-		start := time.Now()
-		err = auth.Authorize(remote)
-		if s.latency != nil {
-			s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
-		}
-		if err != nil {
-			return nil, err
+		if !s.promisc {
+			start := time.Now()
+			err = auth.Authorize(remote)
+			if s.latency != nil {
+				s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
+			}
+			if err != nil {
+				return nil, err
+			}
 		}
 		return pmgr.MakeHandler(conn)
 	}
@@ -258,7 +260,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
-		gossip.HopCount(3),
+		gossip.HopCount(s.hopCount),
+		gossip.Promisc(s.promisc),
 		s.systemGauge, s.eventCounter,
 	}
 	if s.signHMACsecret != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
@@ -16,6 +15,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 )
 
 // DefaultPort is the default listening port for ScuttleButt.
@@ -129,7 +129,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 	var pkr muxrpc.Packer
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute*15)
+	ctx, cancel := ctxutils.WithError(ctx, fmt.Errorf("handle conn returned"))
 
 	defer func() {
 		durr := n.connTracker.OnClose(conn)

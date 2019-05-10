@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/ctxutils"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -26,12 +27,14 @@ import (
 
 var (
 	// flags
-	flagEnAdv   bool
-	flagPromisc bool
-	listenAddr  string
-	debugAddr   string
-	repoDir     string
-	dbgLogDir   string
+	flagHops     uint
+	flagEnAdv    bool
+	flagEnDiscov bool
+	flagPromisc  bool
+	listenAddr   string
+	debugAddr    string
+	repoDir      string
+	dbgLogDir    string
 
 	// helper
 	log        logging.Interface
@@ -51,21 +54,23 @@ func checkAndLog(err error) {
 }
 
 func init() {
-	var err error
-
-	appKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
-	checkFatal(err)
-
 	u, err := user.Current()
 	checkFatal(err)
 
+	flag.UintVar(&flagHops, "hops", 1, "how many hops to fetch (1: friends, 2:friends of friends)")
+	flag.BoolVar(&flagPromisc, "promisc", false, "bypass graph auth and fetch remote's feed")
+
 	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
 	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
+
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
+	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
+
+	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
+
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
-	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
-	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
 
 	flag.Parse()
 
@@ -87,7 +92,7 @@ func init() {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	defer func() {
 		cancel()
 		if r := recover(); r != nil {
@@ -100,8 +105,8 @@ func main() {
 
 	startDebug()
 	opts := []mksbot.Option{
-		// TODO: hops
-		// TOOD: promisc
+		mksbot.WithHops(flagHops),
+		mksbot.WithPromisc(flagPromisc),
 		mksbot.WithInfo(log),
 		mksbot.WithAppKey(ak),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),

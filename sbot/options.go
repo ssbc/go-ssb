@@ -74,9 +74,25 @@ type Sbot struct {
 
 type Option func(*Sbot) error
 
+// DisableLiveIndexMode makes the update processing halt once it reaches the end of the rootLog
+// makes it easier to rebuild indicies.
+func DisableLiveIndexMode() Option {
+	return func(s *Sbot) error {
+		s.liveIndexUpdates = false
+		return nil
+	}
+}
+
 func WithRepoPath(path string) Option {
 	return func(s *Sbot) error {
 		s.repoPath = path
+		return nil
+	}
+}
+
+func DisableNetworkNode() Option {
+	return func(s *Sbot) error {
+		s.disableNetwork = true
 		return nil
 	}
 }
@@ -177,16 +193,23 @@ func WithHMACSigning(key []byte) Option {
 	}
 }
 
-func DisableNetworkNode() Option {
+// WithHops sets the number of friends (or bi-directionla follows) to walk between two peers
+// controls fetch depth (whos feeds to fetch.
+// 0: only my own follows
+// 1: my friends follows
+// 2: also their friends follows
+// and how many hops a peer can be from self to for a connection to be accepted
+func WithHops(h uint) Option {
 	return func(s *Sbot) error {
-		s.disableNetwork = true
+		s.hopCount = h
 		return nil
 	}
 }
 
-func DisableLiveIndexMode() Option {
+// WithPromisc when enabled bypasses graph-distance lookups on connections and makes the gossip handler fetch the remotes feed
+func WithPromisc(yes bool) Option {
 	return func(s *Sbot) error {
-		s.liveIndexUpdates = false
+		s.promisc = yes
 		return nil
 	}
 }

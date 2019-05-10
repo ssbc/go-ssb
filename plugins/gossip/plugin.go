@@ -17,6 +17,8 @@ type HMACSecret *[32]byte
 
 type HopCount int
 
+type Promisc bool
+
 func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
 	h := &handler{
 		Id:           id,
@@ -36,6 +38,8 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 			h.hopCount = int(v)
 		case HMACSecret:
 			h.hmacSec = v
+		case Promisc:
+			h.promisc = bool(v)
 		default:
 			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
