@@ -159,7 +159,7 @@ func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (*s
 		Hash: h.Sum(nil),
 		Algo: ssb.RefAlgoSHA256,
 	}
-	return mr, v8warp, nil
+	return mr, ppWithSig, nil
 }
 
 func jsonAndPreserve(msg interface{}) ([]byte, error) {

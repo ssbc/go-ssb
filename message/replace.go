@@ -17,7 +17,7 @@ var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]
 func unicodeEscapeSome(s string) string {
 	var b bytes.Buffer
 	for i, r := range s {
-		// https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-strings
+		// https://spec.scuttlebutt.nz/feed/datamodel.html#signing-encoding-strings
 		// the rest is already handled by %q in encode.go
 		if r == 0x000008 {
 			// (backspace) \b
