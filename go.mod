@@ -26,7 +26,7 @@ require (
 	go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
 	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
-	go.cryptoscope.co/secretstream v1.1.3
+	go.cryptoscope.co/secretstream v1.1.4-0.20190516183542-3faf22728ce8
 	golang.org/x/crypto v0.0.0-20190506204251-e1dfcc566284
 	golang.org/x/exp v0.0.0-20190429183610-475c5042d3f1 // indirect
 	golang.org/x/text v0.3.2

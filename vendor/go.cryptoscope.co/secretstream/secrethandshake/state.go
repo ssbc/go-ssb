@@ -191,6 +191,7 @@ func (s *State) verifyClientAuth(data []byte) bool {
 	if openOk {
 		copy(sig[:], s.hello[:ed25519.SignatureSize])
 		copy(public[:], s.hello[ed25519.SignatureSize:])
+
 	} else {
 		copy(sig[:], nullHello[:ed25519.SignatureSize])
 		copy(public[:], nullHello[ed25519.SignatureSize:])

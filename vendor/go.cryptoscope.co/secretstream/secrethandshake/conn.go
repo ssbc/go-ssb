@@ -20,11 +20,25 @@ package secrethandshake
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"github.com/agl/ed25519"
 	"github.com/pkg/errors"
 )
+
+type ErrProtocol int
+
+func (eh ErrProtocol) Error() string {
+	switch eh {
+	case 0:
+		return "secrethandshake: Wrong protocol version?"
+	case 1:
+		return "secrethandshake: other side not authenticated"
+	default:
+		return fmt.Sprintf("shs: unhandled error %d", eh)
+	}
+}
 
 // ChallengeLength is the length of a challenge message in bytes
 const ChallengeLength = 64
@@ -68,7 +82,7 @@ func Client(state *State, conn io.ReadWriter) (err error) {
 
 	// verify challenge
 	if !state.verifyChallenge(chalResp) {
-		return errors.New("secrethandshake: Wrong protocol version?")
+		return ErrProtocol(0)
 	}
 
 	// send authentication vector
@@ -86,7 +100,7 @@ func Client(state *State, conn io.ReadWriter) (err error) {
 
 	// authenticate remote
 	if !state.verifyServerAccept(boxedSig) {
-		return errors.New("secrethandshake: server not authenticated")
+		return ErrProtocol(1)
 	}
 
 	state.cleanSecrets()
@@ -104,7 +118,7 @@ func Server(state *State, conn io.ReadWriter) (err error) {
 
 	// verify challenge
 	if !state.verifyChallenge(challenge) {
-		return errors.New("secrethandshake: Wrong protocol version?")
+		return ErrProtocol(0)
 	}
 
 	// send challenge
@@ -122,7 +136,7 @@ func Server(state *State, conn io.ReadWriter) (err error) {
 
 	// authenticate remote
 	if !state.verifyClientAuth(hello) {
-		return errors.New("secrethandshake: client not authenticated")
+		return ErrProtocol(1)
 	}
 
 	// accept

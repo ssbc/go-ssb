@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/secretstream/secrethandshake"
 	"go.cryptoscope.co/ssb"
 )
 
@@ -206,7 +207,10 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 					continue
 				}
 				err := n.Connect(ctx, a)
-				n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
+				if _, ok := errors.Cause(err).(secrethandshake.ErrProtocol); !ok {
+					n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
+				}
+
 			}
 		}()
 	}
@@ -224,7 +228,14 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				// but means this needs to be restarted anyway
 				return nil
 			}
-			n.log.Log("msg", "node/Serve: failed to accepting connection", "err", err)
+			switch cause := errors.Cause(err).(type) {
+			case secrethandshake.ErrProtocol:
+				// ignore
+			default:
+				n.log.Log("msg", "node/Serve: failed to accept connection", "err", err,
+					"cause", cause, "causeT", fmt.Sprintf("%T", cause))
+			}
+
 			continue
 		}
 

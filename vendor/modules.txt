@@ -100,7 +100,7 @@ go.cryptoscope.co/muxrpc/codec
 go.cryptoscope.co/muxrpc/mock
 # go.cryptoscope.co/netwrap v0.0.3
 go.cryptoscope.co/netwrap
-# go.cryptoscope.co/secretstream v1.1.3
+# go.cryptoscope.co/secretstream v1.1.4-0.20190516183542-3faf22728ce8
 go.cryptoscope.co/secretstream
 go.cryptoscope.co/secretstream/secrethandshake
 go.cryptoscope.co/secretstream/boxstream
