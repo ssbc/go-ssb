@@ -1,12 +1,10 @@
 package offset2 // import "go.cryptoscope.co/margaret/offset2"
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -33,8 +31,9 @@ type offsetLog struct {
 }
 
 func (log *offsetLog) Close() error {
-	log.l.Lock()
-	defer log.l.Unlock()
+	// TODO: close open querys?
+	// log.l.Lock()
+	// defer log.l.Unlock()
 
 	if err := log.jrnl.Close(); err != nil {
 		return errors.Wrap(err, "journal file close failed")
@@ -44,7 +43,49 @@ func (log *offsetLog) Close() error {
 		return errors.Wrap(err, "offset file close failed")
 	}
 
-	return errors.Wrap(log.data.Close(), "data file close failed")
+	if err := log.data.Close(); err != nil {
+		return errors.Wrap(err, "data file close failed")
+	}
+
+	if err := log.bcSink.Close(); err != nil {
+		return errors.Wrap(err, "log broadcast close failed")
+	}
+
+	return nil
+}
+
+// Null overwrites the entry at seq with zeros
+// updating is kinda odd in append-only
+// but in some cases you still might want to redact entries
+func (log *offsetLog) Null(seq margaret.Seq) error {
+	log.bcSink.Close()
+
+	log.l.Lock()
+	defer log.l.Unlock()
+
+	ofst, err := log.ofst.readOffset(seq)
+	if err != nil {
+		return errors.Wrap(err, "error read offset")
+	}
+
+	sz, err := log.data.getFrameSize(ofst)
+	if err != nil {
+		return errors.Wrap(err, "get frame size failed")
+	}
+
+	minusOne := []byte{255, 255, 255, 255, 255, 255, 255, 255}
+	_, err = log.data.WriteAt(minusOne, ofst)
+	if err != nil {
+		return errors.Wrapf(err, "failed to write -1 size bytes at %d", ofst)
+	}
+
+	nulls := make([]byte, sz)
+	_, err = log.data.WriteAt(nulls, ofst+8)
+	if err != nil {
+		return errors.Wrapf(err, "failed to write %d bytes at %d", sz, ofst)
+	}
+
+	return nil
 }
 
 // Open returns a the offset log in the directory at `name`.
@@ -55,19 +96,19 @@ func Open(name string, cdc margaret.Codec) (margaret.Log, error) {
 		return nil, errors.Wrapf(err, "error making log directory at %q", name)
 	}
 
-	pLog := path.Join(name, "data")
+	pLog := filepath.Join(name, "data")
 	fData, err := os.OpenFile(pLog, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error opening log data file at %q", pLog)
 	}
 
-	pOfst := path.Join(name, "ofst")
+	pOfst := filepath.Join(name, "ofst")
 	fOfst, err := os.OpenFile(pOfst, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error opening log offset file at %q", pOfst)
 	}
 
-	pJrnl := path.Join(name, "jrnl")
+	pJrnl := filepath.Join(name, "jrnl")
 	fJrnl, err := os.OpenFile(pJrnl, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error opening log journal file at %q", pJrnl)
@@ -123,9 +164,9 @@ func (log *offsetLog) checkJournal() error {
 			return errors.New("journal empty but offset file isnt")
 		}
 
-		statData, err := log.ofst.Stat()
+		statData, err := log.data.Stat()
 		if err != nil {
-			return errors.Wrap(err, "stat failed on offset file")
+			return errors.Wrap(err, "stat failed on data file")
 		}
 
 		if statData.Size() != 0 {
@@ -145,16 +186,20 @@ func (log *offsetLog) checkJournal() error {
 		return errors.Wrap(err, "error getting frame size from log data file")
 	}
 
+	if sz == -1 { // entry nulled
+		return errors.Errorf("TODO: use -size to indicate nulled but keep consistent")
+	}
+
 	stat, err := log.data.Stat()
 	if err != nil {
 		return errors.Wrap(err, "error stat'ing data file")
 	}
 
-	if ofstData+8+sz > stat.Size() {
-		return errors.New("data file is too short")
-	}
-	if ofstData+8+sz < stat.Size() {
-		return errors.New("data file is too long")
+	n := ofstData + 8 + sz
+	d := n - stat.Size()
+	if d != 0 {
+		// TODO: chop off the rest
+		return errors.Errorf("data file size difference %d", d)
 	}
 
 	if seqJrnl != seqOfst {
@@ -197,168 +242,6 @@ func (log *offsetLog) checkConsistency() error {
 			return errors.Errorf("offset mismatch: offset file says %d, data file has %d", expOfst, ofst)
 		}
 	}
-}
-
-type data struct {
-	*os.File
-
-	buf [8]byte
-}
-
-func (d *data) frameReader(ofst int64) (io.Reader, error) {
-	var sz int64
-	err := binary.Read(io.NewSectionReader(d, ofst, 8), binary.BigEndian, &sz)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading payload length")
-	}
-
-	return io.NewSectionReader(d, ofst+8, sz), nil
-}
-
-func (d *data) readFrame(data []byte, ofst int64) (int, error) {
-	sr := io.NewSectionReader(d, ofst, 8)
-
-	var sz int64
-	err := binary.Read(sr, binary.BigEndian, &sz)
-	if err != nil {
-		return 0, errors.Wrap(err, "error reading payload length")
-	}
-
-	return d.ReadAt(data, ofst+8)
-}
-
-func (d *data) getFrameSize(ofst int64) (int64, error) {
-	_, err := d.ReadAt(d.buf[:], ofst)
-	if err != nil {
-		return 0, errors.Wrap(err, "error reading payload length")
-	}
-
-	buf := bytes.NewBuffer(d.buf[:])
-
-	var sz int64
-	err = binary.Read(buf, binary.BigEndian, &sz)
-	return sz, errors.Wrap(err, "error parsing payload length")
-}
-
-func (d *data) getFrame(ofst int64) ([]byte, error) {
-	sz, err := d.getFrameSize(ofst)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting frame size")
-	}
-
-	data := make([]byte, sz)
-	_, err = d.readFrame(data, ofst)
-	return data, errors.Wrap(err, "error reading frame")
-}
-
-func (d *data) append(data []byte) (int64, error) {
-	ofst, err := d.Seek(0, io.SeekEnd)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to seek to end of file")
-	}
-
-	err = binary.Write(d, binary.BigEndian, int64(len(data)))
-	if err != nil {
-		return 0, errors.Wrap(err, "writing length prefix failed")
-	}
-
-	_, err = d.Write(data)
-	return ofst, errors.Wrap(err, "error writing data")
-}
-
-type offset struct {
-	*os.File
-}
-
-func (o *offset) readOffset(seq margaret.Seq) (int64, error) {
-	_, err := o.Seek(seq.Seq()*8, io.SeekStart)
-	if err != nil {
-		return 0, errors.Wrap(err, "seek failed")
-	}
-
-	var ofst int64
-	err = binary.Read(o, binary.BigEndian, &ofst)
-	return ofst, errors.Wrap(err, "error reading offset")
-}
-
-func (o *offset) readLastOffset() (int64, margaret.Seq, error) {
-	stat, err := o.Stat()
-	if err != nil {
-		return 0, margaret.SeqEmpty, errors.Wrap(err, "stat failed")
-	}
-
-	sz := stat.Size()
-	if sz == 0 {
-		return 0, margaret.SeqEmpty, nil
-	}
-
-	// this should be off-by-one-error-free:
-	// sz is 8 when there is one entry, and the first entry has seq 0
-	seqOfst := margaret.BaseSeq(sz/8 - 1)
-
-	var ofstData int64
-	err = binary.Read(io.NewSectionReader(o, sz-8, 8), binary.BigEndian, &ofstData)
-	if err != nil {
-		return 0, margaret.SeqEmpty, errors.Wrap(err, "error reading entry")
-	}
-
-	return ofstData, seqOfst, nil
-}
-
-func (o *offset) append(ofst int64) (margaret.Seq, error) {
-	ofstOfst, err := o.Seek(0, io.SeekEnd)
-	seq := margaret.BaseSeq(ofstOfst / 8)
-	if err != nil {
-		return seq, errors.Wrap(err, "could not seek to end of file")
-	}
-
-	err = binary.Write(o, binary.BigEndian, ofst)
-	return seq, errors.Wrap(err, "error writing offset")
-}
-
-type journal struct {
-	*os.File
-}
-
-func (j *journal) readSeq() (margaret.Seq, error) {
-	stat, err := j.Stat()
-	if err != nil {
-		return margaret.SeqEmpty, errors.Wrap(err, "stat failed")
-	}
-
-	switch sz := stat.Size(); sz {
-	case 0:
-		return margaret.SeqEmpty, nil
-	case 8:
-		// continue after switch
-	default:
-		return margaret.SeqEmpty, errors.Errorf("expected file size of 8B, got %dB", sz)
-	}
-
-	_, err = j.Seek(0, io.SeekStart)
-	if err != nil {
-		return margaret.SeqEmpty, errors.Wrap(err, "could not seek to start of file")
-	}
-
-	var seq margaret.BaseSeq
-	err = binary.Read(j, binary.BigEndian, &seq)
-	return seq, errors.Wrap(err, "error reading seq")
-}
-
-func (j *journal) bump() (margaret.Seq, error) {
-	seq, err := j.readSeq()
-	if err != nil {
-		return margaret.SeqEmpty, errors.Wrap(err, "error reading old journal value")
-	}
-
-	_, err = j.Seek(0, io.SeekStart)
-	if err != nil {
-		return margaret.SeqEmpty, errors.Wrap(err, "could not seek to start of file")
-	}
-
-	seq = margaret.BaseSeq(seq.Seq() + 1)
-	err = binary.Write(j, binary.BigEndian, seq)
-	return seq, errors.Wrap(err, "error writing seq")
 }
 
 func (log *offsetLog) Seq() luigi.Observable {

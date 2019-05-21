@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -27,33 +28,45 @@ type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 type Sbot struct {
 	info kitlog.Logger
 
-	repoPath   string
-	dialer     netwrap.Dialer
-	listenAddr net.Addr
+	// TODO: this thing is way to big right now
+	// because it's options and the resulting thing at once
+
+	rootCtx  context.Context
+	Shutdown context.CancelFunc
+	closers  multiCloser
+	idxDone  sync.WaitGroup
+
+	promisc  bool
+	hopCount uint
+
+	Network        ssb.Network
+	disableNetwork bool
+	dialer         netwrap.Dialer
+	listenAddr     net.Addr
+	appKey         []byte
+	connWrappers   []netwrap.ConnWrapper
+	edpWrapper     MuxrpcEndpointWrapper
 
 	enableAdverts   bool
 	enableDiscovery bool
 
-	rootCtx        context.Context
-	shutdownCancel context.CancelFunc
-	closers        multiCloser
-
-	appKey       []byte
-	connWrappers []netwrap.ConnWrapper
-	edpWrapper   MuxrpcEndpointWrapper
-
-	RootLog      margaret.Log
-	UserFeeds    multilog.MultiLog
-	MessageTypes multilog.MultiLog
-	PrivateLogs  multilog.MultiLog
-	KeyPair      *ssb.KeyPair
-	PublishLog   margaret.Log
-	GraphBuilder graph.Builder
-	Network      ssb.Network
+	repoPath         string
+	KeyPair          *ssb.KeyPair
+	RootLog          margaret.Log
+	liveIndexUpdates bool
+	UserFeeds        multilog.MultiLog
+	MessageTypes     multilog.MultiLog
+	PrivateLogs      multilog.MultiLog
 	// AboutStore   indexes.AboutStore
+	PublishLog     margaret.Log
+	signHMACsecret []byte
+
+	GraphBuilder graph.Builder
+
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
 
+	// TODO: wrap better
 	eventCounter *prometheus.Counter
 	systemGauge  *prometheus.Gauge
 	latency      *prometheus.Summary
@@ -154,8 +167,34 @@ func EnableAdvertismentDialing(do bool) Option {
 	}
 }
 
+func WithHMACSigning(key []byte) Option {
+	return func(s *Sbot) error {
+		if n := len(key); n != 32 {
+			return errors.Errorf("WithHMACSigning: wrong key length (%d)", n)
+		}
+		s.signHMACsecret = key
+		return nil
+	}
+}
+
+func DisableNetworkNode() Option {
+	return func(s *Sbot) error {
+		s.disableNetwork = true
+		return nil
+	}
+}
+
+func DisableLiveIndexMode() Option {
+	return func(s *Sbot) error {
+		s.liveIndexUpdates = false
+		return nil
+	}
+}
+
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
+	s.liveIndexUpdates = true
+
 	for i, opt := range fopts {
 		err := opt(&s)
 		if err != nil {

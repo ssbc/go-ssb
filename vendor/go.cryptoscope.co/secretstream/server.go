@@ -23,8 +23,8 @@ import (
 	"go.cryptoscope.co/secretstream/boxstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 
-	"go.cryptoscope.co/netwrap"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/netwrap"
 )
 
 // Server can create net.Listeners
@@ -61,11 +61,11 @@ func (s *Server) ConnWrapper() netwrap.ConnWrapper {
 
 		remote := state.Remote()
 		boxed := &Conn{
-			ReadCloser: boxstream.NewUnboxer(conn, &deNonce, &deKey),
+			ReadCloser:  boxstream.NewUnboxer(conn, &deNonce, &deKey),
 			WriteCloser: boxstream.NewBoxer(conn, &enNonce, &enKey),
-			conn:   conn,
-			local:  s.keyPair.Public[:],
-			remote: remote[:],
+			conn:        conn,
+			local:       s.keyPair.Public[:],
+			remote:      remote[:],
 		}
 
 		return boxed, nil

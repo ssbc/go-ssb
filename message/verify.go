@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
+	"golang.org/x/crypto/nacl/auth"
 )
 
 // ExtractSignature expects a pretty printed message and uses a regexp to strip it from the msg for signature verification
@@ -25,9 +26,10 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 
 // Verify takes an slice of bytes (like json.RawMessage) and uses EncodePreserveOrder to pretty print it.
 // It then uses ExtractSignature and verifies the found signature against the author field of the message.
+// If hmacSecret is non nil, it uses that as the Key for NACL crypto_auth() and verifies the signature against the hash of the message.
 // At last it uses internalV8Binary to create a the SHA256 hash for the message key.
 // If you find a buggy message, use `node ./encode_test.js $feedID` to generate a new testdata.zip
-func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
+func Verify(raw []byte, hmacSecret *[32]byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "ssb Verify: could not encode message: %q...", raw[:15])
@@ -44,8 +46,12 @@ func Verify(raw []byte) (*ssb.MessageRef, *DeserializedMessage, error) {
 		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could not extract signature", dmsg.Author.Ref(), dmsg.Sequence)
 	}
 
+	if hmacSecret != nil {
+		mac := auth.Sum(woSig, hmacSecret)
+		woSig = mac[:]
+	}
+
 	if err := sig.Verify(woSig, &dmsg.Author); err != nil {
-		// fmt.Fprintln(os.Stderr, string(enc))
 		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could not verify message", dmsg.Author.Ref(), dmsg.Sequence)
 	}
 

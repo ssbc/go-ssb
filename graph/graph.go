@@ -7,7 +7,6 @@ import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
-	"gonum.org/v1/gonum/graph/traverse"
 )
 
 type key2node map[[32]byte]graph.Node
@@ -53,30 +52,26 @@ func (g *Graph) Blocks(from, to *ssb.FeedRef) bool {
 	return w.Weight() == math.Inf(1)
 }
 
-func (g *Graph) Hops(from *ssb.FeedRef, plen int) []*ssb.FeedRef {
+func (g *Graph) BlockedList(from *ssb.FeedRef) map[[32]byte]bool {
 	var bfrom [32]byte
 	copy(bfrom[:], from.ID)
 	nFrom, has := g.lookup[bfrom]
 	if !has {
 		return nil
 	}
-	walked := make(map[int64]*ssb.FeedRef, 5000)
-	w := traverse.BreadthFirst{}
-	w.Walk(g, nFrom, func(n graph.Node, d int) bool {
-		if d < plen {
-			cn, ok := n.(*contactNode)
-			if ok {
-				walked[cn.ID()] = cn.feed
-			}
-			return false
+	var blocked map[[32]byte]bool
+	edgs := g.From(nFrom.ID())
+	for edgs.Next() {
+		edg := g.Edge(nFrom.ID(), edgs.Node().ID()).(contactEdge)
+
+		if edg.Weight() == math.Inf(1) {
+			ctNode := edg.To().(contactNode)
+			var k [32]byte
+			copy(k[:], ctNode.feed.ID)
+			blocked[k] = true
 		}
-		return true
-	})
-	var unique []*ssb.FeedRef
-	for _, v := range walked {
-		unique = append(unique, v)
 	}
-	return unique
+	return blocked
 }
 
 func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {

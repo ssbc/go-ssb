@@ -3,6 +3,7 @@ package gossip
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -12,22 +13,102 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/message"
 )
 
+type ErrWrongSequence struct {
+	Ref             *ssb.FeedRef
+	Indexed, Stored margaret.Seq
+}
+
+func (e ErrWrongSequence) Error() string {
+	return fmt.Sprintf("consistency error: wrong stored message sequence for feed %s. stored:%d indexed:%d",
+		e.Ref.Ref(), e.Stored, e.Indexed)
+}
+
+func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []librarian.Addr) error {
+	var refs = graph.NewFeedSet(len(lst))
+	for _, addr := range lst {
+		err := refs.AddAddr(addr)
+		if err != nil {
+			return err
+		}
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet, got []librarian.Addr) error {
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
+	var refs = graph.NewFeedSet(len(lst))
+	for _, ref := range lst {
+		if !isIn(got, ref) {
+			err := refs.AddRef(ref)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return h.fetchAll(ctx, e, refs)
+}
+
+func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet) error {
+	// we don't just want them all parallel right nw
+	// this kind of concurrency is way to harsh on the runtime
+	// we need some kind of FeedManager, similar to Blobs
+	// which we can ask for which feeds aren't in transit,
+	// due for a (probabilistic) update
+	// and manage live feeds more granularly across open connections
+
+	lst, err := fs.List()
+	if err != nil {
+		return err
+	}
+	for _, r := range lst {
+		err := h.fetchFeed(ctx, r, e)
+		if muxrpc.IsSinkClosed(err) {
+			return err
+		} else if err != nil {
+			// assuming forked feed for instance
+			h.Info.Log("msg", "fetchFeed stored failed", "err", err)
+		}
+	}
+	return nil
+}
+
+func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
+	for _, el := range list {
+		if bytes.Compare([]byte(el), a.ID) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.Endpoint) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	// check our latest
 	addr := librarian.Addr(fr.ID)
+	g.activeLock.Lock()
 	_, ok := g.activeFetch.Load(addr)
 	if ok {
 		// errors.Errorf("fetchFeed: crawl of %x active", addr[:5])
+		g.activeLock.Unlock()
 		return nil
 	}
 	if g.sysGauge != nil {
 		g.sysGauge.With("part", "fetches").Add(1)
 	}
 	g.activeFetch.Store(addr, true)
+	g.activeLock.Unlock()
 	defer func() {
 		g.activeFetch.Delete(addr)
 		if g.sysGauge != nil {
@@ -66,7 +147,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 			}
 
 			if latestMsg.Sequence != latestSeq {
-				return errors.Errorf("wrong stored message sequence. stored:%d indexed:%d", latestMsg.Sequence, latestSeq)
+				return &ErrWrongSequence{Stored: latestMsg.Sequence, Indexed: latestSeq, Ref: fr}
 			}
 		}
 	}
@@ -81,7 +162,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	}
 	start := time.Now()
 
-	toLong, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	toLong, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer func() {
 		cancel()
 		if n := latestSeq - startSeq; n > 0 {
@@ -90,9 +171,8 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 			}
 			if g.sysCtr != nil {
 				g.sysCtr.With("event", "gossiprx").Add(float64(n))
-			} else {
-				info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
 			}
+			info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
 		}
 	}()
 
@@ -111,7 +191,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		}
 
 		rmsg := v.(message.RawSignedMessage)
-		ref, dmsg, err := message.Verify(rmsg.RawMessage)
+		ref, dmsg, err := message.Verify(rmsg.RawMessage, g.hmacSec)
 		if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s:%d): message verify failed", fr.Ref(), latestSeq)
 		}

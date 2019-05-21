@@ -69,18 +69,22 @@ import (
 func (impl Implementation) Dlaqr5(wantt, wantz bool, kacc22 int, n, ktop, kbot, nshfts int, sr, si []float64, h []float64, ldh int, iloz, ihiz int, z []float64, ldz int, v []float64, ldv int, u []float64, ldu int, nv int, wv []float64, ldwv int, nh int, wh []float64, ldwh int) {
 	switch {
 	case kacc22 != 0 && kacc22 != 1 && kacc22 != 2:
-		panic("lapack: invalid value of kacc22")
+		panic(badKacc22)
 	case n < 0:
 		panic(nLT0)
 	case ktop < 0 || n <= ktop:
-		panic("lapack: invalid value of ktop")
+		panic(badKtop)
 	case kbot < 0 || n <= kbot:
-		panic("lapack: invalid value of kbot")
+		panic(badKbot)
 
-	case nshfts < 0 || nshfts&0x1 != 0:
-		panic("lapack: invalid number of shifts")
-	case len(sr) != nshfts || len(si) != nshfts:
-		panic(badSlice) // TODO(vladimir-ch) Another message?
+	case nshfts < 0:
+		panic(nshftsLT0)
+	case nshfts&0x1 != 0:
+		panic(nshftsOdd)
+	case len(sr) != nshfts:
+		panic(badLenSr)
+	case len(si) != nshfts:
+		panic(badLenSi)
 
 	case ldh < max(1, n):
 		panic(badLdH)
@@ -88,10 +92,10 @@ func (impl Implementation) Dlaqr5(wantt, wantz bool, kacc22 int, n, ktop, kbot, 
 		panic(shortH)
 
 	case wantz && ihiz >= n:
-		panic("lapack: invalid value of ihiz")
+		panic(badIhiz)
 	case wantz && iloz < 0 || ihiz < iloz:
-		panic("lapack: invalid value of iloz")
-	case ldz < 1 || (wantz && ldz < max(1, n)):
+		panic(badIloz)
+	case ldz < 1, wantz && ldz < n:
 		panic(badLdZ)
 	case wantz && len(z) < (n-1)*ldz+n:
 		panic(shortZ)
@@ -108,23 +112,23 @@ func (impl Implementation) Dlaqr5(wantt, wantz bool, kacc22 int, n, ktop, kbot, 
 		panic(shortU)
 
 	case nv < 0:
-		panic("lapack: nv < 0")
+		panic(nvLT0)
 	case ldwv < max(1, 3*nshfts-3):
 		panic(badLdWV)
 	case len(wv) < (nv-1)*ldwv+3*nshfts-3:
 		panic(shortWV)
 
 	case nh < 0:
-		panic("lapack: nh < 0")
+		panic(nhLT0)
 	case ldwh < max(1, nh):
 		panic(badLdWH)
 	case len(wh) < (3*nshfts-3-1)*ldwh+nh:
 		panic(shortWH)
 
 	case ktop > 0 && h[ktop*ldh+ktop-1] != 0:
-		panic("lapack: diagonal block is not isolated")
+		panic(notIsolated)
 	case kbot < n-1 && h[(kbot+1)*ldh+kbot] != 0:
-		panic("lapack: diagonal block is not isolated")
+		panic(notIsolated)
 	}
 
 	// If there are no shifts, then there is nothing to do.
@@ -344,7 +348,7 @@ func (impl Implementation) Dlaqr5(wantt, wantz bool, kacc22 int, n, ktop, kbot, 
 					h[j*ldh+k+3] -= refsum * v[m*ldv+2]
 				}
 				if accum {
-					// Accumulate U. (If necessary, update Z later with with an
+					// Accumulate U. (If necessary, update Z later with an
 					// efficient matrix-matrix multiply.)
 					kms := k - incol
 					for j := max(0, ktop-incol-1); j < kdu; j++ {

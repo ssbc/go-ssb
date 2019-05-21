@@ -132,6 +132,10 @@ func (qry *offsetQuery) Next(ctx context.Context) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if errors.Cause(err) == margaret.ErrNulled {
+		// TODO: qry.skipNulled
+		qry.nextSeq++
+		return margaret.ErrNulled, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "error reading offset")
 	}
@@ -197,7 +201,11 @@ func (qry *offsetQuery) fastFwdPush(ctx context.Context, sink luigi.Sink) (func(
 		//     i.e. don't use ReadAt but have a separate fd just for this query
 		//     and just Read that.
 		v, err := qry.log.readFrame(qry.nextSeq)
-		if err != nil {
+		if errors.Cause(err) == margaret.ErrNulled {
+			// TODO: if qry.skipNulls
+			v = margaret.ErrNulled
+		} else if err != nil {
+
 			break
 		}
 

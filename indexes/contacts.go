@@ -13,20 +13,22 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, func(context.Context, margaret.Log) error, error) {
+const FolderNameContacts = "contacts"
+
+func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, repo.ServeFunc, error) {
 	f := func(db *badger.DB) librarian.SinkIndex {
 		return graph.NewBuilder(kitlog.With(log, "module", "graph"), db)
 	}
 
-	db, sinkIdx, serve, err := repo.OpenBadgerIndex(r, "contacts", f)
+	db, sinkIdx, serve, err := repo.OpenBadgerIndex(r, FolderNameContacts, f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting contacts index")
 	}
 
 	bldr := sinkIdx.(graph.Builder)
 
-	nextServe := func(ctx context.Context, log margaret.Log) error {
-		err := serve(ctx, log)
+	nextServe := func(ctx context.Context, log margaret.Log, live bool) error {
+		err := serve(ctx, log, live)
 		if err != nil {
 			return err
 		}

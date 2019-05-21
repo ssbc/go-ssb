@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cryptix/go/logging"
@@ -39,31 +40,38 @@ type Interface interface {
 var _ Interface = (*Sbot)(nil)
 
 func (s *Sbot) Close() error {
-	s.shutdownCancel()
-	// TODO: just a sleep-kludge
-	// would be better to have a busy-loop or channel thing to see once everything is closed
-	time.Sleep(time.Second * 1)
-	return s.closers.Close()
-}
+	s.Node.GetConnTracker().CloseAll()
+	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
 
-type margaretServe func(context.Context, margaret.Log) error
+	s.idxDone.Wait()
+	// TODO: timeout?
+	s.info.Log("event", "closing", "msg", "waited")
+
+	if err := s.closers.Close(); err != nil {
+		return err
+	}
+	s.info.Log("event", "closing", "msg", "closers closed")
+	return nil
+}
 
 func initSbot(s *Sbot) (*Sbot, error) {
 	log := s.info
 	var ctx context.Context
-	ctx, s.shutdownCancel = ctxutils.WithError(s.rootCtx, ssb.ErrShuttingDown)
+	ctx, s.Shutdown = ctxutils.WithError(s.rootCtx, ssb.ErrShuttingDown)
 
-	goThenLog := func(ctx context.Context, l margaret.Log, name string, f margaretServe) {
-		go func() {
-			err := f(ctx, l)
+	goThenLog := func(ctx context.Context, l margaret.Log, name string, f repo.ServeFunc) {
+		s.idxDone.Add(1)
+		go func(wg *sync.WaitGroup) {
+			err := f(ctx, l, s.liveIndexUpdates)
+			log.Log("event", "idx server exited", "idx", name, "error", err)
 			if err != nil {
-				log.Log("event", "component terminated", "component", name, "error", err)
 				err := s.Close()
 				logging.CheckFatal(err)
 				os.Exit(1)
 				return
 			}
-		}()
+			wg.Done()
+		}(&s.idxDone)
 	}
 
 	r := repo.New(s.repoPath)
@@ -71,6 +79,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
 	}
+	s.closers.addCloser(rootLog.(io.Closer))
 	s.RootLog = rootLog
 
 	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
@@ -81,7 +90,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "userFeeds", serveUF)
 	s.UserFeeds = uf
 
-	/* new style graph builder
 	mt, _, serveMT, err := multilogs.OpenMessageTypes(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message type sublogs")
@@ -90,6 +98,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	goThenLog(ctx, rootLog, "msgTypes", serveMT)
 	s.MessageTypes = mt
 
+	/* new style graph builder
 	contactLog, err := mt.Get(librarian.Addr("contact"))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
@@ -124,11 +133,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	id := s.KeyPair.Id
 	auth := s.GraphBuilder.Authorizer(id, 2)
 
-	publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+	if s.signHMACsecret != nil {
+		publishLog, err := multilogs.OpenPublishLogWithHMAC(s.RootLog, s.UserFeeds, *s.KeyPair, s.signHMACsecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to create publish log with hmac")
+		}
+		s.PublishLog = publishLog
+	} else {
+		publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to create publish log")
+		}
+		s.PublishLog = publishLog
 	}
-	s.PublishLog = publishLog
 
 	pl, _, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
 	if err != nil {
@@ -166,6 +183,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 	*/
+
+	if s.disableNetwork {
+		return s, nil
+	}
 
 	pmgr := ssb.NewPluginManager()
 	ctrl := ssb.NewPluginManager()
@@ -217,13 +238,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
 
-	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), publishLog))
+	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog))
 	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}
 
-	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), publishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
@@ -236,22 +257,31 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	ctrl.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
 	// outgoing gossip behavior
+	var histOpts = []interface{}{
+		gossip.HopCount(3),
+		s.systemGauge, s.eventCounter,
+	}
+	if s.signHMACsecret != nil {
+		var k [32]byte
+		copy(k[:], s.signHMACsecret)
+		histOpts = append(histOpts, gossip.HMACSecret(&k))
+	}
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter,
-		gossip.HopCount(3),
-	))
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter)
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...)
 	pmgr.Register(hist)
 
 	// raw log plugins
-	ctrl.Register(rawread.NewRXLog(rootLog)) // createLogStream
-	// ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
-	ctrl.Register(hist) // createHistoryStream
+	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
+	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
+	ctrl.Register(hist)                           // createHistoryStream
 
 	return s, nil
 }

@@ -15,14 +15,16 @@ func TestParseRef(t *testing.T) {
 		{"xxxx", ErrInvalidRef, nil},
 		{"+xxx.foo", ErrInvalidHash, nil},
 		{"@xxx.foo", ErrInvalidHash, nil},
-		{"&YWJj.sha256", nil, &BlobRef{[]byte("abc"), RefAlgoSHA256}},
-		{"%YWJj.sha256", nil, &MessageRef{[]byte("abc"), RefAlgoSHA256}},
-		{"@YWJj.ed25519", nil, &FeedRef{[]byte("abc"), RefAlgoEd25519}},
+
+		{"%wayTooShort.sha256", ErrInvalidHash, nil},
+		{"&tooShort.sha256", NewHashLenError(6), nil},
+		{"@tooShort.ed25519", NewFeedRefLenError(6), nil},
+		{"&c29tZU5vbmVTZW5zZQo=.sha256", NewHashLenError(14), nil},
 	}
 	for i, tc := range tcases {
 		r, err := ParseRef(tc.ref)
 		if err != tc.err {
-			t.Fatalf("%03d: Expected err:%v got:%v", i, tc.err, err)
+			assert.EqualError(t, err, tc.err.Error(), "%d wrong error", i)
 		} else if tc.err == nil {
 			assert.Equal(t, tc.want.Ref(), r.Ref(), "test %d failed", i)
 		}

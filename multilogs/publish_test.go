@@ -44,7 +44,7 @@ func TestSignMessages(t *testing.T) {
 	defer cancel()
 	errc := make(chan error)
 	go func() {
-		err := userFeedsServe(killServe, rl)
+		err := userFeedsServe(killServe, rl, true)
 		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
 	}()
 
@@ -66,7 +66,7 @@ func TestSignMessages(t *testing.T) {
 		},
 		map[string]interface{}{
 			"type":      "contact",
-			"about":     "@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519",
+			"contact":   "@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519",
 			"following": true,
 		},
 		map[string]interface{}{
@@ -102,7 +102,7 @@ func TestSignMessages(t *testing.T) {
 			a.Nil(storedMsg.Previous)
 		}
 		a.NotNil(storedMsg.Raw, "msg:%d - raw", i)
-		a.Contains(string(storedMsg.Raw), `"signature":"`)
-		a.Contains(string(storedMsg.Raw), fmt.Sprintf(`"sequence":%d`, i+1))
+		a.Contains(string(storedMsg.Raw), `"signature": "`)
+		a.Contains(string(storedMsg.Raw), fmt.Sprintf(`"sequence": %d`, i+1))
 	}
 }

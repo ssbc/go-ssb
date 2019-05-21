@@ -1,6 +1,7 @@
 package margaret // import "go.cryptoscope.co/margaret"
 
 import (
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 )
 
@@ -32,4 +33,25 @@ func (oob) Error() string {
 func IsOutOfBounds(err error) bool {
 	_, ok := err.(oob)
 	return ok
+}
+
+type Alterer interface {
+	Null(Seq) error
+}
+
+type errNulled bool
+
+var ErrNulled errNulled
+
+func (errNulled) Error() string {
+	return "margaret: Entry Nulled"
+}
+
+func IsErrNulled(err error) bool {
+	switch errors.Cause(err).(type) {
+	case errNulled:
+		return true
+	default:
+		return false
+	}
 }

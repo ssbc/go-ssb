@@ -5,18 +5,19 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/network"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -37,7 +38,8 @@ var (
 	checkFatal = logging.CheckFatal
 
 	// juicy bits
-	appKey []byte
+	appKey  string
+	hmacSec string
 )
 
 func checkAndLog(err error) {
@@ -57,9 +59,11 @@ func init() {
 	u, err := user.Current()
 	checkFatal(err)
 
-	flag.StringVar(&listenAddr, "l", fmt.Sprintf(":%d", network.DefaultPort), "address to listen on")
-	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
+	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
+	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
+	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
+	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 	flag.BoolVar(&flagEnAdv, "adv", false, "enable local UDP brodcasts (and connecting to them)")
 
@@ -83,25 +87,56 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
-	ctx, shutdown := ctxutils.WithError(ctx, ssb.ErrShuttingDown)
-
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
+		cancel()
 		if r := recover(); r != nil {
 			logging.LogPanicWithStack(log, "main-panic", r)
 		}
 	}()
 
-	startDebug()
+	ak, err := base64.StdEncoding.DecodeString(appKey)
+	checkFatal(err)
 
-	sbot, err := mksbot.New(
+	startDebug()
+	opts := []mksbot.Option{
+		// TODO: hops
+		// TOOD: promisc
 		mksbot.WithInfo(log),
-		mksbot.WithContext(ctx),
-		mksbot.WithAppKey(appKey),
+		mksbot.WithAppKey(ak),
 		mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
 		mksbot.WithRepoPath(repoDir),
 		mksbot.WithListenAddr(listenAddr),
-		mksbot.EnableAdvertismentBroadcasts(flagEnAdv))
+		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
+		mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			if dbgLogDir == "" {
+				return conn, nil
+			}
+
+			parts := strings.Split(conn.RemoteAddr().String(), "|")
+
+			if len(parts) != 2 {
+				return conn, nil
+			}
+
+			muxrpcDumpDir := filepath.Join(
+				repoDir,
+				dbgLogDir,
+				parts[1], // key first
+				parts[0],
+			)
+
+			return debug.WrapDump(muxrpcDumpDir, conn)
+		}),
+	}
+
+	if hmacSec != "" {
+		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
+		checkFatal(err)
+		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
+	}
+
+	sbot, err := mksbot.New(opts...)
 	checkFatal(err)
 
 	c := make(chan os.Signal)
@@ -109,7 +144,8 @@ func main() {
 	go func() {
 		sig := <-c
 		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
-		shutdown()
+		cancel()
+		sbot.Shutdown()
 		time.Sleep(2 * time.Second)
 
 		err := sbot.Close()
@@ -123,8 +159,6 @@ func main() {
 	id := sbot.KeyPair.Id
 	uf := sbot.UserFeeds
 	gb := sbot.GraphBuilder
-	g, err := gb.Build()
-	checkFatal(err)
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -148,10 +182,10 @@ func main() {
 		f, err := gb.Follows(&authorRef)
 		checkFatal(err)
 		if len(feeds) < 20 {
-			h := g.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", len(f), "hops", len(h))
+			h := gb.Hops(&authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", currSeq, "follows", f.Count(), "hops", h.Count())
 		}
-		followCnt += uint(len(f))
+		followCnt += uint(f.Count())
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
@@ -174,5 +208,10 @@ func main() {
 		log.Log("event", "sbot node.Serve returned", "err", err)
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			os.Exit(0)
+		default:
+		}
 	}
 }

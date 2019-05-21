@@ -104,14 +104,16 @@ func (ab aboutStore) GetName(ref *ssb.FeedRef) (*AboutInfo, error) {
 	return &reduced, errors.Wrap(err, "name db lookup failed")
 }
 
-func OpenAbout(log kitlog.Logger, r repo.Interface) (AboutStore, func(context.Context, margaret.Log) error, error) {
+const FolderNameAbout = "about"
+
+func OpenAbout(log kitlog.Logger, r repo.Interface) (AboutStore, repo.ServeFunc, error) {
 	f := func(db *badger.DB) librarian.SinkIndex {
 		aboutIdx := libbadger.NewIndex(db, 0)
 
 		return librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
 	}
 
-	db, _, serve, err := repo.OpenBadgerIndex(r, "about", f)
+	db, _, serve, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting about index")
 	}

@@ -23,8 +23,8 @@ import (
 	"go.cryptoscope.co/secretstream/boxstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 
-	"go.cryptoscope.co/netwrap"
 	"github.com/agl/ed25519"
+	"go.cryptoscope.co/netwrap"
 )
 
 // Client can dial secret-handshake server endpoints
@@ -58,11 +58,11 @@ func (c *Client) ConnWrapper(pubKey [ed25519.PublicKeySize]byte) netwrap.ConnWra
 		deKey, deNonce := state.GetBoxstreamDecKeys()
 
 		boxed := &Conn{
-			ReadCloser: boxstream.NewUnboxer(conn, &deNonce, &deKey),
+			ReadCloser:  boxstream.NewUnboxer(conn, &deNonce, &deKey),
 			WriteCloser: boxstream.NewBoxer(conn, &enNonce, &enKey),
-			conn:   conn,
-			local:  c.kp.Public[:],
-			remote: state.Remote(),
+			conn:        conn,
+			local:       c.kp.Public[:],
+			remote:      state.Remote(),
 		}
 
 		return boxed, nil
