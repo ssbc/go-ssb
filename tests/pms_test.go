@@ -10,12 +10,18 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
 	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	s := ts.gobot
+
 	before := `fromKey = testBob
 
 	sbot.on('rpc:connect', (rpc) => {
@@ -27,22 +33,22 @@ func TestPrivMsgsFromGo(t *testing.T) {
 					t.error(err, 'private read worked')
 					t.equal(msgs.length, 6, 'got all the messages')
 
-					t.equal(msgs[0].value.sequence, 1, 'sequence:0')
+					t.equal(msgs[0].value.sequence, 2, 'sequence:0')
 					t.deepEqual(msgs[0].value.content, [1,2,3,4,5], 'sequence:0 val')
 
-					t.equal(msgs[1].value.sequence, 2, 'sequence:1')
+					t.equal(msgs[1].value.sequence, 3, 'sequence:1')
 					t.equal(msgs[1].value.content.some, 1, 'sequence:1 val')
 
-					t.equal(msgs[2].value.sequence, 3, 'sequence:2')
+					t.equal(msgs[2].value.sequence, 4, 'sequence:2')
 					t.equal(msgs[2].value.content.hello, true, 'sequence:2 val')
 
-					t.equal(msgs[3].value.sequence, 4, 'sequence:3')
+					t.equal(msgs[3].value.sequence, 5, 'sequence:3')
 					t.equal(msgs[3].value.content, "plainStringLikeABlob", 'sequence:3 val')
 
-					t.equal(msgs[4].value.sequence, 5, 'sequence:4')
+					t.equal(msgs[4].value.sequence, 6, 'sequence:4')
 					t.equal(msgs[4].value.content.hello, false, 'sequence:4 val')
 
-					t.equal(msgs[5].value.sequence, 6, 'sequence:5')
+					t.equal(msgs[5].value.sequence, 7, 'sequence:5')
 					t.equal(msgs[5].value.content.hello, true, 'sequence:5 val')
 					exit()
 				})
@@ -74,10 +80,15 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 }) // publish`
 
-	s, alice, done, errc, cleanup := initInterop(t, before, "")
+	alice := ts.startJSBot(before, "")
 
-	publish, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
-	r.NoError(err)
+	newSeq, err := s.PublishLog.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
 
 	var tmsgs = [][]byte{
 		[]byte(`[1,2,3,4,5]`),
@@ -94,13 +105,12 @@ func TestPrivMsgsFromGo(t *testing.T) {
 		r.NoError(err, "failed to create ciphertext %d", i)
 		r.True(strings.HasSuffix(sbox, ".box"), "suffix")
 
-		newSeq, err := publish.Append(sbox)
+		newSeq, err := s.PublishLog.Append(sbox)
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
 
-	defer cleanup()
-	<-done
+	<-ts.doneJS
 
 	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -113,20 +123,20 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
 
-	s.Shutdown()
-	r.NoError(s.Close())
-
-	for err := range errc {
-		r.NoError(err)
-	}
-
+	ts.wait()
 }
 
 func TestPrivMsgsFromJS(t *testing.T) {
 	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
 	const n = 16
-	bob, alice, done, errc, cleanup := initInterop(t, `
-	let recps = [ testBob, alice.id ]
+	alice := ts.startJSBot(`let recps = [ testBob, alice.id ]
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.private.publish(msg, recps, cb)
@@ -147,8 +157,16 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		run() // triggers connect and after block
 	})
 `, ``)
-	defer cleanup()
-	<-done
+
+	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
+
+	<-ts.doneJS
 
 	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
 	r.NoError(err)
@@ -161,7 +179,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(i))
+		r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
 		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
@@ -193,10 +211,5 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		r.Equal("test", clearObj.Tipe)
 	}
 
-	bob.Shutdown()
-	r.NoError(bob.Close())
-
-	for err := range errc {
-		r.NoError(err)
-	}
+	ts.wait()
 }

@@ -18,43 +18,36 @@ import (
 func TestBlobToJS(t *testing.T) {
 	r := require.New(t)
 
-	tsChan := make(chan *muxtest.Transcript, 1)
+	rec := make(chan *muxtest.Transcript, 1)
 
-	s, _, done, errc, cleanup := initInterop(t, `run()`,
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot(sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		var ts muxtest.Transcript
+		conn = muxtest.WrapConn(&ts, conn)
+		rec <- &ts
+		return conn, nil
+	}))
+	s := ts.gobot
+
+	ts.startJSBot(`run()`,
 		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
-			t.true(has, "got blob")
-			t.error(err, "no err")
-			exit()
-		})`,
-		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			var ts muxtest.Transcript
-
-			conn = muxtest.WrapConn(&ts, conn)
-			tsChan <- &ts
-			return conn, nil
-		}))
+		t.true(has, "got blob")
+		t.error(err, "no err")
+		exit()
+	})`)
 
 	ref, err := s.BlobStore.Put(strings.NewReader("bl0000p123123"))
 	r.NoError(err)
 	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
 
-	defer cleanup()
-	closeErrc := make(chan error)
-	go func() {
-		<-done
-		s.Shutdown()
-		closeErrc <- s.Close()
-		close(closeErrc)
-	}()
-
-	for err := range mergeErrorChans(errc, closeErrc) {
-		r.NoError(err)
-	}
+	ts.wait()
 
 	// TODO: check wantManager for this connection is stopped when the jsbot exited
 
-	ts := <-tsChan
-	for i, dpkt := range ts.Get() {
+	transcript := <-rec
+	for i, dpkt := range transcript.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
 }
@@ -68,7 +61,18 @@ func TestBlobFromJS(t *testing.T) {
 
 	tsChan := make(chan *muxtest.Transcript, 1)
 
-	s, _, done, errc, cleanup := initInterop(t,
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot(sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		var rec muxtest.Transcript
+		conn = muxtest.WrapConn(&rec, conn)
+		tsChan <- &rec
+		return conn, nil
+	}))
+	s := ts.gobot
+
+	ts.startJSBot(
 		`pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
@@ -84,12 +88,7 @@ func TestBlobFromJS(t *testing.T) {
 				t.error(err, "has err")
 				setTimeout(exit, 1500)
 			})`,
-		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			var ts muxtest.Transcript
-			conn = muxtest.WrapConn(&ts, conn)
-			tsChan <- &ts
-			return conn, nil
-		}))
+	)
 
 	got := make(chan struct{})
 	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
@@ -114,21 +113,10 @@ func TestBlobFromJS(t *testing.T) {
 	r.NoError(err, "couldnt read blob")
 	r.Equal("foobar", string(foobar))
 
-	defer cleanup()
-	closeErrc := make(chan error)
-	go func() {
-		<-done
-		s.Shutdown()
-		closeErrc <- s.Close()
-		close(closeErrc)
-	}()
+	ts.wait()
 
-	for err := range mergeErrorChans(errc, closeErrc) {
-		r.NoError(err)
-	}
-
-	ts := <-tsChan
-	for i, dpkt := range ts.Get() {
+	rec := <-tsChan
+	for i, dpkt := range rec.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
 }

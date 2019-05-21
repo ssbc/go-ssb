@@ -22,6 +22,9 @@ install: true
 
 before_script: # install interop deps
   - nvm install --lts
+  - pushd message
+  - npm ci
+  - popd
   - pushd tests
   - npm ci
   - popd

@@ -94,12 +94,13 @@ func (s *SymDense) Caps() (r, c int) {
 	return s.cap, s.cap
 }
 
-// T implements the Matrix interface. Symmetric matrices, by definition, are
-// equal to their transpose, and this is a no-op.
+// T returns the receiver, the transpose of a symmetric matrix.
 func (s *SymDense) T() Matrix {
 	return s
 }
 
+// Symmetric implements the Symmetric interface and returns the number of rows
+// and columns in the matrix.
 func (s *SymDense) Symmetric() int {
 	return s.mat.N
 }
@@ -112,13 +113,14 @@ func (s *SymDense) RawSymmetric() blas64.Symmetric {
 
 // SetRawSymmetric sets the underlying blas64.Symmetric used by the receiver.
 // Changes to elements in the receiver following the call will be reflected
-// in b. SetRawSymmetric will panic if b is not an upper-encoded symmetric
-// matrix.
-func (s *SymDense) SetRawSymmetric(b blas64.Symmetric) {
-	if b.Uplo != blas.Upper {
+// in the input.
+//
+// The supplied Symmetric must use blas.Upper storage format.
+func (s *SymDense) SetRawSymmetric(mat blas64.Symmetric) {
+	if mat.Uplo != blas.Upper {
 		panic(badSymTriangle)
 	}
-	s.mat = b
+	s.mat = mat
 }
 
 // Reset zeros the dimensions of the matrix so that it can be reused as the
@@ -496,12 +498,12 @@ func (s *SymDense) SubsetSym(a Symmetric, set []int) {
 	}
 }
 
-// SliceSquare returns a new Matrix that shares backing data with the receiver.
+// SliceSym returns a new Matrix that shares backing data with the receiver.
 // The returned matrix starts at {i,i} of the receiver and extends k-i rows
 // and columns. The final row and column in the resulting matrix is k-1.
-// SliceSquare panics with ErrIndexOutOfRange if the slice is outside the capacity
-// of the receiver.
-func (s *SymDense) SliceSquare(i, k int) Matrix {
+// SliceSym panics with ErrIndexOutOfRange if the slice is outside the
+// capacity of the receiver.
+func (s *SymDense) SliceSym(i, k int) Symmetric {
 	sz := s.cap
 	if i < 0 || sz < i || k < i || sz < k {
 		panic(ErrIndexOutOfRange)
@@ -513,11 +515,21 @@ func (s *SymDense) SliceSquare(i, k int) Matrix {
 	return &v
 }
 
-// GrowSquare returns the receiver expanded by n rows and n columns. If the
+// Trace returns the trace of the matrix.
+func (s *SymDense) Trace() float64 {
+	// TODO(btracey): could use internal asm sum routine.
+	var v float64
+	for i := 0; i < s.mat.N; i++ {
+		v += s.mat.Data[i*s.mat.Stride+i]
+	}
+	return v
+}
+
+// GrowSym returns the receiver expanded by n rows and n columns. If the
 // dimensions of the expanded matrix are outside the capacity of the receiver
 // a new allocation is made, otherwise not. Note that the receiver itself is
 // not modified during the call to GrowSquare.
-func (s *SymDense) GrowSquare(n int) Matrix {
+func (s *SymDense) GrowSym(n int) Symmetric {
 	if n < 0 {
 		panic(ErrIndexOutOfRange)
 	}
@@ -577,14 +589,13 @@ func (s *SymDense) PowPSD(a Symmetric, pow float64) error {
 		}
 		values[i] = math.Pow(v, pow)
 	}
-	var u Dense
-	u.EigenvectorsSym(&eigen)
+	u := eigen.VectorsTo(nil)
 
 	s.SymOuterK(values[0], u.ColView(0))
 
 	var v VecDense
 	for i := 1; i < dim; i++ {
-		v.ColViewOf(&u, i)
+		v.ColViewOf(u, i)
 		s.SymRankOne(s, values[i], &v)
 	}
 	return nil

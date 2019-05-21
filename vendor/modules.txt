@@ -1,10 +1,10 @@
-# github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7
+# github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9
 github.com/AndreasBriese/bbloom
 # github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 github.com/agl/ed25519
 github.com/agl/ed25519/extra25519
 github.com/agl/ed25519/edwards25519
-# github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+# github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
 github.com/catherinejones/testdiff
@@ -20,7 +20,7 @@ github.com/dgraph-io/badger/protos
 github.com/dgraph-io/badger/skl
 github.com/dgraph-io/badger/table
 github.com/dgraph-io/badger/y
-# github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f
+# github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2
 github.com/dgryski/go-farm
 # github.com/go-kit/kit v0.8.0
 github.com/go-kit/kit/log
@@ -29,7 +29,7 @@ github.com/go-kit/kit/metrics/prometheus
 github.com/go-kit/kit/metrics/internal/lv
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
-# github.com/golang/protobuf v1.2.0
+# github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
@@ -41,7 +41,7 @@ github.com/keks/nocomment
 github.com/keks/persist
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
-# github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
+# github.com/kylelemons/godebug v1.1.0
 github.com/kylelemons/godebug/diff
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -55,19 +55,16 @@ github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.2.0
+# github.com/prometheus/common v0.3.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20190219184716-e4d4a2206da0
+# github.com/prometheus/procfs v0.0.0-20190507043628-bc6930f2d510
 github.com/prometheus/procfs
-github.com/prometheus/procfs/iostats
-github.com/prometheus/procfs/nfs
-github.com/prometheus/procfs/xfs
-github.com/prometheus/procfs/internal/util
+github.com/prometheus/procfs/internal/fs
 # github.com/sergi/go-diff v1.0.0
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/shurcooL/go v0.0.0-20190121191506-3fef8c783dec
+# github.com/shurcooL/go v0.0.0-20190330031554-6713ea532688
 github.com/shurcooL/go/reflectsource
 github.com/shurcooL/go/parserutil
 github.com/shurcooL/go/printerutil
@@ -77,15 +74,15 @@ github.com/shurcooL/go-goon
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
-# github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
+# github.com/ugorji/go v1.1.4
 github.com/ugorji/go/codec
-# go.cryptoscope.co/librarian v0.1.1
+# go.cryptoscope.co/librarian v0.1.2
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
 # go.cryptoscope.co/luigi v0.3.2
 go.cryptoscope.co/luigi
 go.cryptoscope.co/luigi/mfr
-# go.cryptoscope.co/margaret v0.0.9-0.20190410085406-3878e7f3905d
+# go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
 go.cryptoscope.co/margaret
 go.cryptoscope.co/margaret/codec/msgpack
 go.cryptoscope.co/margaret/framing/lengthprefixed
@@ -101,12 +98,14 @@ go.cryptoscope.co/muxrpc/codec
 go.cryptoscope.co/muxrpc/mock
 # go.cryptoscope.co/netwrap v0.0.3
 go.cryptoscope.co/netwrap
-# go.cryptoscope.co/secretstream v1.1.2
+# go.cryptoscope.co/secretstream v1.1.3
 go.cryptoscope.co/secretstream
 go.cryptoscope.co/secretstream/secrethandshake
 go.cryptoscope.co/secretstream/boxstream
-# golang.org/x/crypto v0.0.0-20190219172222-a4c6cb3142f2
+go.cryptoscope.co/secretstream/internal/lo25519
+# golang.org/x/crypto v0.0.0-20190506204251-e1dfcc566284
 golang.org/x/crypto/ed25519
+golang.org/x/crypto/nacl/auth
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/nacl/box
 golang.org/x/crypto/nacl/secretbox
@@ -114,14 +113,15 @@ golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
-# golang.org/x/exp v0.0.0-20190221220918-438050ddec5e
+# golang.org/x/exp v0.0.0-20190429183610-475c5042d3f1
 golang.org/x/exp/rand
-# golang.org/x/net v0.0.0-20190213061140-3a22650c66bd
+# golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
 golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
-# golang.org/x/sys v0.0.0-20190221222158-ec7b60b042fd
+# golang.org/x/sys v0.0.0-20190507053917-2953c62de483
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.0
+golang.org/x/sys/cpu
+# golang.org/x/text v0.3.2
 golang.org/x/text/encoding/unicode
 golang.org/x/text/transform
 golang.org/x/text/encoding
@@ -129,7 +129,7 @@ golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
-# gonum.org/v1/gonum v0.0.0-20190221132855-8ea67971a689
+# gonum.org/v1/gonum v0.0.0-20190506115330-fb5cd163d924
 gonum.org/v1/gonum/graph
 gonum.org/v1/gonum/graph/encoding
 gonum.org/v1/gonum/graph/encoding/dot
@@ -159,7 +159,9 @@ gonum.org/v1/gonum/graph/formats/dot/internal/errors
 gonum.org/v1/gonum/blas/gonum
 gonum.org/v1/gonum/lapack/gonum
 gonum.org/v1/gonum/internal/asm/c128
+gonum.org/v1/gonum/internal/asm/c64
 gonum.org/v1/gonum/internal/asm/f32
+gonum.org/v1/gonum/internal/cmplx64
 gonum.org/v1/gonum/internal/math32
 # gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8
 gopkg.in/urfave/cli.v2

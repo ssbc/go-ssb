@@ -29,7 +29,6 @@ import (
 )
 
 var (
-	sbotAppKey     []byte
 	defaultKeyFile string
 
 	longctx      context.Context
@@ -43,10 +42,6 @@ var (
 )
 
 func init() {
-	var err error
-	sbotAppKey, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
-	check(err)
-
 	u, err := user.Current()
 	check(err)
 
@@ -79,6 +74,7 @@ func main() {
 	}
 
 	app.Flags = []cli.Flag{
+		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "shs key"},
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "tcp address of the sbot to connect to (or listen on)"},
 		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
 		&cli.StringFlag{Name: "key,k", Value: defaultKeyFile},
@@ -216,7 +212,12 @@ func initClient(ctx *cli.Context) error {
 		return err
 	}
 
-	c, err := secretstream.NewClient(localKey.Pair, sbotAppKey)
+	shscap, err := base64.StdEncoding.DecodeString(ctx.String("shscap"))
+	if err != nil {
+		return errors.Wrap(err, "shs capability decode failed")
+	}
+
+	c, err := secretstream.NewClient(localKey.Pair, shscap)
 	if err != nil {
 		return errors.Wrap(err, "error creating secretstream.Client")
 	}

@@ -25,6 +25,8 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 
+	"go.cryptoscope.co/secretstream/internal/lo25519"
+
 	"github.com/agl/ed25519"
 	"github.com/agl/ed25519/extra25519"
 	"golang.org/x/crypto/curve25519"
@@ -192,6 +194,10 @@ func (s *State) verifyClientAuth(data []byte) bool {
 	} else {
 		copy(sig[:], nullHello[:ed25519.SignatureSize])
 		copy(public[:], nullHello[ed25519.SignatureSize:])
+	}
+
+	if lo25519.IsEdLowOrder(sig[:32]) {
+		openOk = false
 	}
 
 	var sigMsg bytes.Buffer

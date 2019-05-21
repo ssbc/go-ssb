@@ -191,7 +191,7 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 		}
 
 		rmsg := v.(message.RawSignedMessage)
-		ref, dmsg, err := message.Verify(rmsg.RawMessage)
+		ref, dmsg, err := message.Verify(rmsg.RawMessage, g.hmacSec)
 		if err != nil {
 			return errors.Wrapf(err, "fetchFeed(%s:%d): message verify failed", fr.Ref(), latestSeq)
 		}

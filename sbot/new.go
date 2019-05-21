@@ -132,11 +132,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	id := s.KeyPair.Id
 	auth := s.GraphBuilder.Authorizer(id, 2)
 
-	publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+	if s.signHMACsecret != nil {
+		publishLog, err := multilogs.OpenPublishLogWithHMAC(s.RootLog, s.UserFeeds, *s.KeyPair, s.signHMACsecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to create publish log with hmac")
+		}
+		s.PublishLog = publishLog
+	} else {
+		publishLog, err := multilogs.OpenPublishLog(s.RootLog, s.UserFeeds, *s.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to create publish log")
+		}
+		s.PublishLog = publishLog
 	}
-	s.PublishLog = publishLog
 
 	pl, _, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
 	if err != nil {
@@ -207,7 +215,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		Dialer:       s.dialer,
 		ListenAddr:   s.listenAddr,
 		KeyPair:      s.KeyPair,
-		AppKey:       s.appKey[:],
+		AppKey:       s.appKey,
 		MakeHandler:  mkHandler,
 		ConnWrappers: s.connWrappers,
 
@@ -227,13 +235,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
 
-	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), publishLog))
+	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog))
 	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}
 
-	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), publishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
@@ -246,16 +254,25 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	ctrl.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
 	// outgoing gossip behavior
+	var histOpts = []interface{}{
+		gossip.HopCount(3),
+		s.systemGauge, s.eventCounter,
+	}
+	if s.signHMACsecret != nil {
+		var k [32]byte
+		copy(k[:], s.signHMACsecret)
+		histOpts = append(histOpts, gossip.HMACSecret(&k))
+	}
 	pmgr.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter,
-		gossip.HopCount(3),
-	))
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, s.GraphBuilder, s.systemGauge, s.eventCounter)
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...)
 	pmgr.Register(hist)
 
 	// raw log plugins
