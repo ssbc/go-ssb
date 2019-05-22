@@ -23,7 +23,7 @@ func (d *data) frameReader(ofst int64) (io.Reader, error) {
 		return nil, errors.Wrap(err, "error reading payload length")
 	}
 
-	if sz == -1 {
+	if sz < 0 {
 		return nil, margaret.ErrNulled
 	}
 

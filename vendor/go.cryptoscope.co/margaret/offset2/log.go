@@ -1,7 +1,9 @@
 package offset2 // import "go.cryptoscope.co/margaret/offset2"
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
 	"os"
 	"path/filepath"
@@ -73,8 +75,13 @@ func (log *offsetLog) Null(seq margaret.Seq) error {
 		return errors.Wrap(err, "get frame size failed")
 	}
 
-	minusOne := []byte{255, 255, 255, 255, 255, 255, 255, 255}
-	_, err = log.data.WriteAt(minusOne, ofst)
+	var minusSz bytes.Buffer
+	err = binary.Write(&minusSz, binary.BigEndian, -sz)
+	if err != nil {
+		return errors.Wrapf(err, "failed to encode neg size: %d", -sz)
+	}
+
+	_, err = log.data.WriteAt(minusSz.Bytes(), ofst)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write -1 size bytes at %d", ofst)
 	}
@@ -186,8 +193,9 @@ func (log *offsetLog) checkJournal() error {
 		return errors.Wrap(err, "error getting frame size from log data file")
 	}
 
-	if sz == -1 { // entry nulled
-		return errors.Errorf("TODO: use -size to indicate nulled but keep consistent")
+	if sz < 0 { // entry nulled
+		// irrelevant here, just treat the nulls as regular bytes
+		sz = -sz
 	}
 
 	stat, err := log.data.Stat()

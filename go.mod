@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	go.cryptoscope.co/librarian v0.1.2
 	go.cryptoscope.co/luigi v0.3.3
-	go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
+	go.cryptoscope.co/margaret v0.0.10-0.20190522171300-1353e89680da
 	go.cryptoscope.co/muxrpc v1.4.1-0.20190507165850-51dd9c9b9c3a
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.4-0.20190516183542-3faf22728ce8

@@ -22,9 +22,10 @@ func (log *sublog) Seq() luigi.Observable {
 func (log *sublog) Get(seq margaret.Seq) (interface{}, error) {
 	var v interface{}
 
-	seqBs := make([]byte, 8)
-	binary.BigEndian.PutUint64(seqBs, uint64(seq.Seq()))
-	key := append(log.prefix, seqBs...)
+	npref := len(log.prefix)
+	key := make([]byte, npref+8)
+	binary.BigEndian.PutUint64(key[npref:], uint64(seq.Seq()))
+	copy(key[:npref], log.prefix)
 
 	err := log.mlog.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
