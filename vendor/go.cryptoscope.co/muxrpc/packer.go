@@ -39,10 +39,10 @@ type packer struct {
 	w *codec.Writer
 	c io.Closer
 
+	cl        sync.Mutex
 	closeOnce sync.Once
 	closing   chan struct{}
-
-	closeLis []chan struct{}
+	closeLis  []chan struct{}
 }
 
 type CloseNotifier interface {
@@ -52,8 +52,8 @@ type CloseNotifier interface {
 }
 
 func (pkr *packer) Closed() <-chan struct{} {
-	pkr.wl.Lock()
-	defer pkr.wl.Unlock()
+	pkr.cl.Lock()
+	defer pkr.cl.Unlock()
 	ch := make(chan struct{})
 	pkr.closeLis = append(pkr.closeLis, ch)
 	return ch
@@ -129,6 +129,8 @@ func (pkr *packer) Close() error {
 	var err error
 
 	pkr.closeOnce.Do(func() {
+		pkr.cl.Lock()
+		defer pkr.cl.Unlock()
 		close(pkr.closing)
 		for _, ch := range pkr.closeLis {
 			close(ch)

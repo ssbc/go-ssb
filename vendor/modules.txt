@@ -92,7 +92,7 @@ go.cryptoscope.co/margaret/offset
 go.cryptoscope.co/margaret/offset2
 go.cryptoscope.co/margaret/multilog
 go.cryptoscope.co/margaret/multilog/badger
-# go.cryptoscope.co/muxrpc v1.4.1-0.20190507165850-51dd9c9b9c3a
+# go.cryptoscope.co/muxrpc v1.4.1-0.20190522170826-f8e366b4c8fb
 go.cryptoscope.co/muxrpc
 go.cryptoscope.co/muxrpc/debug
 go.cryptoscope.co/muxrpc/test
