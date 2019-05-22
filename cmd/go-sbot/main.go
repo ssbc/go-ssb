@@ -28,6 +28,7 @@ import (
 
 var (
 	// flags
+	flagsReindex bool
 	flagHops     uint
 	flagEnAdv    bool
 	flagEnDiscov bool
@@ -72,6 +73,8 @@ func init() {
 
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
+
+	flag.BoolVar(&flagsReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.Parse()
 
@@ -143,6 +146,12 @@ func main() {
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
+	if flagsReindex {
+		opts = append(opts,
+			mksbot.DisableNetworkNode(),
+			mksbot.DisableLiveIndexMode())
+	}
+
 	sbot, err := mksbot.New(opts...)
 	checkFatal(err)
 
@@ -162,6 +171,13 @@ func main() {
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(c)
+
+	if flagsReindex {
+		log.Log("mode", "reindexing")
+		err = sbot.Close()
+		checkAndLog(err)
+		return
+	}
 
 	id := sbot.KeyPair.Id
 	uf := sbot.UserFeeds
@@ -187,13 +203,23 @@ func main() {
 		checkFatal(err)
 		userLogSeq := userLogV.(margaret.BaseSeq)
 		rlSeq, err := subLog.Get(userLogSeq)
-		checkFatal(err)
+		if margaret.IsErrNulled(err) {
+			continue
+		} else {
+			checkFatal(err)
+		}
 		rv, err := sbot.RootLog.Get(rlSeq.(margaret.BaseSeq))
-		checkFatal(err)
+		if margaret.IsErrNulled(err) {
+			continue
+		} else {
+			checkFatal(err)
+		}
 		msg := rv.(message.StoredMessage)
 
 		if msg.Sequence != userLogSeq+1 {
-			checkFatal(fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Sequence, userLogSeq))
+			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Sequence, userLogSeq+1)
+			log.Log("warning", err)
+			continue
 		}
 
 		msgCount += uint(msg.Sequence)

@@ -69,6 +69,8 @@ func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userF
 			h.hopCount = int(v)
 		case HMACSecret:
 			h.hmacSec = v
+		case Promisc:
+			h.promisc = bool(v)
 		default:
 			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
 		}

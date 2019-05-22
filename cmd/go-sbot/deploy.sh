@@ -1,21 +1,27 @@
 #! /usr/bin/env bash
 
 set -e 
-export CGO_ENABLED=0
-#export GOROOT=$HOME/go.tmproot
 
-export GOOS=linux
-go install -v
-go build -v -i
-gzip go-sbot
-scp go-sbot.gz keksvps:.
-rm go-sbot.gz
+unset GOOS
+go install -v -race
+
+export CGO_ENABLED=0
+export GOROOT=$HOME/go.root
+
+
+#export GOOS=linux
+#go install -v
+#go build -v -i
+#zstd go-sbot
+#scp go-sbot.zst keksvps:.
+#scp go-sbot.zst versepub:.
+#rm go-sbot.zst
 
 export GOOS=freebsd
 go build -v -i
-gzip go-sbot
-scp go-sbot.gz aufdie12:.
+zstd go-sbot
+scp go-sbot aufdie12:.
 # todo: restart
-scp go-sbot.gz vmbox:.
+scp go-sbot.zst vmbox:.
 ssh aufdie12 ./bin/restartGobot.sh
-rm go-sbot.gz
+rm go-sbot.zst

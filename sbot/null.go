@@ -127,7 +127,6 @@ func RebuildIndicies(path string) error {
 	// rebuilding indexes
 	sbot, err := New(
 		DisableNetworkNode(),
-		WithListenAddr("127.0.0.1:0"),
 		WithRepoPath(path),
 		DisableLiveIndexMode(),
 	)

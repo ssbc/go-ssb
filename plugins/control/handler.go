@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"net"
+	"os"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -27,7 +28,7 @@ func New(i logging.Interface, n ssb.Network) muxrpc.Handler {
 }
 
 func (h *handler) check(err error) {
-	if err != nil {
+	if err != nil && errors.Cause(err) != os.ErrClosed {
 		h.info.Log("error", err)
 	}
 }
@@ -95,6 +96,7 @@ func (h *handler) connect(ctx context.Context, dest string) error {
 
 	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: msaddr.Ref.ID})
 	h.info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
-	err = h.node.Connect(ctx, wrappedAddr)
+	// TODO: add context to tracker to cancel connections
+	err = h.node.Connect(context.Background(), wrappedAddr)
 	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", addr)
 }

@@ -62,7 +62,7 @@ type node struct {
 func New(opts Options) (ssb.Network, error) {
 	n := &node{
 		opts:        opts,
-		connTracker: NewLastWinsTracker(),
+		connTracker: NewConnTracker(),
 	}
 
 	var err error

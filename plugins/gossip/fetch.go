@@ -110,7 +110,9 @@ func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.End
 	g.activeFetch.Store(addr, true)
 	g.activeLock.Unlock()
 	defer func() {
+		g.activeLock.Lock()
 		g.activeFetch.Delete(addr)
+		g.activeLock.Unlock()
 		if g.sysGauge != nil {
 			g.sysGauge.With("part", "fetches").Add(-1)
 		}
