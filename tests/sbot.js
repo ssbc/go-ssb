@@ -5,7 +5,6 @@ const tape = require('tape')
 const parallel = require('run-parallel')
 
 const createSbot = require('ssb-server')
-  .use(require('ssb-server/plugins/logging'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
   .use(require('ssb-private'))
