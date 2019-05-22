@@ -82,6 +82,8 @@ func (o *observable) Register(sink Sink) func() {
 			return
 		}
 
+		lock.Lock()
+		defer lock.Unlock()
 		cancel = o.Broadcast.Register(sink)
 	}(o.v)
 

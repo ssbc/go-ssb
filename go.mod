@@ -11,8 +11,8 @@ require (
 	github.com/go-kit/kit v0.8.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
-	github.com/libp2p/go-reuseport v0.0.1
 	github.com/kylelemons/godebug v1.1.0
+	github.com/libp2p/go-reuseport v0.0.1
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v0.9.2
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
@@ -23,7 +23,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	go.cryptoscope.co/librarian v0.1.2
-	go.cryptoscope.co/luigi v0.3.2
+	go.cryptoscope.co/luigi v0.3.3
 	go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
 	go.cryptoscope.co/muxrpc v1.4.1-0.20190507165850-51dd9c9b9c3a
 	go.cryptoscope.co/netwrap v0.0.3

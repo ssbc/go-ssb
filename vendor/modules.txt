@@ -81,7 +81,7 @@ github.com/ugorji/go/codec
 # go.cryptoscope.co/librarian v0.1.2
 go.cryptoscope.co/librarian
 go.cryptoscope.co/librarian/badger
-# go.cryptoscope.co/luigi v0.3.2
+# go.cryptoscope.co/luigi v0.3.3
 go.cryptoscope.co/luigi
 go.cryptoscope.co/luigi/mfr
 # go.cryptoscope.co/margaret v0.0.10-0.20190507124236-f3e505f84cab
