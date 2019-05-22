@@ -73,7 +73,14 @@ func TestBlobFromJS(t *testing.T) {
 	s := ts.gobot
 
 	ts.startJSBot(
-		`pull(
+		`
+		pull(sbot.blobs.changes(), pull.drain(function(v) {
+			// migitation against blobs blocking
+			// https://github.com/ssbc/ssb-blobs/pulls/17
+			t.equal(v, '&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256')
+			run()
+		}))
+		pull(
 			pull.values([Buffer.from("foobar")]),
 			sbot.blobs.add(function(err, id) {
 				t.error(err, "added err")
