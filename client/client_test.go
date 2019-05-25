@@ -6,17 +6,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/ssb/plugins2"
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -30,17 +32,9 @@ func TestUnixSock(t *testing.T) {
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
-		sbot.WithListenAddr(":0"))
+		sbot.WithUNIXSocket(),
+	)
 	r.NoError(err, "sbot srv init failed")
-
-	var srvErrc = make(chan error, 1)
-	go func() {
-		err := srv.Network.Serve(context.TODO())
-		if err != nil {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(srvErrc)
-	}()
 
 	c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
 	r.NoError(err, "failed to make client connection")
@@ -55,7 +49,6 @@ func TestUnixSock(t *testing.T) {
 
 	srv.Shutdown()
 	r.NoError(srv.Close())
-	r.NoError(<-srvErrc)
 }
 
 func TestWhoami(t *testing.T) {
@@ -151,19 +144,19 @@ func TestPublish(t *testing.T) {
 	a.Equal(wantSeq, seqv)
 	msgv, err := srv.RootLog.Get(wantSeq)
 	r.NoError(err)
-	newMsg, ok := msgv.(message.StoredMessage)
+	newMsg, ok := msgv.(ssb.Message)
 	r.True(ok)
-	r.Equal(newMsg.Key, ref)
+	r.Equal(newMsg.Key(), ref)
 
 	src, err := c.CreateLogStream(message.CreateHistArgs{Limit: 1})
 	r.NoError(err)
 
 	streamV, err := src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok := streamV.(message.DeserializedMessage)
-	r.True(ok)
-	a.Equal(newMsg.Author.Ref(), streamMsg.Author.Ref())
-	a.Equal(newMsg.Sequence, streamMsg.Sequence)
+	streamMsg, ok := streamV.(ssb.Message)
+	r.True(ok, "acutal type: %T", streamV)
+	a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
+	a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
 	v, err := src.Next(context.TODO())
 	a.Nil(v)
@@ -186,7 +179,9 @@ func TestTangles(t *testing.T) {
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
-		sbot.WithListenAddr(":0"))
+		sbot.WithListenAddr(":0"),
+		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err, "sbot srv init failed")
 
 	var srvErrc = make(chan error, 1)
@@ -230,16 +225,16 @@ func TestTangles(t *testing.T) {
 
 	streamV, err := src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok := streamV.(message.KeyValueAsMap)
+	streamMsg, ok := streamV.(ssb.Message)
 	r.True(ok)
 
-	a.Equal(2, streamMsg.Value.Sequence)
+	a.EqualValues(2, streamMsg.Seq())
 
 	streamV, err = src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok = streamV.(message.KeyValueAsMap)
+	streamMsg, ok = streamV.(ssb.Message)
 	r.True(ok)
-	a.Equal(3, streamMsg.Value.Sequence)
+	a.EqualValues(3, streamMsg.Seq())
 
 	v, err := src.Next(context.TODO())
 	a.Nil(v)

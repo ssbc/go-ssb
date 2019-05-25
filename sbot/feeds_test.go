@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/cryptix/go/logging/logtest"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 
@@ -27,8 +27,15 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	os.RemoveAll("testrun")
 
+	appKey := make([]byte, 32)
+	rand.Read(appKey)
+	hmacKey := make([]byte, 32)
+	rand.Read(hmacKey)
+
 	aliLog, _ := logtest.KitLogger("ali", t)
 	ali, err := New(
+		WithAppKey(appKey),
+		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
@@ -46,6 +53,8 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	bobLog, _ := logtest.KitLogger("bob", t)
 	bob, err := New(
+		WithAppKey(appKey),
+		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
@@ -80,7 +89,9 @@ func TestFeedsOneByOne(t *testing.T) {
 	r.NoError(err)
 	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
-	alisLog, err := bob.UserFeeds.Get(librarian.Addr(ali.KeyPair.Id.ID))
+	uf, ok := bob.GetMultiLog("userFeeds")
+	r.True(ok)
+	alisLog, err := uf.Get(ali.KeyPair.Id.StoredAddr())
 	r.NoError(err)
 
 	for i := 0; i < 9; i++ {
@@ -89,11 +100,10 @@ func TestFeedsOneByOne(t *testing.T) {
 		r.NoError(err)
 		time.Sleep(75 * time.Millisecond)
 
-		seq, err := ali.PublishLog.Append(map[string]interface{}{
+		_, err := ali.PublishLog.Append(map[string]interface{}{
 			"test": i,
 		})
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(i+1), seq)
 
 		seqv, err := alisLog.Seq().Value()
 		r.NoError(err)
@@ -108,7 +118,6 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
 	cancel()
-	time.Sleep(10 * time.Second)
 }
 
 // utils

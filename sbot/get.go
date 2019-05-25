@@ -5,11 +5,14 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 )
 
-func (s Sbot) Get(ref ssb.MessageRef) (*message.StoredMessage, error) {
-	obs, err := s.idxGet.Get(s.rootCtx, librarian.Addr(ref.Hash))
+func (s Sbot) Get(ref ssb.MessageRef) (ssb.Message, error) {
+	getIdx, ok := s.simpleIndex["get"]
+	if !ok {
+		return nil, errors.Errorf("sbot: get index disabled")
+	}
+	obs, err := getIdx.Get(s.rootCtx, librarian.Addr(ref.Hash))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot/get: failed to get seq val from index")
 	}
@@ -29,10 +32,10 @@ func (s Sbot) Get(ref ssb.MessageRef) (*message.StoredMessage, error) {
 		return nil, errors.Wrap(err, "sbot/get: failed to load message")
 	}
 
-	msg, ok := storedV.(message.StoredMessage)
+	msg, ok := storedV.(ssb.Message)
 	if !ok {
 		return nil, errors.Errorf("sbot/get: wrong message type in storeage: %T", storedV)
 	}
 
-	return &msg, nil
+	return msg, nil
 }

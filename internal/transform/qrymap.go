@@ -4,29 +4,46 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cryptix/go/encodedTime"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb"
 )
+
+type KeyValue struct {
+	Message ssb.Message
+	Data    json.RawMessage
+}
 
 func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 	return mfr.SourceMap(src, func(ctx context.Context, v interface{}) (interface{}, error) {
-		storedMsg, ok := v.(message.StoredMessage)
+		abs, ok := v.(ssb.Message)
 		if !ok {
-			return nil, errors.Errorf("wrong message type. expected %T - got %T", storedMsg, v)
+			return nil, errors.Errorf("kvwrap: wrong message type. expected %T - got %T", abs, v)
 		}
+
 		if !wrap {
-			return storedMsg.Raw, nil
+			return &KeyValue{
+				Message: abs,
+				Data:    abs.ValueContentJSON(),
+			}, nil
 		}
-		var kv message.KeyValueRaw
-		kv.Key = storedMsg.Key
-		kv.Value = storedMsg.Raw
-		kv.Timestamp = storedMsg.Timestamp.UnixNano() / 1000000
+
+		var kv ssb.KeyValueRaw
+		kv.Key_ = abs.Key()
+		kv.Value = *abs.ValueContent()
+		kv.Timestamp = encodedTime.Millisecs(abs.Received())
 		kvMsg, err := json.Marshal(kv)
 		if err != nil {
-			return nil, errors.Wrapf(err, "rootLog: failed to k:v map message")
+			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
 		}
-		return kvMsg, nil
+
+		return &KeyValue{
+			Message: abs,
+			Data:    kvMsg,
+		}, nil
+
 	})
 }

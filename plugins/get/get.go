@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 )
 
 type plugin struct {
@@ -26,18 +25,14 @@ func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
 
-type Getter interface {
-	Get(ssb.MessageRef) (*message.StoredMessage, error)
-}
-
-func New(g Getter) ssb.Plugin {
+func New(g ssb.Getter) ssb.Plugin {
 	return plugin{
 		h: handler{g: g},
 	}
 }
 
 type handler struct {
-	g Getter
+	g ssb.Getter
 }
 
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
@@ -77,27 +72,25 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		return
 	}
 
-	/*
-		var retMsg json.RawMessage
-		if msg.Author.Offchain {
-			var tmpMsg message.DeserializedMessage
-			tmpMsg.Previous = *msg.Previous
-			tmpMsg.Author = *msg.Author
-			tmpMsg.Sequence = msg.Sequence
-			// tmpMsg.Timestamp = msg. TODO: meh.. need to get the user-timestamp from the raw field
-			tmpMsg.Hash = msg.Key.Algo
-			tmpMsg.Content = msg.Offchain
+	// var retMsg json.RawMessage
+	// if msg.Author.Offchain {
+	// 	var tmpMsg message.DeserializedMessage
+	// 	tmpMsg.Previous = *msg.Previous
+	// 	tmpMsg.Author = *msg.Author
+	// 	tmpMsg.Sequence = msg.Sequence
+	// 	// tmpMsg.Timestamp = msg. TODO: meh.. need to get the user-timestamp from the raw field
+	// 	tmpMsg.Hash = msg.Key.Algo
+	// 	tmpMsg.Content = msg.Offchain
 
-			retMsg, err = json.Marshal(tmpMsg)
-			if err != nil {
-				req.CloseWithError(errors.Wrap(err, "failed to re-wrap offchain message"))
-				return
-			}
-		} else {
-			retMsg = msg.Raw
-		}
-	*/
-	err = req.Return(ctx, msg.Raw)
+	// 	retMsg, err = json.Marshal(tmpMsg)
+	// 	if err != nil {
+	// 		req.CloseWithError(errors.Wrap(err, "failed to re-wrap offchain message"))
+	// 		return
+	// 	}
+	// } else {
+	// retMsg = msg.Raw
+	// }
+	err = req.Return(ctx, msg.ValueContentJSON())
 	if err != nil {
 		fmt.Println("get: failed to return message:", err)
 	}

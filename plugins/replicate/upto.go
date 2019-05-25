@@ -14,6 +14,7 @@ type replicatePlug struct {
 	h muxrpc.Handler
 }
 
+// TODO: add replicate, block, changes
 func NewPlug(users multilog.MultiLog) ssb.Plugin {
 	plug := &replicatePlug{}
 	plug.h = replicateHandler{
@@ -38,12 +39,12 @@ type replicateHandler struct {
 func (g replicateHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// TODO: add replicate, block, changes
 	if len(req.Method) < 2 && req.Method[1] != "upto" {
 		req.CloseWithError(errors.Errorf("invalid method"))
 		return
 	}
 
+	// TODO: fix error messages
 	storedFeeds, err := g.users.List()
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
@@ -51,15 +52,18 @@ func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 	}
 
 	for _, author := range storedFeeds {
+		authorRef, err := ssb.ParseFeedRef(string(author))
+		if err != nil {
+			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+			return
+		}
+
 		subLog, err := g.users.Get(author)
 		if err != nil {
 			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
 			return
 		}
-		authorRef := &ssb.FeedRef{
-			Algo: "ed25519",
-			ID:   []byte(author),
-		}
+
 		currSeq, err := subLog.Seq().Value()
 		if err != nil {
 			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))

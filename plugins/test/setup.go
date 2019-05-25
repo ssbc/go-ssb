@@ -29,7 +29,7 @@ func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 	r := require.New(t)
 	rp := repo.New(repopath)
 
-	kp, err := repo.OpenKeyPair(rp)
+	kp, err := repo.DefaultKeyPair(rp)
 	r.NoError(err, "error opening keypair")
 	r.NotNil(kp, "key pair is nil")
 	return rp
@@ -45,10 +45,10 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 
 func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
-	keyAlice, err := repo.OpenKeyPair(alice)
+	keyAlice, err := repo.DefaultKeyPair(alice)
 	r.NoError(err, "error opening alice's key pair")
 
-	keyBob, err := repo.OpenKeyPair(bob)
+	keyBob, err := repo.DefaultKeyPair(bob)
 	r.NoError(err, "error opening bob's key pair")
 
 	p1, p2 := net.Pipe()

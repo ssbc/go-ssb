@@ -14,6 +14,8 @@ type Network interface {
 	Serve(context.Context, ...muxrpc.HandlerWrapper) error
 	GetListenAddr() net.Addr
 
+	GetEndpointFor(*FeedRef) (muxrpc.Endpoint, bool)
+
 	GetConnTracker() ConnTracker
 
 	io.Closer

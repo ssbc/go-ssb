@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging/countconn"
-
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"

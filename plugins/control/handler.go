@@ -94,7 +94,7 @@ func (h *handler) connect(ctx context.Context, dest string) error {
 		Port: msaddr.Port,
 	}
 
-	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: msaddr.Ref.ID})
+	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
 	h.info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
 	// TODO: add context to tracker to cancel connections
 	err = h.node.Connect(context.Background(), wrappedAddr)

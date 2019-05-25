@@ -18,8 +18,8 @@ type Interface interface {
 
 	Publish(interface{}) (*ssb.MessageRef, error)
 
-	// PrivatePublish(interface{}, ...ssb.FeedRef) (margaret.Seq, error)
-	// PrivateRead() (luigi.Source, error)
+	PrivatePublish(interface{}, ...*ssb.FeedRef) (*ssb.MessageRef, error)
+	PrivateRead() (luigi.Source, error)
 
 	// MessagesByTypes(string) (luigi.Source, error)
 	CreateLogStream(message.CreateHistArgs) (luigi.Source, error)

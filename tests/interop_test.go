@@ -58,7 +58,7 @@ type testSession struct {
 	doneJS, doneGo <-chan struct{}
 }
 
-// TODO: restrucuture so that we can test both with the same Code
+// TODO: restrucuture so that we can test both (default and random net keys) with the same Code
 
 // rolls random values for secret-handshake app-key and HMAC
 func newRandomSession(t *testing.T) *testSession {

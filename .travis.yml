@@ -4,20 +4,19 @@ language: go
 # https://arslan.io/2018/08/26/using-go-modules-with-vendor-support-on-travis-ci/
 matrix:
   include:
-  - go: "1.10.x"
-    script: go test -race ./...
   - go: "1.11.x"
-    script: go test -race -mod=vendor ./...
+    script: go test -race ./...
+  - go: "1.12.x"
+    script: go test -race ./...
   - go: "1.x"
-    script: go test -race -mod=vendor ./...
+    script: go test -race ./...
 
 env:
   - GO111MODULE="on"
 
 go_import_path: go.cryptoscope.co/ssb
 
-# we use 'go mod vendor' to populate vendor/ dir
-# no need to fetch anything
+# should fetch go.mod defined deps on it's own
 install: true
 
 before_script: # install interop deps

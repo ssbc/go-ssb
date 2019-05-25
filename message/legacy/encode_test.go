@@ -1,4 +1,4 @@
-package message
+package legacy
 
 import (
 	"archive/zip"

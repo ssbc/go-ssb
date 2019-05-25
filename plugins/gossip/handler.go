@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"bytes"
 	"context"
 	"sync"
 	"time"
@@ -13,8 +12,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 )
@@ -39,21 +36,17 @@ type handler struct {
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	remote := e.Remote()
-	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
-	if !ok {
+	remoteRef, err := ssb.GetFeedRefFromAddr(remote)
+	if err != nil {
 		return
 	}
-	remoteRef := &ssb.FeedRef{
-		Algo: "ed25519",
-		ID:   remoteAddr.PubKey,
-	}
 
-	if bytes.Equal(remoteRef.ID, g.Id.ID) {
+	if remoteRef.Equal(g.Id) {
 		return
 	}
 
 	if g.promisc {
-		hasCallee, err := multilog.Has(g.UserFeeds, librarian.Addr(remoteRef.ID))
+		hasCallee, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
 		if err != nil {
 			g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
 			return
@@ -89,12 +82,11 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
+	// TODO: port Blocked to FeedSet and make set operations
 	var blockedAddr []librarian.Addr
 	blocked := tGraph.BlockedList(g.Id)
 	for _, ref := range ufaddrs {
-		var k [32]byte
-		copy(k[:], []byte(ref))
-		if _, isBlocked := blocked[k]; isBlocked {
+		if _, isBlocked := blocked[ref]; isBlocked {
 			blockedAddr = append(blockedAddr, ref)
 		}
 	}

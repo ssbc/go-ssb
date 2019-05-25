@@ -2,6 +2,7 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
@@ -72,9 +73,14 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 	// // only return message keys
 	// qry.Values = true
 
-	src, err := g.root.Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
+	src, err := g.root.Query(
+		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Limit(int(qry.Limit)),
+		margaret.Live(qry.Live),
+		margaret.Reverse(qry.Reverse),
+	)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logT: failed to qry tipe"))
+		req.CloseWithError(errors.Wrap(err, "logStream: failed to qry tipe"))
 		return
 	}
 
@@ -82,16 +88,16 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		if err != nil {
 			return err
 		}
-		msg, ok := v.([]byte)
+		kv, ok := v.(*transform.KeyValue)
 		if !ok {
-			return errors.Errorf("b4pour: expected []byte - got %T", v)
+			return errors.Errorf("type missmatch: expected %T - got %T", kv, v)
 		}
-		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+		return req.Stream.Pour(ctx, json.RawMessage(kv.Data))
 	})
 
 	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
+		req.CloseWithError(errors.Wrap(err, "logStream: failed to pump msgs"))
 		return
 	}
 

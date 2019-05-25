@@ -1,15 +1,15 @@
 package tests
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
 )
 
@@ -61,7 +61,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 		sbot.friends.get({src: alice.id, dest: fromKey}, function(err, val) {
 			t.error(err, 'friends.get of new contact')
-			t.equals(val[alice.id], true, 'is following')
+			t.equals(val[alice.id], true, 'is following:'+JSON.stringify(val))
 
 			t.comment('shouldnt have bobs feed:' + fromKey)
 			pull(
@@ -103,7 +103,6 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	for i, msg := range tmsgs {
 		sbox, err := private.Box(msg, alice, s.KeyPair.Id)
 		r.NoError(err, "failed to create ciphertext %d", i)
-		r.True(strings.HasSuffix(sbox, ".box"), "suffix")
 
 		newSeq, err := s.PublishLog.Append(sbox)
 		r.NoError(err, "failed to publish test message %d", i)
@@ -112,16 +111,18 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
+	uf, ok := s.GetMultiLog("userFeeds")
+	r.True(ok)
+	aliceLog, err := uf.Get(alice.StoredAddr())
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
 	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
-	storedMsg, ok := msg.(message.StoredMessage)
+	storedMsg, ok := msg.(ssb.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
+	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
 
 	ts.wait()
 }
@@ -168,7 +169,9 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	<-ts.doneJS
 
-	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
+	uf, ok := bob.GetMultiLog("userFeeds")
+	r.True(ok)
+	aliceLog, err := uf.Get(alice.StoredAddr())
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -183,21 +186,28 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
-		storedMsg, ok := msg.(message.StoredMessage)
+		absMsg, ok := msg.(ssb.Message)
 		r.True(ok, "wrong type of message: %T", msg)
-		r.Equal(storedMsg.Sequence, margaret.BaseSeq(i+1))
+		r.Equal(absMsg.Seq(), margaret.BaseSeq(i+1).Seq())
 
+		if i == 0 {
+			continue // skip contact
+		}
 		type testWrap struct {
 			Author  ssb.FeedRef
 			Content string
 		}
 		var m testWrap
-		err = json.Unmarshal(storedMsg.Raw, &m)
+		err = json.Unmarshal(absMsg.ValueContentJSON(), &m)
+		// t.Logf("msg:%d:%s", i, string(storedMsg.Raw_))
 		r.NoError(err)
-		r.Equal(alice.ID, m.Author.ID, "wrong author")
+		r.True(alice.Equal(&m.Author), "wrong author")
 		r.True(strings.HasSuffix(m.Content, ".box"), "test")
 
-		clearMsg, err := private.Unbox(bob.KeyPair, m.Content)
+		data, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(m.Content, ".box"))
+		r.NoError(err)
+
+		clearMsg, err := private.Unbox(bob.KeyPair, data)
 		r.NoError(err, "should decrypt the msg %d!", i)
 
 		type testMsg struct {

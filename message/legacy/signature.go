@@ -1,4 +1,4 @@
-package message
+package legacy
 
 import (
 	"encoding/base64"
@@ -42,15 +42,14 @@ func (s Signature) Raw() ([]byte, error) {
 func (s Signature) Verify(content []byte, r *ssb.FeedRef) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
-		if r.Algo != ssb.RefAlgoEd25519 {
+		if r.Algo != ssb.RefAlgoFeedSSB1 {
 			return errors.Errorf("sbot: invalid signature algorithm")
 		}
-		key := ed25519.PublicKey(r.ID)
 		b, err := s.Raw()
 		if err != nil {
 			return errors.Wrap(err, "verify: raw unpack failed")
 		}
-		if ed25519.Verify(key, content, b) {
+		if ed25519.Verify(r.PubKey(), content, b) {
 			return nil
 		}
 		return errors.Errorf("sbot: invalid signature")

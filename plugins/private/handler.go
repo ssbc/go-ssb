@@ -3,7 +3,6 @@ package private
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb/internal/transform"
@@ -21,7 +20,7 @@ import (
 type handler struct {
 	info logging.Interface
 
-	publish margaret.Log
+	publish ssb.Publisher
 	read    margaret.Log
 }
 
@@ -87,25 +86,18 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			}
 		}
 
-		boxedMsg, err := private.Box(msg, rcpsRefs...)
+		ref, err := h.privatePublish(msg, rcpsRefs)
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "private/publish: failed to box message"))
+			req.CloseWithError(err)
 			return
 		}
 
-		seq, err := h.publish.Append(boxedMsg)
+		err = req.Return(ctx, ref)
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "private/publish: pour failed"))
+			h.info.Log("event", "error", "msg", "cound't return new msg ref")
 			return
 		}
-
-		h.info.Log("published", seq.Seq())
-
-		err = req.Return(ctx, fmt.Sprintf("published msg: %d", seq.Seq()))
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "private/publish: return failed"))
-			return
-		}
+		h.info.Log("published", ref.Ref())
 
 		return
 
@@ -114,52 +106,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			checkAndClose(errors.Errorf("private.read: wrong request type. %s", req.Type))
 			return
 		}
-		var qry message.CreateHistArgs
-
-		switch v := req.Args[0].(type) {
-
-		case map[string]interface{}:
-			q, err := message.NewCreateHistArgsFromMap(v)
-			if err != nil {
-				req.CloseWithError(errors.Wrap(err, "bad request"))
-				return
-			}
-			qry = *q
-		default:
-			req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
-			return
-		}
-
-		if qry.Live {
-			qry.Limit = -1
-		}
-
-		src, err := h.read.Query(
-			margaret.Gte(margaret.BaseSeq(qry.Seq)),
-			margaret.Limit(int(qry.Limit)),
-			margaret.Live(qry.Live))
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "private/publish: return failed"))
-			return
-		}
-
-		snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-			if err != nil {
-				return err
-			}
-			msg, ok := v.([]byte)
-			if !ok {
-				return errors.Errorf("b4pour: expected []byte - got %T", v)
-			}
-			return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
-		})
-
-		err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "private/publish: return failed"))
-			return
-		}
-		req.Close()
+		h.privateRead(ctx, req)
 
 	default:
 		checkAndClose(errors.Errorf("private: unknown command: %s", req.Method))
@@ -168,3 +115,75 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 }
 
 func (h handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
+
+func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
+	var qry message.CreateHistArgs
+
+	if len(req.Args) > 0 {
+
+		switch v := req.Args[0].(type) {
+		case map[string]interface{}:
+			q, err := message.NewCreateHistArgsFromMap(v)
+			if err != nil {
+				req.CloseWithError(errors.Wrap(err, "privateRead: bad request"))
+				return
+			}
+			qry = *q
+		default:
+			req.CloseWithError(errors.Errorf("privateRead: invalid argument type %T", req.Args[0]))
+			return
+		}
+
+		if qry.Live {
+			qry.Limit = -1
+		}
+	} else {
+		qry.Limit = -1
+	}
+
+	// well, sorry - the client lib needs better handling of receiving types
+	qry.Keys = true
+
+	src, err := h.read.Query(
+		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Limit(int(qry.Limit)),
+		margaret.Live(qry.Live))
+	if err != nil {
+		req.CloseWithError(errors.Wrap(err, "private/read: failed to create query"))
+		return
+	}
+
+	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return err
+		}
+		msg, ok := v.(*transform.KeyValue)
+		if !ok {
+			return errors.Errorf("private/read: pour expected %T - got %T", msg, v)
+		}
+		return req.Stream.Pour(ctx, msg.Data)
+	})
+
+	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
+	if err != nil {
+		req.CloseWithError(errors.Wrap(err, "private/read: message pump failed"))
+		return
+	}
+	req.Close()
+}
+
+func (h handler) privatePublish(msg []byte, recps []*ssb.FeedRef) (*ssb.MessageRef, error) {
+	boxedMsg, err := private.Box(msg, recps...)
+	if err != nil {
+		return nil, errors.Wrap(err, "private/publish: failed to box message")
+
+	}
+
+	ref, err := h.publish.Publish(boxedMsg)
+	if err != nil {
+		return nil, errors.Wrap(err, "private/publish: pour failed")
+
+	}
+
+	return ref, nil
+}

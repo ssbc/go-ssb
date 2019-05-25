@@ -1,43 +1,40 @@
-package rawread
+package tangles
 
 import (
 	"context"
-
-	"go.cryptoscope.co/ssb/internal/mutil"
-
-	"go.cryptoscope.co/librarian"
+	"encoding/json"
 
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/plugins2"
 )
 
-type tanglePlug struct {
-	h muxrpc.Handler
+type Plugin struct {
+	h tangleHandler
 }
 
-func NewTanglePlug(root margaret.Log, tangle multilog.MultiLog) ssb.Plugin {
-	plug := &tanglePlug{}
-	plug.h = tangleHandler{
-		root:   root,
-		tangle: tangle,
-	}
-	return plug
+var (
+	_ plugins2.NeedsRootLog = (*Plugin)(nil)
+)
+
+// TODO: return plugin spec similar to margaret qry spec?
+
+func (tp *Plugin) WantRootLog(rl margaret.Log) error {
+	tp.h.root = rl
+	return nil
 }
 
-func (lt tanglePlug) Name() string { return "tangles" }
-
-func (tanglePlug) Method() muxrpc.Method {
-	return muxrpc.Method{"tangles"}
-}
-func (lt tanglePlug) Handler() muxrpc.Handler {
-	return lt.h
-}
+func (lt Plugin) Name() string            { return "tangles" }
+func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"tangles"} }
+func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
 type tangleHandler struct {
 	root   margaret.Log
@@ -102,11 +99,11 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		if err != nil {
 			return err
 		}
-		msg, ok := v.([]byte)
+		msg, ok := v.(*transform.KeyValue)
 		if !ok {
-			return errors.Errorf("b4pour: expected []byte - got %T", v)
+			return errors.Errorf("trangle sink: expected KV - got %T", v)
 		}
-		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+		return req.Stream.Pour(ctx, json.RawMessage(msg.Data))
 	})
 
 	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))

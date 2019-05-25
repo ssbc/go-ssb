@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/keks/nocomment"
@@ -25,6 +26,13 @@ type ssbSecret struct {
 	Public  string   `json:"public"`
 }
 
+func IsValidFeedFormat(r *FeedRef) error {
+	if r.Algo != RefAlgoFeedSSB1 && r.Algo != RefAlgoFeedGabby {
+		return errors.Errorf("ssb: unsupported feed format:%s", r.Algo)
+	}
+	return nil
+}
+
 func NewKeyPair(r io.Reader) (*KeyPair, error) {
 
 	// generate new keypair
@@ -41,12 +49,16 @@ func NewKeyPair(r io.Reader) (*KeyPair, error) {
 }
 
 func SaveKeyPair(kp *KeyPair, path string) error {
+	if err := IsValidFeedFormat(kp.Id); err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err == nil {
+		return errors.Errorf("ssb.SaveKeyPair: key already exists:%q", path)
+	}
+	os.MkdirAll(filepath.Dir(path), 0700)
 	f, err := os.Create(path)
 	if err != nil {
 		return errors.Wrap(err, "ssb.SaveKeyPair: failed to create file")
-	}
-	if kp.Id.Algo != "ed25519" {
-		return errors.Wrapf(err, "ssb.SaveKeyPair: unsupported key algo:%s", kp.Id.Algo)
 	}
 	var sec = ssbSecret{
 		Curve:   "ed25519",
@@ -79,6 +91,10 @@ func ParseKeyPair(r io.Reader) (*KeyPair, error) {
 		return nil, errors.Wrapf(err, "ssb.Parse: JSON decoding failed")
 	}
 
+	if err := IsValidFeedFormat(s.ID); err != nil {
+		return nil, err
+	}
+
 	public, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(s.Public, ".ed25519"))
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssb.Parse: base64 decode of public part failed")
@@ -89,13 +105,14 @@ func ParseKeyPair(r io.Reader) (*KeyPair, error) {
 		return nil, errors.Wrapf(err, "ssb.Parse: base64 decode of private part failed")
 	}
 
-	var kp secrethandshake.EdKeyPair
-	copy(kp.Public[:], public)
-	copy(kp.Secret[:], private)
+	pair, err := secrethandshake.NewKeyPair(public, private)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ssb.Parse: base64 decode of private part failed")
+	}
 
 	ssbkp := KeyPair{
 		Id:   s.ID,
-		Pair: kp,
+		Pair: *pair,
 	}
-	return &ssbkp, nil
+	return &ssbkp, errors.Wrap(err, "ssb.Parse: broken keypair?")
 }

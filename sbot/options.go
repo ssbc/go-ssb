@@ -18,11 +18,12 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/network"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
@@ -32,6 +33,8 @@ type Sbot struct {
 
 	// TODO: this thing is way to big right now
 	// because it's options and the resulting thing at once
+
+	lateInit []Option
 
 	rootCtx  context.Context
 	Shutdown context.CancelFunc
@@ -49,6 +52,9 @@ type Sbot struct {
 	connWrappers   []netwrap.ConnWrapper
 	edpWrapper     MuxrpcEndpointWrapper
 
+	public ssb.PluginManager
+	master ssb.PluginManager
+
 	enableAdverts   bool
 	enableDiscovery bool
 
@@ -56,14 +62,12 @@ type Sbot struct {
 	KeyPair          *ssb.KeyPair
 	RootLog          margaret.Log
 	liveIndexUpdates bool
-	UserFeeds        multilog.MultiLog
-	idxGet           librarian.Index
-	Tangles          multilog.MultiLog
-	AboutStore       indexes.AboutStore
-	MessageTypes     multilog.MultiLog
-	PrivateLogs      multilog.MultiLog
-	PublishLog       margaret.Log
-	signHMACsecret   []byte
+
+	PublishLog     ssb.Publisher
+	signHMACsecret []byte
+
+	mlogIndicies map[string]multilog.MultiLog
+	simpleIndex  map[string]librarian.Index
 
 	GraphBuilder graph.Builder
 
@@ -116,6 +120,68 @@ func WithDialer(dial netwrap.Dialer) Option {
 	}
 }
 
+func WithUNIXSocket() Option {
+	return func(s *Sbot) error {
+		r := repo.New(s.repoPath)
+		sockPath := r.GetPath("socket")
+
+		// local clients (not using network package because we don't want conn limiting or advertising)
+		c, err := net.Dial("unix", sockPath)
+		if err == nil {
+			c.Close()
+			return errors.Errorf("sbot: repo already in use, socket accepted connection")
+		}
+		os.Remove(sockPath)
+		os.MkdirAll(filepath.Dir(sockPath), 0700)
+
+		uxLis, err := net.Listen("unix", sockPath)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			for {
+				conn, err := uxLis.Accept()
+				if err != nil {
+					err = errors.Wrap(err, "unix sock accept failed")
+					s.info.Log("warn", err)
+					continue
+				}
+
+				go func() {
+					pkr := muxrpc.NewPacker(conn)
+					ctx, cancel := context.WithCancel(s.rootCtx)
+					if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+						go func() {
+							<-cn.Closed()
+							cancel()
+						}()
+					}
+
+					h, err := s.master.MakeHandler(conn)
+					if err != nil {
+						err = errors.Wrap(err, "unix sock make handler")
+						s.info.Log("warn", err)
+						cancel()
+						return
+					}
+
+					// spoof remote as us
+					sameAs := netwrap.WrapAddr(conn.RemoteAddr(), secretstream.Addr{PubKey: s.KeyPair.Id.ID})
+					edp := muxrpc.HandleWithRemote(pkr, h, sameAs)
+
+					srv := edp.(muxrpc.Server)
+					if err := srv.Serve(ctx); err != nil {
+						s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
+					}
+					cancel()
+				}()
+			}
+		}()
+		return nil
+	}
+}
+
 func WithAppKey(k []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(k); n != 32 {
@@ -126,11 +192,27 @@ func WithAppKey(k []byte) Option {
 	}
 }
 
+func WithNamedKeyPair(name string) Option {
+	return func(s *Sbot) error {
+		r := repo.New(s.repoPath)
+		var err error
+		s.KeyPair, err = repo.LoadKeyPair(r, name)
+		return errors.Wrapf(err, "loading named key-pair %q failed", name)
+	}
+}
+
 func WithJSONKeyPair(blob string) Option {
 	return func(s *Sbot) error {
 		var err error
 		s.KeyPair, err = ssb.ParseKeyPair(strings.NewReader(blob))
 		return errors.Wrap(err, "JSON KeyPair decode failed")
+	}
+}
+
+func WithKeyPair(kp *ssb.KeyPair) Option {
+	return func(s *Sbot) error {
+		s.KeyPair = kp
+		return nil
 	}
 }
 
@@ -218,9 +300,22 @@ func WithPromisc(yes bool) Option {
 	}
 }
 
+func LateOption(o Option) Option {
+	return func(s *Sbot) error {
+		s.lateInit = append(s.lateInit, o)
+		return nil
+	}
+}
+
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
 	s.liveIndexUpdates = true
+
+	s.public = ssb.NewPluginManager()
+	s.master = ssb.NewPluginManager()
+
+	s.mlogIndicies = make(map[string]multilog.MultiLog)
+	s.simpleIndex = make(map[string]librarian.Index)
 
 	for i, opt := range fopts {
 		err := opt(&s)
@@ -262,6 +357,16 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	if s.rootCtx == nil {
 		s.rootCtx = context.TODO()
+	}
+
+	r := repo.New(s.repoPath)
+
+	if s.KeyPair == nil {
+		var err error
+		s.KeyPair, err = repo.DefaultKeyPair(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to get keypair")
+		}
 	}
 
 	return initSbot(&s)

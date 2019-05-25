@@ -23,17 +23,28 @@ import (
 )
 
 type client struct {
+	muxrpc.Endpoint
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
 	logger        log.Logger
-	handler       muxrpc.Endpoint
 }
+
+var _ Interface = (*client)(nil)
 
 // options?
 
 const ssbAppkey = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
 
-func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (Interface, error) {
+func FromEndpoint(edp muxrpc.Endpoint) *client {
+	c := client{
+		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
+	}
+	c.rootCtx, c.rootCtxCancel = context.WithCancel(context.TODO())
+	c.Endpoint = edp
+	return &c
+}
+
+func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, error) {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
@@ -78,11 +89,11 @@ func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (Interface, 
 		rwc = debug.Wrap(log.NewLogfmtLogger(os.Stderr), rwc)
 	}
 
-	c.handler = muxrpc.HandleWithRemote(muxrpc.NewPacker(rwc), &h, conn.RemoteAddr())
+	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(rwc), &h, conn.RemoteAddr())
 
-	srv, ok := c.handler.(muxrpc.Server)
+	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
-		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.handler)
+		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
 	go func() {
@@ -93,7 +104,7 @@ func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (Interface, 
 	return &c, nil
 }
 
-func NewUnix(ctx context.Context, path string) (Interface, error) {
+func NewUnix(ctx context.Context, path string) (*client, error) {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
@@ -113,11 +124,11 @@ func NewUnix(ctx context.Context, path string) (Interface, error) {
 		rwc = debug.Wrap(log.NewLogfmtLogger(os.Stderr), rwc)
 	}
 
-	c.handler = muxrpc.Handle(muxrpc.NewPacker(rwc), &h)
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(rwc), &h)
 
-	srv, ok := c.handler.(muxrpc.Server)
+	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
-		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.handler)
+		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
 	go func() {
@@ -134,7 +145,7 @@ func (c client) Close() error {
 }
 
 func (c client) Whoami() (*ssb.FeedRef, error) {
-	v, err := c.handler.Async(c.rootCtx, message.WhoamiReply{}, muxrpc.Method{"whoami"})
+	v, err := c.Async(c.rootCtx, message.WhoamiReply{}, muxrpc.Method{"whoami"})
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: whoami failed")
 	}
@@ -147,7 +158,7 @@ func (c client) Whoami() (*ssb.FeedRef, error) {
 
 func (c client) BlobsWant(ref ssb.BlobRef) error {
 	var v interface{}
-	v, err := c.handler.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	v, err := c.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
 		return errors.Wrap(err, "ssbClient: whoami failed")
 	}
@@ -156,9 +167,9 @@ func (c client) BlobsWant(ref ssb.BlobRef) error {
 }
 
 func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
-	v, err := c.handler.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
+	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: whoami failed")
+		return nil, errors.Wrap(err, "ssbClient: publish call failed")
 	}
 	resp, ok := v.(string)
 	if !ok {
@@ -168,19 +179,47 @@ func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
 	return msgRef, errors.Wrap(err, "failed to parse new message reference")
 }
 
+func (c client) PrivatePublish(v interface{}, recps ...*ssb.FeedRef) (*ssb.MessageRef, error) {
+	var recpRefs = make([]string, len(recps))
+	for i, ref := range recps {
+		if ref == nil {
+			return nil, errors.Errorf("ssbClient: bad call - recp%d is nil", i)
+		}
+		recpRefs[i] = ref.Ref()
+	}
+	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"private", "publish"}, v, recpRefs)
+	if err != nil {
+		return nil, errors.Wrap(err, "ssbClient: private.publish call failed")
+	}
+	resp, ok := v.(string)
+	if !ok {
+		return nil, errors.Errorf("ssbClient: wrong reply type: %T", v)
+	}
+	msgRef, err := ssb.ParseMessageRef(resp)
+	return msgRef, errors.Wrapf(err, "failed to parse new message reference: %q", resp)
+}
+
+func (c client) PrivateRead() (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"private", "read"})
+	if err != nil {
+		return nil, errors.Wrap(err, "ssbClient: private.read query failed")
+	}
+	return src, nil
+}
+
 func (c client) CreateLogStream(opts message.CreateHistArgs) (luigi.Source, error) {
 	opts.Keys = true
-	src, err := c.handler.Source(c.rootCtx, message.KeyValueRaw{}, muxrpc.Method{"createLogStream"}, opts)
+	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"createLogStream"}, opts)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
 func (c client) CreateHistoryStream(o message.CreateHistArgs, as interface{}) (luigi.Source, error) {
-	src, err := c.handler.Source(c.rootCtx, as, muxrpc.Method{"createHistoryStream"}, o)
+	src, err := c.Source(c.rootCtx, as, muxrpc.Method{"createHistoryStream"}, o)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
 func (c client) ReplicateUpTo() (luigi.Source, error) {
-	src, err := c.handler.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
+	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
@@ -192,7 +231,7 @@ func (c client) Tangles(root ssb.MessageRef, o message.CreateHistArgs) (luigi.So
 	opt.CreateHistArgs = o
 	opt.Keys = true
 	opt.Root = root.Ref()
-	src, err := c.handler.Source(c.rootCtx, message.KeyValueAsMap{}, muxrpc.Method{"tangles"}, opt)
+	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"tangles"}, opt)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 

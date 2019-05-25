@@ -17,9 +17,13 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/tangles"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -29,6 +33,7 @@ import (
 var (
 	// flags
 	flagsReindex bool
+	flagFatBot   bool
 	flagHops     uint
 	flagEnAdv    bool
 	flagEnDiscov bool
@@ -74,6 +79,7 @@ func init() {
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 
+	flag.BoolVar(&flagFatBot, "fatbot", false, "if set, sbot loads additional index plugins (bytype, get, tangles)")
 	flag.BoolVar(&flagsReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.Parse()
@@ -117,6 +123,15 @@ func main() {
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
+	}
+
+	if flagFatBot {
+		opts = append(opts,
+			mksbot.LateOption(mksbot.MountMultiLog("byTypes", multilogs.OpenMessageTypes)),
+			mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)),
+			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
+		// TODO: make about
+		)
 	}
 
 	if dbgLogDir != "" {
@@ -185,7 +200,11 @@ func main() {
 	}
 
 	id := sbot.KeyPair.Id
-	uf := sbot.UserFeeds
+	uf, ok := sbot.GetMultiLog("userFeeds")
+	if !ok {
+		checkAndLog(fmt.Errorf("missing userFeeds"))
+		return
+	}
 	gb := sbot.GraphBuilder
 
 	feeds, err := uf.List()
@@ -196,17 +215,15 @@ func main() {
 
 	var followCnt, msgCount uint
 	for _, author := range feeds {
-		authorRef := ssb.FeedRef{
-			Algo: "ed25519",
-			ID:   []byte(author),
-		}
+		authorRef, err := ssb.ParseFeedRef(string(author))
+		checkFatal(err)
 
 		subLog, err := uf.Get(author)
 		checkFatal(err)
 
 		userLogV, err := subLog.Seq().Value()
 		checkFatal(err)
-		userLogSeq := userLogV.(margaret.BaseSeq)
+		userLogSeq := userLogV.(margaret.Seq)
 		rlSeq, err := subLog.Get(userLogSeq)
 		if margaret.IsErrNulled(err) {
 			continue
@@ -219,37 +236,28 @@ func main() {
 		} else {
 			checkFatal(err)
 		}
-		msg := rv.(message.StoredMessage)
+		msg := rv.(ssb.Message)
 
-		if msg.Sequence != userLogSeq+1 {
-			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Sequence, userLogSeq+1)
+		if msg.Seq() != userLogSeq.Seq()+1 {
+			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Seq(), userLogSeq.Seq()+1)
 			log.Log("warning", err)
 			continue
 		}
 
-		msgCount += uint(msg.Sequence)
+		msgCount += uint(msg.Seq())
 
-		f, err := gb.Follows(&authorRef)
+		f, err := gb.Follows(authorRef)
 		checkFatal(err)
 
 		if len(feeds) < 20 {
-			h := gb.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Sequence, "follows", f.Count(), "hops", h.Count())
+			h := gb.Hops(authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
 		}
 		followCnt += uint(f.Count())
 	}
 
 	RepoStats.With("part", "msgs").Set(float64(msgCount))
-	// abouts, err := sbot.MessageTypes.Get("about")
-	// checkFatal(err)
-	// logSeqV, err := abouts.Seq().Value()
-	// checkFatal(err)
-	// RepoStats.With("part", "about").Set(float64(logSeqV.(margaret.Seq).Seq()))
-	// contactLog, err := sbot.MessageTypes.Get("contact")
-	// checkFatal(err)
-	// logSeqV, err := contactLog.Seq().Value()
-	// checkFatal(err)
-	// RepoStats.With("part", "contact").Set(float64(logSeqV.(margaret.Seq).Seq()))
+
 	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount, "follows", followCnt)
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)

@@ -8,11 +8,13 @@
   },
   "author": "cryptix & keks",
   "dependencies": {
+    "gabbygrove": "github:cryptix/js-gabbygrove",
     "has-network": "0.0.1",
     "osenv": "^0.1.5",
     "run-parallel": "^1.1.9",
     "sodium-native": "^2.4.2",
     "ssb-blobs": "1.1.14",
+    "ssb-content-stream": "^3.0.0",
     "ssb-friends": "^3.1.4",
     "ssb-gossip": "^1.0.10",
     "ssb-keys": "^7.1.6",

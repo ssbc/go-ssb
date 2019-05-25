@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 
 	repo := New(rpath)
 
-	_, err = OpenKeyPair(repo)
+	_, err = DefaultKeyPair(repo)
 	r.NoError(err, "failed to open key pair")
 
 	rl, err := OpenLog(repo)

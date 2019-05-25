@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
@@ -24,7 +23,7 @@ import (
 func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 	ctx := context.Background()
 
-	uf, _, _, err := multilogs.OpenUserFeeds(r)
+	uf, _, err := multilogs.OpenUserFeeds(r)
 	if err != nil {
 		err = errors.Wrap(err, "NullFeed: failed to open multilog")
 		return err
@@ -46,7 +45,7 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 		return err
 	}
 
-	userSeqs, err := uf.Get(librarian.Addr(ref.ID))
+	userSeqs, err := uf.Get(ref.StoredAddr())
 	if err != nil {
 		err = errors.Wrap(err, "NullFeed: failed to open log for feed argument")
 		return err

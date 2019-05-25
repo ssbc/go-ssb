@@ -3,9 +3,7 @@ package private
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"io"
-	"strings"
 
 	"github.com/agl/ed25519/extra25519"
 	"github.com/pkg/errors"
@@ -15,16 +13,16 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 )
 
-func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) (string, error) {
+func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) ([]byte, error) {
 	n := len(rcpts)
 	if n <= 0 || n > maxRecps {
-		return "", errors.Errorf("encrypt pm: wrong number of recipients: %d", n)
+		return nil, errors.Errorf("encrypt pm: wrong number of recipients: %d", n)
 	}
 
 	// ephemeral one time, single-use key for this message
 	ephPub, ephSecret, err := box.GenerateKey(rand.Reader)
 	if err != nil {
-		return "", errors.Errorf("encrypt pm: could not make one-time sender keypair")
+		return nil, errors.Errorf("encrypt pm: could not make one-time sender keypair")
 	}
 
 	var (
@@ -46,7 +44,7 @@ func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) (string, error) {
 	cipheredMsg.Write(ephPub[:])
 
 	if n := cipheredMsg.Len(); n != 32+24 {
-		return "", errors.Errorf("encrypt pm: wrong number of header bytes %d", n)
+		return nil, errors.Errorf("encrypt pm: wrong number of header bytes %d", n)
 	}
 
 	// make a key box for each recipient
@@ -56,7 +54,7 @@ func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) (string, error) {
 			cvPub         [32]byte // recpt' pub in curve space
 			rcptPub       [32]byte // can't pass []byte to extra25519
 		)
-		copy(rcptPub[:], r.ID)
+		copy(rcptPub[:], r.PubKey())
 		extra25519.PublicKeyToCurve25519(&cvPub, &rcptPub)
 		curve25519.ScalarMult(&messageShared, ephSecret, &cvPub)
 
@@ -67,7 +65,7 @@ func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) (string, error) {
 	cipher := secretbox.Seal(nil, clearMsg, &nonce, &skey)
 	cipheredMsg.Write(cipher)
 
-	return base64.StdEncoding.EncodeToString(cipheredMsg.Bytes()) + ".box", nil
+	return append([]byte("box1:"), cipheredMsg.Bytes()...), nil
 }
 
 const (
@@ -75,14 +73,7 @@ const (
 	rcptSboxSize = 32 + 1 + secretbox.Overhead // secretbox secret + rcptCount + overhead
 )
 
-type rcptBox [rcptSboxSize]byte
-
-func Unbox(recpt *ssb.KeyPair, msg string) ([]byte, error) {
-	rawMsg, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(msg, ".box"))
-	if err != nil {
-		return nil, errors.Wrap(err, "decode pm: invalid b64 encoding")
-	}
-
+func Unbox(recpt *ssb.KeyPair, rawMsg []byte) ([]byte, error) {
 	if len(rawMsg) < 122 {
 		return nil, errors.Errorf("decode pm: sorry message seems short?")
 	}

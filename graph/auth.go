@@ -55,10 +55,10 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	// len(p) == 4
 	p, d := distLookup.Dist(to)
 	hops := len(p) - 2
-	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > a.maxHops {
+	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > 5 {
 		// d == -Inf > peer not connected to the graph
 		// d == +Inf > peer directly(?) blocked
-		// a.log.Log("debug", "dist", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
+		a.log.Log("debug", "dist", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
 		return &ssb.ErrOutOfReach{Dist: hops, Max: a.maxHops}
 	}
 

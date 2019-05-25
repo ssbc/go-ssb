@@ -11,7 +11,7 @@ type privatePlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, publish margaret.Log, readIdx margaret.Log) ssb.Plugin {
+func NewPlug(i logging.Interface, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
 	return &privatePlug{h: handler{publish: publish, read: readIdx, info: i}}
 }
 

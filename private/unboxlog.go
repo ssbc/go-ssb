@@ -1,15 +1,17 @@
 package private
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/base64"
+
+	"github.com/cryptix/go/encodedTime"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 )
 
 type unboxedLog struct {
@@ -34,12 +36,14 @@ func (il unboxedLog) Seq() luigi.Observable {
 func (il unboxedLog) Get(seq margaret.Seq) (interface{}, error) {
 	return nil, errors.Errorf("TODO: unbox here too?")
 
+	// TODO: use indirect
 	v, err := il.seqlog.Get(seq)
 	if err != nil {
 		return nil, errors.Wrap(err, "seqlog: 1st lookup failed")
 	}
 
 	rv, err := il.root.Get(v.(margaret.Seq))
+	// TODO: unbox?!?
 	return rv, errors.Wrap(err, "seqlog: root lookup failed")
 }
 
@@ -56,38 +60,52 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 			return nil, errors.Wrapf(err, "unboxLog: error getting v(%v) from seqlog log", iv)
 		}
 
-		msg := val.(message.StoredMessage)
-		var dmsg struct {
-			Content string `json:"content"`
+		amsg, ok := val.(ssb.Message)
+		if !ok {
+			return nil, errors.Errorf("wrong message type. expected %T - got %T", amsg, val)
 		}
 
-		if err := json.Unmarshal(msg.Raw, &dmsg); err != nil {
-			return nil, errors.Wrap(err, "unboxLog: first json unmarshal failed")
+		author := amsg.Author()
+
+		var boxedContent []byte
+		switch author.Algo {
+		case ssb.RefAlgoFeedSSB1:
+			input := amsg.ContentBytes()
+			if !(input[0] == '"' && input[len(input)-1] == '"') {
+				return nil, errors.Errorf("expected json string with quotes")
+			}
+			b64data := bytes.TrimSuffix(input[1:], []byte(".box\""))
+			boxedData := make([]byte, len(b64data))
+
+			n, err := base64.StdEncoding.Decode(boxedData, b64data)
+			if err != nil {
+				return nil, errors.Wrap(err, "decode pm: invalid b64 encoding")
+			}
+			boxedContent = boxedData[:n]
+
+		case ssb.RefAlgoFeedGabby:
+			boxedContent = bytes.TrimPrefix(amsg.ContentBytes(), []byte("box1:"))
+
+		default:
+			return nil, errors.Errorf("decode pm: unknown feed type: %s", author.Algo)
 		}
 
-		clearContent, err := Unbox(il.kp, dmsg.Content)
+		clearContent, err := Unbox(il.kp, boxedContent)
 		if err != nil {
 			return nil, errors.Wrap(err, "unboxLog: unbox failed")
 		}
 
-		// re-wrap the unboxed in the original
-		var contentVal map[string]interface{}
-		err = json.Unmarshal(clearContent, &contentVal)
-		if err != nil {
-			return nil, errors.Wrap(err, "unboxLog: failed to make contentVal")
-		}
-
-		var unboxedMsg message.SignedLegacyMessage
-		unboxedMsg.Previous = msg.Previous
-		unboxedMsg.Author = msg.Author.Ref()
-		unboxedMsg.Sequence = msg.Sequence
-		unboxedMsg.Timestamp = msg.Timestamp.UnixNano() / 100000
-		unboxedMsg.Hash = "go-ssb-unboxed"
-		unboxedMsg.Content = contentVal
-		unboxedMsg.Signature = "go-ssb-unboxed"
-
-		msg.Raw, err = json.Marshal(unboxedMsg)
-		return msg, errors.Wrap(err, "unboxLog: failed to encode unboxed msg")
+		var msg ssb.KeyValueRaw
+		msg.Key_ = amsg.Key()
+		msg.Timestamp = encodedTime.Millisecs(amsg.Received())
+		msg.Value.Previous = amsg.Previous()
+		msg.Value.Author = *author
+		msg.Value.Sequence = margaret.BaseSeq(amsg.Seq())
+		msg.Value.Timestamp = encodedTime.Millisecs(amsg.Claimed())
+		msg.Value.Hash = "go-ssb-unboxed"
+		msg.Value.Content = clearContent
+		msg.Value.Signature = "go-ssb-unboxed"
+		return msg, nil
 	}), nil
 }
 

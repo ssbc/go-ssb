@@ -1,29 +1,40 @@
 package ssb
 
 import (
+	"bytes"
 	"encoding"
 	"encoding/base64"
+	stderr "errors"
 	"fmt"
 	"net"
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ed25519"
 
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 )
 
 const (
-	RefAlgoSHA256  = "sha256"
-	RefAlgoEd25519 = "ed25519"
+	RefAlgoFeedSSB1    = "ed25519" // ssb v1 (legacy, crappy encoding)
+	RefAlgoMessageSSB1 = "sha256"  // scuttlebutt happend anyway
+	RefAlgoBlobSSB1    = RefAlgoMessageSSB1
+
+	RefAlgoFeedGabby    = "ggfeed-v1" // cbor based chain
+	RefAlgoMessageGabby = "ggmsg-v1"
+
+	RefAlgoContentGabby = "gabby-v1-content"
 )
 
+// Common errors for invalid references
 var (
-	ErrInvalidRef     = errors.New("Invalid Ref")
-	ErrInvalidRefType = errors.New("Invalid Ref Type")
-	ErrInvalidRefAlgo = errors.New("Invalid Ref Algo")
-	ErrInvalidSig     = errors.New("Invalid Signature")
-	ErrInvalidHash    = errors.New("Invalid Hash")
+	ErrInvalidRef     = stderr.New("ssb: Invalid Ref")
+	ErrInvalidRefType = stderr.New("ssb: Invalid Ref Type")
+	ErrInvalidRefAlgo = stderr.New("ssb: Invalid Ref Algo")
+	ErrInvalidSig     = stderr.New("ssb: Invalid Signature")
+	ErrInvalidHash    = stderr.New("ssb: Invalid Hash")
 )
 
 type ErrRefLen struct {
@@ -36,11 +47,11 @@ func (e ErrRefLen) Error() string {
 }
 
 func NewFeedRefLenError(n int) error {
-	return ErrRefLen{algo: RefAlgoEd25519, n: n}
+	return ErrRefLen{algo: RefAlgoFeedSSB1, n: n}
 }
 
 func NewHashLenError(n int) error {
-	return ErrRefLen{algo: RefAlgoSHA256, n: n}
+	return ErrRefLen{algo: RefAlgoMessageSSB1, n: n}
 }
 
 func ParseRef(str string) (Ref, error) {
@@ -49,7 +60,7 @@ func ParseRef(str string) (Ref, error) {
 	}
 
 	split := strings.Split(str[1:], ".")
-	if len(split) != 2 {
+	if len(split) < 2 {
 		return nil, ErrInvalidRef
 	}
 
@@ -57,13 +68,19 @@ func ParseRef(str string) (Ref, error) {
 	if err != nil { // ???
 		raw, err = base64.URLEncoding.DecodeString(split[1])
 		if err != nil {
-			return nil, ErrInvalidHash
+			return nil, errors.Wrapf(ErrInvalidHash, "b64 decode failed (%s)", err)
 		}
 	}
 
-	switch str[0:1] {
+	switch string(str[0]) {
 	case "@":
-		if split[1] != "ed25519" {
+		var algo string
+		switch split[1] {
+		case RefAlgoFeedSSB1:
+			algo = RefAlgoFeedSSB1
+		case RefAlgoFeedGabby:
+			algo = RefAlgoFeedGabby
+		default:
 			return nil, ErrInvalidRefAlgo
 		}
 		if n := len(raw); n != 32 {
@@ -71,10 +88,16 @@ func ParseRef(str string) (Ref, error) {
 		}
 		return &FeedRef{
 			ID:   raw,
-			Algo: RefAlgoEd25519,
+			Algo: algo,
 		}, nil
 	case "%":
-		if split[1] != "sha256" {
+		var algo string
+		switch split[1] {
+		case RefAlgoMessageSSB1:
+			algo = RefAlgoMessageSSB1
+		case RefAlgoMessageGabby:
+			algo = RefAlgoMessageGabby
+		default:
 			return nil, ErrInvalidRefAlgo
 		}
 		if n := len(raw); n != 32 {
@@ -82,10 +105,10 @@ func ParseRef(str string) (Ref, error) {
 		}
 		return &MessageRef{
 			Hash: raw,
-			Algo: RefAlgoSHA256,
+			Algo: algo,
 		}, nil
 	case "&":
-		if split[1] != "sha256" {
+		if split[1] != RefAlgoBlobSSB1 {
 			return nil, ErrInvalidRefAlgo
 		}
 		if n := len(raw); n != 32 {
@@ -93,7 +116,7 @@ func ParseRef(str string) (Ref, error) {
 		}
 		return &BlobRef{
 			Hash: raw,
-			Algo: RefAlgoSHA256,
+			Algo: RefAlgoBlobSSB1,
 		}, nil
 	}
 
@@ -104,15 +127,7 @@ type Ref interface {
 	Ref() string
 }
 
-type BlobRef struct {
-	Hash []byte
-	Algo string
-}
-
-func (ref BlobRef) Ref() string {
-	return fmt.Sprintf("&%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
-}
-
+// MessageRef defines the content addressed version of a ssb message, identified it's hash.
 type MessageRef struct {
 	Hash []byte
 	Algo string
@@ -122,87 +137,12 @@ func (ref MessageRef) Ref() string {
 	return fmt.Sprintf("%%%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
 }
 
-type FeedRef struct {
-	ID   []byte
-	Algo string
-}
-
-func NewFeedRefEd25519(b [32]byte) (*FeedRef, error) {
-	var r FeedRef
-	r.Algo = RefAlgoEd25519
-	if len(b) != 32 {
-		return nil, ErrInvalidRef
-	}
-	r.ID = make([]byte, 32)
-	copy(r.ID, b[:])
-	return &r, nil
-}
-
-func (ref FeedRef) Ref() string {
-	return fmt.Sprintf("@%s.%s", base64.StdEncoding.EncodeToString(ref.ID), ref.Algo)
-}
-
-var (
-	_ encoding.TextMarshaler   = (*FeedRef)(nil)
-	_ encoding.TextUnmarshaler = (*FeedRef)(nil)
-)
-
-func (fr *FeedRef) MarshalText() ([]byte, error) {
-	return []byte(fr.Ref()), nil
-}
-
-func (fr *FeedRef) UnmarshalText(text []byte) error {
-	if len(text) == 0 {
-		*fr = FeedRef{}
-		return nil
-	}
-	newRef, err := ParseFeedRef(string(text))
-	if err != nil {
-		return err
-	}
-	*fr = *newRef
-	return nil
-}
-
-func (r *FeedRef) Scan(raw interface{}) error {
-	switch v := raw.(type) {
-	case []byte:
-		if len(v) != 32 {
-			return errors.Errorf("feedRef/Scan: wrong length: %d", len(v))
-		}
-		(*r).ID = v
-		(*r).Algo = "ed25519"
-
-	case string:
-		fr, err := ParseFeedRef(v)
-		if err != nil {
-			return errors.Wrap(err, "feedRef/Scan: failed to serialze from string")
-		}
-		*r = *fr
-	default:
-		return errors.Errorf("feedRef/Scan: unhandled type %T", raw)
-	}
-	return nil
-}
-
-func ParseFeedRef(s string) (*FeedRef, error) {
-	ref, err := ParseRef(s)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse ref")
-	}
-	newRef, ok := ref.(*FeedRef)
-	if !ok {
-		return nil, errors.Errorf("feedRef: not a feed! %T", ref)
-	}
-	return newRef, nil
-}
-
 var (
 	_ encoding.TextMarshaler   = (*MessageRef)(nil)
 	_ encoding.TextUnmarshaler = (*MessageRef)(nil)
 )
 
-func (mr *MessageRef) MarshalText() ([]byte, error) {
+func (mr MessageRef) MarshalText() ([]byte, error) {
 	if len(mr.Hash) == 0 {
 		return []byte{}, nil
 	}
@@ -229,7 +169,7 @@ func (r *MessageRef) Scan(raw interface{}) error {
 			return errors.Errorf("msgRef/Scan: wrong length: %d", len(v))
 		}
 		r.Hash = v
-		r.Algo = "sha256"
+		r.Algo = RefAlgoMessageSSB1
 	case string:
 		mr, err := ParseMessageRef(v)
 		if err != nil {
@@ -254,6 +194,177 @@ func ParseMessageRef(s string) (*MessageRef, error) {
 	return newRef, nil
 }
 
+type MessageRefs []*MessageRef
+
+func (mr *MessageRefs) String() string {
+	var s []string
+	for _, r := range *mr {
+		s = append(s, r.Ref())
+	}
+	return strings.Join(s, ", ")
+}
+
+func (mr *MessageRefs) UnmarshalJSON(text []byte) error {
+	if len(text) == 0 {
+		*mr = nil
+		return nil
+	}
+
+	if bytes.Equal([]byte("[]"), text) {
+		*mr = nil
+		return nil
+	}
+
+	if bytes.HasPrefix(text, []byte("[")) && bytes.HasSuffix(text, []byte("]")) {
+
+		elems := bytes.Split(text[1:len(text)-1], []byte(","))
+		newArr := make([]*MessageRef, len(elems))
+
+		for i, e := range elems {
+			var err error
+			r := strings.TrimSpace(string(e))
+			r = r[1 : len(r)-1] // remove quotes
+			newArr[i], err = ParseMessageRef(r)
+			if err != nil {
+				return errors.Wrapf(err, "messageRefs %d unmarshal failed", i)
+			}
+		}
+
+		*mr = newArr
+
+	} else {
+		newArr := make([]*MessageRef, 1)
+
+		var err error
+		newArr[0], err = ParseMessageRef(string(text[1 : len(text)-1]))
+		if err != nil {
+			return errors.Wrap(err, "messageRefs single unmarshal failed")
+		}
+
+		*mr = newArr
+	}
+	return nil
+}
+
+// FeedRef defines a publickey as ID with a specific algorithm (currently only ed25519)
+type FeedRef struct {
+	ID   []byte
+	Algo string
+}
+
+func NewFeedRefEd25519(b []byte) (*FeedRef, error) {
+	var r FeedRef
+	r.Algo = RefAlgoFeedSSB1
+	if len(b) != 32 {
+		return nil, ErrInvalidRef
+	}
+	r.ID = make([]byte, 32)
+	copy(r.ID, b[:])
+	return &r, nil
+}
+
+func (ref FeedRef) PubKey() ed25519.PublicKey {
+	return ref.ID
+}
+
+// StoredAddr returns the key under which this ref is stored in the multilog system
+// librarian uses a string but we used the bytes of the public key until now (32 vs 53 bytes per feed)
+// but this looses different types of keys at that layer.
+// TODO: could actually be a compact representation of the pubkey bytes
+// with an additonal type byte but this _should_ make it work for now
+func (ref FeedRef) StoredAddr() librarian.Addr {
+	addr := librarian.Addr(ref.Ref())
+	return addr
+}
+
+func (ref FeedRef) Ref() string {
+	return fmt.Sprintf("@%s.%s", base64.StdEncoding.EncodeToString(ref.ID), ref.Algo)
+}
+
+func (ref FeedRef) Equal(b *FeedRef) bool {
+	return bytes.Equal(ref.ID, b.ID)
+}
+
+var (
+	_ encoding.TextMarshaler   = (*FeedRef)(nil)
+	_ encoding.TextUnmarshaler = (*FeedRef)(nil)
+)
+
+func (fr FeedRef) MarshalText() ([]byte, error) {
+	return []byte(fr.Ref()), nil
+}
+
+func (fr *FeedRef) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*fr = FeedRef{}
+		return nil
+	}
+	newRef, err := ParseFeedRef(string(text))
+	if err != nil {
+		return err
+	}
+	*fr = *newRef
+	return nil
+}
+
+func (r *FeedRef) Scan(raw interface{}) error {
+	switch v := raw.(type) {
+	// TODO: add an extra byte/flag bits to denote algo and types
+
+	// case []byte:
+	// 	if len(v) != 32 {
+	// 		return errors.Errorf("feedRef/Scan: wrong length: %d", len(v))
+	// 	}
+	// 	(*r).ID = v
+	// 	(*r).Algo = "ed25519"
+
+	case string:
+		fr, err := ParseFeedRef(v)
+		if err != nil {
+			return errors.Wrap(err, "feedRef/Scan: failed to serialize from string")
+		}
+		*r = *fr
+	default:
+		return errors.Errorf("feedRef/Scan: unhandled type %T (see TODO)", raw)
+	}
+	return nil
+}
+
+// ParseFeedRef uses ParseRef and checks that it returns a *FeedRef
+func ParseFeedRef(s string) (*FeedRef, error) {
+	ref, err := ParseRef(s)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse ref")
+	}
+	newRef, ok := ref.(*FeedRef)
+	if !ok {
+		return nil, errors.Errorf("feedRef: not a feed! %T", ref)
+	}
+	return newRef, nil
+}
+
+// GetFeedRefFromAddr uses netwrap to get the secretstream address and then uses ParseFeedRef
+func GetFeedRefFromAddr(addr net.Addr) (*FeedRef, error) {
+	addr = netwrap.GetAddr(addr, secretstream.NetworkString)
+	if addr == nil {
+		return nil, errors.New("no shs-bs address found")
+	}
+	ssAddr := addr.(secretstream.Addr)
+	return ParseFeedRef(ssAddr.String())
+}
+
+// BlobRef defines a static binary attachment reference, identified it's hash.
+type BlobRef struct {
+	Hash []byte
+	Algo string
+}
+
+// Ref returns the BlobRef with the sigil &, it's base64 encoded hash and the used algo (currently only sha256)
+func (ref BlobRef) Ref() string {
+	return fmt.Sprintf("&%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
+}
+
+// ParseBlobRef uses ParseRef and checks that it returns a *BlobRef
 func ParseBlobRef(s string) (*BlobRef, error) {
 	ref, err := ParseRef(s)
 	if err != nil {
@@ -266,43 +377,60 @@ func ParseBlobRef(s string) (*BlobRef, error) {
 	return newRef, nil
 }
 
-func (br *BlobRef) MarshalText() ([]byte, error) {
+// MarshalText encodes the BlobRef using Ref()
+func (br BlobRef) MarshalText() ([]byte, error) {
 	return []byte(br.Ref()), nil
 }
 
+// UnmarshalText uses ParseBlobRef
 func (br *BlobRef) UnmarshalText(text []byte) error {
 	if len(text) == 0 {
 		*br = BlobRef{}
 		return nil
 	}
-	ref, err := ParseRef(string(text))
+	newBR, err := ParseBlobRef(string(text))
 	if err != nil {
-		return errors.Wrap(err, "failed to parse ref")
+		return errors.Wrap(err, " BlobRef/UnmarshalText failed")
 	}
-	newRef, ok := ref.(*BlobRef)
-	if !ok {
-		return errors.Errorf("blobRef: not a blob! %T", ref)
-	}
-	*br = *newRef
+	*br = *newBR
 	return nil
 }
 
-func GetFeedRefFromAddr(addr net.Addr) (*FeedRef, error) {
-	addr = netwrap.GetAddr(addr, secretstream.NetworkString)
-	if addr == nil {
-		return nil, errors.New("no shs-bs address found")
-	}
+// ContentRef defines the hashed content of a message
+type ContentRef struct {
+	Hash []byte
+	Algo string
+}
 
-	ssAddr := addr.(secretstream.Addr)
-	ref, err := ParseRef(ssAddr.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "ref parse error")
-	}
+func (ref ContentRef) Ref() string {
+	return fmt.Sprintf("!%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
+}
 
-	fr, ok := ref.(*FeedRef)
-	if !ok {
-		return nil, fmt.Errorf("expected a %T but got a %v", fr, ref)
+func (ref ContentRef) MarshalBinary() ([]byte, error) {
+	switch ref.Algo {
+	case RefAlgoContentGabby:
+		return append([]byte{0x02}, ref.Hash...), nil
+	default:
+		return nil, fmt.Errorf("contentRef/Marshal: invalid binref type: %s", ref.Algo)
 	}
+}
 
-	return fr, nil
+func (ref *ContentRef) UnmarshalBinary(data []byte) error {
+	if n := len(data); n != 33 {
+		return errors.Errorf("contentRef: invalid len:%d", n)
+	}
+	var newRef ContentRef
+	newRef.Hash = make([]byte, 32)
+	switch data[0] {
+	case 0x02:
+		newRef.Algo = RefAlgoContentGabby
+	default:
+		return fmt.Errorf("unmarshal: invalid contentRef type: %x", data[0])
+	}
+	n := copy(newRef.Hash, data[1:])
+	if n != 32 {
+		return fmt.Errorf("unmarshal: invalid contentRef size: %d", n)
+	}
+	*ref = newRef
+	return nil
 }

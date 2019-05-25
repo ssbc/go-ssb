@@ -1,13 +1,10 @@
 package graph
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"math"
 	"sync"
-
-	"go.cryptoscope.co/ssb/message"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -95,48 +92,47 @@ func (b *logBuilder) Build() (*Graph, error) {
 			return err
 		}
 
-		msg := v.(message.StoredMessage)
-
-		var c struct {
-			Author  *ssb.FeedRef
-			Content ssb.Contact
+		abs, ok := v.(ssb.Message)
+		if !ok {
+			err := errors.Errorf("graph/idx: invalid msg value %T", v)
+			return err
 		}
-		err = json.Unmarshal(msg.Raw, &c)
+
+		var c ssb.Contact
+		err = json.Unmarshal(abs.ContentBytes(), &c)
 		if err != nil {
-			if ssb.IsMessageUnusable(err) {
-				return nil
-			}
-			b.logger.Log("msg", "skipped contact message", "reason", err)
+			err = errors.Wrapf(err, "db/idx contacts: first json unmarshal failed (msg: %s)", abs.Key().Ref())
 			return nil
 		}
 
-		if bytes.Equal(c.Author.ID, c.Content.Contact.ID) {
+		author := abs.Author()
+		contact := c.Contact
+
+		if author.Equal(contact) {
 			// contact self?!
 			return nil
 		}
 
-		var bfrom [32]byte
-		copy(bfrom[:], c.Author.ID)
+		bfrom := author.StoredAddr()
 		nFrom, has := known[bfrom]
 		if !has {
-			nFrom = &contactNode{dg.NewNode(), c.Author, ""}
+			nFrom = &contactNode{dg.NewNode(), author, ""}
 			dg.AddNode(nFrom)
 			known[bfrom] = nFrom
 		}
 
-		var bto [32]byte
-		copy(bto[:], c.Content.Contact.ID)
+		bto := contact.StoredAddr()
 		nTo, has := known[bto]
 		if !has {
-			nTo = &contactNode{dg.NewNode(), c.Content.Contact, ""}
+			nTo = &contactNode{dg.NewNode(), contact, ""}
 			dg.AddNode(nTo)
 			known[bto] = nTo
 		}
 
 		w := math.Inf(-1)
-		if c.Content.Following {
+		if c.Following {
 			w = 1
-		} else if c.Content.Blocking {
+		} else if c.Blocking {
 			w = math.Inf(1)
 		} else {
 			if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
@@ -148,10 +144,11 @@ func (b *logBuilder) Build() (*Graph, error) {
 		edg := simple.WeightedEdge{F: nFrom, T: nTo, W: w}
 		dg.SetWeightedEdge(contactEdge{
 			WeightedEdge: edg,
-			isBlock:      c.Content.Blocking,
+			isBlock:      c.Blocking,
 		})
 		return nil
 	})
+
 	err = luigi.Pump(context.TODO(), snk, src)
 	if err != nil {
 		return nil, errors.Wrap(err, "friends: couldn't get idx value")
@@ -170,8 +167,7 @@ func (b *logBuilder) Follows(from *ssb.FeedRef) (FeedSet, error) {
 		return nil, errors.Wrap(err, "follows: couldn't build graph")
 	}
 
-	var fb [32]byte
-	copy(fb[:], from.ID)
+	fb := from.StoredAddr()
 	nFrom, has := g.lookup[fb]
 	if !has {
 		return nil, ErrNoSuchFrom{from}
