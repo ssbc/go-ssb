@@ -10,6 +10,7 @@ import (
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
@@ -58,6 +59,7 @@ func makeBadger(t *testing.T) testStore {
 		for err := range mergedErrors(ufErrc, cErrc) {
 			r.NoError(err, "from chan")
 		}
+		t.Log("closed scenary")
 	}
 	return tc
 }
@@ -66,7 +68,6 @@ func TestBadger(t *testing.T) {
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
 	tc.close()
-
 }
 
 func makeTypedLog(t *testing.T) testStore {
@@ -109,6 +110,7 @@ func makeTypedLog(t *testing.T) testStore {
 		for err := range mergedErrors(ufErrc, mtErrc) {
 			r.NoError(err, "from chan")
 		}
+		t.Log("closed scenary")
 	}
 
 	return tc
@@ -134,6 +136,7 @@ func (tc testStore) newPublisher(t *testing.T) *publisher {
 
 func (tc testStore) theScenario(t *testing.T) {
 	r := require.New(t)
+	a := assert.New(t)
 
 	// some new people
 	myself := tc.newPublisher(t)
@@ -147,7 +150,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, g.NodeCount())
 
-	a := tc.gbuilder.Authorizer(myself.key.Id, 0)
+	auth := tc.gbuilder.Authorizer(myself.key.Id, 0)
 
 	// > create contacts
 	myself.follow(alice.key.Id)
@@ -155,21 +158,23 @@ func (tc testStore) theScenario(t *testing.T) {
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
-	r.Equal(3, g.NodeCount())
+	if !a.Equal(3, g.NodeCount()) {
+		return
+	}
 
 	// not followed
-	err = a.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.Id)
 	r.NotNil(err, "unknown ID")
 	hopsErr, ok := err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.True(hopsErr.Dist < 0)
 
 	// following
-	err = a.Authorize(alice.key.Id)
+	err = auth.Authorize(alice.key.Id)
 	r.Nil(err)
 
 	// blocked
-	err = a.Authorize(bob.key.Id)
+	err = auth.Authorize(bob.key.Id)
 	r.NotNil(err, "no error for blocked peer")
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -184,7 +189,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. zero hops and not friends
-	err = a.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -200,7 +205,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. friends with alice but still 0 hops
-	err = a.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.Id)
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)

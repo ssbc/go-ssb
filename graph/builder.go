@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"sync"
 
@@ -18,7 +19,6 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 )
 
 // Builder can build a trust graph and answer other questions
@@ -62,34 +62,34 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) Builder {
 			return nulled
 		}
 
-		msg := val.(message.StoredMessage)
-		var dmsg message.DeserializedMessage
-		err := json.Unmarshal(msg.Raw, &dmsg)
-		if err != nil {
-			err = errors.Wrapf(err, "db/idx contacts: first json unmarshal failed (msg: %s)", msg.Key.Ref())
-			log.Log("msg", "skipped contact message", "reason", err)
-			return nil
+		abs, ok := val.(ssb.Message)
+		if !ok {
+			err := errors.Errorf("graph/idx: invalid msg value %T", val)
+			log.Log("msg", "contact eval failed", "reason", err)
+			return err
 		}
 
 		var c ssb.Contact
-		err = json.Unmarshal(dmsg.Content, &c)
+		err := json.Unmarshal(abs.ContentBytes(), &c)
 		if err != nil {
 			if ssb.IsMessageUnusable(err) {
 				return nil
 			}
-			log.Log("msg", "skipped contact message", "reason", err, "key", msg.Key.Ref())
+			err = errors.Wrapf(err, "db/idx contacts: first json unmarshal failed (msg: %v)", abs.Key().Ref())
+			log.Log("msg", "skipped contact message", "reason", err)
 			return nil
 		}
 
-		addr := append(dmsg.Author.ID, ':')
-		addr = append(addr, c.Contact.ID...)
+		addr := abs.Author().StoredAddr()
+		addr += ":"
+		addr += c.Contact.StoredAddr()
 		switch {
 		case c.Following:
-			err = idx.Set(ctx, librarian.Addr(addr), 1)
+			err = idx.Set(ctx, addr, 1)
 		case c.Blocking:
-			err = idx.Set(ctx, librarian.Addr(addr), 2)
+			err = idx.Set(ctx, addr, 2)
 		default:
-			err = idx.Set(ctx, librarian.Addr(addr), 0)
+			err = idx.Set(ctx, addr, 0)
 			// cryptix: not sure why this doesn't work
 			// it also removes the node if this is the only follow from that peer
 			// 3 state handling seems saner
@@ -139,28 +139,41 @@ func (b *builder) Build() (*Graph, error) {
 				continue
 			}
 
-			from := ssb.FeedRef{Algo: "ed25519", ID: k[:32]}
-			to := ssb.FeedRef{Algo: "ed25519", ID: k[33:]}
+			// we store encoded b64 versions with suffixes until
+			// FeedRef.StoredAddr() returns a compact version that preserves types
 
-			if bytes.Equal(from.ID, to.ID) {
+			keySplits := bytes.Split(k, []byte(":"))
+			if len(keySplits) != 2 {
+				fmt.Printf("skipping: %q\n", string(k))
+				continue
+			}
+
+			from, err := ssb.ParseFeedRef(string(keySplits[0]))
+			if err != nil {
+				return errors.Wrap(err, "builder: couldnt idx key value (from)")
+			}
+			to, err := ssb.ParseFeedRef(string(keySplits[1]))
+			if err != nil {
+				return errors.Wrap(err, "builder: couldnt idx key value (to)")
+			}
+
+			if from.Equal(to) {
 				// contact self?!
 				continue
 			}
 
-			var bfrom [32]byte
-			copy(bfrom[:], from.ID)
+			bfrom := from.StoredAddr()
 			nFrom, has := known[bfrom]
 			if !has {
-				nFrom = &contactNode{dg.NewNode(), &from, ""}
+				nFrom = &contactNode{dg.NewNode(), from, ""}
 				dg.AddNode(nFrom)
 				known[bfrom] = nFrom
 			}
 
-			var bto [32]byte
-			copy(bto[:], to.ID)
+			bto := to.StoredAddr()
 			nTo, has := known[bto]
 			if !has {
-				nTo = &contactNode{dg.NewNode(), &to, ""}
+				nTo = &contactNode{dg.NewNode(), to, ""}
 				dg.AddNode(nTo)
 				known[bto] = nTo
 			}
@@ -170,7 +183,7 @@ func (b *builder) Build() (*Graph, error) {
 			}
 
 			w := math.Inf(-1)
-			err := it.Value(func(v []byte) error {
+			err = it.Value(func(v []byte) error {
 				if len(v) >= 1 {
 					switch v[0] {
 					case '0': // not following
@@ -211,8 +224,7 @@ type Lookup struct {
 }
 
 func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
-	var bto [32]byte
-	copy(bto[:], to.ID)
+	bto := to.StoredAddr()
 	nTo, has := l.lookup[bto]
 	if !has {
 		return nil, math.Inf(-1)
@@ -220,26 +232,31 @@ func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
-	if fr == nil {
+func (b *builder) Follows(forRef *ssb.FeedRef) (FeedSet, error) {
+	if forRef == nil {
 		panic("nil feed ref")
 	}
-	var fs feedSet
-	fs.set = make(feedMap)
+	fs := NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := append(fr.ID, ':')
-		i := 0
+		prefix := []byte(forRef.StoredAddr() + ":")
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
 
 			err := it.Value(func(v []byte) error {
 				if len(v) >= 1 && v[0] == '1' {
-					if err := fs.AddB(k[33:]); err != nil {
-						return errors.Wrapf(err, "invalid follow entry(%d) addr for feed:%s", i, fr.Ref())
+					// extract 2nd feed ref out of db key
+					// TODO: use compact StoredAddr
+					refstr := string(k[len(prefix):])
+					fr, err := ssb.ParseFeedRef(refstr)
+					if err != nil {
+						return errors.Wrapf(err, "follows(%s): invalid ref entry in db for feed", forRef.Ref())
+					}
+					if err := fs.AddRef(fr); err != nil {
+						return errors.Wrapf(err, "follows(%s): couldn't add parsed ref feed", forRef.Ref())
 					}
 				}
 				return nil
@@ -247,12 +264,10 @@ func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
 			if err != nil {
 				return errors.Wrap(err, "failed to get value from iter")
 			}
-
 		}
 		return nil
 	})
-
-	return &fs, err
+	return fs, err
 }
 
 // Hops returns a slice of feed refrences that are in a particulare range of from
@@ -261,22 +276,21 @@ func (b *builder) Follows(fr *ssb.FeedRef) (FeedSet, error) {
 // max == 2: max:1 + follows of their friends
 func (b *builder) Hops(from *ssb.FeedRef, max int) FeedSet {
 	max++
-	var walked feedSet
-	walked.set = make(feedMap)
+	walked := NewFeedSet(1000)
 	err := walked.AddRef(from)
 	if err != nil {
 		b.log.Log("event", "error", "msg", "add failed", "err", err)
 		return nil
 	}
-	err = b.recurseHops(&walked, from, max)
+	err = b.recurseHops(walked, from, max)
 	if err != nil {
 		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
 		return nil
 	}
-	return &walked
+	return walked
 }
 
-func (b *builder) recurseHops(walked *feedSet, from *ssb.FeedRef, depth int) error {
+func (b *builder) recurseHops(walked FeedSet, from *ssb.FeedRef, depth int) error {
 	// b.log.Log("recursing", from.Ref(), "d", depth)
 	if depth == 0 {
 		return nil

@@ -3,13 +3,14 @@ package graph
 import (
 	"math"
 
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-type key2node map[[32]byte]graph.Node
+type key2node map[librarian.Addr]graph.Node
 
 type Graph struct {
 	simple.WeightedDirectedGraph
@@ -17,15 +18,11 @@ type Graph struct {
 }
 
 func (g *Graph) getEdge(from, to *ssb.FeedRef) (graph.WeightedEdge, bool) {
-	var bfrom [32]byte
-	copy(bfrom[:], from.ID)
-	nFrom, has := g.lookup[bfrom]
+	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil, false
 	}
-	var bto [32]byte
-	copy(bto[:], to.ID)
-	nTo, has := g.lookup[bto]
+	nTo, has := g.lookup[to.StoredAddr()]
 	if !has {
 		return nil, false
 	}
@@ -52,32 +49,26 @@ func (g *Graph) Blocks(from, to *ssb.FeedRef) bool {
 	return w.Weight() == math.Inf(1)
 }
 
-func (g *Graph) BlockedList(from *ssb.FeedRef) map[[32]byte]bool {
-	var bfrom [32]byte
-	copy(bfrom[:], from.ID)
-	nFrom, has := g.lookup[bfrom]
+func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]bool {
+	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil
 	}
-	blocked := make(map[[32]byte]bool)
+	var blocked map[librarian.Addr]bool
 	edgs := g.From(nFrom.ID())
 	for edgs.Next() {
 		edg := g.Edge(nFrom.ID(), edgs.Node().ID()).(contactEdge)
 
 		if edg.Weight() == math.Inf(1) {
-			ctNode := edg.To().(*contactNode)
-			var k [32]byte
-			copy(k[:], ctNode.feed.ID)
-			blocked[k] = true
+			ctNode := edg.To().(contactNode)
+			blocked[ctNode.feed.StoredAddr()] = true
 		}
 	}
 	return blocked
 }
 
 func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
-	var bfrom [32]byte
-	copy(bfrom[:], from.ID)
-	nFrom, has := g.lookup[bfrom]
+	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil, &ErrNoSuchFrom{from}
 	}

@@ -6,11 +6,11 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/ssb/message"
+
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -24,19 +24,19 @@ func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.Ser
 			}
 			return nulled
 		}
-		msg, ok := value.(message.StoredMessage)
+		msg, ok := value.(ssb.Message)
 		if !ok {
-			return errors.Errorf("error casting message. got type %T", value)
+			err := errors.Errorf("error casting message. got type %T", value)
+			// fmt.Println(err)
+			return err
 		}
 
 		var typeMsg struct {
-			Content struct {
-				Type string
-			}
+			Type string
 		}
 
-		err := json.Unmarshal(msg.Raw, &typeMsg)
-		typeStr := typeMsg.Content.Type
+		err := json.Unmarshal(msg.ContentBytes(), &typeMsg)
+		typeStr := typeMsg.Type
 		// TODO: maybe check error with more detail - i.e. only drop type errors
 		if err != nil || typeStr == "" {
 			return nil

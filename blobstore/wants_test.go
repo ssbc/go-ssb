@@ -155,7 +155,7 @@ func TestWantManager(t *testing.T) {
 					m   = make(map[string]int64)
 					h   = sha256.New()
 					ref = ssb.BlobRef{
-						Algo: ssb.RefAlgoSHA256,
+						Algo: ssb.RefAlgoBlobSSB1,
 					}
 				)
 

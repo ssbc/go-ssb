@@ -56,7 +56,7 @@ func Box(clearMsg []byte, rcpts ...*ssb.FeedRef) (string, error) {
 			cvPub         [32]byte // recpt' pub in curve space
 			rcptPub       [32]byte // can't pass []byte to extra25519
 		)
-		copy(rcptPub[:], r.ID)
+		copy(rcptPub[:], r.PubKey())
 		extra25519.PublicKeyToCurve25519(&cvPub, &rcptPub)
 		curve25519.ScalarMult(&messageShared, ephSecret, &cvPub)
 
@@ -74,8 +74,6 @@ const (
 	maxRecps     = 255                         // 1 byte for recipient count
 	rcptSboxSize = 32 + 1 + secretbox.Overhead // secretbox secret + rcptCount + overhead
 )
-
-type rcptBox [rcptSboxSize]byte
 
 func Unbox(recpt *ssb.KeyPair, msg string) ([]byte, error) {
 	rawMsg, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(msg, ".box"))

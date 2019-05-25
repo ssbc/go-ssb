@@ -1,8 +1,8 @@
 package gossip
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/message"
@@ -33,10 +34,13 @@ func (h *handler) fetchAllLib(
 	lst []librarian.Addr,
 ) error {
 	var refs = graph.NewFeedSet(len(lst))
-	for _, addr := range lst {
-		err := refs.AddB([]byte(addr))
+	for i, addr := range lst {
+		ref, err := ssb.ParseFeedRef(string(addr))
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "fetchLib(%d) failed to parse (%q)", i, addr)
+		}
+		if err := refs.AddRef(ref); err != nil {
+			return errors.Wrapf(err, "fetchLib(%d) set add failed", i)
 		}
 	}
 	return h.fetchAll(ctx, e, refs)
@@ -94,7 +98,7 @@ func (h *handler) fetchAll(
 
 func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 	for _, el := range list {
-		if bytes.Compare([]byte(el), a.ID) == 0 {
+		if el == a.StoredAddr() {
 			return true
 		}
 	}
@@ -113,7 +117,7 @@ func (g *handler) fetchFeed(
 	default:
 	}
 	// check our latest
-	addr := librarian.Addr(fr.ID)
+	addr := fr.StoredAddr()
 	g.activeLock.Lock()
 	_, ok := g.activeFetch.Load(addr)
 	if ok {
@@ -144,10 +148,11 @@ func (g *handler) fetchFeed(
 	}
 	var (
 		latestSeq margaret.BaseSeq
-		latestMsg message.StoredMessage
+		latestMsg ssb.Message
 	)
 	switch v := latest.(type) {
 	case librarian.UnsetValue:
+		// nothing stored, fetch from zero
 	case margaret.BaseSeq:
 		latestSeq = v + 1 // sublog is 0-init while ssb chains start at 1
 		if v >= 0 {
@@ -159,20 +164,22 @@ func (g *handler) fetchFeed(
 			if err != nil {
 				return errors.Wrapf(err, "failed retreive stored message")
 			}
-			var ok bool
-			latestMsg, ok = msgV.(message.StoredMessage)
+
+			abs, ok := msgV.(ssb.Message)
 			if !ok {
-				return errors.Errorf("wrong message type. expected %T - got %T", latestMsg, v)
+				return errors.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
 			}
 
-			if latestMsg.Sequence != latestSeq {
-				return &ErrWrongSequence{Stored: latestMsg.Sequence, Indexed: latestSeq, Ref: fr}
+			latestMsg = abs
+
+			if hasSeq := latestMsg.Seq(); hasSeq != latestSeq.Seq() {
+				return &ErrWrongSequence{Stored: latestMsg, Indexed: latestSeq, Ref: fr}
 			}
 		}
 	}
 
 	startSeq := latestSeq
-	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) // "me", g.Id.Ref(), "from", ...)
+	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq, "me", g.Id.Ref())
 
 	var q = message.CreateHistArgs{
 		Id:    fr.Ref(),
@@ -195,57 +202,23 @@ func (g *handler) fetchFeed(
 		}
 	}()
 
-	source, err := edp.Source(toLong, message.RawSignedMessage{}, []string{"createHistoryStream"}, q)
+	method := muxrpc.Method{"createHistoryStream"}
+
+	var (
+		src luigi.Source
+		snk luigi.Sink = message.NewVerifySink(fr, latestSeq, latestMsg, g.RootLog, g.hmacSec)
+	)
+
+	switch fr.Algo {
+	case ssb.RefAlgoFeedSSB1:
+		src, err = edp.Source(toLong, json.RawMessage{}, method, q)
+	case ssb.RefAlgoFeedGabby:
+		src, err = edp.Source(toLong, codec.Body{}, method, q)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
-	// info.Log("debug", "called createHistoryStream", "qry", fmt.Sprintf("%v", q))
-
-	for {
-		v, err := source.Next(toLong)
-		if luigi.IsEOS(err) {
-			break
-		} else if err != nil {
-			return errors.Wrapf(err, "fetchFeed(%s:%d): failed to drain", fr.Ref(), latestSeq)
-		}
-
-		rmsg := v.(message.RawSignedMessage)
-		ref, dmsg, err := message.Verify(rmsg.RawMessage, g.hmacSec)
-		if err != nil {
-			return errors.Wrapf(err, "fetchFeed(%s:%d): message verify failed", fr.Ref(), latestSeq)
-		}
-
-		if latestSeq > 1 {
-			if bytes.Compare(latestMsg.Key.Hash, dmsg.Previous.Hash) != 0 {
-				return errors.Errorf("fetchFeed(%s:%d): previous compare failed expected:%s incoming:%s",
-					fr.Ref(),
-					latestSeq,
-					latestMsg.Key.Ref(),
-					dmsg.Previous.Ref(),
-				)
-			}
-			if latestMsg.Sequence+1 != dmsg.Sequence {
-				return errors.Errorf("fetchFeed(%s:%d): next.seq != curr.seq+1", fr.Ref(), latestSeq)
-			}
-		}
-
-		nextMsg := message.StoredMessage{
-			Author:    &dmsg.Author,
-			Previous:  &dmsg.Previous,
-			Key:       ref,
-			Sequence:  dmsg.Sequence,
-			Timestamp: time.Now(),
-			Raw:       rmsg.RawMessage,
-		}
-
-		_, err = g.RootLog.Append(nextMsg)
-		if err != nil {
-			return errors.Wrapf(err, "fetchFeed(%s): failed to append message(%s:%d)", fr.Ref(), ref.Ref(), dmsg.Sequence)
-		}
-
-		latestSeq = dmsg.Sequence
-		latestMsg = nextMsg
-	} // hist drained
-
-	return nil
+	info.Log("starting", "fetch")
+	err = luigi.Pump(toLong, snk, src)
+	return errors.Wrap(err, "gossip pump failed")
 }

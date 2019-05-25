@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb"
 
 	"go.cryptoscope.co/luigi"
 
@@ -52,7 +52,8 @@ func TestPublishUnicode(t *testing.T) {
 	newMsg := post{
 		"post", string(txt),
 	}
-	ali.PublishLog.Append(newMsg)
+	_, err = ali.PublishLog.Append(newMsg)
+	r.NoError(err)
 
 	src, err := ali.RootLog.Query()
 	r.NoError(err)
@@ -62,13 +63,12 @@ func TestPublishUnicode(t *testing.T) {
 		if luigi.IsEOS(err) {
 			break
 		}
-		sm := v.(message.StoredMessage)
-		var iv struct {
-			Content post
-		}
-		err = json.Unmarshal(sm.Raw, &iv)
+		sm := v.(ssb.Message)
+		var p post
+		c := sm.ContentBytes()
+		err = json.Unmarshal(c, &p)
 		r.NoError(err)
-		r.Equal(iv.Content.Text, newMsg.Text)
+		r.Equal(newMsg.Text, p.Text)
 		i++
 	}
 	r.Equal(i, 1)

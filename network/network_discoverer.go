@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -89,7 +88,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 			continue
 		}
 
-		if bytes.Equal(na.Ref.ID, d.local.Id.ID) {
+		if na.Ref.Equal(d.local.Id) {
 			continue
 		}
 
@@ -106,7 +105,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 			IP: na.Host,
 			// IP:   ua.IP,
 			Port: na.Port,
-		}, secretstream.Addr{PubKey: na.Ref.ID})
+		}, secretstream.Addr{PubKey: na.Ref.PubKey()})
 		d.brLock.Lock()
 		for _, ch := range d.brodcasts {
 			ch <- wrappedAddr

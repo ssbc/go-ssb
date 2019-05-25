@@ -21,10 +21,11 @@ require (
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.3.0
+	github.com/ugorji/go/codec v1.1.5-pre
 	go.cryptoscope.co/librarian v0.1.3
 	go.cryptoscope.co/luigi v0.3.3
 	go.cryptoscope.co/margaret v0.0.10-0.20190611102959-ac4d35f86574
-	go.cryptoscope.co/muxrpc v1.4.1-0.20190619172113-6a057025468a
+	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.4-0.20190516183542-3faf22728ce8
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8

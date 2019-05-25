@@ -3,7 +3,7 @@ package publish
 import (
 	"context"
 
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -39,15 +39,15 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		return
 	}
 
-	msg, ok := msgv.(message.StoredMessage)
+	msg, ok := msgv.(ssb.Message)
 	if !ok {
 		req.CloseWithError(errors.Errorf("publish: unexpected message type: %T", msgv))
 		return
 	}
 
-	h.info.Log("info", "published new message", "rootSeq", seq.Seq(), "refKey", msg.Key.Ref())
+	h.info.Log("info", "published new message", "rootSeq", seq.Seq(), "refKey", msg.Key().Ref())
 
-	err = req.Return(ctx, msg.Key.Ref())
+	err = req.Return(ctx, msg.Key().Ref())
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "publish: return failed"))
 		return

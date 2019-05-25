@@ -2,6 +2,7 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
@@ -113,11 +114,11 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		if err != nil {
 			return err
 		}
-		msg, ok := v.([]byte)
+		msg, ok := v.(*transform.KeyValue)
 		if !ok {
-			return errors.Errorf("b4pour: expected []byte - got %T", v)
+			return errors.Errorf("sink type missmatch: expected []byte - got %T", v)
 		}
-		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+		return req.Stream.Pour(ctx, json.RawMessage(msg.Data))
 	})
 
 	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))

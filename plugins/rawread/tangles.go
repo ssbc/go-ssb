@@ -2,6 +2,7 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 
 	"go.cryptoscope.co/ssb/internal/mutil"
 
@@ -102,11 +103,11 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		if err != nil {
 			return err
 		}
-		msg, ok := v.([]byte)
+		msg, ok := v.(*transform.KeyValue)
 		if !ok {
-			return errors.Errorf("b4pour: expected []byte - got %T", v)
+			return errors.Errorf("trangle sink: expected KV - got %T", v)
 		}
-		return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+		return req.Stream.Pour(ctx, json.RawMessage(msg.Data))
 	})
 
 	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))

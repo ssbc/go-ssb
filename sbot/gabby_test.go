@@ -5,25 +5,23 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
-
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
-func TestFeedsOneByOne(t *testing.T) {
-	// defer leakcheck.Check(t)
+func TestGabbySync(t *testing.T) {
 	r := require.New(t)
-	a := assert.New(t)
-	ctx, cancel := context.WithCancel(context.TODO())
+	// a := assert.New(t)
+	ctx := context.TODO()
 
 	os.RemoveAll("testrun")
 
@@ -36,7 +34,6 @@ func TestFeedsOneByOne(t *testing.T) {
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
-		WithContext(ctx),
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"))
@@ -51,11 +48,16 @@ func TestFeedsOneByOne(t *testing.T) {
 		close(aliErrc)
 	}()
 
+	// bob is the one with the other feed format
+	bobsKey, err := ssb.NewKeyPair(nil)
+	r.NoError(err)
+	bobsKey.Id.Algo = ssb.RefAlgoFeedGabby
+
 	bobLog, _ := logtest.KitLogger("bob", t)
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
-		WithContext(ctx),
+		WithKeyPair(bobsKey),
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"))
@@ -70,6 +72,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		close(bobErrc)
 	}()
 
+	// be friends
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
 		Following: true,
@@ -85,59 +88,61 @@ func TestFeedsOneByOne(t *testing.T) {
 	})
 	r.NoError(err)
 
-	g, err := bob.GraphBuilder.Build()
-	r.NoError(err)
-	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
-
-	alisLog, err := bob.UserFeeds.Get(ali.KeyPair.Id.StoredAddr())
-	r.NoError(err)
-
 	for i := 0; i < 9; i++ {
-		t.Logf("runniung connect %d", i)
-		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
-		r.NoError(err)
-		time.Sleep(75 * time.Millisecond)
-
-		_, err := ali.PublishLog.Append(map[string]interface{}{
+		seq, err := bob.PublishLog.Append(map[string]interface{}{
 			"test": i,
 		})
 		r.NoError(err)
+		r.Equal(margaret.BaseSeq(i+1), seq)
+	}
 
-		seqv, err := alisLog.Seq().Value()
-		r.NoError(err)
-		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
+	// sanity, check bob has his shit together
+	bobsOwnLog, err := bob.UserFeeds.Get(bob.KeyPair.Id.StoredAddr())
+	r.NoError(err)
+
+	seqv, err := bobsOwnLog.Seq().Value()
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(9), seqv, "bob doesn't have his own log!")
+
+	// dial
+	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	r.NoError(err)
+
+	// give time to sync
+	time.Sleep(3 * time.Second)
+	// be done
+	ali.Network.GetConnTracker().CloseAll()
+
+	// check that bobs messages got to ali
+	bosLogAtAli, err := ali.UserFeeds.Get(bob.KeyPair.Id.StoredAddr())
+	r.NoError(err)
+
+	seqv, err = bosLogAtAli.Seq().Value()
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(9), seqv)
+
+	src, err := mutil.Indirect(ali.RootLog, bosLogAtAli).Query()
+	r.NoError(err)
+	for {
+		v, err := src.Next(ctx)
+		if luigi.IsEOS(err) {
+			break
+		} else if err != nil {
+			r.NoError(err)
+		}
+		msg, ok := v.(multimsg.MultiMessage)
+		r.True(ok, "Type: %T", v)
+		// t.Log(msg)
+		_, ok = msg.AsGabby()
+		r.True(ok)
+		// a.True(msg.Author.ProtoChain)
+		// a.NotEmpty(msg.ProtoChain)
 	}
 
 	ali.Shutdown()
 	bob.Shutdown()
-
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
 	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
-	cancel()
-}
-
-// utils
-func mergeErrorChans(cs ...<-chan error) <-chan error {
-	var wg sync.WaitGroup
-	out := make(chan error, 1)
-
-	output := func(c <-chan error) {
-		for a := range c {
-			out <- a
-		}
-		wg.Done()
-	}
-
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go output(c)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
 }

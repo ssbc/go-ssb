@@ -19,7 +19,6 @@ import (
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/message"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
 	// debug
@@ -196,17 +195,15 @@ func main() {
 
 	var followCnt, msgCount uint
 	for _, author := range feeds {
-		authorRef := ssb.FeedRef{
-			Algo: "ed25519",
-			ID:   []byte(author),
-		}
+		authorRef, err := ssb.ParseFeedRef(string(author))
+		checkFatal(err)
 
 		subLog, err := uf.Get(author)
 		checkFatal(err)
 
 		userLogV, err := subLog.Seq().Value()
 		checkFatal(err)
-		userLogSeq := userLogV.(margaret.BaseSeq)
+		userLogSeq := userLogV.(margaret.Seq)
 		rlSeq, err := subLog.Get(userLogSeq)
 		if margaret.IsErrNulled(err) {
 			continue
@@ -219,22 +216,22 @@ func main() {
 		} else {
 			checkFatal(err)
 		}
-		msg := rv.(message.StoredMessage)
+		msg := rv.(ssb.Message)
 
-		if msg.Sequence != userLogSeq+1 {
-			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Sequence, userLogSeq+1)
+		if msg.Seq() != userLogSeq.Seq()+1 {
+			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Seq(), userLogSeq.Seq()+1)
 			log.Log("warning", err)
 			continue
 		}
 
-		msgCount += uint(msg.Sequence)
+		msgCount += uint(msg.Seq())
 
-		f, err := gb.Follows(&authorRef)
+		f, err := gb.Follows(authorRef)
 		checkFatal(err)
 
 		if len(feeds) < 20 {
-			h := gb.Hops(&authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Sequence, "follows", f.Count(), "hops", h.Count())
+			h := gb.Hops(authorRef, 2)
+			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
 		}
 		followCnt += uint(f.Count())
 	}

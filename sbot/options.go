@@ -56,14 +56,17 @@ type Sbot struct {
 	KeyPair          *ssb.KeyPair
 	RootLog          margaret.Log
 	liveIndexUpdates bool
-	UserFeeds        multilog.MultiLog
-	idxGet           librarian.Index
-	Tangles          multilog.MultiLog
-	AboutStore       indexes.AboutStore
-	MessageTypes     multilog.MultiLog
-	PrivateLogs      multilog.MultiLog
-	PublishLog       margaret.Log
-	signHMACsecret   []byte
+
+	// TODO: make configurable
+	UserFeeds    multilog.MultiLog
+	idxGet       librarian.Index
+	Tangles      multilog.MultiLog
+	AboutStore   indexes.AboutStore
+	MessageTypes multilog.MultiLog
+	PrivateLogs  multilog.MultiLog
+
+	PublishLog     margaret.Log
+	signHMACsecret []byte
 
 	GraphBuilder graph.Builder
 
@@ -131,6 +134,13 @@ func WithJSONKeyPair(blob string) Option {
 		var err error
 		s.KeyPair, err = ssb.ParseKeyPair(strings.NewReader(blob))
 		return errors.Wrap(err, "JSON KeyPair decode failed")
+	}
+}
+
+func WithKeyPair(kp *ssb.KeyPair) Option {
+	return func(s *Sbot) error {
+		s.KeyPair = kp
+		return nil
 	}
 }
 

@@ -1,4 +1,4 @@
-package message
+package legacy
 
 import (
 	"bytes"
@@ -65,7 +65,7 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*ssb.MessageRef, *DeserializedMes
 
 	mr := ssb.MessageRef{
 		Hash: h.Sum(nil),
-		Algo: ssb.RefAlgoSHA256,
+		Algo: ssb.RefAlgoMessageSSB1,
 	}
 	return &mr, &dmsg, nil
 }

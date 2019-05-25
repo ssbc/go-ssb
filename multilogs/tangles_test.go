@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -37,17 +38,17 @@ func XTestTangles(t *testing.T) {
 
 	alice, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	alicePublish, err := OpenPublishLog(tRootLog, uf, *alice)
+	alicePublish, err := message.OpenPublishLog(tRootLog, uf, alice)
 	r.NoError(err)
 
 	bob, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	bobPublish, err := OpenPublishLog(tRootLog, uf, *bob)
+	bobPublish, err := message.OpenPublishLog(tRootLog, uf, bob)
 	r.NoError(err)
 
 	claire, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	clairePublish, err := OpenPublishLog(tRootLog, uf, *claire)
+	clairePublish, err := message.OpenPublishLog(tRootLog, uf, claire)
 	r.NoError(err)
 
 	// > create contacts

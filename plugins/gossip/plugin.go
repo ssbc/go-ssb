@@ -77,12 +77,12 @@ func NewHist(
 			h.sysGauge = v
 		case *prometheus.Counter:
 			h.sysCtr = v
+		case Promisc:
+			h.promisc = bool(v)
 		case HopCount:
 			h.hopCount = int(v)
 		case HMACSecret:
 			h.hmacSec = v
-		case Promisc:
-			h.promisc = bool(v)
 		default:
 			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
 		}

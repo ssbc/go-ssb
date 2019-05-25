@@ -9,7 +9,7 @@ import (
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/message/legacy"
 )
 
 type unboxedLog struct {
@@ -56,16 +56,12 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 			return nil, errors.Wrapf(err, "unboxLog: error getting v(%v) from seqlog log", iv)
 		}
 
-		msg := val.(message.StoredMessage)
-		var dmsg struct {
-			Content string `json:"content"`
+		amsg, ok := val.(ssb.Message)
+		if !ok {
+			return nil, errors.Errorf("wrong message type. expected %T - got %T", amsg, val)
 		}
 
-		if err := json.Unmarshal(msg.Raw, &dmsg); err != nil {
-			return nil, errors.Wrap(err, "unboxLog: first json unmarshal failed")
-		}
-
-		clearContent, err := Unbox(il.kp, dmsg.Content)
+		clearContent, err := Unbox(il.kp, string(amsg.ContentBytes()))
 		if err != nil {
 			return nil, errors.Wrap(err, "unboxLog: unbox failed")
 		}
@@ -77,16 +73,22 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 			return nil, errors.Wrap(err, "unboxLog: failed to make contentVal")
 		}
 
-		var unboxedMsg message.SignedLegacyMessage
-		unboxedMsg.Previous = msg.Previous
-		unboxedMsg.Author = msg.Author.Ref()
-		unboxedMsg.Sequence = msg.Sequence
-		unboxedMsg.Timestamp = msg.Timestamp.UnixNano() / 100000
+		author := amsg.Author()
+		// TODO: fill all the fields
+
+		// map unboxed content int something that looks like value
+		var unboxedMsg legacy.SignedLegacyMessage
+		// unboxedMsg.Previous = amsg.Previous()
+		unboxedMsg.Author = author.Ref()
+		// unboxedMsg.Sequence = msg.Sequence
+		// unboxedMsg.Timestamp = msg.Timestamp.UnixNano() / 100000
 		unboxedMsg.Hash = "go-ssb-unboxed"
 		unboxedMsg.Content = contentVal
 		unboxedMsg.Signature = "go-ssb-unboxed"
 
-		msg.Raw, err = json.Marshal(unboxedMsg)
+		var msg ssb.Value
+		msg.Author = *author
+		msg.Content, err = json.Marshal(unboxedMsg)
 		return msg, errors.Wrap(err, "unboxLog: failed to encode unboxed msg")
 	}), nil
 }

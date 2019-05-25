@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
@@ -15,6 +16,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 )
 
@@ -53,6 +55,9 @@ type node struct {
 	log           log.Logger
 	connWrappers  []netwrap.ConnWrapper
 
+	remotesLock sync.Mutex
+	remotes     map[string]muxrpc.Endpoint
+
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 	evtCtr     *prometheus.Counter
 	sysGauge   *prometheus.Gauge
@@ -65,6 +70,8 @@ func New(opts Options) (ssb.Network, error) {
 		// TODO: make this configurable
 		// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 		connTracker: NewLastWinsTracker(),
+
+		remotes: make(map[string]muxrpc.Endpoint),
 	}
 
 	var err error
@@ -160,10 +167,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
+		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
 			return // ignore silently
 		}
-		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		return
 	}
 
@@ -186,9 +193,56 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	srv := edp.(muxrpc.Server)
+
+	n.addRemote(edp)
 	if err := srv.Serve(ctx); err != nil {
 		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
 	}
+	n.removeRemote(edp)
+}
+
+// GetEndpointFor returns a muxrpc endpoint to call the remote identified by the passed feed ref
+// retruns false if there is no such connection
+func (n *node) GetEndpointFor(ref *ssb.FeedRef) (muxrpc.Endpoint, bool) {
+	if ref == nil {
+		return nil, false
+	}
+	n.remotesLock.Lock()
+	defer n.remotesLock.Unlock()
+
+	edp, has := n.remotes[ref.Ref()]
+	return edp, has
+}
+
+func (n *node) addRemote(edp muxrpc.Endpoint) {
+	n.remotesLock.Lock()
+	defer n.remotesLock.Unlock()
+	r, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	if err != nil {
+		panic(err)
+	}
+	ref := r.Ref()
+	if oldEdp, has := n.remotes[ref]; has {
+		n.log.Log("remotes", "previous active", "ref", ref)
+		c := client.FromEndpoint(oldEdp)
+		_, err := c.Whoami()
+		if err == nil {
+			// old one still works
+			return
+		}
+	}
+	// replace with new
+	n.remotes[r.Ref()] = edp
+}
+
+func (n *node) removeRemote(edp muxrpc.Endpoint) {
+	n.remotesLock.Lock()
+	defer n.remotesLock.Unlock()
+	r, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	if err != nil {
+		panic(err)
+	}
+	delete(n.remotes, r.Ref())
 }
 
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {

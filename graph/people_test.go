@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb"
 )
 
 type PeopleOp interface {
@@ -27,7 +28,27 @@ type PeopleOpNewPeer struct {
 func (op PeopleOpNewPeer) Op(state *testState) error {
 	publisher := newPublisher(state.t, state.store.root, state.store.userLogs)
 	state.peers[op.name] = publisher
-	ref := publisher.key.Id.Ref()
+	ref := string(publisher.key.Id.StoredAddr())
+	state.refToName[ref] = op.name
+	state.t.Logf("creted %s as %s", op.name, ref)
+	return nil
+}
+
+type PeopleOpNewPeerWithAglo struct {
+	name string
+	algo string
+}
+
+func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
+	kp, err := ssb.NewKeyPair(nil)
+	if err != nil {
+		state.t.Fatal(err)
+	}
+	kp.Id.Algo = op.algo
+
+	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, kp)
+	state.peers[op.name] = publisher
+	ref := string(publisher.key.Id.StoredAddr())
 	state.refToName[ref] = op.name
 	state.t.Logf("creted %s as %s", op.name, ref)
 	return nil
@@ -216,8 +237,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		g, err := state.store.gbuilder.Build()
 		r.NoError(err, "failed to build graph for debugging")
 		for nick, pub := range state.peers {
-			var newKey [32]byte
-			copy(newKey[:], pub.key.Id.ID)
+			newKey := pub.key.Id.StoredAddr()
+			// var newKey [32]byte
+			// copy(newKey[:], pub.key.Id.StoredAddr())
 			node, ok := g.lookup[newKey]
 			r.True(ok, "did not find peer!? %s", nick)
 			cn := node.(*contactNode)
@@ -381,6 +403,39 @@ func TestPeople(t *testing.T) {
 			asserts: []PeopleAssertMaker{
 				PeopleAssertFollows("alice", "bob", false),
 				PeopleAssertBlocks("alice", "bob", false),
+			},
+		},
+
+		{
+			name: "feedFormats",
+			ops: []PeopleOp{
+				PeopleOpNewPeer{"alice"},
+				PeopleOpNewPeer{"claire"},
+
+				PeopleOpNewPeerWithAglo{"piet", ssb.RefAlgoFeedGabby},
+				PeopleOpNewPeerWithAglo{"pew", ssb.RefAlgoFeedGabby},
+
+				PeopleOpFollow{"alice", "piet"},
+				PeopleOpFollow{"piet", "claire"},
+				PeopleOpFollow{"piet", "pew"},
+				PeopleOpFollow{"pew", "piet"},
+			},
+			asserts: []PeopleAssertMaker{
+				PeopleAssertFollows("alice", "piet", true),
+				PeopleAssertFollows("piet", "alice", false),
+				PeopleAssertFollows("piet", "claire", true),
+
+				PeopleAssertFollows("piet", "pew", true),
+				PeopleAssertFollows("pew", "piet", true),
+
+				PeopleAssertAuthorize("alice", "piet", 0, true),
+				PeopleAssertAuthorize("piet", "alice", 0, false),
+				PeopleAssertAuthorize("piet", "claire", 0, true),
+				PeopleAssertAuthorize("piet", "pew", 0, true),
+				PeopleAssertAuthorize("pew", "piet", 0, true),
+
+				PeopleAssertHops("alice", 0, "alice", "piet"),
+				PeopleAssertHops("piet", 0, "piet", "claire", "pew"),
 			},
 		},
 	}

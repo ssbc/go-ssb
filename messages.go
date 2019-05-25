@@ -2,9 +2,40 @@ package ssb
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/margaret"
 )
+
+type Value struct {
+	Previous  *MessageRef      `json:"previous"`
+	Author    FeedRef          `json:"author"`
+	Sequence  margaret.BaseSeq `json:"sequence"`
+	Timestamp float64          `json:"timestamp"`
+	Hash      string           `json:"hash"`
+	Content   json.RawMessage  `json:"content"`
+	Signature string           `json:"signature"`
+}
+
+// Abstract allows accessing message aspects without known the feed type
+// TODO: would prefer to strip the Get previs of these but it would conflict with legacy StoredMessage's fields
+type Message interface {
+	Key() *MessageRef
+	Previous() *MessageRef
+
+	margaret.Seq
+
+	// TODO: received vs claimed
+	Timestamp() time.Time
+	//Time() time.Time?
+
+	Author() *FeedRef
+	ContentBytes() []byte
+
+	ValueContent() *Value
+	ValueContentJSON() json.RawMessage
+}
 
 type Contact struct {
 	Type      string   `json:"type"`

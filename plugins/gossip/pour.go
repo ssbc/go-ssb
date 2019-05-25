@@ -2,17 +2,20 @@ package gossip
 
 import (
 	"context"
-
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/transform"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/codec"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
 func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
@@ -35,7 +38,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 	}
 
 	// check what we got
-	userLog, err := h.UserFeeds.Get(librarian.Addr(feedRef.ID))
+	userLog, err := h.UserFeeds.Get(feedRef.StoredAddr())
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -44,9 +47,15 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.Wrapf(err, "failed to observe latest")
 	}
 
+	var (
+		src luigi.Source
+		snk luigi.Sink
+	)
+
 	// act accordingly
 	switch v := latest.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
+		return req.Stream.Close()
 	case margaret.BaseSeq:
 		if qry.Seq != 0 {
 			qry.Seq--               // our idx is 0 based
@@ -62,44 +71,81 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		}
 
 		resolved := mutil.Indirect(h.RootLog, userLog)
-		src, err := resolved.Query(
+		src, err = resolved.Query(
 			margaret.Gte(margaret.BaseSeq(qry.Seq)),
 			margaret.Limit(int(qry.Limit)),
-			margaret.Live(qry.Live),
+			margaret.Live(false),
 			margaret.Reverse(qry.Reverse),
 		)
 		if err != nil {
 			return errors.Wrapf(err, "invalid user log query seq:%d - limit:%d", qry.Seq, qry.Limit)
 		}
 
-		sent := 0
-		snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-			if err != nil {
-				return err
-			}
-			msg, ok := v.([]byte)
-			if !ok {
-				return errors.Errorf("b4pour: expected []byte - got %T", v)
-			}
-			sent++
-			return req.Stream.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
-		})
-
-		err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
-		if h.sysCtr != nil {
-			h.sysCtr.With("event", "gossiptx").Add(float64(sent))
-		} else {
-			h.Info.Log("event", "gossiptx", "n", sent)
-		}
-		if errors.Cause(err) == context.Canceled {
-			req.Stream.Close()
-			return nil
-		} else if err != nil {
-			return errors.Wrap(err, "failed to pump messages to peer")
-		}
-
 	default:
 		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
 	}
+
+	// sent := 0 TODO wrap snk and count there
+
+	switch feedRef.Algo {
+	case ssb.RefAlgoFeedSSB1:
+		src = transform.NewKeyValueWrapper(src, qry.Keys)
+		snk = legacyStreamSink(req.Stream)
+	case ssb.RefAlgoFeedGabby:
+		snk = gabbyStreamSink(req.Stream)
+	default:
+		return errors.Errorf("unsupported feed format.")
+	}
+
+	err = luigi.Pump(ctx, snk, src)
+	// if h.sysCtr != nil {
+	// 	h.sysCtr.With("event", "gossiptx").Add(float64(sent))
+	// } else {
+	// 	h.Info.Log("event", "gossiptx", "n", sent)
+	// }
+
+	if errors.Cause(err) == context.Canceled {
+		// req.Stream.Close()
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "failed to pump messages to peer")
+	}
+
 	return errors.Wrap(req.Stream.Close(), "pour: failed to close")
+}
+
+func legacyStreamSink(stream luigi.Sink) luigi.Sink {
+	return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return err
+		}
+		msg, ok := v.(*transform.KeyValue)
+		if !ok {
+			return errors.Errorf("legacySink: expected %T - got %T", msg, v)
+		}
+		return stream.Pour(ctx, json.RawMessage(msg.Data))
+	})
+}
+
+func gabbyStreamSink(stream luigi.Sink) luigi.Sink {
+	return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return err
+		}
+		mm, ok := v.(multimsg.MultiMessage)
+		if !ok {
+			return errors.Errorf("binStream: expected []byte - got %T", v)
+		}
+		tr, ok := mm.AsGabby()
+		if !ok {
+			return errors.Errorf("wrong mm type")
+		}
+
+		trdata, err := tr.MarshalCBOR()
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal transfer")
+		}
+
+		return stream.Pour(ctx, codec.Body(trdata))
+	})
 }

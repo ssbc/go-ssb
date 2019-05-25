@@ -2,17 +2,14 @@ package multilogs
 
 import (
 	"context"
-	"encoding/json"
-
-	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/margaret/multilog"
+	"fmt"
 
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -29,26 +26,18 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 			return nulled
 		}
 
-		msg := val.(message.StoredMessage)
-		var dmsg struct {
-			Content interface{} `json:"content"`
-		}
-
-		if err := json.Unmarshal(msg.Raw, &dmsg); err != nil {
-			return errors.Wrap(err, "db/idx about: first json unmarshal failed")
-		}
-
-		privstr, ok := dmsg.Content.(string)
+		msg, ok := val.(ssb.Message)
 		if !ok {
-			// skip everything that isn't a string
+			err := errors.Errorf("error casting message. got type %T", val)
+			fmt.Println("privateIDX failed:", err)
+			return err
+		}
+
+		if _, err := private.Unbox(kp, string(msg.ContentBytes())); err != nil {
 			return nil
 		}
 
-		if _, err := private.Unbox(kp, privstr); err != nil {
-			return nil
-		}
-
-		userPrivs, err := mlog.Get(librarian.Addr(kp.Id.ID))
+		userPrivs, err := mlog.Get(kp.Id.StoredAddr())
 		if err != nil {
 			return errors.Wrap(err, "error opening priv sublog")
 		}

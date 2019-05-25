@@ -100,9 +100,9 @@ func TestParseNetAddress(t *testing.T) {
 			addr, err := ParseNetAddress([]byte(tc.input))
 			if tc.err == nil {
 				r.NoError(err)
-				r.Equal(addr, tc.want)
+				r.Equal(tc.want, addr)
 			} else {
-				r.Equal(tc.err, errors.Cause(err))
+				r.Equal(errors.Cause(err), tc.err)
 				r.Nil(addr)
 			}
 		})

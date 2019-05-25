@@ -3,6 +3,8 @@ package graph
 import (
 	"fmt"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -102,6 +104,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 			}
 
 			hopSet := bld.Hops(alice.key.Id, hops)
+			require.NotNil(state.t, hopSet, "no hopSet for alice")
 			assert.Equal(state.t, len(tos), hopSet.Count(), "set count incorrect")
 			hopList, err := hopSet.List()
 			if err != nil {

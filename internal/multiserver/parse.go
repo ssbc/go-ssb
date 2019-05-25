@@ -56,17 +56,19 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 			}
 			na.Port = port
 
-			keyBytes := make([]byte, 35)
-			n, err := base64.StdEncoding.Decode(keyBytes, shsPart)
+			var keyBuf = make([]byte, 35)
+			n, err := base64.StdEncoding.Decode(keyBuf, shsPart)
 			if err != nil {
 				return nil, errors.Wrapf(ErrNoSHSKey, "multiserver: invalid pubkey formatting: %s", err)
 			}
 			if n != 32 {
 				return nil, errors.Wrap(ErrNoSHSKey, "multiserver: pubkey not 32bytes long")
 			}
-			na.Ref = &ssb.FeedRef{
-				Algo: ssb.RefAlgoEd25519, // implied by ~shs: indicating v1
-				ID:   keyBytes[:32],
+
+			// implied by ~shs: indicating v1
+			na.Ref, err = ssb.NewFeedRefEd25519(keyBuf[:32])
+			if err != nil {
+				return nil, errors.Wrapf(ErrNoSHSKey, "multiserver: feedRef err %s", err)
 			}
 			return &na, nil
 		}

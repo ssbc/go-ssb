@@ -47,6 +47,7 @@ github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V
 github.com/go-stack/stack v1.7.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/go-stack/stack v1.8.0 h1:5SgMzNM5HxrEjV0ww2lTmX6E2Izsfxas4+YHWRs3Lsk=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
+github.com/gogo/protobuf v1.1.1 h1:72R+M5VuhED/KujmZVcIquuo8mBgX4oVda//DQb3PXo=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/protobuf v1.0.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
@@ -159,8 +160,6 @@ go.cryptoscope.co/margaret v0.0.10-0.20190611102959-ac4d35f86574 h1:uZh5McpvTOfz
 go.cryptoscope.co/margaret v0.0.10-0.20190611102959-ac4d35f86574/go.mod h1:Pg3J+XoYySWKfCYx/WIoXXg9IIxOARb7+vfWNvVTZMg=
 go.cryptoscope.co/muxrpc v1.4.0 h1:jMttbDLLKhAKtVOEWlkF3mtXX7pYyHIUI0UzN41HZBc=
 go.cryptoscope.co/muxrpc v1.4.0/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
-go.cryptoscope.co/muxrpc v1.4.1-0.20190619172113-6a057025468a h1:WW3mDRz4gtHzKcKtkLq762bq7tR/cMXwNQjOzzqgk3M=
-go.cryptoscope.co/muxrpc v1.4.1-0.20190619172113-6a057025468a/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.3 h1:HfquGSUYuvBofbCM76Y1QHbwkowbpkmnMQhvp/BkPGQ=
 go.cryptoscope.co/netwrap v0.0.3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=

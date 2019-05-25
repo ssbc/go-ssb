@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
 )
 
 func TestFeedFromJS(t *testing.T) {
@@ -54,7 +52,7 @@ func TestFeedFromJS(t *testing.T) {
 
 	<-ts.doneJS
 
-	aliceLog, err := bob.UserFeeds.Get(librarian.Addr(alice.ID))
+	aliceLog, err := bob.UserFeeds.Get(alice.StoredAddr())
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -69,9 +67,9 @@ func TestFeedFromJS(t *testing.T) {
 
 		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
-		storedMsg, ok := msg.(message.StoredMessage)
+		storedMsg, ok := msg.(ssb.Message)
 		r.True(ok, "wrong type of message: %T", msg)
-		r.Equal(storedMsg.Sequence, margaret.BaseSeq(i+1))
+		r.Equal(storedMsg.Seq(), margaret.BaseSeq(i+1).Seq())
 
 		type testWrap struct {
 			Author  ssb.FeedRef
@@ -81,14 +79,14 @@ func TestFeedFromJS(t *testing.T) {
 			}
 		}
 		var m testWrap
-		err = json.Unmarshal(storedMsg.Raw, &m)
+		err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
 		r.NoError(err)
-		r.Equal(alice.ID, m.Author.ID, "wrong author")
+		r.True(alice.Equal(&m.Author), "wrong author")
 		r.Equal(m.Content.Type, "test")
 		r.Equal(m.Content.Text, "foo")
 		r.Equal(m.Content.I, n-i, "wrong I on msg: %d", i)
 		if i == n-1 {
-			lastMsg = storedMsg.Key.Ref()
+			lastMsg = storedMsg.Key().Ref()
 		}
 	}
 
@@ -228,16 +226,16 @@ func TestFeedFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	aliceLog, err := s.UserFeeds.Get(librarian.Addr(alice.ID))
+	aliceLog, err := s.UserFeeds.Get(alice.StoredAddr())
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
 	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
-	storedMsg, ok := msg.(message.StoredMessage)
+	storedMsg, ok := msg.(ssb.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Sequence, margaret.BaseSeq(2))
+	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
 
 	ts.wait()
 }

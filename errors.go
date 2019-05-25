@@ -1,6 +1,7 @@
 package ssb
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -18,11 +19,16 @@ func (e ErrOutOfReach) Error() string {
 }
 
 func IsMessageUnusable(err error) bool {
-	_, is := errors.Cause(err).(ErrWrongType)
+	cause := errors.Cause(err)
+	_, is := cause.(ErrWrongType)
 	if is {
 		return true
 	}
-	_, is = errors.Cause(err).(ErrMalfromedMsg)
+	_, is = cause.(ErrMalfromedMsg)
+	if is {
+		return true
+	}
+	_, is = cause.(*json.SyntaxError)
 	return is
 }
 
