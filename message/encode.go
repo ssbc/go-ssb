@@ -15,7 +15,7 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	for {
 		t, err := dec.Token()
 		if err == io.EOF {
-			return nil
+			return io.ErrUnexpectedEOF
 		}
 		if err != nil {
 			return errors.Wrap(err, "message Encode: unexpected error from Token()")
@@ -84,7 +84,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	for {
 		t, err := dec.Token()
 		if err == io.EOF {
-			return nil
+			return io.ErrUnexpectedEOF
 		}
 		if err != nil {
 			return errors.Wrap(err, "message Encode: unexpected error from Token()")
@@ -195,7 +195,7 @@ func EncodePreserveOrder(b []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "message Encode: expected {")
 	}
 	if v, ok := t.(json.Delim); !ok || v != '{' {
-		return nil, errors.Wrapf(err, "message Encode: wanted { got %v", t)
+		return nil, errors.Errorf("message Encode: wanted { got %v", t)
 	}
 	fmt.Fprint(&buf, "{\n")
 	if err := formatObject(1, &buf, dec); err != nil {

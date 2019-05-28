@@ -11,6 +11,7 @@ import (
 	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"go.cryptoscope.co/ssb"
 )
 
@@ -129,6 +130,26 @@ func TestComparePreserve(t *testing.T) {
 		testdiff.StringIs(t, w, p)
 		if d := diff.Diff(w, p); len(d) != 0 && t.Failed() {
 			t.Logf("Seq:%d\n%s", i, d)
+		}
+	}
+}
+
+func TestEndEarly(t *testing.T) {
+	r := assert.New(t)
+	for i, input := range []string{
+		// catched by stdlib tokenizer
+		`{"some":123, "field?`,
+		`{"some":123, "field": "brokenstr`,
+		// not catched because we need to verify overall structure
+		`{"some":123, "field": {]`,
+		`[`,
+		`{"some":123, "field": 123`,
+		`{"some":123, "field": [1, 23`,
+	} {
+		out, err := EncodePreserveOrder([]byte(input))
+		r.Error(err, "got no error on input %d", i)
+		if !r.Nil(out, "got output on input %d", i) {
+			t.Log(string(out))
 		}
 	}
 }
