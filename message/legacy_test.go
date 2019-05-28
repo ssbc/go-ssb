@@ -31,7 +31,7 @@ func TestLegacyNays(t *testing.T) {
 			err = json.Unmarshal(data, &v)
 			r.Error(err, "stdjson decoded it: %+v", v)
 
-			d, err := EncodePreserveOrder(data)
+			d, err := encodeEverything(data)
 			a.Equal("", string(d), "message %s produced output", path)
 			a.Error(err, "message %s did not produce an error", path)
 			return nil
@@ -63,7 +63,7 @@ func TestLegacyYays(t *testing.T) {
 		err = json.Unmarshal(data, &v)
 		r.NoError(err, "stdjson did not decode it: %+v", v)
 
-		d, err := EncodePreserveOrder(data)
+		d, err := encodeEverything(data)
 		a.NotEqual("", string(d), "message %s produced no output", path)
 		a.NoError(err, "message %s produced an error", path)
 

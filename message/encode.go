@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -51,14 +50,6 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 		case string:
 			fmt.Fprint(b, strings.Repeat("  ", depth))
 			fmt.Fprintf(b, "%q", v)
-			if dec.More() {
-				fmt.Fprintf(b, ",")
-			}
-			fmt.Fprintf(b, "\n")
-
-		case float64:
-			fmt.Fprint(b, strings.Repeat("  ", depth))
-			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
 			if dec.More() {
 				fmt.Fprintf(b, ",")
 			}
@@ -148,14 +139,6 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			}
 			isKey = !isKey
 
-		case float64:
-			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-			if dec.More() {
-				fmt.Fprintf(b, ",")
-			}
-			fmt.Fprintf(b, "\n")
-			isKey = !isKey
-
 		default:
 			if v == nil {
 				fmt.Fprint(b, "null")
@@ -171,6 +154,15 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	}
 }
 
+func makeTokenizer(b []byte) *json.Decoder {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
+	// not particular excited to implement all of the above
+	// this keeps the original value as a string
+	dec.UseNumber()
+	return dec
+}
+
 // EncodePreserveOrder pretty-prints byte slice b using json.Token izer
 // using two spaces like this to mimics JSON.stringify(....)
 // {
@@ -182,24 +174,79 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 //   "obj": {}
 // }
 //
-// while preserving the order in which the keys appear
+// while preserving the order in which the keys appear.
+// Currently it only encodes objects.
 func EncodePreserveOrder(b []byte) ([]byte, error) {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
-	// not particular excited to implement all of the above
-	// this keeps the original value as a string
-	dec.UseNumber()
-	var buf bytes.Buffer
+	dec := makeTokenizer(b)
 	t, err := dec.Token()
 	if err != nil {
 		return nil, errors.Wrap(err, "message Encode: expected {")
 	}
+
 	if v, ok := t.(json.Delim); !ok || v != '{' {
 		return nil, errors.Errorf("message Encode: wanted { got %v", t)
 	}
+
+	var buf bytes.Buffer
 	fmt.Fprint(&buf, "{\n")
+
 	if err := formatObject(1, &buf, dec); err != nil {
 		return nil, errors.Wrap(err, "message Encode: failed to format message as object")
 	}
 	return bytes.Trim(buf.Bytes(), "\n"), nil
+}
+
+func encodeEverything(in []byte) ([]byte, error) {
+	dec := makeTokenizer(in)
+	b := new(bytes.Buffer)
+
+	for {
+		t, err := dec.Token()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, errors.Wrap(err, "message Encode: unexpected error from Token()")
+		}
+
+		switch v := t.(type) {
+
+		case json.Delim: // [ ] { }
+			switch v {
+			case '{':
+				fmt.Fprint(b, "{\n")
+
+				if err := formatObject(1, b, dec); err != nil {
+					return nil, errors.Wrap(err, "message Encode: failed to format message as object")
+				}
+			case '[':
+				fmt.Fprint(b, "[\n")
+
+				if err := formatArray(1, b, dec); err != nil {
+					return nil, errors.Wrap(err, "message Encode: failed to format message as object")
+				}
+			default:
+				return nil, errors.Errorf("formatObject(%d): unexpected token: %v", 0, v)
+			}
+
+		case string:
+			r := strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
+			fmt.Fprintf(b, `"%s"`, unicodeEscapeSome(r.Replace(v)))
+			if dec.More() {
+				fmt.Fprint(b, ",")
+			}
+			fmt.Fprintf(b, "\n")
+
+		default:
+			if v == nil {
+				fmt.Fprint(b, "null")
+			} else {
+				fmt.Fprintf(b, "%v", v)
+			}
+			if !dec.More() {
+				return nil, io.ErrUnexpectedEOF
+			}
+		}
+	}
+
+	return b.Bytes(), nil
 }
