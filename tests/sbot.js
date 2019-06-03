@@ -1,4 +1,4 @@
-const { readFileSync } = require('fs')
+const { execFileSync } = require('child_proces')
 const { generate } = require('ssb-keys')
 const pull = require('pull-stream')
 const tape = require('tape')
@@ -11,13 +11,9 @@ const createSbot = require('ssb-server')
   .use(require('ssb-friends'))
   .use(require('ssb-blobs'))
 
-
 const testName = process.env['TEST_NAME']
 const testBob = process.env['TEST_BOB']
 const testAddr = process.env['TEST_GOADDR']
-
-const scriptBefore = readFileSync(process.env['TEST_BEFORE']).toString()
-const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
 
 let testSHSappKey = bufFromEnv('TEST_APPKEY')
 let testHMACkey = bufFromEnv('TEST_HMACKEY')
@@ -43,7 +39,7 @@ tape(testName, function (t) {
     console.warn('dialing:', to)
     sbot.connect(to, (err) => {
       t.error(err, "connected")
-      eval(scriptAfter)
+      execFileSync(process.ENV['TEST_AFTER'])
     })
   }
 
@@ -73,5 +69,5 @@ tape(testName, function (t) {
 
   t.comment("sbot spawned, running before")
   console.log(alice.id) // tell go process who's incoming
-  eval(scriptBefore)
+  execFileSync(process.ENV['TEST_BEFORE'])
 })
