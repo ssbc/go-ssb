@@ -1,8 +1,8 @@
 # Go-SSB [![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
 
-This is a work-in-progress full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
+A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
-WARNING: Backwards incompatible changes will be made. You can vendor this code for a more stable experience but before version 1 the naming of types and functions will change for a more coherent experience.
+WARNING: Project is still in alpha, backwards incompatible changes will be made.  We suggest vendoring for a stable experience.
 
 ## Server Features
 
