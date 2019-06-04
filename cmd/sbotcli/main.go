@@ -65,7 +65,7 @@ func main() {
 
 	app := cli.App{
 		Name:    os.Args[0],
-		Usage:   "what can I say? sbot in Go",
+		Usage:   "client for controlling Cryptoscope's SSB server",
 		Version: "alpha3",
 	}
 	cli.VersionPrinter = func(c *cli.Context) {
@@ -199,7 +199,9 @@ CAVEAT: only one argument...
 	if err := app.Run(os.Args); err != nil {
 		log.Log("runErr", err)
 	}
-	log.Log("pkrClose", pkr.Close())
+	if pkr != nil {
+		log.Log("pkrClose", pkr.Close())
+	}
 }
 
 func todo(ctx *cli.Context) error {
