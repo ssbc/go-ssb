@@ -141,14 +141,18 @@ type trackerLastWins struct {
 	connTracker
 }
 
-func (ct *trackerLastWins) OnAccept(conn net.Conn) bool {
+func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
-	k := toActive(conn.RemoteAddr())
-	who, ok := ct.active[k]
+	k := toActive(newConn.RemoteAddr())
+	oldConn, ok := ct.active[k]
 	if ok {
-		who.c.Close()
+		oldConn.c.Close()
 		delete(ct.active, k)
+	}
+	ct.active[k] = connEntry{
+		c:       newConn,
+		started: time.Now(),
 	}
 	return true
 }
