@@ -21,11 +21,11 @@ go install github.com/cryptoscope/ssb/cmd/sbotcli
 
 Requirements:
 
-  - (Golang)[https://www.golang.org] version 1.11 or higher
+  - [Golang](https://www.golang.org) version 1.11 or higher
 
 ## Running go-sbot
 
-The tool in `cmd/go-sbot` is similar to [ssb-server]() (previously called scuttlebot or sbot for short)
+The tool in `cmd/go-sbot` is similar to [ssb-server](https://github.com/ssbc/ssb-server) (previously called scuttlebot or sbot for short)
 
 ## Bootstrapping from an existing key-pair
 
