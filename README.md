@@ -1,105 +1,27 @@
 # Go-SSB [![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
 
-This is a work-in-progress full-stack implementaion of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
+A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
-WARNING: Backwards incompatible changes will be made. You can vendor this code for a more stable experience but before v1 the naming of types and functions will change for a more coherent experiance.
+WARNING: Project is still in alpha, backwards incompatible changes will be made.  We suggest vendoring for a stable experience.
 
 ## Server Features
 
-* [x] Follow-graph implementation (based on [gonum](https://www.gonum.org)) to authorize incomming connections
+* [x] Follow-graph implementation (based on [gonum](https://www.gonum.org)) to authorize incoming connections
 * [x] [Blobs](https://ssbc.github.io/scuttlebutt-protocol-guide/#blobs) store and replication
 * [x] _Legacy_ gossip [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream) ([ebt](https://github.com/dominictarr/epidemic-broadcast-trees) not implementation yet)
 * [x] Publishing new messages to the log
-* [ ] Invite mechanics (might wait for direct-user-invites to stabalize)
+* [ ] Invite mechanics (might wait for direct-user-invites to stabilize)
 
-## Building
-
-We are trying to adopt the new [Go Modules](https://github.com/golang/go/wiki/Modules) way of defining dependencies and therefore require at least Go version 1.11 to build with the `go.mod` file definitions. (Building with erlier versions still possible, though. We keep an intact dependency tree in `vendor/`, populated by `go mod vendor`, which is picked up by default since Go 1.09.)
-
-There are two binary exeutables in this repo that are usefull right now, both located in the `cmd` folder. `go-sbot` is the database server, handling incoming connections and supplying replication to other peers. `sbotcli` is a command line interface to query feeds and instruct actions like _connect to X_. This also works against the JS implementation.
-
-If you _just_ want to build the server and play without without contributing to the code (and are using a recent go version > 1.11), you can do this:
+## Installation
 
 ```bash
-# clone the repo
-git clone https://github.com/cryptoscope/ssb
-# go into the servers folder
-cd ssb/cmd/go-sbot
-# build the binary (also fetches pinned dependencies)
-go build -v -i
-# test the executable works by printing it's help listing
-./go-sbot -h
-# (optional) install it somwhere on your $PATH
-sudo cp go-sbot /usr/local/bin
+go install github.com/cryptoscope/ssb/cmd/go-sbot
+go install github.com/cryptoscope/ssb/cmd/sbotcli
 ```
 
-If you want to hack on the other dependencies of the stack, we still advise to use the classic Go way with a `$GOPATH`. This way you have all the code available to inspect and change. (Go modules get stored in a read-only cache. Replacing them needs a checkout on an individual basis.)
+Requirements:
 
-```bash
-# prepare workspace for all the go code
-export GOPATH=$HOME/proj/go-ssb
-mkdir -p $GOPATH
-# fetch project source and dependencies
-go get -v -u go.cryptoscope.co/ssb
-# change to the project directory
-cd $GOPATH/src/go.cryptoscope.co/ssb
-# build the binaries (will get saved to $GOPATH/bin)
-go install ./cmd/go-sbot
-go install ./cmd/sbotcli
-```
-
-## Testing [![Build Status](https://travis-ci.org/cryptoscope/ssb.svg?branch=master)](https://travis-ci.org/cryptoscope/ssb)
-
-Once you have configured your environment set up to build the binaries, you can also run the tests. We have unit tests for most of the modules, most importantly `message`, `blobstore` and the replication plugins (`gossip` and `blobs`). There are also interoparability tests with the nodejs implementation (this requires recent versions of [node and npm](http://nodejs.org)).
-
-```bash
-$ cd $GOPATH/src/go.cryptoscope.co/ssb
-
-$ go test -v ./message
-2019/01/08 12:21:55 loaded 236 messages from testdata.zip
-=== RUN   TestPreserveOrder
---- PASS: TestPreserveOrder (0.00s)
-=== RUN   TestComparePreserve
---- PASS: TestComparePreserve (0.02s)
-=== RUN   TestExtractSignature
---- PASS: TestExtractSignature (0.00s)
-=== RUN   TestStripSignature
---- PASS: TestStripSignature (0.00s)
-=== RUN   TestUnicodeFind
---- PASS: TestUnicodeFind (0.00s)
-=== RUN   TestInternalV8String
---- PASS: TestInternalV8String (0.00s)
-=== RUN   TestSignatureVerify
---- PASS: TestSignatureVerify (0.06s)
-=== RUN   TestVerify
---- PASS: TestVerify (0.06s)
-=== RUN   TestVerifyBugs
---- PASS: TestVerifyBugs (0.00s)
-PASS
-ok  	go.cryptoscope.co/ssb/message	0.180s
-```
-
-If you encounter a feed that can't be validated with our code, there is a `encode_test.js` script to create the `testdata.zip` from a local sbot. Call it like this  `cd message && node encode_test.js @feedPubKey.ed25519` and re-run `go test`.
-
-```bash
-$ go test ./plugins/...
-ok  	go.cryptoscope.co/ssb/plugins/blobs	0.021s
-?   	go.cryptoscope.co/ssb/plugins/control	[no test files]
-ok  	go.cryptoscope.co/ssb/plugins/gossip	0.667s
-?   	go.cryptoscope.co/ssb/plugins/test	[no test files]
-?   	go.cryptoscope.co/ssb/plugins/whoami	[no test files]
-```
-
-(Sometimes the gossip test blocks indefinitly. This is a bug in go-muxrpcs closing behavior. See the _Known bugs_ section for more information.)
-
-
-To run the interop tests you need to install the dependencies first and then run the tests. Diagnosing a failure might require adding the `-v` flag to get the stderr output from the nodejs process.
-
-```bash
-$ cd $GOPATH/src/go.cryptoscope.co/ssb/tests
-$ npm ci
-$ go test -v
-```
+  - (Golang)[https://www.golang.org] version 1.11 or higher
 
 ## Running go-sbot
 
@@ -150,7 +72,7 @@ This currently constructs _legacy_ SSB messages, that _still_ have the signature
 
 The problem with this (for Go and others) is removing the `signature` field from `value` without changing any of the values or field ordering of the object, which is required to compute the exact same bytes that were used for creating the signature. Signing JSON was a bad idea. There is also other problems around this (like producing the same byte/string encoding for floats that v8 produces) and a new, canonical format is badly needed.
 
-What you are free to input is the `content` object, the rest is filled in for you. Author is determained by the keypair used by go-sbot. Multiple identities are supported through the API.
+What you are free to input is the `content` object, the rest is filled in for you. The author is determined by the keypair used by go-sbot. Multiple identities are supported through the API.
 
 ### over muxrpc
 
@@ -242,11 +164,101 @@ For more dynamic use, you can also just pipe JSON into stdin:
 cat some.json | sbotcli publish raw
 ```
 
+## Building
+
+We are trying to adopt the new [Go Modules](https://github.com/golang/go/wiki/Modules) way of defining dependencies and therefore require at least Go version 1.11 to build with the `go.mod` file definitions. (Building with earlier versions is still possible, though. We keep an intact dependency tree in `vendor/`, populated by `go mod vendor`, which is picked up by default since Go 1.09.)
+
+There are two binary executable in this project that are useful right now, both located in the `cmd` folder. `go-sbot` is the database server, handling incoming connections and supplying replication to other peers. `sbotcli` is a command line interface to query feeds and instruct actions like _connect to X_. This also works against the JS implementation.
+
+If you _just_ want to build the server and play without contributing to the code (and are using a recent go version > 1.11), you can do this:
+
+```bash
+# clone the repo
+git clone https://github.com/cryptoscope/ssb
+# go into the servers folder
+cd ssb/cmd/go-sbot
+# build the binary (also fetches pinned dependencies)
+go build -v -i
+# test the executable works by printing it's help listing
+./go-sbot -h
+# (optional) install it somwhere on your $PATH
+sudo cp go-sbot /usr/local/bin
+```
+
+If you want to hack on the other dependencies of the stack, we still advise using the classic Go way with a `$GOPATH`. This way you have all the code available to inspect and change. (Go modules get stored in a read-only cache. Replacing them needs a checkout on an individual basis.)
+
+```bash
+# prepare workspace for all the go code
+export GOPATH=$HOME/proj/go-ssb
+mkdir -p $GOPATH
+# fetch project source and dependencies
+go get -v -u go.cryptoscope.co/ssb
+# change to the project directory
+cd $GOPATH/src/go.cryptoscope.co/ssb
+# build the binaries (will get saved to $GOPATH/bin)
+go install ./cmd/go-sbot
+go install ./cmd/sbotcli
+```
+
+## Testing [![Build Status](https://travis-ci.org/cryptoscope/ssb.svg?branch=master)](https://travis-ci.org/cryptoscope/ssb)
+
+Once you have configured your environment set up to build the binaries, you can also run the tests. We have unit tests for most of the modules, most importantly `message`, `blobstore` and the replication plugins (`gossip` and `blobs`). There are also interoperability tests with the nodejs implementation (this requires recent versions of [node and npm](http://nodejs.org)).
+
+```bash
+$ cd $GOPATH/src/go.cryptoscope.co/ssb
+
+$ go test -v ./message
+2019/01/08 12:21:55 loaded 236 messages from testdata.zip
+=== RUN   TestPreserveOrder
+--- PASS: TestPreserveOrder (0.00s)
+=== RUN   TestComparePreserve
+--- PASS: TestComparePreserve (0.02s)
+=== RUN   TestExtractSignature
+--- PASS: TestExtractSignature (0.00s)
+=== RUN   TestStripSignature
+--- PASS: TestStripSignature (0.00s)
+=== RUN   TestUnicodeFind
+--- PASS: TestUnicodeFind (0.00s)
+=== RUN   TestInternalV8String
+--- PASS: TestInternalV8String (0.00s)
+=== RUN   TestSignatureVerify
+--- PASS: TestSignatureVerify (0.06s)
+=== RUN   TestVerify
+--- PASS: TestVerify (0.06s)
+=== RUN   TestVerifyBugs
+--- PASS: TestVerifyBugs (0.00s)
+PASS
+ok  	go.cryptoscope.co/ssb/message	0.180s
+```
+
+If you encounter a feed that can't be validated with our code, there is a `encode_test.js` script to create the `testdata.zip` from a local sbot. Call it like this  `cd message && node encode_test.js @feedPubKey.ed25519` and re-run `go test`.
+
+```bash
+$ go test ./plugins/...
+ok  	go.cryptoscope.co/ssb/plugins/blobs	0.021s
+?   	go.cryptoscope.co/ssb/plugins/control	[no test files]
+ok  	go.cryptoscope.co/ssb/plugins/gossip	0.667s
+?   	go.cryptoscope.co/ssb/plugins/test	[no test files]
+?   	go.cryptoscope.co/ssb/plugins/whoami	[no test files]
+```
+
+(Sometimes the gossip test blocks indefinitely. This is a bug in go-muxrpcs closing behavior. See the _Known bugs_ section for more information.)
+
+
+To run the interop tests you need to install the dependencies first and then run the tests. Diagnosing a failure might require adding the `-v` flag to get the stderr output from the nodejs process.
+
+```bash
+$ cd $GOPATH/src/go.cryptoscope.co/ssb/tests
+$ npm ci
+$ go test -v
+```
+
+
 ## Known Bugs
 
-### compliation error regarding Badger
+### compilation error regarding Badger
 
-This should only happen if you are not using _Go modules_ way of building and the `vendor/` folder isn't used to build the SSB code. Badger pushed an API change to master. We still depend on v1.5.4 as there is only a candidate release versioned of the new API yet.
+This should only happen if you are not using _Go modules_ way of building and the `vendor/` folder isn't used to build the SSB code. Badger pushed an API change to master. We still depend on v1.5.4 as there is only a candidate release version of the new API yet.
 
 ```
 # go.cryptoscope.co/librarian/badger
