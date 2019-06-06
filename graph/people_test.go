@@ -268,12 +268,37 @@ func TestPeople(t *testing.T) {
 				PeopleOpNewPeer{"bob"},
 				PeopleOpFollow{"alice", "bob"},
 				PeopleOpUnfollow{"alice", "bob"},
+
+				// make sure other connections still work
+				PeopleOpNewPeer{"claire"},
+				PeopleOpFollow{"alice", "claire"},
+				PeopleOpFollow{"claire", "bob"},
 			},
 			asserts: []PeopleAssertMaker{
 				PeopleAssertFollows("alice", "bob", false),
 				PeopleAssertFollows("bob", "alice", false),
 
 				PeopleAssertAuthorize("alice", "bob", 0, false),
+
+				PeopleAssertAuthorize("alice", "claire", 0, true),
+				PeopleAssertFollows("claire", "bob", true),
+			},
+		},
+
+		{
+			name: "same",
+			ops: []PeopleOp{
+				PeopleOpNewPeer{"alice"},
+				PeopleOpNewPeer{"bob"},
+
+				PeopleOpFollow{"alice", "alice"}, // might happen but shouldn't be a problem
+				PeopleOpFollow{"alice", "bob"},
+			},
+			asserts: []PeopleAssertMaker{
+				PeopleAssertFollows("alice", "bob", true),
+				PeopleAssertFollows("bob", "alice", false),
+
+				PeopleAssertAuthorize("alice", "bob", 0, true),
 			},
 		},
 

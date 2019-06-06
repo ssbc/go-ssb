@@ -144,7 +144,7 @@ func (b *builder) Build() (*Graph, error) {
 
 			if bytes.Equal(from.ID, to.ID) {
 				// contact self?!
-				return nil
+				continue
 			}
 
 			v, err := it.Value()
@@ -170,7 +170,7 @@ func (b *builder) Build() (*Graph, error) {
 				known[bto] = nTo
 			}
 
-			w := math.Inf(-1)
+			w := math.Inf(-1) // undefined - will result in a panic when trying to construct dijkstra
 			if len(v) != 1 {
 				return errors.Errorf("badgerGraph: invalid state val(%v) for %s:%s", v, from.Ref(), to.Ref())
 			}
@@ -180,7 +180,7 @@ func (b *builder) Build() (*Graph, error) {
 				if dg.HasEdgeFromTo(nFrom.ID(), nTo.ID()) {
 					dg.RemoveEdge(nFrom.ID(), nTo.ID())
 				}
-				return nil
+				continue // don't add an edge, go to next entry
 			case '1':
 				w = 1
 			case '2': // blocking
