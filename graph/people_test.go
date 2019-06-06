@@ -274,6 +274,22 @@ func TestPeople(t *testing.T) {
 				PeopleAssertFollows("bob", "alice", false),
 
 				PeopleAssertAuthorize("alice", "bob", 0, false),
+		},
+
+		{
+			name: "same",
+			ops: []PeopleOp{
+				PeopleOpNewPeer{"alice"},
+				PeopleOpNewPeer{"bob"},
+
+				PeopleOpFollow{"alice", "alice"}, // might happen but shouldn't be a problem
+				PeopleOpFollow{"alice", "bob"},
+			},
+			asserts: []PeopleAssertMaker{
+				PeopleAssertFollows("alice", "bob", true),
+				PeopleAssertFollows("bob", "alice", false),
+
+				PeopleAssertAuthorize("alice", "bob", 0, true),
 			},
 		},
 

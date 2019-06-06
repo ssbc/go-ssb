@@ -144,7 +144,7 @@ func (b *builder) Build() (*Graph, error) {
 
 			if bytes.Equal(from.ID, to.ID) {
 				// contact self?!
-				return nil
+				continue
 			}
 
 			v, err := it.Value()
