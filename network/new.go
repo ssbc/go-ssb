@@ -61,8 +61,10 @@ type node struct {
 
 func New(opts Options) (ssb.Network, error) {
 	n := &node{
-		opts:        opts,
-		connTracker: NewConnTracker(),
+		opts: opts,
+		// TODO: make this configurable
+		// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
+		connTracker: NewLastWinsTracker(),
 	}
 
 	var err error
