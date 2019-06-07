@@ -70,7 +70,7 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 	return &Advertiser{
 		local:    udpAddr,
 		remote:   remote,
-		waitTime: time.Second * 1,
+		waitTime: time.Second * 45,
 		keyPair:  keyPair,
 	}, nil
 }
