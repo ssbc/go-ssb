@@ -50,15 +50,6 @@ func init() {
 
 var Revision = "unset"
 
-var streamFlags = []cli.Flag{
-	&cli.IntFlag{Name: "limit", Value: -1},
-	&cli.IntFlag{Name: "seq", Value: 0},
-	&cli.BoolFlag{Name: "reverse"},
-	&cli.BoolFlag{Name: "live"},
-	&cli.BoolFlag{Name: "keys", Value: false},
-	&cli.BoolFlag{Name: "values", Value: false},
-}
-
 func main() {
 	logging.SetupLogging(nil)
 	log = logging.Logger("cli")
@@ -80,120 +71,17 @@ func main() {
 		&cli.StringFlag{Name: "key,k", Value: defaultKeyFile},
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
 	}
+
 	app.Before = initClient
 	app.Commands = []*cli.Command{
-		{
-			Name:   "log",
-			Action: logStreamCmd,
-			Flags:  streamFlags,
-		},
-		{
-			Name:      "bytype",
-			UsageText: "aka messagesByType",
-			Action:    typeStreamCmd,
-			Flags:     streamFlags,
-		},
-		{
-			Name:   "hist",
-			Action: historyStreamCmd,
-			Flags:  append(streamFlags, &cli.StringFlag{Name: "id"}),
-		},
-		{
-			Name:   "qry",
-			Action: todo, //query,
-		},
-		{
-			Name:   "call",
-			Action: callCmd,
-			Usage:  "make an dump* async call",
-			UsageText: `SUPPORTS:
-* whoami
-* latestSequence
-* getLatest
-* get
-* blobs.(has|want|rm|wants)
-* gossip.(peers|add|connect)
-
-
-see https://scuttlebot.io/apis/scuttlebot/ssb.html#createlogstream-source  for more
-
-CAVEAT: only one argument...
-`,
-		},
-		{
-			Name:   "connect",
-			Action: connectCmd,
-			Usage:  "connect to a remote peer",
-		},
-		{
-			Name: "private",
-			Subcommands: []*cli.Command{
-				{
-					Name:   "read",
-					Action: privateReadCmd,
-					Flags:  streamFlags,
-				},
-			},
-		},
-		{
-			Name:  "publish",
-			Usage: "p",
-			Subcommands: []*cli.Command{
-				{
-					Name:      "raw",
-					Action:    publishRawCmd,
-					UsageText: "reads JSON from stdin and publishes that as content",
-					// TODO: add private
-				},
-				{
-					Name:      "post",
-					Action:    publishPostCmd,
-					ArgsUsage: "text of the post",
-					Flags: []cli.Flag{
-						&cli.StringFlag{Name: "root", Value: "", Usage: "the ID of the first message of the thread"},
-						// TODO: Slice of branches
-						&cli.StringFlag{Name: "branch", Value: "", Usage: "the post ID that is beeing replied to"},
-
-						&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
-					},
-				},
-				{
-					Name:      "about",
-					Action:    publishAboutCmd,
-					ArgsUsage: "@aboutkeypair.ed25519",
-					Flags: []cli.Flag{
-						&cli.StringFlag{Name: "name", Usage: "what name to give"},
-						&cli.StringFlag{Name: "image", Usage: "image blob ref"},
-					},
-				},
-				{
-					Name:      "contact",
-					Action:    publishContactCmd,
-					ArgsUsage: "@contactKeypair.ed25519",
-					Flags: []cli.Flag{
-						&cli.BoolFlag{Name: "following"},
-						&cli.BoolFlag{Name: "blocking"},
-
-						&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
-					},
-				},
-				{
-					Name:      "vote",
-					Action:    publishVoteCmd,
-					ArgsUsage: "%linkedMessage.sha256",
-					Flags: []cli.Flag{
-						&cli.IntFlag{Name: "value", Usage: "usually 1 (like) or 0 (unlike)"},
-						&cli.StringFlag{Name: "expression", Usage: "Dig/Yup/Heart"},
-
-						&cli.StringFlag{Name: "root", Value: "", Usage: "the ID of the first message of the thread"},
-						// TODO: Slice of branches
-						&cli.StringFlag{Name: "branch", Value: "", Usage: "the post ID that is beeing replied to"},
-
-						&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
-					},
-				},
-			},
-		},
+		logStreamCmd,
+		typeStreamCmd,
+		historyStreamCmd,
+		callCmd,
+		connectCmd,
+		queryCmd,
+		privateCmd,
+		publishCmd,
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -305,41 +193,74 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 	}
 }
 
-func callCmd(ctx *cli.Context) error {
-	cmd := ctx.Args().Get(0)
-	if cmd == "" {
-		return errors.New("call: cmd can't be empty")
-	}
-	args := ctx.Args().Slice()
-	v := strings.Split(cmd, ".")
-	var sendArgs []interface{}
-	if len(args) > 0 {
-		sendArgs = make([]interface{}, len(args))
-		for i, v := range args {
-			sendArgs[i] = v
+var callCmd = &cli.Command{
+	Name:  "call",
+	Usage: "make an dump* async call",
+	UsageText: `SUPPORTS:
+* whoami
+* latestSequence
+* getLatest
+* get
+* blobs.(has|want|rm|wants)
+* gossip.(peers|add|connect)
+
+
+see https://scuttlebot.io/apis/scuttlebot/ssb.html#createlogstream-source  for more
+
+CAVEAT: only one argument...
+`,
+	Action: func(ctx *cli.Context) error {
+		cmd := ctx.Args().Get(0)
+		if cmd == "" {
+			return errors.New("call: cmd can't be empty")
 		}
-	}
-	var reply interface{}
-	val, err := client.Async(longctx, reply, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
-	if err != nil {
-		return errors.Wrapf(err, "%s: call failed.", cmd)
-	}
-	log.Log("event", "call reply")
-	goon.Dump(val)
-	return nil
+		args := ctx.Args().Slice()
+		v := strings.Split(cmd, ".")
+		var sendArgs []interface{}
+		if len(args) > 0 {
+			sendArgs = make([]interface{}, len(args))
+			for i, v := range args {
+				sendArgs[i] = v
+			}
+		}
+		var reply interface{}
+		val, err := client.Async(longctx, reply, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
+		if err != nil {
+			return errors.Wrapf(err, "%s: call failed.", cmd)
+		}
+		log.Log("event", "call reply")
+		goon.Dump(val)
+		return nil
+	},
 }
 
-func connectCmd(ctx *cli.Context) error {
-	to := ctx.Args().Get(0)
-	if to == "" {
-		return errors.New("connect: multiserv addr argument can't be empty")
-	}
-	var val interface{}
-	val, err := client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
-	if err != nil {
-		return errors.Wrapf(err, "connect: async call failed.")
-	}
-	log.Log("event", "connect reply")
-	goon.Dump(val)
-	return nil
+var connectCmd = &cli.Command{
+	Name:  "connect",
+	Usage: "connect to a remote peer",
+	Action: func(ctx *cli.Context) error {
+		to := ctx.Args().Get(0)
+		if to == "" {
+			return errors.New("connect: multiserv addr argument can't be empty")
+		}
+		var val interface{}
+		val, err := client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
+		if err != nil {
+			return errors.Wrapf(err, "connect: async call failed.")
+		}
+		log.Log("event", "connect reply")
+		goon.Dump(val)
+		return nil
+	},
+}
+
+var queryCmd = &cli.Command{
+	Name:   "qry",
+	Action: todo, //query,
+}
+
+var privateCmd = &cli.Command{
+	Name: "private",
+	Subcommands: []*cli.Command{
+		privateReadCmd,
+	},
 }
