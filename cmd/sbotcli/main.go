@@ -50,30 +50,21 @@ func init() {
 
 var Revision = "unset"
 
-func main() {
-	logging.SetupLogging(nil)
-	log = logging.Logger("cli")
+var app = cli.App{
+	Name:    os.Args[0],
+	Usage:   "client for controlling Cryptoscope's SSB server",
+	Version: "alpha3",
 
-	app := cli.App{
-		Name:    os.Args[0],
-		Usage:   "client for controlling Cryptoscope's SSB server",
-		Version: "alpha3",
-	}
-	cli.VersionPrinter = func(c *cli.Context) {
-		// go install -ldflags="-X main.Revision=$(git rev-parse HEAD)"
-		fmt.Printf("%s ( rev: %s )\n", c.App.Version, Revision)
-	}
-
-	app.Flags = []cli.Flag{
+	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "shs key"},
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "tcp address of the sbot to connect to (or listen on)"},
 		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
 		&cli.StringFlag{Name: "key,k", Value: defaultKeyFile},
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
-	}
+	},
 
-	app.Before = initClient
-	app.Commands = []*cli.Command{
+	Before: initClient,
+	Commands: []*cli.Command{
 		logStreamCmd,
 		typeStreamCmd,
 		historyStreamCmd,
@@ -82,6 +73,16 @@ func main() {
 		queryCmd,
 		privateCmd,
 		publishCmd,
+	},
+}
+
+func main() {
+	logging.SetupLogging(nil)
+	log = logging.Logger("cli")
+
+	cli.VersionPrinter = func(c *cli.Context) {
+		// go install -ldflags="-X main.Revision=$(git rev-parse HEAD)"
+		fmt.Printf("%s ( rev: %s )\n", c.App.Version, Revision)
 	}
 
 	if err := app.Run(os.Args); err != nil {
