@@ -13,45 +13,71 @@ import (
 	cli "gopkg.in/urfave/cli.v2"
 )
 
+var streamFlags = []cli.Flag{
+	&cli.IntFlag{Name: "limit", Value: -1},
+	&cli.IntFlag{Name: "seq", Value: 0},
+	&cli.BoolFlag{Name: "reverse"},
+	&cli.BoolFlag{Name: "live"},
+	&cli.BoolFlag{Name: "keys", Value: false},
+	&cli.BoolFlag{Name: "values", Value: false},
+}
+
 type mapMsg map[string]interface{}
 
-func typeStreamCmd(ctx *cli.Context) error {
-	src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, ctx.Args().First())
-	if err != nil {
-		return errors.Wrap(err, "source stream call failed")
-	}
-	err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-	return errors.Wrap(err, "byType failed")
+var typeStreamCmd = &cli.Command{
+	Name:      "bytype",
+	UsageText: "aka messagesByType",
+	Flags:     streamFlags,
+	Action: func(ctx *cli.Context) error {
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, ctx.Args().First())
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "byType failed")
+	},
 }
 
-func historyStreamCmd(ctx *cli.Context) error {
-	var args = getStreamArgs(ctx)
-	src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
-	if err != nil {
-		return errors.Wrap(err, "source stream call failed")
-	}
-	err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-	return errors.Wrap(err, "feed hist failed")
+var historyStreamCmd = &cli.Command{
+	Name:  "hist",
+	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}),
+	Action: func(ctx *cli.Context) error {
+		var args = getStreamArgs(ctx)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "feed hist failed")
+	},
 }
 
-func logStreamCmd(ctx *cli.Context) error {
-	var args = getStreamArgs(ctx)
-	src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createLogStream"}, args)
-	if err != nil {
-		return errors.Wrap(err, "source stream call failed")
-	}
-	err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-	return errors.Wrap(err, "log failed")
+var logStreamCmd = &cli.Command{
+	Name:  "log",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		var args = getStreamArgs(ctx)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createLogStream"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "log failed")
+	},
 }
 
-func privateReadCmd(ctx *cli.Context) error {
-	var args = getStreamArgs(ctx)
-	src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"private", "read"}, args)
-	if err != nil {
-		return errors.Wrap(err, "source stream call failed")
-	}
-	err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-	return errors.Wrap(err, "private/read failed")
+var privateReadCmd = &cli.Command{
+	Name:  "read",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		var args = getStreamArgs(ctx)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"private", "read"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "private/read failed")
+	},
 }
 
 func jsonDrain(w io.Writer) luigi.Sink {
