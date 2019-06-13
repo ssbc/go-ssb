@@ -121,7 +121,11 @@ func (g *handler) check(err error) {
 	}
 }
 
-func (g *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g *handler) HandleCall(
+	ctx context.Context,
+	req *muxrpc.Request,
+	edp muxrpc.Endpoint,
+) {
 	if req.Type == "" {
 		req.Type = "async"
 	}
