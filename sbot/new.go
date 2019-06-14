@@ -27,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
 	"go.cryptoscope.co/ssb/plugins/publish"
@@ -88,6 +89,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(rootLog.(io.Closer))
 	s.RootLog = rootLog
+
+	getIdx, serveGet, err := indexes.OpenGet(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open get index")
+	}
+	goThenLog(ctx, rootLog, "get", serveGet)
+	s.idxGet = getIdx
 
 	uf, _, serveUF, err := multilogs.OpenUserFeeds(r)
 	if err != nil {
@@ -328,6 +336,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		id, rootLog, uf, s.GraphBuilder,
 		histOpts...)
 	pmgr.Register(hist)
+
+	ctrl.Register(get.New(s))
 
 	// raw log plugins
 	ctrl.Register(rawread.NewTanglePlug(rootLog, s.Tangles))
