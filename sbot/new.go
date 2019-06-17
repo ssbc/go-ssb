@@ -215,6 +215,57 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return pmgr.MakeHandler(conn)
 	}
 
+	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
+	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open user private index")
+	}
+
+	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+
+	// whoami
+	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
+	pmgr.Register(whoami)
+	ctrl.Register(whoami)
+
+	// blobs
+	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)
+	pmgr.Register(blobs)
+	ctrl.Register(blobs) // TODO: does not need to open a createWants on this one?!
+
+	// outgoing gossip behavior
+	var histOpts = []interface{}{
+		gossip.HopCount(s.hopCount),
+		gossip.Promisc(s.promisc),
+		s.systemGauge, s.eventCounter,
+	}
+	if s.signHMACsecret != nil {
+		var k [32]byte
+		copy(k[:], s.signHMACsecret)
+		histOpts = append(histOpts, gossip.HMACSecret(&k))
+	}
+	pmgr.Register(gossip.New(
+		kitlog.With(log, "plugin", "gossip"),
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...))
+
+	// incoming createHistoryStream handler
+	hist := gossip.NewHist(
+		kitlog.With(log, "plugin", "gossip/hist"),
+		id, rootLog, uf, s.GraphBuilder,
+		histOpts...)
+	pmgr.Register(hist)
+
+	ctrl.Register(get.New(s))
+
+	// raw log plugins
+	ctrl.Register(rawread.NewTanglePlug(rootLog, s.Tangles))
+	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
+	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
+	ctrl.Register(hist)                           // createHistoryStream
+
+	ctrl.Register(replicate.NewPlug(s.UserFeeds))
+
 	// local clients (not using network package because we don't want conn limiting or advertising)
 	c, err := net.Dial("unix", r.GetPath("socket"))
 	if err == nil {
@@ -295,57 +346,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	ctrl.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
-
-	ctrl.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
-	userPrivs, err := pl.Get(librarian.Addr(s.KeyPair.Id.ID))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open user private index")
-	}
-
-	ctrl.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
-
-	// whoami
-	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
-	pmgr.Register(whoami)
-	ctrl.Register(whoami)
-
-	// blobs
-	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)
-	pmgr.Register(blobs)
-	ctrl.Register(blobs) // TODO: does not need to open a createWants on this one?!
-
-	// outgoing gossip behavior
-	var histOpts = []interface{}{
-		gossip.HopCount(s.hopCount),
-		gossip.Promisc(s.promisc),
-		s.systemGauge, s.eventCounter,
-	}
-	if s.signHMACsecret != nil {
-		var k [32]byte
-		copy(k[:], s.signHMACsecret)
-		histOpts = append(histOpts, gossip.HMACSecret(&k))
-	}
-	pmgr.Register(gossip.New(
-		kitlog.With(log, "plugin", "gossip"),
-		id, rootLog, uf, s.GraphBuilder,
-		histOpts...))
-
-	// incoming createHistoryStream handler
-	hist := gossip.NewHist(
-		kitlog.With(log, "plugin", "gossip/hist"),
-		id, rootLog, uf, s.GraphBuilder,
-		histOpts...)
-	pmgr.Register(hist)
-
-	ctrl.Register(get.New(s))
-
-	// raw log plugins
-	ctrl.Register(rawread.NewTanglePlug(rootLog, s.Tangles))
-	ctrl.Register(rawread.NewRXLog(rootLog))      // createLogStream
-	ctrl.Register(rawread.NewByType(rootLog, mt)) // messagesByType
-	ctrl.Register(hist)                           // createHistoryStream
-
-	ctrl.Register(replicate.NewPlug(s.UserFeeds))
 
 	return s, nil
 }
