@@ -8,7 +8,6 @@ import (
 
 	"go.cryptoscope.co/muxrpc"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
 )
 
@@ -65,16 +64,28 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 	// 	log: log,
 	// 	bs:  bs,
 	// })
-	rootHdlr.Register(muxrpc.Method{"blobs", "want"}, wantHandler{
-		log: log,
-		wm:  wm,
-	})
-	rootHdlr.Register(muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
-		log:     log,
-		bs:      bs,
-		wm:      wm,
-		sources: make(map[string]luigi.Source),
-	})
+
+	// var hs = []muxrpc.NamedHandler{
+	// 	{muxrpc.Method{"blobs", "get"}, getHandler{
+	// 		log: log,
+	// 		bs:  bs,
+	// 	}},
+	// 	{muxrpc.Method{"blobs", "has"}, hasHandler{
+	// 		log: log,
+	// 		bs:  bs,
+	// 	}},
+	// 	{muxrpc.Method{"blobs", "want"}, wantHandler{
+	// 		log: log,
+	// 		wm:  wm,
+	// 	}},
+	// 	{muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
+	// 		log:     log,
+	// 		bs:      bs,
+	// 		wm:      wm,
+	// 		sources: make(map[string]luigi.Source),
+	// 	}},
+	// }
+	// rootHdlr.RegisterAll(hs...)
 
 	return plugin{
 		h:   &rootHdlr,
