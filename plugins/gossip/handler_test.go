@@ -45,6 +45,16 @@ type tcase struct {
 	pki  string
 }
 
+type handlerWrapper struct {
+	muxrpc.Handler
+	AfterConnect func()
+}
+
+func (h handlerWrapper) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	h.Handler.HandleConnect(ctx, e)
+	h.AfterConnect()
+}
+
 func (tc *tcase) runTest(t *testing.T) {
 	r := require.New(t)
 
@@ -157,27 +167,31 @@ func (tc *tcase) runTest(t *testing.T) {
 	hdone.Add(2)
 
 	// create handlers
-	//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
-	h1 := &handler{
-		promisc:      true,
-		Id:           srcID,
-		RootLog:      srcRootLog,
-		UserFeeds:    srcMlog,
-		GraphBuilder: srcGraphBuilder,
-		Info:         infoAlice,
-		hanlderDone: func() {
+	h1 := handlerWrapper{
+		Handler: &handler{
+			promisc:      true,
+			Id:           srcID,
+			RootLog:      srcRootLog,
+			UserFeeds:    srcMlog,
+			GraphBuilder: srcGraphBuilder,
+			Info:         infoAlice,
+		},
+		AfterConnect: func() {
 			infoAlice.Log("event", "handler done", "time-since", time.Since(start))
 			hdone.Done()
 		},
 	}
-	h2 := &handler{
-		promisc:      true,
-		Id:           dstID,
-		RootLog:      dstRootLog,
-		UserFeeds:    dstMlog,
-		GraphBuilder: dstGraphBuilder,
-		Info:         infoBob,
-		hanlderDone: func() {
+
+	h2 := handlerWrapper{
+		Handler: &handler{
+			promisc:      true,
+			Id:           dstID,
+			RootLog:      dstRootLog,
+			UserFeeds:    dstMlog,
+			GraphBuilder: dstGraphBuilder,
+			Info:         infoBob,
+		},
+		AfterConnect: func() {
 			infoBob.Log("event", "handler done", "time-since", time.Since(start))
 			hdone.Done()
 		},

@@ -33,19 +33,11 @@ type handler struct {
 	activeLock  sync.Mutex
 	activeFetch sync.Map
 
-	hanlderDone func()
-
 	sysGauge *prometheus.Gauge
 	sysCtr   *prometheus.Counter
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	defer func() {
-		// TODO: just used for testing...
-		// maybe make an interface wrapper instead
-		g.hanlderDone()
-	}()
-
 	remote := e.Remote()
 	remoteAddr, ok := netwrap.GetAddr(remote, "shs-bs").(secretstream.Addr)
 	if !ok {

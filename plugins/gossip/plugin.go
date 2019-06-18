@@ -26,7 +26,6 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 		UserFeeds:    userFeeds,
 		GraphBuilder: graphBuilder,
 		Info:         log,
-		hanlderDone:  func() {},
 	}
 	for i, o := range opts {
 		switch v := o.(type) {
@@ -57,7 +56,6 @@ func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userF
 		UserFeeds:    userFeeds,
 		GraphBuilder: graphBuilder,
 		Info:         log,
-		hanlderDone:  func() {},
 	}
 	for i, o := range opts {
 		switch v := o.(type) {
