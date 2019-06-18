@@ -19,7 +19,7 @@ type HopCount int
 
 type Promisc bool
 
-func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
+func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) *plugin {
 	h := &handler{
 		Id:           id,
 		RootLog:      rootLog,
@@ -49,7 +49,7 @@ func New(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds
 	return &plugin{h}
 }
 
-func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) ssb.Plugin {
+func NewHist(log logging.Interface, id *ssb.FeedRef, rootLog margaret.Log, userFeeds multilog.MultiLog, graphBuilder graph.Builder, opts ...interface{}) histPlugin {
 	h := &handler{
 		Id:           id,
 		RootLog:      rootLog,
