@@ -14,9 +14,12 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+// IndexKeyValue is the name of the key-value index.
+// The key-value index indexes all top-level string values so we can search for them.
 const IndexKeyValue = "keyValue"
 
-func OpenKeyValue(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
+// OpenKeyValue returns a multilog that has as index the top level key value pairs of messages. It only indexes pairs where the value is string and not longer than maxLength.
+func OpenKeyValue(r repo.Interface, maxLength int) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
 	return repo.OpenMultiLog(r, IndexKeyValue, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := value.(error); ok {
 			if margaret.IsErrNulled(nulled) {
@@ -53,6 +56,11 @@ func OpenKeyValue(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeFu
 			if !ok {
 				continue
 			}
+
+			if len(str) > maxLength {
+				continue
+			}
+
 			id, err := encodeStringTuple(k, str)
 			if err != nil {
 				errs = append(errs, err)
