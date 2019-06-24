@@ -17,7 +17,7 @@ import (
 const IndexKeyValue = "keyValue"
 
 func OpenKeyValue(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
-	return repo.OpenMultiLog(r, IndexNameFeeds, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+	return repo.OpenMultiLog(r, IndexKeyValue, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := value.(error); ok {
 			if margaret.IsErrNulled(nulled) {
 				return nil
