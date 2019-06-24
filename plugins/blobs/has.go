@@ -30,25 +30,68 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
-	ref, err := ssb.ParseBlobRef(req.Args[0].(string))
-	checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
-	if err != nil {
+	switch v := req.Args[0].(type) {
+	case string:
+
+		ref, err := ssb.ParseBlobRef(v)
+		checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
+		if err != nil {
+			return
+		}
+
+		_, err = h.bs.Get(ref)
+
+		has := true
+
+		if err == blobstore.ErrNoSuchBlob {
+			has = false
+		} else if err != nil {
+			err = errors.Wrap(err, "error looking up blob")
+			err = req.Stream.CloseWithError(err)
+			checkAndLog(h.log, err)
+			return
+		}
+
+		err = req.Return(ctx, has)
+		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+
+	case []interface{}:
+		var has = make([]bool, len(v))
+
+		for k, blobRef := range v {
+
+			blobStr, ok := blobRef.(string)
+			if !ok {
+				req.Stream.CloseWithError(fmt.Errorf("bad request - unhandled type"))
+				return
+			}
+			ref, err := ssb.ParseBlobRef(blobStr)
+			checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
+			if err != nil {
+				return
+			}
+
+			_, err = h.bs.Get(ref)
+
+			has[k] = true
+
+			if err == blobstore.ErrNoSuchBlob {
+				has[k] = false
+			} else if err != nil {
+				err = errors.Wrap(err, "error looking up blob")
+				err = req.Stream.CloseWithError(err)
+				checkAndLog(h.log, err)
+				return
+			}
+
+		}
+
+		err := req.Return(ctx, has)
+		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+
+	default:
+		req.Stream.CloseWithError(fmt.Errorf("bad request - unhandled type"))
 		return
 	}
 
-	_, err = h.bs.Get(ref)
-
-	has := true
-
-	if err == blobstore.ErrNoSuchBlob {
-		has = false
-	} else if err != nil {
-		err = errors.Wrap(err, "error looking up blob")
-		err = req.Stream.CloseWithError(err)
-		checkAndLog(h.log, err)
-		return
-	}
-
-	err = req.Return(ctx, has)
-	checkAndLog(h.log, errors.Wrap(err, "error returning value"))
 }
