@@ -12,17 +12,18 @@ import (
 type Interface interface {
 	io.Closer
 	// ssb.BlobStore
+	BlobsWant(ssb.BlobRef) error
 
 	Whoami() (*ssb.FeedRef, error)
 
 	Publish(interface{}) (*ssb.MessageRef, error)
 
-	// PrivatePublish(interface{}) (margaret.Seq, error)
+	// PrivatePublish(interface{}, ...ssb.FeedRef) (margaret.Seq, error)
 	// PrivateRead() (luigi.Source, error)
 
 	// MessagesByTypes(string) (luigi.Source, error)
 	CreateLogStream(message.CreateHistArgs) (luigi.Source, error)
-	CreateHistoryStream(opts message.CreateHistArgs) (luigi.Source, error)
+	CreateHistoryStream(opts message.CreateHistArgs, as interface{}) (luigi.Source, error)
 	Tangles(ssb.MessageRef, message.CreateHistArgs) (luigi.Source, error)
 
 	ReplicateUpTo() (luigi.Source, error)

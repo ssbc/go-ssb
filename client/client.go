@@ -145,6 +145,16 @@ func (c client) Whoami() (*ssb.FeedRef, error) {
 	return resp.ID, nil
 }
 
+func (c client) BlobsWant(ref ssb.BlobRef) error {
+	var v interface{}
+	v, err := c.handler.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	if err != nil {
+		return errors.Wrap(err, "ssbClient: whoami failed")
+	}
+	c.logger.Log("blob", "wanted", "v", v, "ref", ref.Ref())
+	return nil
+}
+
 func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
 	v, err := c.handler.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
 	if err != nil {
@@ -164,9 +174,8 @@ func (c client) CreateLogStream(opts message.CreateHistArgs) (luigi.Source, erro
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
-func (c client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
-	o.Keys = true
-	src, err := c.handler.Source(c.rootCtx, message.KeyValueRaw{}, muxrpc.Method{"createHistoryStream"}, o)
+func (c client) CreateHistoryStream(o message.CreateHistArgs, as interface{}) (luigi.Source, error) {
+	src, err := c.handler.Source(c.rootCtx, as, muxrpc.Method{"createHistoryStream"}, o)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
