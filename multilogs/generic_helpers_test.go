@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKV_Helper(t *testing.T) {
+func TestGeneric_EncodeStringTuple(t *testing.T) {
 	type testCase struct {
 		name       string
 		str1, str2 string
