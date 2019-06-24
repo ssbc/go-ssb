@@ -6,6 +6,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -44,10 +45,7 @@ func checkAndLog(log logging.Interface, err error) {
 func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin {
 	rootHdlr := muxrpc.HandlerMux{}
 
-	rootHdlr.Register(muxrpc.Method{"blobs", "get"}, getHandler{
-		log: log,
-		bs:  bs,
-	})
+	// TODO: needs priv checks
 	// rootHdlr.Register(muxrpc.Method{"blobs", "add"}, addHandler{
 	// 	log: log,
 	// 	bs:  bs,
@@ -56,36 +54,32 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 	// 	log: log,
 	// 	bs:  bs,
 	// })
-	rootHdlr.Register(muxrpc.Method{"blobs", "has"}, hasHandler{
-		log: log,
-		bs:  bs,
-	})
 	// rootHdlr.Register(muxrpc.Method{"blobs", "rm"}, rmHandler{
 	// 	log: log,
 	// 	bs:  bs,
 	// })
 
-	// var hs = []muxrpc.NamedHandler{
-	// 	{muxrpc.Method{"blobs", "get"}, getHandler{
-	// 		log: log,
-	// 		bs:  bs,
-	// 	}},
-	// 	{muxrpc.Method{"blobs", "has"}, hasHandler{
-	// 		log: log,
-	// 		bs:  bs,
-	// 	}},
-	// 	{muxrpc.Method{"blobs", "want"}, wantHandler{
-	// 		log: log,
-	// 		wm:  wm,
-	// 	}},
-	// 	{muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
-	// 		log:     log,
-	// 		bs:      bs,
-	// 		wm:      wm,
-	// 		sources: make(map[string]luigi.Source),
-	// 	}},
-	// }
-	// rootHdlr.RegisterAll(hs...)
+	var hs = []muxrpc.NamedHandler{
+		{muxrpc.Method{"blobs", "get"}, getHandler{
+			log: log,
+			bs:  bs,
+		}},
+		{muxrpc.Method{"blobs", "has"}, hasHandler{
+			log: log,
+			bs:  bs,
+		}},
+		{muxrpc.Method{"blobs", "want"}, wantHandler{
+			log: log,
+			wm:  wm,
+		}},
+		{muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
+			log:     log,
+			bs:      bs,
+			wm:      wm,
+			sources: make(map[string]luigi.Source),
+		}},
+	}
+	rootHdlr.RegisterAll(hs...)
 
 	return plugin{
 		h:   &rootHdlr,
