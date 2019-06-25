@@ -59,7 +59,10 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 	// 	bs:  bs,
 	// })
 
-	var hs = []muxrpc.NamedHandler{
+	var hs = []struct {
+		Method  muxrpc.Method
+		Handler muxrpc.Handler
+	}{
 		{muxrpc.Method{"blobs", "get"}, getHandler{
 			log: log,
 			bs:  bs,
@@ -79,7 +82,10 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 			sources: make(map[string]luigi.Source),
 		}},
 	}
-	rootHdlr.RegisterAll(hs...)
+	for _, hn := range hs {
+		rootHdlr.Register(hn.Method, hn.Handler)
+	}
+	// rootHdlr.RegisterAll(hs...)
 
 	return plugin{
 		h:   &rootHdlr,
