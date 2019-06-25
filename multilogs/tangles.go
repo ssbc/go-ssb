@@ -49,7 +49,7 @@ func OpenTangles(r repo.Interface) (multilog.MultiLog, *badger.DB, repo.ServeFun
 
 		_, err = tangleLog.Append(seq)
 		// log.Println(msg.Key.Ref(), value.Content.Root.Ref(), seq)
-		return errors.Wrapf(err, "error appending root message:", msg.Key.Ref())
+		return errors.Wrapf(err, "error appending root message: %s", msg.Key.Ref())
 	})
 
 }
