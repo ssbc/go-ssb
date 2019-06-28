@@ -58,15 +58,15 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 	switch req.Method.String() {
 
 	case "ctrl.connect":
-		if len(req.Args) != 1 {
+		if len(req.Args()) != 1 {
 			// TODO: use secretstream
 			h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
 			checkAndClose(errors.New("usage: ctrl.connect host:port:key"))
 			return
 		}
-		destString, ok := req.Args[0].(string)
+		destString, ok := req.Args()[0].(string)
 		if !ok {
-			err := errors.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args[0])
+			err := errors.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args()[0])
 			checkAndClose(err)
 			return
 		}

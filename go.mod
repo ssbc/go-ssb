@@ -6,6 +6,7 @@ require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
+	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
@@ -15,7 +16,7 @@ require (
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
 	github.com/sergi/go-diff v1.0.0 // indirect
@@ -23,9 +24,9 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go/codec v1.1.7
 	go.cryptoscope.co/librarian v0.1.4-0.20190912103814-57505baa5ec9
-	go.cryptoscope.co/luigi v0.3.4
-	go.cryptoscope.co/margaret v0.0.12-0.20190917101355-ff7df4587a29
-	go.cryptoscope.co/muxrpc v1.4.1-0.20190927125555-9b455d96d34d
+	go.cryptoscope.co/luigi v0.3.5-0.20190924074117-8ca146aad481
+	go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd
+	go.cryptoscope.co/muxrpc v1.5.0
 	go.cryptoscope.co/netwrap v0.1.0
 	go.cryptoscope.co/secretstream v1.2.0
 	go.mindeco.de/ssb-gabbygrove v0.1.5
@@ -37,3 +38,5 @@ require (
 )
 
 replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6
+
+replace go.cryptoscope.co/margaret => /home/cryptix/go/src/go.cryptoscope.co/margaret

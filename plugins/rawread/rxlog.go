@@ -45,13 +45,13 @@ func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
 func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	if len(req.Args) < 1 {
+	if len(req.Args()) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
 	var qry message.CreateHistArgs
 
-	switch v := req.Args[0].(type) {
+	switch v := req.Args()[0].(type) {
 
 	case map[string]interface{}:
 		q, err := message.NewCreateHistArgsFromMap(v)
@@ -61,7 +61,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		}
 		qry = *q
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
+		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
 		return
 	}
 

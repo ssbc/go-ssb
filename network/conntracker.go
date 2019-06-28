@@ -165,7 +165,6 @@ func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
 			select {
 			case <-oldConn.done:
 				// cleaned up after itself
-				log.Println("############### waited for conn to be done")
 			case <-time.After(10 * time.Second):
 				log.Println("[warning] not accepted, would ghost connection:", oldConn.c.RemoteAddr().String(), time.Since(oldConn.started))
 				return false

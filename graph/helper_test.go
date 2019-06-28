@@ -15,7 +15,7 @@ type publisher struct {
 	r *require.Assertions
 
 	key     *ssb.KeyPair
-	publish margaret.Log
+	publish ssb.Publisher
 }
 
 func newPublisher(t *testing.T, root margaret.Log, users multilog.MultiLog) *publisher {

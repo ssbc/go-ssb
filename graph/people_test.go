@@ -447,6 +447,36 @@ func TestPeople(t *testing.T) {
 				PeopleAssertHops("piet", 0, "piet", "claire", "pew"),
 			},
 		},
+
+		{
+			name: "inviteAccept",
+			ops: []PeopleOp{
+				PeopleOpNewPeer{"alice"},
+				PeopleOpNewPeer{"bob"},
+				PeopleOpNewPeer{"claire"},
+
+				// friends
+				PeopleOpFollow{"alice", "bob"},
+				PeopleOpFollow{"bob", "alice"},
+
+				// bob invites claire
+				PeopleOpInvites{"bob", "claire"},
+			},
+			asserts: []PeopleAssertMaker{
+				// follow setup
+				PeopleAssertFollows("alice", "bob", true),
+				PeopleAssertFollows("bob", "alice", true),
+
+				// invite confirm interpretation
+				PeopleAssertFollows("bob", "claire", true),
+				PeopleAssertFollows("claire", "bob", true),
+				PeopleAssertPathDist("alice", "claire", 2),
+
+				PeopleAssertAuthorize("alice", "claire", 0, false),
+				PeopleAssertAuthorize("alice", "claire", 1, true),
+				PeopleAssertAuthorize("alice", "claire", 2, true),
+			},
+		},
 	}
 
 	tcs = append(tcs, blockScenarios...)
@@ -456,4 +486,24 @@ func TestPeople(t *testing.T) {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))
 		// t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
 	}
+}
+
+type PeopleOpInvites struct {
+	author, receiver string
+}
+
+func (op PeopleOpInvites) Op(state *testState) error {
+	alice, w, err := getAliceBob(op.author, op.receiver, state)
+	if err != nil {
+		return err
+	}
+	newSeq, err := alice.publish.Publish(map[string]interface{}{
+		"type":      "contact",
+		"contact":   w,
+		"following": false,
+	})
+
+	alice.r.NoError(err)
+	alice.r.NotNil(newSeq)
+	return nil
 }

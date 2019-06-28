@@ -257,5 +257,5 @@ func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 }
 
 func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	level.Debug(h.logger).Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	level.Debug(h.logger).Log("event", "onCall", "args", fmt.Sprintf("%q", req.RawArgs), "method", req.Method)
 }

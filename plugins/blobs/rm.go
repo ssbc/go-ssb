@@ -26,14 +26,14 @@ func (h rmHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxr
 		req.Type = "async"
 	}
 
-	if len(req.Args) != 1 {
+	if len(req.Args()) != 1 {
 		// TODO: change from generic handlers to typed once (source, sink, async..)
 		// async then would have to return a value or an error and not fall into this trap of not closing a stream
 		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args"))
 		return
 	}
 
-	ref, err := ssb.ParseRef(req.Args[0].(string))
+	ref, err := ssb.ParseRef(req.Args()[0].(string))
 	checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 	if err != nil {
 		return

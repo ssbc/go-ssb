@@ -151,19 +151,19 @@ func (g *handler) HandleCall(
 
 	case "createHistoryStream":
 		//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
-
+		args := req.Args()
 		if req.Type != "source" {
 			closeIfErr(errors.Errorf("wrong tipe. %s", req.Type))
 			return
 		}
-		if len(req.Args) < 1 {
+		if len(args) < 1 {
 			err := errors.New("ssb/message: not enough arguments, expecting feed id")
 			closeIfErr(err)
 			return
 		}
-		argMap, ok := req.Args[0].(map[string]interface{})
+		argMap, ok := args[0].(map[string]interface{})
 		if !ok {
-			err := errors.Errorf("ssb/message: not the right map - %T", req.Args[0])
+			err := errors.Errorf("ssb/message: not the right map - %T", args[0])
 			closeIfErr(err)
 			return
 		}

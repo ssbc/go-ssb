@@ -15,13 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/netwrap"
+
 	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/debug"
-	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -121,10 +122,10 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
-		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-			return debug.WrapConn(log.With(info, "remote", fr.Ref()[1:5]), conn), err
-		}),
+		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+		// 	return debug.WrapConn(log.With(info, "remote", fr.Ref()[1:5]), conn), err
+		// }),
 	}, sbotOpts...)
 
 	if ts.keySHS != nil {
@@ -132,6 +133,14 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	}
 	if ts.keyHMAC != nil {
 		sbotOpts = append(sbotOpts, sbot.WithHMACSigning(ts.keyHMAC))
+	}
+
+	if os.Getenv("MUXDBG") != "" {
+		sbotOpts = append(sbotOpts,
+			sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+				return debug.WrapConn(info, conn), nil
+			}),
+		)
 	}
 
 	sbot, err := sbot.New(sbotOpts...)
@@ -170,8 +179,9 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
+	jsBotCnt++
 	env := []string{
-		fmt.Sprintf("TEST_NAME=%s%02d", ts.t.Name(), jsBotCnt),
+		"TEST_NAME=" + fmt.Sprint(ts.t.Name(), jsBotCnt),
 		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
 		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Network.GetListenAddr(), "tcp").String(),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
@@ -207,7 +217,7 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 
 	alice, err := ssb.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get alice key from JS process")
-	ts.t.Logf("JS alice: %s", alice.Ref())
+	ts.t.Logf("JS alice: %d  %s", jsBotCnt, alice.Ref())
 	return alice
 }
 

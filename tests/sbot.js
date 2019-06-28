@@ -11,52 +11,55 @@ const createSbot = require('ssb-server')
   .use(require('ssb-friends'))
   .use(require('ssb-blobs'))
   .use(require('./ggdemo'))
+  .use(require('ssb-query'))
+  .use(require('ssb-device-address'))
+  .use(require('ssb-identities'))
+  .use(require('ssb-peer-invites'))
 
+const testName = process.env.TEST_NAME
+const testBob = process.env.TEST_BOB
+const testAddr = process.env.TEST_GOADDR
 
-const testName = process.env['TEST_NAME']
-const testBob = process.env['TEST_BOB']
-const testAddr = process.env['TEST_GOADDR']
+const scriptBefore = readFileSync(process.env.TEST_BEFORE).toString()
+const scriptAfter = readFileSync(process.env.TEST_AFTER).toString()
 
-const scriptBefore = readFileSync(process.env['TEST_BEFORE']).toString()
-const scriptAfter = readFileSync(process.env['TEST_AFTER']).toString()
+const testSHSappKey = bufFromEnv('TEST_APPKEY')
+const testHMACkey = bufFromEnv('TEST_HMACKEY')
 
-let testSHSappKey = bufFromEnv('TEST_APPKEY')
-let testHMACkey = bufFromEnv('TEST_HMACKEY')
-
-function bufFromEnv(evname) {
+function bufFromEnv (evname) {
   const has = process.env[evname]
   if (has) {
-    return Buffer.from(has, "base64")
+    return Buffer.from(has, 'base64')
   }
   return false
 }
 
-tape.createStream().pipe(process.stderr);
+tape.createStream().pipe(process.stderr)
 tape(testName, function (t) {
   t.timeoutAfter(15000) // doesn't exit the process
   const tapeTimeout = setTimeout(() => {
-    t.comment("test timeout")
+    t.comment('test timeout')
     process.exit(1)
   }, 17000)
-  function run() { // needs to be called by the before block when it's done
+  function run () { // needs to be called by the before block when it's done
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
-    t.comment("dialing")
-    console.warn('dialing:', to)
+    t.comment('dialing:' + to)
     sbot.connect(to, (err) => {
-      t.error(err, "connected")
+      t.error(err, 'connected')
       eval(scriptAfter)
     })
   }
 
-  function exit() { // call this when you're done
+  function exit () { // call this when you're done
     sbot.close()
     t.comment('closed sbot')
     clearTimeout(tapeTimeout)
     t.end()
+    process.exit(0)
   }
-  let opts = {
+  const opts = {
     temp: testName,
-    keys: generate(),
+    keys: generate()
   }
 
   if (testSHSappKey !== false) {
@@ -72,7 +75,7 @@ tape(testName, function (t) {
   const sbot = createSbot(opts)
   const alice = sbot.whoami()
 
-  t.comment("sbot spawned, running before")
+  t.comment('sbot spawned, running before')
   console.log(alice.id) // tell go process who's incoming
   eval(scriptBefore)
 })

@@ -55,20 +55,20 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		if req.Type == "" {
 			req.Type = "async"
 		}
-		if n := len(req.Args); n != 2 {
+		if n := len(req.Args()); n != 2 {
 			req.CloseWithError(errors.Errorf("private/publish: bad request. expected 2 argument got %d", n))
 			return
 		}
 
-		msg, err := json.Marshal(req.Args[0])
+		msg, err := json.Marshal(req.Args()[0])
 		if err != nil {
 			req.CloseWithError(errors.Wrap(err, "failed to encode message"))
 			return
 		}
 
-		rcps, ok := req.Args[1].([]interface{})
+		rcps, ok := req.Args()[1].([]interface{})
 		if !ok {
-			req.CloseWithError(errors.Errorf("private/publish: wrong argument type. expected []strings but got %T", req.Args[1]))
+			req.CloseWithError(errors.Errorf("private/publish: wrong argument type. expected []strings but got %T", req.Args()[1]))
 			return
 		}
 
@@ -111,7 +111,6 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	default:
 		checkAndClose(errors.Errorf("private: unknown command: %s", req.Method))
 	}
-
 }
 
 func (h handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
@@ -119,9 +118,10 @@ func (h handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 	var qry message.CreateHistArgs
 
-	if len(req.Args) > 0 {
+	args := req.Args()
+	if len(args) > 0 {
 
-		switch v := req.Args[0].(type) {
+		switch v := args[0].(type) {
 		case map[string]interface{}:
 			q, err := message.NewCreateHistArgsFromMap(v)
 			if err != nil {
@@ -130,7 +130,7 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 			}
 			qry = *q
 		default:
-			req.CloseWithError(errors.Errorf("privateRead: invalid argument type %T", req.Args[0]))
+			req.CloseWithError(errors.Errorf("privateRead: invalid argument type %T", args[0]))
 			return
 		}
 

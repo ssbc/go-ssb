@@ -38,7 +38,7 @@ type handler struct {
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	if len(req.Args) < 1 {
+	if len(req.Args()) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
@@ -46,7 +46,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		ref *ssb.MessageRef
 		err error
 	)
-	switch v := req.Args[0].(type) {
+	switch v := req.Args()[0].(type) {
 	case string:
 		ref, err = ssb.ParseMessageRef(v)
 	case map[string]interface{}:
@@ -57,7 +57,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		}
 		ref, err = ssb.ParseMessageRef(refV.(string))
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
+		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	// }
 	err = req.Return(ctx, msg.ValueContentJSON())
 	if err != nil {
-		fmt.Println("get: failed to return message:", err)
 	}
+	fmt.Println("get: failed? to return message:", err)
 
 }

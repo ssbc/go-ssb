@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shurcooL/go-goon"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -142,7 +143,7 @@ func TestParseBranches(t *testing.T) {
 		Refs MessageRefs `json:"refs"`
 	}
 	var input = []byte(`{
-			"refs": "%HG1p299uO2nCenG6YwR3DG33lLpcALAS/PI6/BP5dB0=.sha256"
+		"refs": "%HG1p299uO2nCenG6YwR3DG33lLpcALAS/PI6/BP5dB0=.sha256"
 	}`)
 
 	err := json.Unmarshal(input, &got)
@@ -151,10 +152,10 @@ func TestParseBranches(t *testing.T) {
 	r.Equal(got.Refs[0].Ref(), "%HG1p299uO2nCenG6YwR3DG33lLpcALAS/PI6/BP5dB0=.sha256")
 
 	var asArray = []byte(`{
-			"refs": [
-					"%hCM+q/zsq8vseJKwIAAJMMdsAmWeSfG9cs8ed3uOXCc=.sha256",
-					"%yJAzwPO7HSjvHRp7wrVGO4sbo9GHSwKk0BXOSiUr+bo=.sha256"
-			]
+		"refs": [
+			"%hCM+q/zsq8vseJKwIAAJMMdsAmWeSfG9cs8ed3uOXCc=.sha256",
+			"%yJAzwPO7HSjvHRp7wrVGO4sbo9GHSwKk0BXOSiUr+bo=.sha256"
+		]
 	}`)
 
 	err = json.Unmarshal(asArray, &got)
@@ -164,7 +165,7 @@ func TestParseBranches(t *testing.T) {
 	r.Equal(got.Refs[1].Ref(), `%yJAzwPO7HSjvHRp7wrVGO4sbo9GHSwKk0BXOSiUr+bo=.sha256`)
 
 	var empty = []byte(`{
-			"refs": []
+		"refs": []
 	}`)
 
 	err = json.Unmarshal(empty, &got)

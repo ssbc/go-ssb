@@ -25,7 +25,7 @@ type getHandler struct {
 func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	logger := log.With(h.log, "handler", "get", "args", fmt.Sprintf("%v", req.Args))
+	logger := log.With(h.log, "handler", "get", "args", fmt.Sprintf("%q", req.RawArgs))
 	// dbg := level.Debug(logger)
 	errLog := level.Error(logger)
 	info := level.Info(logger)
@@ -38,13 +38,14 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		req.Type = "source"
 	}
 
-	if len(req.Args) != 1 {
-		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args (%d)", len(req.Args)))
+	args := req.Args()
+	if len(args) != 1 {
+		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args (%d)", len(args)))
 		return
 	}
 
 	var refStr string
-	switch arg := req.Args[0].(type) {
+	switch arg := args[0].(type) {
 	case string:
 		refStr = arg
 	case map[string]interface{}:

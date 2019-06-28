@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/peerinvites"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
 	"go.cryptoscope.co/ssb/plugins/publish"
 	"go.cryptoscope.co/ssb/plugins/rawread"
@@ -151,6 +152,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return s, nil
 	}
 
+	var peerPlug *peerinvites.Plugin
+	if mt, ok := s.mlogIndicies["userFeeds"]; !ok {
+		log.Log("warning", "loading default idx", "idx", "userFeeds")
+	} else {
+		peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.RootLog, s.PublishLog)
+		s.public.Register(peerPlug)
+		_, peerServ, err := peerPlug.OpenIndex(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open about idx")
+		}
+		s.serveIndex(ctx, "contacts", peerServ)
+	}
+
 	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
@@ -161,12 +175,17 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return s.master.MakeHandler(conn)
 		}
 
+		if peerPlug != nil {
+			if err := peerPlug.Authorize(remote); err == nil {
+				return peerPlug.Handler(), nil
+			}
+		}
+
 		if s.promisc {
 			return s.public.MakeHandler(conn)
 		}
-
-		start := time.Now()
 		if s.latency != nil {
+			start := time.Now()
 			defer func() {
 				s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
 			}()

@@ -43,7 +43,7 @@ type tangleHandler struct {
 func (g tangleHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	if len(req.Args) < 1 {
+	if len(req.Args()) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
@@ -52,7 +52,7 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		Root *ssb.MessageRef
 	}
 
-	switch v := req.Args[0].(type) {
+	switch v := req.Args()[0].(type) {
 
 	case map[string]interface{}:
 		q, err := message.NewCreateHistArgsFromMap(v)
@@ -74,7 +74,7 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 			return
 		}
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
+		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
 		return
 	}
 

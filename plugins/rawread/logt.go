@@ -51,7 +51,7 @@ func (g logThandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
 func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	if len(req.Args) < 1 {
+	if len(req.Args()) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
@@ -59,7 +59,7 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		tipe librarian.Addr
 		qry  message.CreateHistArgs
 	)
-	switch v := req.Args[0].(type) {
+	switch v := req.Args()[0].(type) {
 	case string:
 		tipe = librarian.Addr(v)
 	case map[string]interface{}:
@@ -70,13 +70,13 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		}
 		qry = *q
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
+		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
 		return
 	}
 
-	if len(req.Args) == 2 {
+	if len(req.Args()) == 2 {
 		spew.Dump(req.Args)
-		mv, ok := req.Args[1].(map[string]interface{})
+		mv, ok := req.Args()[1].(map[string]interface{})
 		if !ok {
 			req.CloseWithError(errors.Errorf("bad request"))
 			return

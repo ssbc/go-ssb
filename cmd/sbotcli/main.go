@@ -4,7 +4,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,16 +17,11 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/debug"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/plugins/whoami"
 	cli "gopkg.in/urfave/cli.v2"
 )
 
@@ -102,6 +96,7 @@ func todo(ctx *cli.Context) error {
 }
 
 func initClient(ctx *cli.Context) error {
+	/* network mode
 	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
 		return err
@@ -136,12 +131,12 @@ func initClient(ctx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error dialing")
 	}
-	/* coming soon:
-	conn, err := net.Dial("unix", "/home/cryptix/.ssb/socket")
+	*/
+
+	conn, err := net.Dial("unix", "/home/cryptix/.ssb-go/socket")
 	if err != nil {
 		return errors.Wrap(err, "error dialing unix sock")
 	}
-	*/
 	var rwc io.ReadWriteCloser = conn
 	// logs every muxrpc packet
 	if ctx.Bool("verbose") {
@@ -149,7 +144,8 @@ func initClient(ctx *cli.Context) error {
 	}
 	pkr = muxrpc.NewPacker(rwc)
 
-	h := whoami.New(kitlog.With(log, "unit", "incoming"), localKey.Id).Handler()
+	h := noopHandler{}
+	// h := whoami.New(kitlog.With(log, "unit", "incoming"), localKey.Id).Handler()
 
 	client = muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
