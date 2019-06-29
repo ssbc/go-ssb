@@ -76,6 +76,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 	return &qry, nil
 }
 
+// TODO: This needs documentation
 type CreateHistArgs struct {
 	Keys    bool   `json:"keys"`
 	Values  bool   `json:"values"`
