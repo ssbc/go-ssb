@@ -31,21 +31,31 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func ckFatal(err error) {
+func fatalOnError(err error) {
 	if err != nil {
-		fmt.Println("ckFatal err:", err)
+		fmt.Println("fatalOnError err:", err)
 		debug.PrintStack()
 		os.Exit(2)
 	}
 }
 
-type tcase struct {
+type testCase struct {
 	path string
 	has  margaret.BaseSeq
 	pki  string
 }
 
-func (tc *tcase) runTest(t *testing.T) {
+type handlerWrapper struct {
+	muxrpc.Handler
+	AfterConnect func()
+}
+
+func (h handlerWrapper) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	h.Handler.HandleConnect(ctx, e)
+	h.AfterConnect()
+}
+
+func (tc *testCase) runTest(t *testing.T) {
 	r := require.New(t)
 
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
@@ -87,7 +97,7 @@ func (tc *tcase) runTest(t *testing.T) {
 
 	go func() {
 		err := srcMlogServe(ctx, srcRootLog, true)
-		ckFatal(errors.Wrap(err, "error serving src user feeds multilog"))
+		fatalOnError(errors.Wrap(err, "error serving src user feeds multilog"))
 	}()
 
 	srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
@@ -99,7 +109,7 @@ func (tc *tcase) runTest(t *testing.T) {
 
 	go func() {
 		err := srcGraphBuilderServe(ctx, srcRootLog, true)
-		ckFatal(errors.Wrap(err, "error serving src contacts index"))
+		fatalOnError(errors.Wrap(err, "error serving src contacts index"))
 	}()
 
 	dstRootLog, err := repo.OpenLog(dstRepo)
@@ -118,7 +128,7 @@ func (tc *tcase) runTest(t *testing.T) {
 
 	go func() {
 		err := dstMlogServe(ctx, dstRootLog, true)
-		ckFatal(errors.Wrap(err, "error serving dst user feeds multilog"))
+		fatalOnError(errors.Wrap(err, "error serving dst user feeds multilog"))
 	}()
 
 	dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
@@ -130,7 +140,7 @@ func (tc *tcase) runTest(t *testing.T) {
 
 	go func() {
 		err := dstGraphBuilderServe(ctx, dstRootLog, true)
-		ckFatal(errors.Wrap(err, "error serving dst contacts index"))
+		fatalOnError(errors.Wrap(err, "error serving dst contacts index"))
 	}()
 
 	// check full & empty
@@ -157,27 +167,31 @@ func (tc *tcase) runTest(t *testing.T) {
 	hdone.Add(2)
 
 	// create handlers
-	//h1 := New(infoAlice, srcID, srcRootLog, srcMlog, srcGraphBuilder, node? prom? meh
-	h1 := &handler{
-		promisc:      true,
-		Id:           srcID,
-		RootLog:      srcRootLog,
-		UserFeeds:    srcMlog,
-		GraphBuilder: srcGraphBuilder,
-		Info:         infoAlice,
-		hanlderDone: func() {
+	h1 := handlerWrapper{
+		Handler: &handler{
+			promisc:      true,
+			Id:           srcID,
+			RootLog:      srcRootLog,
+			UserFeeds:    srcMlog,
+			GraphBuilder: srcGraphBuilder,
+			Info:         infoAlice,
+		},
+		AfterConnect: func() {
 			infoAlice.Log("event", "handler done", "time-since", time.Since(start))
 			hdone.Done()
 		},
 	}
-	h2 := &handler{
-		promisc:      true,
-		Id:           dstID,
-		RootLog:      dstRootLog,
-		UserFeeds:    dstMlog,
-		GraphBuilder: dstGraphBuilder,
-		Info:         infoBob,
-		hanlderDone: func() {
+
+	h2 := handlerWrapper{
+		Handler: &handler{
+			promisc:      true,
+			Id:           dstID,
+			RootLog:      dstRootLog,
+			UserFeeds:    dstMlog,
+			GraphBuilder: dstGraphBuilder,
+			Info:         infoBob,
+		},
+		AfterConnect: func() {
 			infoBob.Log("event", "handler done", "time-since", time.Since(start))
 			hdone.Done()
 		},
@@ -224,7 +238,7 @@ func (tc *tcase) runTest(t *testing.T) {
 }
 
 func TestReplicate(t *testing.T) {
-	for _, tc := range []tcase{
+	for _, tc := range []testCase{
 		{"testdata/replicate1", 2, "@Z9VZfAWEFjNyo2SfuPu6dkbarqalYELwARCE4nKXyY0=.ed25519"},
 		{"testdata/largeRepo", 431, "@qhSpPqhWyJBZ0/w+ERa6WZvRWjaXu0dlep6L+Xi6PQ0=.ed25519"},
 	} {
@@ -249,7 +263,7 @@ func BenchmarkReplicate(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		err := srcMlogServe(context.TODO(), srcRootLog, true)
-		ckFatal(errors.Wrap(err, "srcMlogServe error"))
+		fatalOnError(errors.Wrap(err, "srcMlogServe error"))
 		wg.Done()
 	}()
 
@@ -260,7 +274,7 @@ func BenchmarkReplicate(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		err := srcGraphBuilderServe(context.TODO(), srcRootLog, true)
-		ckFatal(errors.Wrap(err, "srcGraphBuilderServe error"))
+		fatalOnError(errors.Wrap(err, "srcGraphBuilderServe error"))
 		wg.Done()
 	}()
 

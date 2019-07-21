@@ -27,7 +27,11 @@ func (e ErrWrongSequence) Error() string {
 		e.Ref.Ref(), e.Stored, e.Indexed)
 }
 
-func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []librarian.Addr) error {
+func (h *handler) fetchAllLib(
+	ctx context.Context,
+	e muxrpc.Endpoint,
+	lst []librarian.Addr,
+) error {
 	var refs = graph.NewFeedSet(len(lst))
 	for _, addr := range lst {
 		err := refs.AddB([]byte(addr))
@@ -38,7 +42,12 @@ func (h *handler) fetchAllLib(ctx context.Context, e muxrpc.Endpoint, lst []libr
 	return h.fetchAll(ctx, e, refs)
 }
 
-func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet, got []librarian.Addr) error {
+func (h *handler) fetchAllMinus(
+	ctx context.Context,
+	e muxrpc.Endpoint,
+	fs graph.FeedSet,
+	got []librarian.Addr,
+) error {
 	lst, err := fs.List()
 	if err != nil {
 		return err
@@ -55,7 +64,11 @@ func (h *handler) fetchAllMinus(ctx context.Context, e muxrpc.Endpoint, fs graph
 	return h.fetchAll(ctx, e, refs)
 }
 
-func (h *handler) fetchAll(ctx context.Context, e muxrpc.Endpoint, fs graph.FeedSet) error {
+func (h *handler) fetchAll(
+	ctx context.Context,
+	e muxrpc.Endpoint,
+	fs graph.FeedSet,
+) error {
 	// we don't just want them all parallel right nw
 	// this kind of concurrency is way to harsh on the runtime
 	// we need some kind of FeedManager, similar to Blobs
@@ -89,7 +102,11 @@ func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 }
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
-func (g *handler) fetchFeed(ctx context.Context, fr *ssb.FeedRef, edp muxrpc.Endpoint) error {
+func (g *handler) fetchFeed(
+	ctx context.Context,
+	fr *ssb.FeedRef,
+	edp muxrpc.Endpoint,
+) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
