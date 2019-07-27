@@ -99,15 +99,18 @@ func NewJSONDecodeToMapExtractor(next genericExtractor) genericExtractor {
 
 func NewTraverseExtractor(path []string, next genericExtractor) genericExtractor {
 	return genericExtractor(func(v interface{}) (map[string]string, error) {
-		for len(path) > 0 {
+		// don't operate on path directly, or else it will only work
+		// for the first call.
+		var remaining = path
+		for len(remaining) > 0 {
 			m, ok := v.(map[string]interface{})
 			if !ok {
 				// TODO log?
 				return nil, nil
 			}
 
-			v, ok = m[path[0]]
-			path = path[1:]
+			v, ok = m[remaining[0]]
+			remaining = remaining[1:]
 			if !ok {
 				// TODO log?
 				return nil, nil
