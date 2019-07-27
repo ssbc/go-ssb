@@ -10,6 +10,7 @@ require (
 	github.com/go-kit/kit v0.8.0
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
+	github.com/keks/marx v0.0.0-20190727224555-4a0d95f939e6
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
 	github.com/kisielk/errcheck v1.2.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect

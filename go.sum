@@ -69,6 +69,8 @@ github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uP
 github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/keks/marx v0.0.0-20190727224555-4a0d95f939e6 h1:24gei0qrql7+SCJ0V6y4WSAiKbJ1AitOtfDvlqh7n7c=
+github.com/keks/marx v0.0.0-20190727224555-4a0d95f939e6/go.mod h1:m0WJeDY6JZM5RF+U2YtIa8ne0bcVK9ipvmxqJPpzHvM=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472 h1:6nrO82kszcc+rcKPCJGgCj5ACTdmq6aNGav8zE5oYm0=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472/go.mod h1:oLLUlGld/axGHThR36o8bADQUHG+TKSUdoKqCvnoQB4=
 github.com/keks/persist v0.0.0-20180731151133-9546f7b3f97e h1:o/sy6yPOb1lu+gXaGGYYFSXxV5h96ps5CzprrMkhQ0o=
