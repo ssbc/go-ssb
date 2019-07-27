@@ -47,7 +47,7 @@ func TestGenericExtractor(t *testing.T) {
 		{
 			name: "toplevel",
 			x:    genericExtractor(TopLevelExtract),
-			value: &message.StoredMessage{
+			value: message.StoredMessage{
 				Raw: mustBytes(json.Marshal(map[string]interface{}{
 					"content": map[string]interface{}{
 						"number":  23,
@@ -75,7 +75,7 @@ func TestGenericExtractor(t *testing.T) {
 				NewJSONDecodeToMapExtractor(
 					NewTraverseExtractor([]string{"content"},
 						genericExtractor(StringsExtractor)))),
-			value: &message.StoredMessage{
+			value: message.StoredMessage{
 				Raw: mustBytes(json.Marshal(map[string]interface{}{
 					"content": map[string]interface{}{
 						"number":  23,

@@ -15,7 +15,7 @@ import (
 const IndexToplevel = "toplevel"
 
 func TopLevelExtract(value interface{}) (map[string]string, error) {
-	msg, ok := value.(*message.StoredMessage)
+	msg, ok := value.(message.StoredMessage)
 	if !ok {
 		return nil, errors.Errorf("error casting message. got type %T, expected %T", value, msg)
 	}

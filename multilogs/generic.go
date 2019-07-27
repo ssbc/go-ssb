@@ -73,7 +73,7 @@ func openGeneric(r repo.Interface, name string, x genericExtractor, maxLength in
 
 func NewStoredMessageRawExtractor(next genericExtractor) genericExtractor {
 	return genericExtractor(func(v interface{}) (map[string]string, error) {
-		msg, ok := v.(*message.StoredMessage)
+		msg, ok := v.(message.StoredMessage)
 		if !ok {
 			fmt.Printf("expected type %T, got %T\n", msg, v)
 			// TODO log?
