@@ -17,6 +17,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/multilogs/mlutil"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -136,11 +137,11 @@ func TestPublishUserFeeds(t *testing.T) {
 	}
 
 	var toplevelExpect = map[librarian.Addr][]margaret.Seq{
-		mustAddr(encodeStringTuple("type", "about")): []margaret.Seq{margaret.BaseSeq(0)},
-		mustAddr(encodeStringTuple("type", "contact")): []margaret.Seq{margaret.BaseSeq(1)},
-		mustAddr(encodeStringTuple("name", "test user")): []margaret.Seq{margaret.BaseSeq(0)},
-		mustAddr(encodeStringTuple("type", "text")): []margaret.Seq{margaret.BaseSeq(2)},
-		mustAddr(encodeStringTuple("text", "# hello world!")): []margaret.Seq{margaret.BaseSeq(2)},
+		mustAddr(mlutil.EncodeStringTuple("type", "about")): []margaret.Seq{margaret.BaseSeq(0)},
+		mustAddr(mlutil.EncodeStringTuple("type", "contact")): []margaret.Seq{margaret.BaseSeq(1)},
+		mustAddr(mlutil.EncodeStringTuple("name", "test user")): []margaret.Seq{margaret.BaseSeq(0)},
+		mustAddr(mlutil.EncodeStringTuple("type", "text")): []margaret.Seq{margaret.BaseSeq(2)},
+		mustAddr(mlutil.EncodeStringTuple("text", "# hello world!")): []margaret.Seq{margaret.BaseSeq(2)},
 	}
 
 	for addr, seqs := range toplevelExpect {

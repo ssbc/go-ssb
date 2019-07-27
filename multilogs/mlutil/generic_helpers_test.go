@@ -1,4 +1,4 @@
-package multilogs
+package mlutil
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ func TestGeneric_EncodeStringTuple(t *testing.T) {
 	mkTest := func(tc testCase) func(*testing.T) {
 		return func(t *testing.T) {
 			r := require.New(t)
-			addr, err := encodeStringTuple(tc.str1, tc.str2)
+			addr, err := EncodeStringTuple(tc.str1, tc.str2)
 
 			if tc.err != "" {
 				t.Log(err)

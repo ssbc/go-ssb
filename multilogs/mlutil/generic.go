@@ -1,4 +1,4 @@
-package multilogs
+package mlutil
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-type genericExtractor func(v interface{}) (map[string]string, error)
+type GenericExtractor func(v interface{}) (map[string]string, error)
 
-func openGeneric(r repo.Interface, name string, x genericExtractor, maxLength int) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
+func OpenGeneric(r repo.Interface, name string, x GenericExtractor, maxLength int) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
 	return repo.OpenMultiLog(r, name, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := value.(error); ok {
 			if margaret.IsErrNulled(nulled) {
@@ -39,7 +39,7 @@ func openGeneric(r repo.Interface, name string, x genericExtractor, maxLength in
 				continue
 			}
 
-			id, err := encodeStringTuple(k, v)
+			id, err := EncodeStringTuple(k, v)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -71,8 +71,8 @@ func openGeneric(r repo.Interface, name string, x genericExtractor, maxLength in
 	})
 }
 
-func NewStoredMessageRawExtractor(next genericExtractor) genericExtractor {
-	return genericExtractor(func(v interface{}) (map[string]string, error) {
+func NewStoredMessageRawExtractor(next GenericExtractor) GenericExtractor {
+	return GenericExtractor(func(v interface{}) (map[string]string, error) {
 		msg, ok := v.(message.StoredMessage)
 		if !ok {
 			fmt.Printf("expected type %T, got %T\n", msg, v)
@@ -84,8 +84,8 @@ func NewStoredMessageRawExtractor(next genericExtractor) genericExtractor {
 	})
 }
 
-func NewJSONDecodeToMapExtractor(next genericExtractor) genericExtractor {
-	return genericExtractor(func(v interface{}) (map[string]string, error) {
+func NewJSONDecodeToMapExtractor(next GenericExtractor) GenericExtractor {
+	return GenericExtractor(func(v interface{}) (map[string]string, error) {
 		var m map[string]interface{}
 
 		err := json.Unmarshal(v.([]byte), &m)
@@ -97,8 +97,8 @@ func NewJSONDecodeToMapExtractor(next genericExtractor) genericExtractor {
 	})
 }
 
-func NewTraverseExtractor(path []string, next genericExtractor) genericExtractor {
-	return genericExtractor(func(v interface{}) (map[string]string, error) {
+func NewTraverseExtractor(path []string, next GenericExtractor) GenericExtractor {
+	return GenericExtractor(func(v interface{}) (map[string]string, error) {
 		// don't operate on path directly, or else it will only work
 		// for the first call.
 		var remaining = path
@@ -141,8 +141,8 @@ func StringsExtractor(v interface{}) (map[string]string, error) {
 	return out, nil
 }
 
-// encodeStringTuple encodes a pair of strings to bytes by length-prefixing and then concatenating them. Returns an error if either input string is longer than 255 bytes.
-func encodeStringTuple(str1, str2 string) (librarian.Addr, error) {
+// EncodeStringTuple encodes a pair of strings to bytes by length-prefixing and then concatenating them. Returns an error if either input string is longer than 255 bytes.
+func EncodeStringTuple(str1, str2 string) (librarian.Addr, error) {
 	var (
 		bs1, bs2 = []byte(str1), []byte(str2)
 		l1, l2   = len(bs1), len(bs2)

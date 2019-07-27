@@ -1,4 +1,4 @@
-package multilogs
+package mlutil
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func mustBytes(bs []byte, err error) []byte {
 func TestGenericExtractor(t *testing.T) {
 	type testCase struct {
 		name   string
-		x      genericExtractor
+		x      GenericExtractor
 		value  interface{}
 		result map[string]string
 		err    string
@@ -45,36 +45,11 @@ func TestGenericExtractor(t *testing.T) {
 
 	var tcs = []testCase{
 		{
-			name: "toplevel",
-			x:    genericExtractor(TopLevelExtract),
-			value: message.StoredMessage{
-				Raw: mustBytes(json.Marshal(map[string]interface{}{
-					"content": map[string]interface{}{
-						"number":  23,
-						"string1": "foo",
-						"object": map[string]interface{}{
-							"nestedString": "illegal",
-						},
-						"string2": "bar",
-						"array": []string{
-							"arrayString1",
-							"arrayString2",
-							"arrayString3",
-						},
-					},
-				})),
-			},
-			result: map[string]string{
-				"string1": "foo",
-				"string2": "bar",
-			},
-		},
-		{
 			name: "composed",
 			x: NewStoredMessageRawExtractor(
 				NewJSONDecodeToMapExtractor(
 					NewTraverseExtractor([]string{"content"},
-						genericExtractor(StringsExtractor)))),
+						GenericExtractor(StringsExtractor)))),
 			value: message.StoredMessage{
 				Raw: mustBytes(json.Marshal(map[string]interface{}{
 					"content": map[string]interface{}{
