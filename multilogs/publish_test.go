@@ -7,10 +7,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/keks/marx"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
@@ -18,10 +20,35 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestSignMessages(t *testing.T) {
-	tctx := context.TODO()
+func makeIndexServeWorker(name string, serveFunc repo.ServeFunc, rl margaret.Log, live bool) marx.Worker {
+	return marx.Worker(func(ctx context.Context) error {
+		err := serveFunc(ctx, rl, true)
+		if err != nil && errors.Cause(err) != context.Canceled {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func TestPublishUserFeeds(t *testing.T) {
+	tctx, rootCancel := context.WithCancel(context.TODO())
+
 	r := require.New(t)
 	a := assert.New(t)
+
+	unionErrChan := make(chan error)
+	defer func() {
+		rootCancel()
+		err := <-unionErrChan
+		r.NoError(err, "union error channel")
+
+	}()
+
+	unionWorker, joinTheUnion := marx.NewUnion()
+	go func() {
+		unionErrChan <- unionWorker(tctx)
+	}()
 
 	rpath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)
@@ -39,14 +66,11 @@ func TestSignMessages(t *testing.T) {
 
 	userFeeds, _, userFeedsServe, err := OpenUserFeeds(testRepo)
 	r.NoError(err, "failed to get user feeds multilog")
+	joinTheUnion(makeIndexServeWorker("user feeds", userFeedsServe, rl, true))
 
-	killServe, cancel := context.WithCancel(tctx)
-	defer cancel()
-	errc := make(chan error)
-	go func() {
-		err := userFeedsServe(killServe, rl, true)
-		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
-	}()
+	toplevel, _, toplevelServe, err := OpenToplevel(testRepo, 32)
+	r.NoError(err, "failed to get toplevel multilog")
+	joinTheUnion(makeIndexServeWorker("toplevel", toplevelServe, rl, true))
 
 	staticRand := rand.New(rand.NewSource(42))
 	testAuthor, err := ssb.NewKeyPair(staticRand)
@@ -105,4 +129,49 @@ func TestSignMessages(t *testing.T) {
 		a.Contains(string(storedMsg.Raw), `"signature": "`)
 		a.Contains(string(storedMsg.Raw), fmt.Sprintf(`"sequence": %d`, i+1))
 	}
+
+	mustAddr := func(addr librarian.Addr, err error) librarian.Addr {
+		r.NoError(err, "encodeStringTuple error")
+		return addr
+	}
+
+	var toplevelExpect = map[librarian.Addr][]margaret.Seq{
+		mustAddr(encodeStringTuple("type", "about")): []margaret.Seq{margaret.BaseSeq(0)},
+		mustAddr(encodeStringTuple("type", "contact")): []margaret.Seq{margaret.BaseSeq(1)},
+		mustAddr(encodeStringTuple("name", "test user")): []margaret.Seq{margaret.BaseSeq(0)},
+		mustAddr(encodeStringTuple("type", "text")): []margaret.Seq{margaret.BaseSeq(2)},
+		mustAddr(encodeStringTuple("text", "# hello world!")): []margaret.Seq{margaret.BaseSeq(2)},
+	}
+
+	for addr, seqs := range toplevelExpect {
+		slog, err := toplevel.Get(addr)
+		r.NoErrorf(err, "open toplevel sublog %q", addr)
+
+		ctx, cancel := context.WithCancel(tctx)
+
+		sink := luigi.FuncSink(func(ctx_ context.Context, v interface{}, err error) error{
+			r.True(len(seqs) > 0)
+			r.Equal(seqs[0], v)
+
+			seqs = seqs[1:]
+
+			if len(seqs) == 0 {
+				go func(addr librarian.Addr) {
+					cancel()
+				}(addr)
+			}
+
+			return nil
+		})
+
+		src, err := slog.Query(margaret.Live(true))
+		r.NoErrorf(err, "query toplevel sublog %q", addr)
+
+		err = luigi.Pump(ctx, sink, src)
+		r.EqualError(errors.Cause(err), "context canceled", "luigi pump error")
+
+		a.Equalf(len(seqs), 0, "pair %q not complete", addr)
+	}
+
 }
+
