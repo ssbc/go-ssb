@@ -16,7 +16,9 @@ import (
 
 type GenericExtractor func(v interface{}) (map[string]string, error)
 
-func OpenGeneric(r repo.Interface, name string, x GenericExtractor, maxLength int) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
+type PluggableExtractor func(next GenericExtractor) GenericExtractor
+
+func OpenGeneric(r repo.Interface, name string, x GenericExtractor) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
 	return repo.OpenMultiLog(r, name, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := value.(error); ok {
 			if margaret.IsErrNulled(nulled) {
@@ -35,10 +37,6 @@ func OpenGeneric(r repo.Interface, name string, x GenericExtractor, maxLength in
 		var errs []error
 
 		for k, v := range m {
-			if len(v) > maxLength {
-				continue
-			}
-
 			id, err := EncodeStringTuple(k, v)
 			if err != nil {
 				errs = append(errs, err)
@@ -71,74 +69,106 @@ func OpenGeneric(r repo.Interface, name string, x GenericExtractor, maxLength in
 	})
 }
 
-func NewStoredMessageRawExtractor(next GenericExtractor) GenericExtractor {
-	return GenericExtractor(func(v interface{}) (map[string]string, error) {
-		msg, ok := v.(message.StoredMessage)
+func Plug(pexts ...PluggableExtractor) GenericExtractor {
+	var ext = Terminate(pexts[len(pexts) -1])
+
+	for i := len(pexts)-2; i >= 0; i-- {
+		ext = pexts[i](ext)
+	}
+
+	return ext
+}
+
+func Terminate(pext PluggableExtractor) GenericExtractor {
+	return pext(func(v interface{}) (map[string]string, error) {
+		m, ok := v.(map[string]string)
 		if !ok {
-			fmt.Printf("expected type %T, got %T\n", msg, v)
-			// TODO log?
-			return nil, nil
+			return nil, fmt.Errorf("expected type %T, got %T", m, v)
 		}
 
-		return next(msg.Raw)
+		return m, nil
 	})
 }
 
-func NewJSONDecodeToMapExtractor(next GenericExtractor) GenericExtractor {
-	return GenericExtractor(func(v interface{}) (map[string]string, error) {
-		var m map[string]interface{}
+func NewStoredMessageRawExtractor() PluggableExtractor {
+	return PluggableExtractor(func(next GenericExtractor) GenericExtractor {
+		return GenericExtractor(func(v interface{}) (map[string]string, error) {
+			msg, ok := v.(message.StoredMessage)
+			if !ok {
+				fmt.Printf("expected type %T, got %T\n", msg, v)
+				// TODO log?
+				return nil, nil
+			}
 
-		err := json.Unmarshal(v.([]byte), &m)
-		if err != nil {
-			return nil, err
-		}
-
-		return next(m)
+			return next(msg.Raw)
+		})
 	})
 }
 
-func NewTraverseExtractor(path []string, next GenericExtractor) GenericExtractor {
-	return GenericExtractor(func(v interface{}) (map[string]string, error) {
-		// don't operate on path directly, or else it will only work
-		// for the first call.
-		var remaining = path
-		for len(remaining) > 0 {
+func NewJSONDecodeToMapExtractor() PluggableExtractor {
+	return PluggableExtractor(func(next GenericExtractor) GenericExtractor {
+		return GenericExtractor(func(v interface{}) (map[string]string, error) {
+			var m map[string]interface{}
+
+			err := json.Unmarshal(v.([]byte), &m)
+			if err != nil {
+				return nil, err
+			}
+
+			return next(m)
+		})
+	})
+}
+
+func NewTraverseExtractor(path []string) PluggableExtractor {
+	return PluggableExtractor(func(next GenericExtractor) GenericExtractor {
+		return GenericExtractor(func(v interface{}) (map[string]string, error) {
+			// don't operate on path directly, or else it will only work
+			// for the first call.
+			var remaining = path
+
+			for len(remaining) > 0 {
+				m, ok := v.(map[string]interface{})
+				if !ok {
+					// TODO log?
+					return nil, nil
+				}
+
+				v, ok = m[remaining[0]]
+				remaining = remaining[1:]
+				if !ok {
+					// TODO log?
+					return nil, nil
+				}
+			}
+
+			return next(v)
+		})
+	})
+}
+
+func StringsExtractor(max int) PluggableExtractor {
+	return PluggableExtractor(func(next GenericExtractor) GenericExtractor {
+		return GenericExtractor(func(v interface{}) (map[string]string, error) {
 			m, ok := v.(map[string]interface{})
 			if !ok {
 				// TODO log?
 				return nil, nil
 			}
 
-			v, ok = m[remaining[0]]
-			remaining = remaining[1:]
-			if !ok {
-				// TODO log?
-				return nil, nil
+			out := make(map[string]string)
+			for k, v := range m {
+				str, ok := v.(string)
+				if !ok || len(str) > max {
+					continue
+				}
+
+				out[k] = str
 			}
-		}
 
-		return next(v)
+			return out, nil
+		})
 	})
-}
-
-func StringsExtractor(v interface{}) (map[string]string, error) {
-	m, ok := v.(map[string]interface{})
-	if !ok {
-		// TODO log?
-		return nil, nil
-	}
-
-	out := make(map[string]string)
-	for k, v := range m {
-		str, ok := v.(string)
-		if !ok {
-			continue
-		}
-
-		out[k] = str
-	}
-
-	return out, nil
 }
 
 // EncodeStringTuple encodes a pair of strings to bytes by length-prefixing and then concatenating them. Returns an error if either input string is longer than 255 bytes.
