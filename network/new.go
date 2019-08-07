@@ -167,7 +167,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
-		n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
+		// n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
 			return // ignore silently
 		}
@@ -223,7 +223,7 @@ func (n *node) addRemote(edp muxrpc.Endpoint) {
 	}
 	ref := r.Ref()
 	if oldEdp, has := n.remotes[ref]; has {
-		n.log.Log("remotes", "previous active", "ref", ref)
+		// n.log.Log("remotes", "previous active", "ref", ref)
 		c := client.FromEndpoint(oldEdp)
 		_, err := c.Whoami()
 		if err == nil {
