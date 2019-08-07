@@ -179,7 +179,7 @@ func (g *handler) fetchFeed(
 	}
 
 	startSeq := latestSeq
-	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq, "me", g.Id.Ref())
+	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", g.Id.Ref())
 
 	var q = message.CreateHistArgs{
 		Id:    fr.Ref(),
@@ -218,7 +218,7 @@ func (g *handler) fetchFeed(
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
-	info.Log("starting", "fetch")
+	// info.Log("starting", "fetch")
 	err = luigi.Pump(toLong, snk, src)
 	return errors.Wrap(err, "gossip pump failed")
 }
