@@ -34,16 +34,16 @@ type client struct {
 
 const ssbAppkey = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
 
-func FromEndpoint(edp muxrpc.Endpoint) Interface {
+func FromEndpoint(edp muxrpc.Endpoint) *client {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(context.TODO())
 	c.Endpoint = edp
-	return c
+	return &c
 }
 
-func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (Interface, error) {
+func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, error) {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
@@ -103,7 +103,7 @@ func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (Interface, 
 	return &c, nil
 }
 
-func NewUnix(ctx context.Context, path string) (Interface, error) {
+func NewUnix(ctx context.Context, path string) (*client, error) {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
