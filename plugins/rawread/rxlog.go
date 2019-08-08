@@ -73,7 +73,12 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 	// // only return message keys
 	// qry.Values = true
 
-	src, err := g.root.Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
+	src, err := g.root.Query(
+		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Limit(int(qry.Limit)),
+		margaret.Live(qry.Live),
+		margaret.Reverse(qry.Reverse),
+	)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logStream: failed to qry tipe"))
 		return
