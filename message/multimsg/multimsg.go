@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
@@ -25,8 +26,13 @@ const (
 // currently supports Proto and legacy
 type MultiMessage struct {
 	ssb.Message
-	tipe MessageType
-	key  *ssb.MessageRef
+	tipe     MessageType
+	key      *ssb.MessageRef
+	received time.Time
+}
+
+func (mm MultiMessage) Received() time.Time {
+	return mm.received
 }
 
 func (mm MultiMessage) MarshalBinary() ([]byte, error) {

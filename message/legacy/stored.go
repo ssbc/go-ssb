@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/cryptix/go/encodedTime"
+
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 )
@@ -53,7 +55,12 @@ func (sm StoredMessage) Previous() *ssb.MessageRef {
 	return sm.Previous_
 }
 
-func (sm StoredMessage) Timestamp() time.Time {
+func (sm StoredMessage) Claimed() time.Time {
+	vc := sm.ValueContent()
+	return time.Time(vc.Timestamp)
+}
+
+func (sm StoredMessage) Received() time.Time {
 	return sm.Timestamp_
 }
 
@@ -75,10 +82,10 @@ func (sm StoredMessage) ValueContent() *ssb.Value {
 	msg.Author = *sm.Author_
 	msg.Sequence = sm.Sequence_
 	msg.Hash = "sha256"
-	// msg.Timestamp = float64(sm.Timestamp.Unix() * 1000)
 	var cs struct {
-		Content   json.RawMessage `json:"content"`
-		Signature string          `json:"signature"`
+		Timestamp encodedTime.Millisecs `json:"timestamp"`
+		Content   json.RawMessage       `json:"content"`
+		Signature string                `json:"signature"`
 	}
 	err := json.Unmarshal(sm.Raw_, &cs)
 	if err != nil {
@@ -87,14 +94,15 @@ func (sm StoredMessage) ValueContent() *ssb.Value {
 	}
 	msg.Content = cs.Content
 	msg.Signature = cs.Signature
+	msg.Timestamp = cs.Timestamp
 	return &msg
 }
 
 func (sm StoredMessage) ValueContentJSON() json.RawMessage {
+	return sm.Raw_
 	// jsonB, err := json.Marshal(sm.ValueContent())
 	// if err != nil {
 	// 	panic(err.Error())
 	// }
-
-	return sm.Raw_
+	// return jsonB
 }

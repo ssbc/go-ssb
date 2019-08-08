@@ -4,32 +4,30 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/cryptix/go/encodedTime"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 )
 
 type Value struct {
-	Previous  *MessageRef      `json:"previous"`
-	Author    FeedRef          `json:"author"`
-	Sequence  margaret.BaseSeq `json:"sequence"`
-	Timestamp float64          `json:"timestamp"`
-	// Timestamp *encodedTime.Millisecs `json:"timestamp"`
-	Hash      string          `json:"hash"`
-	Content   json.RawMessage `json:"content"`
-	Signature string          `json:"signature"`
+	Previous  *MessageRef           `json:"previous"`
+	Author    FeedRef               `json:"author"`
+	Sequence  margaret.BaseSeq      `json:"sequence"`
+	Timestamp encodedTime.Millisecs `json:"timestamp"`
+	Hash      string                `json:"hash"`
+	Content   json.RawMessage       `json:"content"`
+	Signature string                `json:"signature"`
 }
 
-// Abstract allows accessing message aspects without known the feed type
-// TODO: would prefer to strip the Get previs of these but it would conflict with legacy StoredMessage's fields
+// Message allows accessing message aspects without known the feed type
 type Message interface {
 	Key() *MessageRef
 	Previous() *MessageRef
 
 	margaret.Seq
 
-	// TODO: received vs claimed
-	Timestamp() time.Time
-	//Time() time.Time?
+	Claimed() time.Time
+	Received() time.Time
 
 	Author() *FeedRef
 	ContentBytes() []byte
@@ -190,9 +188,9 @@ type Vote struct {
 }
 
 type KeyValueRaw struct {
-	Key_       *MessageRef `json:"key"`
-	Value      Value       `json:"value"`
-	Timestamp_ int64       `json:"timestamp"`
+	Key_      *MessageRef `json:"key"`
+	Value     Value       `json:"value"`
+	Timestamp int64       `json:"timestamp"`
 }
 
 type KeyValueAsMap struct {
@@ -219,8 +217,12 @@ func (kvr KeyValueRaw) Previous() *MessageRef {
 	return kvr.Value.Previous
 }
 
-func (kvr KeyValueRaw) Timestamp() time.Time {
-	return time.Unix(int64(kvr.Value.Timestamp), 0)
+func (kvr KeyValueRaw) Claimed() time.Time {
+	return time.Time(kvr.Value.Timestamp)
+}
+
+func (kvr KeyValueRaw) Received() time.Time {
+	return time.Unix(kvr.Timestamp, 0)
 }
 
 func (kvr KeyValueRaw) ContentBytes() []byte {

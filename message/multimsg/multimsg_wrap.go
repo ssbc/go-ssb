@@ -2,6 +2,7 @@ package multimsg
 
 import (
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
@@ -30,6 +31,7 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 	}
 
 	mm.key = abs.Key()
+	mm.received = time.Now()
 
 	switch tv := val.(type) {
 	case *legacy.StoredMessage:

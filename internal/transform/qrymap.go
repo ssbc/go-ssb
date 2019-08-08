@@ -32,7 +32,7 @@ func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 		var kv ssb.KeyValueRaw
 		kv.Key_ = abs.Key()
 		kv.Value = *abs.ValueContent()
-		kv.Timestamp_ = abs.Timestamp().Unix()
+		kv.Timestamp = abs.Received().Unix() * 1000
 		kvMsg, err := json.Marshal(kv)
 		if err != nil {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
