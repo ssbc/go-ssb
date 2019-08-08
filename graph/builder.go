@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
 	"sync"
 
@@ -142,7 +141,7 @@ func (b *builder) Build() (*Graph, error) {
 
 			keySplits := bytes.Split(k, []byte(":"))
 			if len(keySplits) != 2 {
-				fmt.Printf("skipping: %q\n", string(k))
+				// fmt.Printf("graph builder skipping: %q\n", string(k))
 				continue
 			}
 
