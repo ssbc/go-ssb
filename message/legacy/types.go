@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
@@ -23,14 +24,17 @@ type DeserializedMessage struct {
 }
 
 func (dm DeserializedMessage) AsMessage() ssb.Message {
-	raw, _ := json.Marshal(dm)
+	raw, err := json.Marshal(dm)
+	if err != nil {
+		panic(err)
+	}
 
 	return StoredMessage{
-		Previous_: dm.Previous,
-		Author_:   &dm.Author,
-		Sequence_: dm.Sequence,
-		// Timestamp_: time.Unix(int64(dm.Timestamp/1000.0), 0),
-		Raw_: raw,
+		Previous_:  dm.Previous,
+		Author_:    &dm.Author,
+		Sequence_:  dm.Sequence,
+		Timestamp_: time.Unix(int64(dm.Timestamp/1000.0), 0),
+		Raw_:       raw,
 	}
 }
 
@@ -100,27 +104,4 @@ func jsonAndPreserve(msg interface{}) ([]byte, error) {
 type SignedLegacyMessage struct {
 	LegacyMessage
 	Signature Signature `json:"signature"`
-}
-
-type KeyValueRaw struct {
-	Key       *ssb.MessageRef `json:"key"`
-	Value     json.RawMessage `json:"value"`
-	Timestamp int64           `json:"timestamp"`
-}
-
-type Typed struct {
-	Previous  ssb.MessageRef   `json:"previous"`
-	Author    ssb.FeedRef      `json:"author"`
-	Sequence  margaret.BaseSeq `json:"sequence"`
-	Timestamp float64          `json:"timestamp"`
-	Hash      string           `json:"hash"`
-	Content   struct {
-		Type string `json:"type"`
-	} `json:"content"`
-}
-
-type KeyValueAsMap struct {
-	Key       *ssb.MessageRef `json:"key"`
-	Value     ssb.Value       `json:"value"`
-	Timestamp int64           `json:"timestamp"`
 }

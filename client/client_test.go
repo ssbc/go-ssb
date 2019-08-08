@@ -16,7 +16,6 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -160,10 +159,10 @@ func TestPublish(t *testing.T) {
 
 	streamV, err := src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok := streamV.(legacy.KeyValueAsMap)
+	streamMsg, ok := streamV.(ssb.Message)
 	r.True(ok, "acutal type: %T", streamV)
-	a.Equal(newMsg.Author().Ref(), streamMsg.Value.Author.Ref())
-	a.EqualValues(newMsg.Seq(), streamMsg.Value.Sequence)
+	a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
+	a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
 	v, err := src.Next(context.TODO())
 	a.Nil(v)
@@ -230,16 +229,16 @@ func TestTangles(t *testing.T) {
 
 	streamV, err := src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok := streamV.(legacy.KeyValueAsMap)
+	streamMsg, ok := streamV.(ssb.Message)
 	r.True(ok)
 
-	a.EqualValues(2, streamMsg.Value.Sequence)
+	a.EqualValues(2, streamMsg.Seq())
 
 	streamV, err = src.Next(context.TODO())
 	r.NoError(err)
-	streamMsg, ok = streamV.(legacy.KeyValueAsMap)
+	streamMsg, ok = streamV.(ssb.Message)
 	r.True(ok)
-	a.EqualValues(3, streamMsg.Value.Sequence)
+	a.EqualValues(3, streamMsg.Seq())
 
 	v, err := src.Next(context.TODO())
 	a.Nil(v)

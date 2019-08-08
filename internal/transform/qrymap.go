@@ -8,7 +8,6 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message/legacy"
 )
 
 type KeyValue struct {
@@ -30,16 +29,15 @@ func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 			}, nil
 		}
 
-		var kv legacy.KeyValueRaw
-		kv.Key = abs.Key()
-		kv.Value = abs.ValueContentJSON()
-		if sm, ok := v.(legacy.StoredMessage); ok {
-			kv.Timestamp = sm.Timestamp_.UnixNano() / 1000000
-		}
+		var kv ssb.KeyValueRaw
+		kv.Key_ = abs.Key()
+		kv.Value = *abs.ValueContent()
+		kv.Timestamp_ = abs.Timestamp().Unix()
 		kvMsg, err := json.Marshal(kv)
 		if err != nil {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
 		}
+
 		return &KeyValue{
 			Message: abs,
 			Data:    kvMsg,

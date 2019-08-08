@@ -19,7 +19,6 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/plugins/replicate"
 )
 
@@ -180,7 +179,7 @@ func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
 
 func (c client) CreateLogStream(opts message.CreateHistArgs) (luigi.Source, error) {
 	opts.Keys = true
-	src, err := c.Source(c.rootCtx, legacy.KeyValueAsMap{}, muxrpc.Method{"createLogStream"}, opts)
+	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"createLogStream"}, opts)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
@@ -202,7 +201,7 @@ func (c client) Tangles(root ssb.MessageRef, o message.CreateHistArgs) (luigi.So
 	opt.CreateHistArgs = o
 	opt.Keys = true
 	opt.Root = root.Ref()
-	src, err := c.Source(c.rootCtx, legacy.KeyValueAsMap{}, muxrpc.Method{"tangles"}, opt)
+	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"tangles"}, opt)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 

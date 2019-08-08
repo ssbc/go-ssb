@@ -13,9 +13,10 @@ type Value struct {
 	Author    FeedRef          `json:"author"`
 	Sequence  margaret.BaseSeq `json:"sequence"`
 	Timestamp float64          `json:"timestamp"`
-	Hash      string           `json:"hash"`
-	Content   json.RawMessage  `json:"content"`
-	Signature string           `json:"signature"`
+	// Timestamp *encodedTime.Millisecs `json:"timestamp"`
+	Hash      string          `json:"hash"`
+	Content   json.RawMessage `json:"content"`
+	Signature string          `json:"signature"`
 }
 
 // Abstract allows accessing message aspects without known the feed type
@@ -152,4 +153,89 @@ func (a *About) UnmarshalJSON(b []byte) error {
 
 	*a = *newA
 	return nil
+}
+
+type Typed struct {
+	Value
+	Content struct {
+		Type string `json:"type"`
+	} `json:"content"`
+}
+
+type ValuePost struct {
+	Value
+	Content Post `json:"content"`
+}
+
+type Post struct {
+	Type     string        `json:"type"`
+	Text     string        `json:"text"`
+	Root     *MessageRef   `json:"root"`
+	Branch   MessageRefs   `json:"branch"`
+	Mentions []interface{} `json:"mentions"`
+}
+
+type ValueVote struct {
+	Value
+	Content Vote `json:"content"`
+}
+
+type Vote struct {
+	Type string `json:"type"`
+	Vote struct {
+		Expression string      `json:"expression"`
+		Link       *MessageRef `json:"link"`
+		Value      int         `json:"value"`
+	} `json:"vote"`
+}
+
+type KeyValueRaw struct {
+	Key_       *MessageRef `json:"key"`
+	Value      Value       `json:"value"`
+	Timestamp_ int64       `json:"timestamp"`
+}
+
+type KeyValueAsMap struct {
+	Key       *MessageRef `json:"key"`
+	Value     Value       `json:"value"`
+	Timestamp int64       `json:"timestamp"`
+}
+
+var _ Message = (*KeyValueRaw)(nil)
+
+func (kvr KeyValueRaw) Seq() int64 {
+	return kvr.Value.Sequence.Seq()
+}
+
+func (kvr KeyValueRaw) Key() *MessageRef {
+	return kvr.Key_
+}
+
+func (kvr KeyValueRaw) Author() *FeedRef {
+	return &kvr.Value.Author
+}
+
+func (kvr KeyValueRaw) Previous() *MessageRef {
+	return kvr.Value.Previous
+}
+
+func (kvr KeyValueRaw) Timestamp() time.Time {
+	return time.Unix(int64(kvr.Value.Timestamp), 0)
+}
+
+func (kvr KeyValueRaw) ContentBytes() []byte {
+	return kvr.Value.Content
+}
+
+func (kvr KeyValueRaw) ValueContent() *Value {
+	return &kvr.Value
+}
+
+func (kvr KeyValueRaw) ValueContentJSON() json.RawMessage {
+	jsonB, err := json.Marshal(kvr.ValueContent())
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return jsonB
 }
