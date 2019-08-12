@@ -133,7 +133,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 			r.Equal(testMsg.Level, 9001)
 		}
 
-		t.Log("age:", time.Since(storedMsg.Timestamp()))
+		t.Log("age:", time.Since(storedMsg.Received()))
 	}
 
 	ts.wait()

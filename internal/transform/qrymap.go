@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cryptix/go/encodedTime"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
@@ -32,7 +34,7 @@ func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 		var kv ssb.KeyValueRaw
 		kv.Key_ = abs.Key()
 		kv.Value = *abs.ValueContent()
-		kv.Timestamp = abs.Received().Unix() * 1000
+		kv.Timestamp = encodedTime.Millisecs(abs.Received())
 		kvMsg, err := json.Marshal(kv)
 		if err != nil {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")

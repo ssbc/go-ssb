@@ -188,15 +188,15 @@ type Vote struct {
 }
 
 type KeyValueRaw struct {
-	Key_      *MessageRef `json:"key"`
-	Value     Value       `json:"value"`
-	Timestamp int64       `json:"timestamp"`
+	Key_      *MessageRef           `json:"key"`
+	Value     Value                 `json:"value"`
+	Timestamp encodedTime.Millisecs `json:"timestamp"`
 }
 
 type KeyValueAsMap struct {
-	Key       *MessageRef `json:"key"`
-	Value     Value       `json:"value"`
-	Timestamp int64       `json:"timestamp"`
+	Key       *MessageRef           `json:"key"`
+	Value     Value                 `json:"value"`
+	Timestamp encodedTime.Millisecs `json:"timestamp"`
 }
 
 var _ Message = (*KeyValueRaw)(nil)
@@ -222,7 +222,7 @@ func (kvr KeyValueRaw) Claimed() time.Time {
 }
 
 func (kvr KeyValueRaw) Received() time.Time {
-	return time.Unix(kvr.Timestamp, 0)
+	return time.Time(kvr.Timestamp)
 }
 
 func (kvr KeyValueRaw) ContentBytes() []byte {
