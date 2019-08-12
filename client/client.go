@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -163,6 +164,11 @@ func (c client) Whoami() (*ssb.FeedRef, error) {
 	return resp.ID, nil
 }
 
+func (c client) ReplicateUpTo() (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
+	return src, errors.Wrap(err, "ssbClient: failed to create stream")
+}
+
 func (c client) BlobsWant(ref ssb.BlobRef) error {
 	var v interface{}
 	v, err := c.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
@@ -182,9 +188,72 @@ func (c client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
 	return v.(bool), nil
 
 }
-func (c client) ReplicateUpTo() (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
-	return src, errors.Wrap(err, "ssbClient: failed to create stream")
+
+func (c client) BlobsGet(ref *ssb.BlobRef) (io.Reader, error) {
+	v, err := c.Source(c.rootCtx, codec.Body{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
+	if err != nil {
+		return nil, errors.Wrap(err, "ssbClient: blobs.get failed")
+	}
+	c.logger.Log("blob", "got", "ref", ref.Ref())
+
+	return muxrpc.NewSourceReader(v), nil
+}
+
+type NamesGetResult map[string]map[string]string
+
+func (ngr NamesGetResult) GetCommonName(feed *ssb.FeedRef) (string, bool) {
+	namesFor, ok := ngr[feed.Ref()]
+	if !ok {
+		return "", false
+	}
+	selfChosen, ok := namesFor[feed.Ref()]
+	if !ok {
+		for about, mapv := range ngr {
+			_ = about
+			for from, prescribed := range mapv {
+				return prescribed, true
+				// TODO: check that from is a friend
+				_ = from
+				break
+			}
+		}
+	}
+	return selfChosen, true
+
+}
+
+func (c client) NamesGet() (*NamesGetResult, error) {
+	v, err := c.Async(c.rootCtx, NamesGetResult{}, muxrpc.Method{"names", "get"})
+	if err != nil {
+		return nil, errors.Wrap(err, "ssbClient: names.get failed")
+	}
+	c.logger.Log("names", "get", "v", fmt.Sprintf("%T", v))
+	res := v.(NamesGetResult)
+	return &res, nil
+}
+
+func (c client) NamesSignifier(ref ssb.FeedRef) (string, error) {
+	var v interface{}
+	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getSignifier"}, ref.Ref())
+	if err != nil {
+		return "", errors.Wrap(err, "ssbClient: names.getSignifier failed")
+	}
+	c.logger.Log("names", "getSignifier", "v", v, "ref", ref.Ref())
+	return v.(string), nil
+}
+
+func (c client) NamesImageFor(ref ssb.FeedRef) (*ssb.BlobRef, error) {
+	var v interface{}
+	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getImageFor"}, ref.Ref())
+	if err != nil {
+		return nil, errors.Wrap(err, "ssbClient: names.getImageFor failed")
+	}
+	c.logger.Log("names", "getImageFor", "v", v, "ref", ref.Ref())
+	blobRef := v.(string)
+	if blobRef == "" {
+		return nil, errors.Errorf("no image for feed")
+	}
+	return ssb.ParseBlobRef(blobRef)
 }
 
 func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {

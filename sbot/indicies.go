@@ -26,6 +26,13 @@ func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 			}
 		}
 
+		if slm, ok := plug.(repo.SimpleIndexMaker); ok {
+			err := MountSimpleIndex(plug.Name(), slm.MakeSimpleIndex)(s)
+			if err != nil {
+				return errors.Wrap(err, "sbot/mount plug failed to make simple index")
+			}
+		}
+
 		if mlm, ok := plug.(repo.MultiLogMaker); ok {
 			err := MountMultiLog(plug.Name(), mlm.MakeMultiLog)(s)
 			if err != nil {

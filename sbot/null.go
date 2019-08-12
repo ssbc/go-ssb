@@ -97,7 +97,6 @@ func DropIndicies(r repo.Interface) error {
 		}
 	}
 	var badger = []string{
-		indexes.FolderNameAbout,
 		indexes.FolderNameContacts,
 	}
 	for _, i := range badger {

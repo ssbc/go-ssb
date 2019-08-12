@@ -332,7 +332,7 @@ func (r *FeedRef) Scan(raw interface{}) error {
 func ParseFeedRef(s string) (*FeedRef, error) {
 	ref, err := ParseRef(s)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse ref")
+		return nil, errors.Wrapf(err, "feedRef: couldn't parse %q", s)
 	}
 	newRef, ok := ref.(*FeedRef)
 	if !ok {
@@ -366,7 +366,7 @@ func (ref BlobRef) Ref() string {
 func ParseBlobRef(s string) (*BlobRef, error) {
 	ref, err := ParseRef(s)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse ref")
+		return nil, errors.Wrapf(err, "blobRef: failed to parse %q", s)
 	}
 	newRef, ok := ref.(*BlobRef)
 	if !ok {

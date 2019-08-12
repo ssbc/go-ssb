@@ -9,6 +9,10 @@ type Interface interface {
 	GetPath(...string) string
 }
 
+type SimpleIndexMaker interface {
+	MakeSimpleIndex(r Interface) (librarian.Index, ServeFunc, error)
+}
+
 type MultiLogMaker interface {
 	MakeMultiLog(r Interface) (multilog.MultiLog, ServeFunc, error)
 }

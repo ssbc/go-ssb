@@ -22,6 +22,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 
@@ -130,7 +131,7 @@ func main() {
 			mksbot.LateOption(mksbot.MountMultiLog("byTypes", multilogs.OpenMessageTypes)),
 			// mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)),
 			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
-		// TODO: make about
+			mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
 		)
 	}
 

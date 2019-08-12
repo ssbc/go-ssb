@@ -220,6 +220,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
+	// names
+
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
 		gossip.HopCount(s.hopCount),
