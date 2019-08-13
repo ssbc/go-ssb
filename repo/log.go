@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
-	"go.cryptoscope.co/margaret/offset2"
+	"go.cryptoscope.co/margaret/sqlite"
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
@@ -15,8 +15,7 @@ func OpenLog(r Interface, path ...string) (margaret.Log, error) {
 		path[0] = "logs"
 	}
 
-	// TODO use proper log message type here
-	log, err := offset2.Open(r.GetPath(path...), msgpack.New(&multimsg.MultiMessage{}))
-	log = multimsg.NewWrappedLog(log)
-	return log, errors.Wrap(err, "failed to open log")
+	// log, err := offset2.Open(r.GetPath(path...), msgpack.New(&multimsg.MultiMessage{}))
+	log, err := sqlite.Open(r.GetPath(path...), msgpack.New(&multimsg.MultiMessage{}))
+	return multimsg.NewWrappedLog(log), errors.Wrap(err, "failed to open log")
 }
