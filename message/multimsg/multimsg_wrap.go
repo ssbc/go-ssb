@@ -25,6 +25,19 @@ type WrappedLog struct {
 func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 	var mm MultiMessage
 
+	if osm, ok := val.(legacy.OldStoredMessage); ok {
+		mm.tipe = Legacy
+		mm.Message = &legacy.StoredMessage{
+			Author_:    osm.Author,
+			Previous_:  osm.Previous,
+			Key_:       osm.Key,
+			Sequence_:  osm.Sequence,
+			Timestamp_: osm.Timestamp,
+			Raw_:       osm.Raw,
+		}
+		return wl.Log.Append(mm)
+	}
+
 	abs, ok := val.(ssb.Message)
 	if !ok {
 		return margaret.SeqEmpty, errors.Errorf("wrappedLog: not a ssb.Message: %T", val)
@@ -32,15 +45,10 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 
 	mm.key = abs.Key()
 	mm.received = time.Now()
-
 	switch tv := val.(type) {
-	case legacy.StoredMessage:
-		mm.tipe = Legacy
-		mm.Message = &tv
 	case *legacy.StoredMessage:
 		mm.tipe = Legacy
 		mm.Message = tv
-
 	case *gabbygrove.Transfer:
 		mm.tipe = Gabby
 		mm.Message = tv

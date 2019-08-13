@@ -12,7 +12,25 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
-// really dislike the underlines..
+// OldStoredMessage is only available to ease migration from old, pre-multimsg formats
+type OldStoredMessage struct {
+	Author    *ssb.FeedRef    // @... pubkey
+	Previous  *ssb.MessageRef // %... message hashsha
+	Key       *ssb.MessageRef // %... message hashsha
+	Sequence  margaret.BaseSeq
+	Timestamp time.Time
+	Raw       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
+}
+
+func (sm OldStoredMessage) String() string {
+	s := fmt.Sprintf("msg(%s:%d) %s", sm.Author.Ref(), sm.Sequence, sm.Key.Ref())
+	b, _ := EncodePreserveOrder(sm.Raw)
+	s += "\n"
+	s += string(b)
+	return s
+}
+
+// really dislike the underlines but they are there to implement the message interface more easily
 
 type StoredMessage struct {
 	Author_    *ssb.FeedRef    // @... pubkey

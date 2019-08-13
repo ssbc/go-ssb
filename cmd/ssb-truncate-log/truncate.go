@@ -41,10 +41,10 @@ func main() {
 	limit, err := strconv.Atoi(os.Args[3])
 	check(err)
 
-	from, err := offset2.Open(fromPath, msgpack.New(&legacy.StoredMessage{}))
+	from, err := offset2.Open(fromPath, msgpack.New(&legacy.OldStoredMessage{}))
 	check(err)
 
-	to, err := offset2.Open(toPath, msgpack.New(&legacy.StoredMessage{}))
+	to, err := offset2.Open(toPath, msgpack.New(&legacy.OldStoredMessage{}))
 	check(err)
 
 	seq, err := from.Seq().Value()
