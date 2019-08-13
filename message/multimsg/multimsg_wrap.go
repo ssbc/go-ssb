@@ -34,6 +34,9 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 	mm.received = time.Now()
 
 	switch tv := val.(type) {
+	case legacy.StoredMessage:
+		mm.tipe = Legacy
+		mm.Message = &tv
 	case *legacy.StoredMessage:
 		mm.tipe = Legacy
 		mm.Message = tv
