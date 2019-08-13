@@ -38,11 +38,6 @@ func TestSignMessages(t *testing.T) {
 
 	killServe, cancel := context.WithCancel(tctx)
 	defer cancel()
-	errc := make(chan error)
-	go func() {
-		err := userFeedsServe(killServe, rl, true)
-		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
-	}()
 
 	staticRand := rand.New(rand.NewSource(42))
 	testAuthor, err := ssb.NewKeyPair(staticRand)
@@ -73,6 +68,8 @@ func TestSignMessages(t *testing.T) {
 	for i, msg := range tmsgs {
 		newSeq, err := w.Append(msg)
 		r.NoError(err, "failed to pour test message %d", i)
+		err = userFeedsServe(killServe, rl, false)
+		r.NoError(errors.Wrap(err, "failed to pump log into userfeeds multilog"))
 		currSeq, err := authorLog.Seq().Value()
 		r.NoError(err, "failed to get log seq")
 		r.Equal(margaret.BaseSeq(i), newSeq, "advanced")
