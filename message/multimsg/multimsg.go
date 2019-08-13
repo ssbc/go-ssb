@@ -2,7 +2,6 @@ package multimsg
 
 import (
 	"bytes"
-	"encoding/gob"
 	"log"
 	"time"
 
@@ -36,30 +35,26 @@ func (mm MultiMessage) Received() time.Time {
 }
 
 func (mm MultiMessage) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+	var mh codec.CborHandle
+	mh.StructToArray = true
+	enc := codec.NewEncoder(&buf, &mh)
 	switch mm.tipe {
 	case Legacy:
 		legacy, ok := mm.AsLegacy()
 		if !ok {
 			return nil, errors.Errorf("not a legacy message: %T", mm.Message)
 		}
-		var buf bytes.Buffer
 		buf.Write([]byte{byte(Legacy)})
-
-		var mh codec.MsgpackHandle
-		enc := codec.NewEncoder(&buf, &mh)
 		err := enc.Encode(legacy)
-		if err != nil {
-			return nil, errors.Wrap(err, "multiMessage: legacy encoding failed")
-		}
-		return buf.Bytes(), nil
+		return buf.Bytes(), errors.Wrap(err, "multiMessage: legacy encoding failed")
 	case Gabby:
 		gabby, ok := mm.AsGabby()
 		if !ok {
 			return nil, errors.Errorf("multiMessage: wrong type of message: %T", mm.Message)
 		}
-		var buf bytes.Buffer
 		buf.Write([]byte{byte(Gabby)})
-		err := gob.NewEncoder(&buf).Encode(gabby)
+		err := enc.Encode(gabby)
 		return buf.Bytes(), errors.Wrap(err, "multiMessage: gabby encoding failed")
 	}
 	return nil, errors.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
@@ -69,13 +64,14 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 	if len(data) < 1 {
 		return errors.Errorf("multiMessage: data to short")
 	}
+	var mh codec.CborHandle
+	mh.StructToArray = true
+	dec := codec.NewDecoderBytes(data[1:], &mh)
 
 	mm.tipe = MessageType(data[0])
 	switch mm.tipe {
 	case Legacy:
 		var msg legacy.StoredMessage
-		var mh codec.MsgpackHandle
-		dec := codec.NewDecoderBytes(data[1:], &mh)
 		err := dec.Decode(&msg)
 		if err != nil {
 			return errors.Wrap(err, "multiMessage: legacy decoding failed")
@@ -83,9 +79,8 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		mm.Message = &msg
 		mm.key = msg.Key_
 	case Gabby:
-		rd := bytes.NewReader(data[1:])
 		var gb gabbygrove.Transfer
-		err := gob.NewDecoder(rd).Decode(&gb)
+		err := dec.Decode(&gb)
 		if err != nil {
 			return errors.Wrap(err, "multiMessage: gabby decoding failed")
 		}
