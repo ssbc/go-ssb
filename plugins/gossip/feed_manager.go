@@ -4,8 +4,8 @@ package gossip
 
 import (
 	"context"
+	"math"
 	"sync"
-	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -20,199 +20,111 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
-func makeQuery(
-	rootLog, userLog margaret.Log,
-	withKeys bool,
-	querySpecs ...margaret.QuerySpec,
-) (luigi.Source, error) {
-	resolved := mutil.Indirect(rootLog, userLog)
-	src, err := resolved.Query(querySpecs...)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid user log query")
-	}
-	src = transform.NewKeyValueWrapper(src, withKeys)
-	return src, nil
+// multiSink takes each message poured into it, and passes it on to all
+// registered sinks.
+//
+// multiSink is like luigi.Broadcaster but with context support.
+type multiSink struct {
+	seq   int64
+	sinks []luigi.Sink
+	ctxs  map[luigi.Sink]context.Context
+	until map[luigi.Sink]int64
+
+	isClosed bool
 }
 
-type liveStream struct {
-	Request message.CreateHistArgs
-	Ctxs    []context.Context
-	Feeds   []luigi.Sink
+var _ luigi.Sink = (*multiSink)(nil)
+var _ margaret.Seq = (*multiSink)(nil)
 
-	Source  luigi.Source
-	rootLog margaret.Log
-	userLog margaret.Log
-
-	mut sync.Mutex
-	seq int64
+func newMultiSink(seq int64) *multiSink {
+	return &multiSink{
+		seq:   seq,
+		ctxs:  make(map[luigi.Sink]context.Context),
+		until: make(map[luigi.Sink]int64),
+	}
 }
 
-// each live stream must be uniq per CreateHistArgs
-func newLiveStream(rootLog margaret.Log, userLog margaret.Log) *liveStream {
-	ret := &liveStream{
-		rootLog: rootLog,
-		userLog: userLog,
-	}
-
-	return ret
+func (f *multiSink) Seq() int64 {
+	return f.seq
 }
 
-func (s *liveStream) Add(ctx context.Context, sink luigi.Sink, arg *message.CreateHistArgs) error {
-	if !arg.Live {
-		// TODO: what happens if the Live parameter is unset, but the Limit is > then the length?
-		return errors.New("request must be for a live steam")
-	}
-	if arg.Reverse {
-		return errors.New("live stream is incompatible with reverse")
-	}
-
-	s.mut.Lock()
-	defer s.mut.Unlock()
-
-	if s.Source == nil {
-		// This is the first live query to serve
-		liveQuery, err := makeQuery(
-			s.rootLog, s.userLog, arg.Keys,
-			margaret.Gte(margaret.BaseSeq(arg.Seq)),
-			margaret.Limit(int(arg.Limit)),
-			margaret.Live(arg.Live),
-
-			// The sequence number is required for merging other feeds.
-			margaret.SeqWrap(true),
-		)
-		if err != nil {
-			return err
-		}
-		s.Source = liveQuery
-		s.seq = arg.Seq + arg.Limit
-	}
-
-	// make up for difference in feed
-	limit := s.seq - arg.Seq
-	if limit > arg.Limit {
-		limit = arg.Limit
-	}
-
-	nonLiveQuery, err := makeQuery(
-		s.rootLog, s.userLog, arg.Keys,
-		margaret.Gte(margaret.BaseSeq(arg.Seq)),
-		margaret.Limit(int(limit)),
-		margaret.Live(false),
-	)
-	if err != nil {
-		return err
-	}
-	if err := luigi.Pump(ctx, sink, nonLiveQuery); err != nil {
-		return err
-	}
-
-	s.Ctxs = append(s.Ctxs, ctx)
-	s.Feeds = append(s.Feeds, sink)
+// Register adds a sink to propagate messages to upto the 'until'th sequence.
+func (f *multiSink) Register(
+	ctx context.Context,
+	sink luigi.Sink,
+	until int64,
+) error {
+	f.sinks = append(f.sinks, sink)
+	f.ctxs[sink] = ctx
+	f.until[sink] = until
 	return nil
 }
 
-func (s *liveStream) Seq() int64 {
-	s.mut.Lock()
-	defer s.mut.Unlock()
-
-	return s.seq
-}
-
-func (s *liveStream) removeFeed(arg luigi.Sink) {
-	var ctxs []context.Context
-	var feeds []luigi.Sink
-	for i, feed := range s.Feeds {
-		if arg != feed {
-			ctxs = append(ctxs, s.Ctxs[i])
-			feeds = append(feeds, feed)
+func (f *multiSink) Unregister(
+	sink luigi.Sink,
+) error {
+	for i, s := range f.sinks {
+		if sink != s {
+			continue
 		}
+		f.sinks = append(f.sinks[:i], f.sinks[(i+1):]...)
+		delete(f.ctxs, sink)
+		delete(f.until, sink)
+		return nil
 	}
-	s.Ctxs = ctxs
-	s.Feeds = feeds
+	return nil
 }
 
-// propagate sends a value to all registered sinks.
-func (s *liveStream) propagate(val margaret.SeqWrapper) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+func (f *multiSink) Close() error {
+	f.isClosed = true
+	return nil
+}
+
+func (f *multiSink) Pour(
+	ctx context.Context,
+	msg interface{},
+) error {
+	if f.isClosed {
+		return luigi.EOS{}
+	}
+	f.seq++
 
 	var deadFeeds []luigi.Sink
 
-	s.seq = val.Seq().Seq()
-	value := val.Value()
-	for i, sink := range s.Feeds {
-		ctx := s.Ctxs[i]
-		err := sink.Pour(ctx, value)
-		if luigi.IsEOS(err) {
-			deadFeeds = append(deadFeeds, sink)
+	for _, s := range f.sinks {
+		err := s.Pour(f.ctxs[s], msg)
+		if luigi.IsEOS(err) || f.until[s] <= f.seq {
+			deadFeeds = append(deadFeeds, s)
 			continue
 		} else if err != nil {
-			// TODO: use CloseWithError instead or log?, skipping to get tested and functional
+			// QUESTION: should CloseWithError be used here?
 			panic(err)
 		}
 	}
 
 	for _, feed := range deadFeeds {
-		s.removeFeed(feed)
+		f.Unregister(feed)
 	}
+
+	return nil
 }
 
-func earliestCtx(ctxs []context.Context) context.Context {
-	if len(ctxs) == 0 {
-		panic("should not be reachable")
-	}
-	earliest := ctxs[0]
-	for _, ctx := range ctxs[1:] {
-		deadline, ok := ctx.Deadline()
-		if ok && deadline.Before(time.Now()) {
-			earliest = ctx
-		}
-	}
-	return earliest
-}
-
-func (s *liveStream) clearDeadSinks() {
-	for i, ctx := range s.Ctxs {
-		if ctx.Err() != nil {
-			continue
-		}
-		s.removeFeed(s.Feeds[i])
-	}
-}
-
-func (s *liveStream) Pump() error {
-	for {
-		if len(s.Feeds) <= 0 {
-			return nil
-		}
-
-		ctx := earliestCtx(s.Ctxs)
-		val, err := s.Source.Next(ctx)
-		if luigi.IsEOS(err) {
-			s.clearDeadSinks()
-			continue
-		} else if err != nil {
-			return errors.Wrap(err, "sourcing feed in live stream")
-		}
-		s.propagate(val.(margaret.SeqWrapper))
-	}
-}
-
-// FeedManager ...
+// FeedManager handles serving gossip about User Feeds.
 type FeedManager struct {
 	RootLog   margaret.Log
 	UserFeeds multilog.MultiLog
-	Info      logging.Interface
+	logger    logging.Interface
 
-	LiveFeed    map[message.CreateHistArgs]*liveStream
-	liveFeedMut sync.Mutex
+	liveFeeds    map[string]*multiSink
+	liveFeedsMut sync.Mutex
 
 	// metrics
 	sysGauge *prometheus.Gauge
 	sysCtr   *prometheus.Counter
 }
 
-// NewFeedManager ...
+// NewFeedManager returns a new FeedManager used for gossiping about User
+// Feeds.
 func NewFeedManager(
 	rootLog margaret.Log,
 	userFeeds multilog.MultiLog,
@@ -220,101 +132,148 @@ func NewFeedManager(
 	sysGauge *prometheus.Gauge,
 	sysCtr *prometheus.Counter,
 ) *FeedManager {
-	return &FeedManager{
+	fm := &FeedManager{
 		RootLog:   rootLog,
 		UserFeeds: userFeeds,
-		Info:      info,
+		logger:    info,
 
-		LiveFeed: make(map[message.CreateHistArgs]*liveStream),
+		liveFeeds: make(map[string]*multiSink),
 	}
+	// QUESTION: How should the error case be handled?
+	go fm.serveLiveFeeds()
+	return fm
 }
 
-func keyFor(arg *message.CreateHistArgs) message.CreateHistArgs {
-	// When aggregating live feeds into one, the start (seq) should be
-	// discarded.
-	key := *arg
-	key.Seq = 0
-	return key
+func (m *FeedManager) pour(ctx context.Context, val interface{}, _ error) error {
+	m.liveFeedsMut.Lock()
+	defer m.liveFeedsMut.Unlock()
+
+	author := val.(margaret.SeqWrapper).Value().(message.StoredMessage).GetAuthor()
+	sink, ok := m.liveFeeds[author.Ref()]
+	if !ok {
+		return nil
+	}
+	return sink.Pour(ctx, val)
 }
 
-func (m *FeedManager) serveLiveFeed(arg *liveStream) {
-	defer m.removeLiveFeed(&arg.Request)
-
-	err := arg.Pump()
+func (m *FeedManager) serveLiveFeeds() {
+	seqv, err := m.RootLog.Seq().Value()
 	if err != nil {
-		m.Info.Log("event", "gossiptx", err.Error())
+		err = errors.Wrap(err, "failed to get root log sequence")
+		panic(err)
 	}
-	return
+
+	src, err := m.RootLog.Query(
+		margaret.Gt(seqv.(margaret.BaseSeq)),
+		margaret.Live(true),
+		margaret.SeqWrap(true),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.TODO()
+	err = luigi.Pump(ctx, luigi.FuncSink(m.pour), src)
+	if err != nil {
+		err = errors.Wrap(err, "error while serving live feed")
+		panic(err)
+	}
 }
 
 func (m *FeedManager) addLiveFeed(
 	ctx context.Context,
 	sink luigi.Sink,
-	userLog margaret.Log,
-	liveCreateHistArgs *message.CreateHistArgs,
+	ssbID string,
+	seq, limit int64,
 ) error {
-	m.liveFeedMut.Lock()
-	defer m.liveFeedMut.Unlock()
+	// TODO: ensure all messages make it to the live query
+	//  Messages could be lost when written after the non-live portion and
+	//  registering to live feed.
+	m.liveFeedsMut.Lock()
+	defer m.liveFeedsMut.Unlock()
 
-	key := keyFor(liveCreateHistArgs)
-	liveStream, ok := m.LiveFeed[key]
-
-	if ok {
-		err := liveStream.Add(ctx, sink, liveCreateHistArgs)
-		return errors.Wrapf(err, "could not add live stream for client %s", liveCreateHistArgs.Id)
+	liveFeed, ok := m.liveFeeds[ssbID]
+	if !ok {
+		m.liveFeeds[ssbID] = newMultiSink(seq)
+		liveFeed = m.liveFeeds[ssbID]
 	}
 
-	liveStream = newLiveStream(m.RootLog, userLog)
-	err := liveStream.Add(ctx, sink, liveCreateHistArgs)
+	until := seq + limit
+	if limit == -1 {
+		until = math.MaxInt64
+	}
+	err := liveFeed.Register(ctx, sink, until)
 	if err != nil {
-		return errors.Wrapf(err, "could not create live stream for client %s", liveCreateHistArgs.Id)
+		return errors.Wrapf(err, "could not create live stream for client %s", ssbID)
 	}
-	m.LiveFeed[key] = liveStream
-	go m.serveLiveFeed(liveStream)
+	m.liveFeeds[ssbID] = liveFeed
+	// TODO: Remove multiSink from map when complete
 	return nil
 }
 
-func (m *FeedManager) removeLiveFeed(
-	liveCreateHistArgs *message.CreateHistArgs,
-) {
-	m.liveFeedMut.Lock()
-	defer m.liveFeedMut.Unlock()
-
-	key := keyFor(liveCreateHistArgs)
-	delete(m.LiveFeed, key)
-}
-
-func (m *FeedManager) liveStreamSeq(
+// nonliveLimit returns the upper limit for a CreateStreamHistory request given
+// the current User Feeds latest sequence.
+func nonliveLimit(
 	arg *message.CreateHistArgs,
-) (int64, bool) {
-	key := keyFor(arg)
-	liveStream, ok := m.LiveFeed[key]
-	if !ok {
-		return 0, false
+	curSeq int64,
+) int64 {
+	if arg.Limit == -1 {
+		return -1
 	}
-	return liveStream.Seq(), true
+	lastSeq := arg.Seq + arg.Limit - 1
+	if lastSeq > curSeq {
+		lastSeq = curSeq
+	}
+	return lastSeq - arg.Seq + 1
 }
 
-// until returns the CreateHistArgs upperbound by the given sequence.
-func until(seq int64, arg *message.CreateHistArgs) *message.CreateHistArgs {
-	var ret message.CreateHistArgs
-	ret = *arg
-	ret.Limit = seq - arg.Seq
-	ret.Live = false
-	return &ret
+// liveLimit returns the limit for serving the 'live' portion for a
+// CreateStreamHistory request given the current User Feeds latest sequence.
+func liveLimit(
+	arg *message.CreateHistArgs,
+	curSeq int64,
+) int64 {
+	if arg.Limit == -1 {
+		return -1
+	}
+
+	startSeq := curSeq + 1
+	lastSeq := arg.Seq + arg.Limit - 1
+	if lastSeq < curSeq {
+		return 0
+	}
+	return lastSeq - startSeq + 1
 }
 
-// from returns the CreateHistArgs starting from the given sequence.
-func from(seq int64, arg *message.CreateHistArgs) *message.CreateHistArgs {
-	var ret message.CreateHistArgs
-	ret = *arg
-	ret.Seq = seq
-	ret.Limit = arg.Seq + arg.Limit - seq
-	if ret.Limit < 0 {
-		ret.Limit = 0
+// getLatestSeq returns the latest Sequence number for the given log.
+func getLatestSeq(log margaret.Log) (int64, error) {
+	latestSeqValue, err := log.Seq().Value()
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to observe latest")
 	}
-	ret.Live = arg.Live
-	return &ret
+	switch v := latestSeqValue.(type) {
+	case librarian.UnsetValue: // don't have the feed - nothing to do?
+		return 0, nil
+	case margaret.BaseSeq:
+		return v.Seq(), nil
+	default:
+		return 0, errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", v)
+	}
+}
+
+// newSinkCounter returns a new Sink which iterates the given counter when poured to.
+func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
+	return func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return err
+		}
+		msg, ok := v.([]byte)
+		if !ok {
+			return errors.Errorf("b4pour: expected []byte - got %T", v)
+		}
+		*counter++
+		return sink.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+	}
 }
 
 // CreateStreamHistory serves the sink a CreateStreamHistory request to the sink.
@@ -333,83 +292,58 @@ func (m *FeedManager) CreateStreamHistory(
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
-	latest, err := userLog.Seq().Value()
+	latest, err := getLatestSeq(userLog)
 	if err != nil {
-		return errors.Wrapf(err, "failed to observe latest")
+		return errors.Wrap(err, "userLog sequence")
 	}
-	// act accordingly
-	switch v := latest.(type) {
-	case librarian.UnsetValue: // don't have the feed - nothing to do?
-	case margaret.BaseSeq:
-		if arg.Seq != 0 {
-			arg.Seq--               // our idx is 0 based
-			if arg.Seq > int64(v) { // more than we got
-				return errors.Wrap(sink.Close(), "pour: failed to close")
-			}
+
+	if arg.Seq != 0 {
+		arg.Seq--             // our idx is 0 ed
+		if arg.Seq > latest { // more than we got
+			return errors.Wrap(sink.Close(), "pour: failed to close")
 		}
+	}
+	if arg.Live && arg.Limit == 0 {
+		arg.Limit = -1
+	}
 
-		// TODO: Validate whether this is still needed
-		if arg.Live && arg.Limit == 0 {
-			// currently having live streams is not tested
-			// it might work but we have some problems with dangling rpc routines which we like to fix first
-			arg.Limit = -1
-		}
+	// Make query
+	limit := nonliveLimit(arg, latest)
+	resolved := mutil.Indirect(m.RootLog, userLog)
+	src, err := resolved.Query(
+		margaret.Gte(margaret.BaseSeq(arg.Seq)),
+		margaret.Limit(int(limit)),
+		margaret.Reverse(arg.Reverse),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "invalid user log query")
+	}
+	src = transform.NewKeyValueWrapper(src, arg.Keys)
+	if err != nil {
+		return err
+	}
 
-		nonLiveQuery := arg
-		var liveQuery *message.CreateHistArgs
-		if arg.Live {
-			seq, ok := m.liveStreamSeq(arg)
-			if !ok {
-				seq = arg.Seq
-			}
-			nonLiveQuery = until(seq, arg)
-			liveQuery = from(seq, arg)
-		}
-
-		src, err := makeQuery(m.RootLog, userLog, nonLiveQuery.Keys,
-			margaret.Gte(margaret.BaseSeq(nonLiveQuery.Seq)),
-			margaret.Limit(int(nonLiveQuery.Limit)),
-			margaret.Reverse(nonLiveQuery.Reverse),
-		)
-		if err != nil {
-			return err
-		}
-
-		// Update the base sequence of the query
-
-		sent := 0
-		snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-
-			if err != nil {
-				return err
-			}
-			msg, ok := v.([]byte)
-			if !ok {
-				return errors.Errorf("b4pour: expected []byte - got %T", v)
-			}
-			sent++
-			return sink.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
-		})
-
-		err = luigi.Pump(ctx, snk, src)
-		if m.sysCtr != nil {
-			m.sysCtr.With("event", "gossiptx").Add(float64(sent))
-		} else {
-			m.Info.Log("event", "gossiptx", "n", sent)
-		}
-		if errors.Cause(err) == context.Canceled {
-			sink.Close()
-			return nil
-		} else if err != nil {
-			return errors.Wrap(err, "failed to pump messages to peer")
-		}
-
-		if liveQuery != nil {
-			return m.addLiveFeed(ctx, sink, userLog, liveQuery)
-		}
+	sent := 0
+	snk := newSinkCounter(&sent, sink)
+	err = luigi.Pump(ctx, snk, src)
+	if m.sysCtr != nil {
+		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
+	} else {
+		m.logger.Log("event", "gossiptx", "n", sent)
+	}
+	if errors.Cause(err) == context.Canceled {
+		sink.Close()
 		return nil
-	default:
-		return errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", latest)
+	} else if err != nil {
+		return errors.Wrap(err, "failed to pump messages to peer")
 	}
-	return errors.Wrap(sink.Close(), "pour: failed to close")
+
+	if arg.Live {
+		return m.addLiveFeed(
+			ctx, sink,
+			arg.Id,
+			latest, liveLimit(arg, latest),
+		)
+	}
+	return nil
 }
