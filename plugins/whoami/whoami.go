@@ -6,7 +6,6 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -20,7 +19,7 @@ var (
 func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
-			panic(err)
+			log.Log("event", "warning", "msg", "faild to write panic file", "err", err)
 		}
 	}
 }
@@ -38,13 +37,9 @@ type plugin struct {
 
 func (plugin) Name() string { return "whoami" }
 
-func (plugin) Method() muxrpc.Method {
-	return method
-}
+func (plugin) Method() muxrpc.Method { return method }
 
-func (wami plugin) Handler() muxrpc.Handler {
-	return wami.h
-}
+func (wami plugin) Handler() muxrpc.Handler { return wami.h }
 
 func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
 	return endpoint{edp}

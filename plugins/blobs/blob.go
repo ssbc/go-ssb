@@ -37,7 +37,7 @@ var (
 func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
-			panic(err)
+			log.Log("event", "warning", "msg", "faild to write panic file", "err", err)
 		}
 	}
 }
