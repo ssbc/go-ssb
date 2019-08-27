@@ -17,7 +17,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 	var qry CreateHistArgs
 	for k, v := range argMap {
 		switch k = strings.ToLower(k); k {
-		case "live", "keys", "values", "reverse":
+		case "live", "keys", "values", "reverse", "asjson":
 			b, ok := v.(bool)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
@@ -31,6 +31,8 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.Values = b
 			case "reverse":
 				qry.Reverse = b
+			case "asjson":
+				qry.AsJSON = b
 			}
 
 		case "type":
@@ -42,9 +44,10 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 			}
 			switch k {
 			case "id":
-				qry.Id = val
-			case "type":
-				qry.Type = val
+				qry.ID = val
+				// TODO:
+				// case "type":
+				// qry.Type = val
 			}
 		case "seq", "limit":
 			n, ok := v.(float64)
@@ -67,13 +70,33 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 	return &qry, nil
 }
 
+type CommonArgs struct {
+	Keys   bool `json:"keys"`
+	Values bool `json:"values"`
+	Live   bool `json:"live"`
+
+	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
+	// for instance, it could be json.RawMessage or a map or a struct
+	// TODO: find a nice way to have a default here
+	MarshalType interface{} `json:"-"`
+}
+
 type CreateHistArgs struct {
-	Keys    bool   `json:"keys"`
-	Values  bool   `json:"values"`
-	Live    bool   `json:"live"`
-	Id      string `json:"id"`
-	Seq     int64  `json:"seq"`
-	Limit   int64  `json:"limit"`
-	Reverse bool   `json:"reverse"`
-	Type    string `json:"type"`
+	CommonArgs
+	ID  string `json:"id"`
+	Seq int64  `json:"seq"`
+
+	// TODO: common or stream args?!
+	Limit   int64 `json:"limit"`
+	Reverse bool  `json:"reverse"`
+
+	AsJSON bool `json:"asJSON"`
+}
+
+type StreamArgs struct {
+}
+
+type MessagesByTypeArgs struct {
+	CommonArgs
+	Type string `json:"type"`
 }

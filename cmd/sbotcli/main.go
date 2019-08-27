@@ -184,15 +184,17 @@ func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 }
 
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
-	return message.CreateHistArgs{
-		Id:      ctx.String("id"),
+	args := message.CreateHistArgs{
+		ID:      ctx.String("id"),
 		Limit:   ctx.Int64("limit"),
 		Seq:     ctx.Int64("seq"),
-		Live:    ctx.Bool("live"),
 		Reverse: ctx.Bool("reverse"),
-		Keys:    ctx.Bool("keys"),
-		Values:  ctx.Bool("values"),
+		AsJSON:  ctx.Bool("asJSON"),
 	}
+	args.Live = ctx.Bool("live")
+	args.Keys = ctx.Bool("keys")
+	args.Values = ctx.Bool("values")
+	return args
 }
 
 var callCmd = &cli.Command{

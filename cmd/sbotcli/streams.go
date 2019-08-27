@@ -40,7 +40,7 @@ var typeStreamCmd = &cli.Command{
 
 var historyStreamCmd = &cli.Command{
 	Name:  "hist",
-	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}),
+	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)

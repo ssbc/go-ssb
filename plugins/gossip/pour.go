@@ -32,7 +32,7 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		return errors.Wrap(err, "bad request")
 	}
 
-	feedRef, err := ssb.ParseFeedRef(qry.Id)
+	feedRef, err := ssb.ParseFeedRef(qry.ID)
 	if err != nil {
 		return nil // only handle valid feed refs
 	}
@@ -92,7 +92,11 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		src = transform.NewKeyValueWrapper(src, qry.Keys)
 		snk = legacyStreamSink(req.Stream)
 	case ssb.RefAlgoFeedGabby:
-		snk = gabbyStreamSink(req.Stream)
+		if qry.AsJSON {
+			snk = asJSONsink(req.Stream)
+		} else {
+			snk = gabbyStreamSink(req.Stream)
+		}
 	default:
 		return errors.Errorf("unsupported feed format.")
 	}
@@ -147,5 +151,21 @@ func gabbyStreamSink(stream luigi.Sink) luigi.Sink {
 		}
 
 		return stream.Pour(ctx, codec.Body(trdata))
+	})
+}
+
+func asJSONsink(stream luigi.Sink) luigi.Sink {
+	return luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
+		if err != nil {
+			if luigi.IsEOS(err) {
+				return stream.Close()
+			}
+			return err
+		}
+		msg, ok := val.(ssb.Message)
+		if !ok {
+			return errors.Errorf("asJSONsink: expected ssb.Message - got %T", val)
+		}
+		return stream.Pour(ctx, msg.ValueContentJSON())
 	})
 }

@@ -213,8 +213,8 @@ func (c client) CreateLogStream(opts message.CreateHistArgs) (luigi.Source, erro
 	return src, errors.Wrap(err, "failed to create stream")
 }
 
-func (c client) CreateHistoryStream(o message.CreateHistArgs, as interface{}) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, as, muxrpc.Method{"createHistoryStream"}, o)
+func (c client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"createHistoryStream"}, o)
 	return src, errors.Wrap(err, "failed to create stream")
 }
 

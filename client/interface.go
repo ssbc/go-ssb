@@ -23,7 +23,7 @@ type Interface interface {
 
 	// MessagesByTypes(string) (luigi.Source, error)
 	CreateLogStream(message.CreateHistArgs) (luigi.Source, error)
-	CreateHistoryStream(opts message.CreateHistArgs, as interface{}) (luigi.Source, error)
+	CreateHistoryStream(opts message.CreateHistArgs) (luigi.Source, error)
 	Tangles(ssb.MessageRef, message.CreateHistArgs) (luigi.Source, error)
 
 	ReplicateUpTo() (luigi.Source, error)
