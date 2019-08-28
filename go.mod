@@ -24,7 +24,7 @@ require (
 	go.cryptoscope.co/muxrpc v1.4.0
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.4-0.20190815113241-673b19d82332
-	go.mindeco.de/ssb-gabbygrove v0.0.0-20190820093331-3cd7815c96ad
+	go.mindeco.de/ssb-gabbygrove v0.0.0-20190828084506-3f46a5fd7aa7
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/text v0.3.2
 	gonum.org/v1/gonum v0.0.0-20190608115022-c5f01565d866

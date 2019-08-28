@@ -189,6 +189,8 @@ go.mindeco.de/ssb-gabbygrove v0.0.0-20190816093914-a99c2c986802 h1:ROs0Qy6nkVy0K
 go.mindeco.de/ssb-gabbygrove v0.0.0-20190816093914-a99c2c986802/go.mod h1:TNL7OKSkl2wwsJrTGZZRF0MBJU681QOk/tHKFkzEpPM=
 go.mindeco.de/ssb-gabbygrove v0.0.0-20190820093331-3cd7815c96ad h1:T83zAPsR6RspYW8Mvjg8paLyBALjPPKvgmbyQ1D2yCw=
 go.mindeco.de/ssb-gabbygrove v0.0.0-20190820093331-3cd7815c96ad/go.mod h1:TNL7OKSkl2wwsJrTGZZRF0MBJU681QOk/tHKFkzEpPM=
+go.mindeco.de/ssb-gabbygrove v0.0.0-20190828084506-3f46a5fd7aa7 h1:XfPQM/SL5/8U8q79mQ+/Vpd6Q7X92Bb2Er9uujoqzoA=
+go.mindeco.de/ssb-gabbygrove v0.0.0-20190828084506-3f46a5fd7aa7/go.mod h1:TNL7OKSkl2wwsJrTGZZRF0MBJU681QOk/tHKFkzEpPM=
 go.mindeco.de/ssb-gabbygrove v0.1.0 h1:LiEytC5irY5J5aSyy+D0rxtetCWgjTd4h7g38Tno5tg=
 go.mindeco.de/ssb-gabbygrove v0.1.0/go.mod h1:nGQPaFaMXkaqMZhZnmWfSVnYMsZ18A+xwbqABuUYsKs=
 golang.org/x/crypto v0.0.0-20180222182404-49796115aa4b/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
