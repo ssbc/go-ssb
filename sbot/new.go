@@ -54,11 +54,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	r := repo.New(s.repoPath)
 
-	s.RootLog, err = repo.OpenLog(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
+	if s.RootLog == nil {
+		s.RootLog, err = repo.OpenLog(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open rootlog")
+		}
+		s.closers.addCloser(s.RootLog.(io.Closer))
 	}
-	s.closers.addCloser(s.RootLog.(io.Closer))
 
 	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
 	if err != nil {

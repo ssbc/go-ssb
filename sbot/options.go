@@ -307,6 +307,13 @@ func LateOption(o Option) Option {
 	}
 }
 
+func WithRootLog(log margaret.Log) Option {
+	return func(s *Sbot) error {
+		s.RootLog = log
+		return nil
+	}
+}
+
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
 	s.liveIndexUpdates = true
