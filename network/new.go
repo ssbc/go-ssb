@@ -179,7 +179,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	pkr = muxrpc.NewPacker(conn)
-	edp := muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
+	edp := muxrpc.HandleWithLogger(pkr, h, n.log)
 
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
 		go func() {
@@ -191,10 +191,10 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
 	}
+	n.addRemote(edp)
 
 	srv := edp.(muxrpc.Server)
 
-	n.addRemote(edp)
 	if err := srv.Serve(ctx); err != nil {
 		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
 	}
@@ -350,6 +350,14 @@ func (n *node) Close() error {
 	if err != nil {
 		return errors.Wrap(err, "ssb: network node failed to close it's listener")
 	}
+	n.remotesLock.Lock()
+	defer n.remotesLock.Unlock()
+	for addr, edp := range n.remotes {
+		if err := edp.Terminate(); err != nil {
+			n.log.Log("event", "failed to terminate endpoint", "addr", addr, "err", err)
+		}
+	}
+
 	if cnt := n.connTracker.Count(); cnt > 0 {
 		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
 		n.connTracker.CloseAll()

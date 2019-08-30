@@ -33,11 +33,15 @@ func TestFeedsOneByOne(t *testing.T) {
 	rand.Read(hmacKey)
 
 	aliLog, _ := logtest.KitLogger("ali", t)
+	// aliLog := log.NewLogfmtLogger(os.Stderr)
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(aliLog),
+		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
+		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"))
 	r.NoError(err)
@@ -52,11 +56,15 @@ func TestFeedsOneByOne(t *testing.T) {
 	}()
 
 	bobLog, _ := logtest.KitLogger("bob", t)
+	// bobLog := log.NewLogfmtLogger(os.Stderr)
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(bobLog),
+		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapConn(bobLog, conn), nil
+		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"))
 	r.NoError(err)
@@ -94,11 +102,11 @@ func TestFeedsOneByOne(t *testing.T) {
 	alisLog, err := uf.Get(ali.KeyPair.Id.StoredAddr())
 	r.NoError(err)
 
-	for i := 0; i < 9; i++ {
+	for i := 0; i < 5; i++ {
 		t.Logf("runniung connect %d", i)
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
-		time.Sleep(75 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 
 		_, err := ali.PublishLog.Append(map[string]interface{}{
 			"test": i,

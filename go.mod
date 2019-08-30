@@ -3,6 +3,7 @@ module go.cryptoscope.co/ssb
 go 1.12
 
 require (
+	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
 	github.com/cryptix/go v1.4.1-0.20190731150702-af1108ef2696
@@ -21,9 +22,9 @@ require (
 	go.cryptoscope.co/librarian v0.1.3
 	go.cryptoscope.co/luigi v0.3.3
 	go.cryptoscope.co/margaret v0.0.12-0.20190816140452-29a74a081cbf
-	go.cryptoscope.co/muxrpc v1.4.0
+	go.cryptoscope.co/muxrpc v1.4.1-0.20190627083550-4293e8018f67
 	go.cryptoscope.co/netwrap v0.0.3
-	go.cryptoscope.co/secretstream v1.1.4-0.20190815113241-673b19d82332
+	go.cryptoscope.co/secretstream v1.1.4-0.20190830110243-25b0859e1b9c
 	go.mindeco.de/ssb-gabbygrove v0.0.0-20190828084506-3f46a5fd7aa7
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/text v0.3.2
