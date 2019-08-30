@@ -48,6 +48,6 @@ func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 }
 
 // Append appends a new entry to the log
-func (il indirectLog) Append(interface{}) (margaret.Seq, error) {
-	return nil, errors.New("can't append to indirected log, sorry")
+func (il indirectLog) Append(val interface{}) (margaret.Seq, error) {
+	return il.root.Append(val)
 }

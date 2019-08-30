@@ -36,6 +36,11 @@ func TestFormatsSimple(t *testing.T) {
 	userFeeds, userFeedsServe, err := multilogs.OpenUserFeeds(testRepo)
 	r.NoError(err, "failed to get user feeds multilog")
 
+	go func() {
+		err = userFeedsServe(context.TODO(), rl, true)
+		r.NoError(err)
+	}()
+
 	type testCase struct {
 		ff string
 	}
@@ -81,8 +86,7 @@ func TestFormatsSimple(t *testing.T) {
 				mr, err := w.Publish(msg)
 				r.NoError(err, "failed to pour test message %d", i)
 				r.NotNil(mr)
-				err = userFeedsServe(context.TODO(), rl, false)
-				r.NoError(err)
+
 				currSeq, err := authorLog.Seq().Value()
 				r.NoError(err, "failed to get log seq")
 				r.Equal(margaret.BaseSeq(i), currSeq, "failed to ")

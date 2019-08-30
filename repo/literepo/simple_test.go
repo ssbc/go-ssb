@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/repo/literepo"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -21,16 +22,20 @@ func TestConstructBot(t *testing.T) {
 	r.NoError(err)
 
 	bot, err := sbot.New(
-		sbot.WithRootLog(sqlitelog),
+		sbot.WithRootLog(multimsg.NewWrappedLog(sqlitelog)),
+		sbot.MountMultiLog("userFeeds", sqlitelog.UserFeeds()),
 	)
 	r.NoError(err)
 
-	seq, err := bot.PublishLog.Append(struct {
-		A int
-		S string
-	}{1, "23"})
-	r.NoError(err)
-	r.NotEqual(int64(0), seq.Seq())
+	for i := 0; i < 10; i++ {
+
+		seq, err := bot.PublishLog.Append(struct {
+			A int
+			S string
+		}{i, "23"})
+		r.NoError(err)
+		r.Equal(int64(i), seq.Seq())
+	}
 
 	bot.Shutdown()
 

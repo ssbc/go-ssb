@@ -53,7 +53,9 @@ func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
 			return errors.Wrapf(err, "sbot/index: failed to open idx %s", name)
 		}
 		s.closers.addCloser(mlog)
-		s.serveIndex(s.rootCtx, name, serveFunc)
+		if serveFunc != nil {
+			s.serveIndex(s.rootCtx, name, serveFunc)
+		}
 		s.mlogIndicies[name] = mlog
 		return nil
 	}

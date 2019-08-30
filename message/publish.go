@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"go.cryptoscope.co/ssb/internal/mutil"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -20,7 +22,6 @@ import (
 type publishLog struct {
 	sync.Mutex
 	margaret.Log
-	rootLog margaret.Log
 
 	create creater
 }
@@ -31,9 +32,11 @@ func (p *publishLog) Publish(content interface{}) (*ssb.MessageRef, error) {
 		return nil, err
 	}
 
-	val, err := p.rootLog.Get(seq)
+	// time.Sleep(1 * time.Second)
+	// margaret.BaseSeq(seq.Seq() - 1)
+	val, err := p.Log.Get(seq)
 	if err != nil {
-		return nil, errors.Wrap(err, "publish: failed to get new stored message")
+		return nil, errors.Wrapf(err, "publish: failed to get new stored message (seq:%d)", seq.Seq())
 	}
 
 	kv, ok := val.(ssb.Message)
@@ -49,25 +52,6 @@ func (p *publishLog) Publish(content interface{}) (*ssb.MessageRef, error) {
 	return key, nil
 }
 
-/* Get retreives the message object by traversing the authors sublog to the root log
-func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
-
-	idxv, err := pl.authorLog.Get(s)
-	if err != nil {
-		return nil, errors.Wrap(err, "publish get: failed to retreive sequence for the root log")
-	}
-
-	msgv, err := pl.rootLog.Get(idxv.(margaret.Seq))
-	if err != nil {
-		return nil, errors.Wrap(err, "publish get: failed to retreive message from rootlog")
-	}
-	return msgv, nil
-}
-
-TODO: do the same for Query()? but how?
-
-=> just overwrite publish on the authorLog for now
-*/
 func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 	pl.Lock()
 	defer pl.Unlock()
@@ -83,7 +67,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, errors.Wrap(err, "publishLog: failed to establish current seq")
 	}
 	seq := currSeq.(margaret.Seq)
-	currRootSeq, err := pl.Get(seq)
+	currMsg, err := pl.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, errors.Wrap(err, "publishLog: failed to retreive current msg")
 	}
@@ -91,13 +75,9 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		nextPrevious = nil
 		nextSequence = 1
 	} else {
-		currMM, err := pl.rootLog.Get(currRootSeq.(margaret.Seq))
-		if err != nil {
-			return nil, errors.Wrap(err, "publishLog: failed to establish current seq")
-		}
-		mm, ok := currMM.(ssb.Message)
+		mm, ok := currMsg.(ssb.Message)
 		if !ok {
-			return nil, errors.Errorf("publishLog: invalid value at sequence %v: %T", currSeq, currMM)
+			return nil, errors.Errorf("publishLog: invalid value at sequence %v: %T", currSeq, currMsg)
 		}
 		nextPrevious = mm.Key()
 		nextSequence = margaret.BaseSeq(mm.Seq() + 1)
@@ -108,10 +88,11 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, errors.Wrap(err, "failed to create next msg")
 	}
 
-	rlSeq, err := pl.rootLog.Append(nextMsg)
+	rlSeq, err := pl.Log.Append(nextMsg)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to append new msg")
 	}
+	fmt.Println("created msg:", nextMsg.Key().Ref(), rlSeq.Seq())
 
 	return rlSeq, nil
 }
@@ -134,8 +115,7 @@ func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.Key
 	}
 
 	pl := &publishLog{
-		Log:     authorLog,
-		rootLog: rootLog,
+		Log: mutil.Indirect(rootLog, authorLog),
 	}
 
 	switch kp.Id.Algo {

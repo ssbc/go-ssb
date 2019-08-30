@@ -117,6 +117,9 @@ func (sl sqliteLog) Get(s margaret.Seq) (interface{}, error) {
 	var data []byte
 	err := sl.db.QueryRow(`SELECT raw from messages where msg_id = ?`, s.Seq()+1).Scan(&data)
 	if err != nil {
+		if errors.Cause(err) == sql.ErrNoRows {
+			return margaret.SeqEmpty, nil
+		}
 		return nil, errors.Wrapf(err, "sqlite/get(%d): failed to execute query", s.Seq())
 	}
 	var mm multimsg.MultiMessage
@@ -125,17 +128,17 @@ func (sl sqliteLog) Get(s margaret.Seq) (interface{}, error) {
 }
 
 func (sl sqliteLog) Append(val interface{}) (margaret.Seq, error) {
-	msg, ok := val.(*multimsg.MultiMessage)
+	msg, ok := val.(multimsg.MultiMessage)
 	if !ok {
 		return nil, errors.Errorf("sql only supports adding messages (got %T)", val)
 	}
 
-	msgID, err := sl.idForMessage(msg.Key(), true)
+	msgID, err := idForMessage(sl.db, msg.Key(), true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "sqlite/append: failed to get ID for msg %q", msg.Key().Ref())
 	}
 
-	authorID, err := sl.idForAuthor(msg.Author(), true)
+	authorID, err := idForAuthor(sl.db, msg.Author(), true)
 	if err != nil {
 		return nil, errors.Wrapf(err, "sqlite/append: failed to get ID for author %q", msg.Author().Ref())
 	}
@@ -145,9 +148,9 @@ func (sl sqliteLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, errors.Wrap(err, "sqlite/append: failed to make raw data from multimsg")
 	}
 
-	res, err := sl.db.Exec(`insert into messages (msg_id, author_id, sequence, type, claimed_at, raw) VALUES(?)`,
+	res, err := sl.db.Exec(`insert into messages (msg_id, author_id, sequence, type, received_at, claimed_at, raw) VALUES(?,?,?,?,?,?,?)`,
 		msgID, authorID, msg.Seq(), "unset",
-		msg.Claimed().Unix(),
+		msg.Received().Unix(), msg.Claimed().Unix(),
 		rawData)
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlite/append: failed insert new value")
@@ -192,14 +195,14 @@ func (sl sqliteLog) Null(s margaret.Seq) error {
 	return nil
 }
 
-func (sl sqliteLog) idForMessage(ref *ssb.MessageRef, make bool) (int64, error) {
-	row := squirrel.Select("id").From("messagekeys").Where("key = ?", ref.Ref()).Limit(1).RunWith(sl.db).QueryRow()
+func idForMessage(db *sql.DB, ref *ssb.MessageRef, make bool) (int64, error) {
+	row := squirrel.Select("id").From("messagekeys").Where("key = ?", ref.Ref()).Limit(1).RunWith(db).QueryRow()
 
 	var msgID int64
 	err := row.Scan(&msgID)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows && make {
-			res, err := sl.db.Exec(`INSERT INTO messagekeys (key) VALUES(?)`, ref.Ref())
+			res, err := db.Exec(`INSERT INTO messagekeys (key) VALUES(?)`, ref.Ref())
 			if err != nil {
 				return -1, err
 			}
@@ -215,14 +218,14 @@ func (sl sqliteLog) idForMessage(ref *ssb.MessageRef, make bool) (int64, error) 
 	return msgID, nil
 }
 
-func (sl sqliteLog) idForAuthor(ref *ssb.FeedRef, make bool) (int64, error) {
-	row := squirrel.Select("id").From("authors").Where("author = ?", ref.Ref()).Limit(1).RunWith(sl.db).QueryRow()
+func idForAuthor(db *sql.DB, ref *ssb.FeedRef, make bool) (int64, error) {
+	row := squirrel.Select("id").From("authors").Where("author = ?", ref.Ref()).Limit(1).RunWith(db).QueryRow()
 
 	var msgID int64
 	err := row.Scan(&msgID)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows && make {
-			res, err := sl.db.Exec(`INSERT INTO authors (author) VALUES(?)`, ref.Ref())
+			res, err := db.Exec(`INSERT INTO authors (author) VALUES(?)`, ref.Ref())
 			if err != nil {
 				return -1, err
 			}

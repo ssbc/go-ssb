@@ -62,13 +62,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.closers.addCloser(s.RootLog.(io.Closer))
 	}
 
-	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
+	pl, ok := s.mlogIndicies["privLogs"]
+	if !ok {
+		log.Log("warning", "missing required idx", "idx", "privLogs")
+
+		newPL, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
+		}
+		s.closers.addCloser(newPL)
+		s.serveIndex(ctx, "privLogs", servePrivs)
+		s.mlogIndicies["privLogs"] = newPL
+		pl = newPL
 	}
-	s.closers.addCloser(pl)
-	s.serveIndex(ctx, "privLogs", servePrivs)
-	s.mlogIndicies["privLogs"] = pl
 
 	// TODO: rewirte about as consumer of msgs by type, like contacts
 	// ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "abouts"), r)
