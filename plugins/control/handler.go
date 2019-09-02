@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"net"
 	"os"
 
 	"github.com/cryptix/go/logging"
@@ -89,14 +88,9 @@ func (h *handler) connect(ctx context.Context, dest string) error {
 		return errors.Wrapf(err, "gossip.connect call: failed to parse input: %s", dest)
 	}
 
-	addr := &net.TCPAddr{
-		IP:   msaddr.Host,
-		Port: msaddr.Port,
-	}
-
-	wrappedAddr := netwrap.WrapAddr(addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
+	wrappedAddr := netwrap.WrapAddr(&msaddr.Addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
 	h.info.Log("event", "doing gossip.connect", "remote", wrappedAddr.String())
 	// TODO: add context to tracker to cancel connections
 	err = h.node.Connect(context.Background(), wrappedAddr)
-	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", addr)
+	return errors.Wrapf(err, "gossip.connect call: error connecting to %q", msaddr.Addr)
 }

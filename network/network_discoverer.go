@@ -70,7 +70,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 	for {
 		rx.SetReadDeadline(time.Now().Add(time.Second * 1))
 		buf := make([]byte, 128)
-		n, _, err := rx.ReadFrom(buf)
+		n, addr, err := rx.ReadFrom(buf)
 		if err != nil {
 			if !os.IsTimeout(err) {
 				// log.Printf("rx adv err, breaking (%s)", err.Error())
@@ -92,20 +92,19 @@ func (d *Discoverer) work(rx net.PacketConn) {
 			continue
 		}
 
-		// ua := addr.(*net.UDPAddr)
-		// if d.local.IP.Equal(ua.IP) {
-		// 	// ignore same origin
-		// 	continue
-		// }
+		ua := addr.(*net.UDPAddr)
 
-		// log.Printf("[localadv debug] %s (claimed:%s %d) %s", addr, na.Host.String(), na.Port, na.Ref.Ref())
+		// skip advertisments not from source
+		if !ua.IP.Equal(na.Addr.IP) {
+			continue
+		}
 
-		// TODO: check if adv.Host == addr ?
-		wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
-			IP: na.Host,
-			// IP:   ua.IP,
-			Port: na.Port,
-		}, secretstream.Addr{PubKey: na.Ref.PubKey()})
+		na.Addr.Zone = ua.Zone
+
+		// fmt.Printf("[localadv debug] %s (claimed:%s) %s\n", addr.String(), na.Addr.String(), na.Ref.Ref())
+
+		wrappedAddr := netwrap.WrapAddr(&na.Addr, secretstream.Addr{PubKey: na.Ref.PubKey()})
+
 		d.brLock.Lock()
 		for _, ch := range d.brodcasts {
 			ch <- wrappedAddr

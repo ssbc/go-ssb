@@ -17,8 +17,7 @@ var (
 )
 
 type NetAddress struct {
-	Host net.IP
-	Port int
+	Addr net.TCPAddr
 	Ref  *ssb.FeedRef
 }
 
@@ -42,19 +41,19 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 			if err != nil {
 				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: no valid Host + Port combination")
 			}
-			na.Host = net.ParseIP(host)
-			if na.Host == nil {
+			na.Addr.IP = net.ParseIP(host)
+			if na.Addr.IP == nil {
 				ipAddr, err := net.ResolveIPAddr("ip", host)
 				if err != nil {
 					return nil, errors.Wrap(ErrNoNetAddr, "multiserver: failed to fallback to resolving addr")
 				}
-				na.Host = ipAddr.IP
+				na.Addr.IP = ipAddr.IP
 			}
 			port, err := strconv.Atoi(portStr)
 			if err != nil {
 				return nil, errors.Wrap(ErrNoNetAddr, "multiserver: badly formatted port")
 			}
-			na.Port = port
+			na.Addr.Port = port
 
 			var keyBuf = make([]byte, 35)
 			n, err := base64.StdEncoding.Decode(keyBuf, shsPart)
