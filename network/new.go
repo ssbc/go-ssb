@@ -303,6 +303,10 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
+	if n.connTracker.Active(addr) {
+		return errors.Errorf("node/connect: peer already active")
+	}
+
 	shsAddr := netwrap.GetAddr(addr, "shs-bs")
 	if shsAddr == nil {
 		return errors.New("node/connect: expected an address containing an shs-bs addr")
