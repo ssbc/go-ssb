@@ -44,29 +44,28 @@ func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 		return
 	}
 
-	// TODO: fix error messages
 	storedFeeds, err := g.users.List()
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+		req.CloseWithError(errors.Wrap(err, "replicate: did not get user list"))
 		return
 	}
 
-	for _, author := range storedFeeds {
+	for i, author := range storedFeeds {
 		authorRef, err := ssb.ParseFeedRef(string(author))
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): invalid stored ref", i))
 			return
 		}
 
 		subLog, err := g.users.Get(author)
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): did not load sublog", i))
 			return
 		}
 
 		currSeq, err := subLog.Seq().Value()
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): failed to get current seq value", i))
 			return
 		}
 
@@ -74,7 +73,7 @@ func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 			ID:       authorRef,
 			Sequence: currSeq.(margaret.Seq).Seq() + 1})
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "replicate: failed to pump msgs"))
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): failed to pump msgs", i))
 			return
 		}
 
