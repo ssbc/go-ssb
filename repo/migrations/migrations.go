@@ -154,7 +154,9 @@ func copyOffset(log logging.Interface, from, to margaret.Log) ([]ssb.MessageRef,
 
 	start := time.Now()
 
-	onePercent := fromSeq.Seq() / 100
+	i := 0
+	took := time.Now()
+	onePercent := fromSeq.Seq() / 10
 
 	var got []ssb.MessageRef
 	track := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
@@ -171,7 +173,9 @@ func copyOffset(log logging.Interface, from, to margaret.Log) ([]ssb.MessageRef,
 
 		seq, err := to.Append(v)
 		if seq.Seq()%onePercent == 0 {
-			log.Log("level", "debug", "msg", "copy progress", "left", fromSeq.Seq()-seq.Seq())
+			log.Log("level", "debug", "msg", "copy progress", "left", fromSeq.Seq()-seq.Seq(), "i", i, "took", time.Since(took))
+			i++
+			took = time.Now()
 		}
 		return err
 	})
@@ -201,7 +205,7 @@ func validateNewLog(log logging.Interface, got []ssb.MessageRef, to margaret.Log
 	start := time.Now()
 	i := 0
 	n := len(got)
-	onePercent := n / 100
+	onePercent := n / 10
 	for {
 		v, err := newTarget.Next(context.TODO())
 		if luigi.IsEOS(err) {
