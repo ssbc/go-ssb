@@ -4,12 +4,15 @@ import (
 	"io"
 
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/muxrpc"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
 )
 
 // TODO: should probably all have contexts? (or at least the client)
 type Interface interface {
+	muxrpc.Endpoint
 	io.Closer
 	// ssb.BlobStore
 	BlobsWant(ssb.BlobRef) error

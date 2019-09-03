@@ -107,6 +107,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
 		time.Sleep(10 * time.Millisecond)
+		bob.Network.GetConnTracker().CloseAll()
 
 		_, err := ali.PublishLog.Append(map[string]interface{}{
 			"test": i,

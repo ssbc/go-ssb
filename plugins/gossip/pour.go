@@ -92,9 +92,14 @@ func (h *handler) pourFeed(ctx context.Context, req *muxrpc.Request) error {
 		src = transform.NewKeyValueWrapper(src, qry.Keys)
 		snk = legacyStreamSink(req.Stream)
 	case ssb.RefAlgoFeedGabby:
-		if qry.AsJSON {
+		switch {
+		case qry.AsJSON && !qry.Keys:
 			snk = asJSONsink(req.Stream)
-		} else {
+
+		case qry.AsJSON && qry.Keys:
+			src = transform.NewKeyValueWrapper(src, true)
+			snk = legacyStreamSink(req.Stream)
+		default:
 			snk = gabbyStreamSink(req.Stream)
 		}
 	default:
