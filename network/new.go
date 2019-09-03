@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -179,8 +181,8 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 	}
 
 	pkr = muxrpc.NewPacker(conn)
-	edp := muxrpc.HandleWithLogger(pkr, h, n.log)
-
+	filtered := level.NewFilter(n.log, level.AllowInfo())
+	edp := muxrpc.HandleWithLogger(pkr, h, filtered)
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
 		go func() {
 			<-cn.Closed()
