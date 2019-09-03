@@ -123,6 +123,7 @@ func main() {
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
+		mksbot.WithUNIXSocket(),
 	}
 
 	if flagFatBot {
