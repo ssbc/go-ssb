@@ -70,9 +70,9 @@ func OpenGeneric(r repo.Interface, name string, x GenericExtractor) (multilog.Mu
 }
 
 func Plug(pexts ...PluggableExtractor) GenericExtractor {
-	var ext = Terminate(pexts[len(pexts) -1])
+	var ext = Terminate(pexts[len(pexts)-1])
 
-	for i := len(pexts)-2; i >= 0; i-- {
+	for i := len(pexts) - 2; i >= 0; i-- {
 		ext = pexts[i](ext)
 	}
 
