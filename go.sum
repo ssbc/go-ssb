@@ -201,8 +201,8 @@ go.cryptoscope.co/margaret v0.0.12-0.20190816140452-29a74a081cbf h1:acauAJyTXe3k
 go.cryptoscope.co/margaret v0.0.12-0.20190816140452-29a74a081cbf/go.mod h1:Fbjg4SY1ga9Mrk6TT/sfm4B6OQwB6bsewWdjn5ZmdlA=
 go.cryptoscope.co/muxrpc v1.4.0 h1:jMttbDLLKhAKtVOEWlkF3mtXX7pYyHIUI0UzN41HZBc=
 go.cryptoscope.co/muxrpc v1.4.0/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
-go.cryptoscope.co/muxrpc v1.4.1-0.20190830122232-49553b1bb815 h1:NiY0CH/6FN+5tKC/QGzK+rkpkL8sSvhcQOLnyZl8MXo=
-go.cryptoscope.co/muxrpc v1.4.1-0.20190830122232-49553b1bb815/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
+go.cryptoscope.co/muxrpc v1.4.1-0.20190904151635-228b17772533 h1:91RL3Ir/okqSG+Xj/NghgkhukpNKSSrzNHWO0s8MKdc=
+go.cryptoscope.co/muxrpc v1.4.1-0.20190904151635-228b17772533/go.mod h1:Cx68bmI2mpgZdKDDOxhb+0N09gyo/Aro34Sb+H68ahY=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.3 h1:HfquGSUYuvBofbCM76Y1QHbwkowbpkmnMQhvp/BkPGQ=
 go.cryptoscope.co/netwrap v0.0.3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
