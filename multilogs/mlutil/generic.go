@@ -18,6 +18,16 @@ type GenericExtractor func(v interface{}) (map[string]string, error)
 
 type PluggableExtractor func(next GenericExtractor) GenericExtractor
 
+func (px PluggableExtractor) Then(next PluggableExtractor) PluggableExtractor {
+	return PluggableExtractor(func(nextExt GenericExtractor) GenericExtractor {
+		return px(next(nextExt))
+	})
+}
+
+func (px PluggableExtractor) Assert() GenericExtractor {
+	return Terminate(px)
+}
+
 func OpenGeneric(r repo.Interface, name string, x GenericExtractor) (multilog.MultiLog, *badger.DB, repo.ServeFunc, error) {
 	return repo.OpenMultiLog(r, name, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := value.(error); ok {

@@ -45,6 +45,34 @@ func TestGenericExtractor(t *testing.T) {
 
 	var tcs = []testCase{
 		{
+			name: "then",
+			x: NewStoredMessageRawExtractor().
+				Then(NewJSONDecodeToMapExtractor()).
+				Then(NewTraverseExtractor([]string{"content"})).
+				Then(StringsExtractor(128)).Assert(),
+			value: message.StoredMessage{
+				Raw: mustBytes(json.Marshal(map[string]interface{}{
+					"content": map[string]interface{}{
+						"number":  23,
+						"string1": "foo",
+						"object": map[string]interface{}{
+							"nestedString": "illegal",
+						},
+						"string2": "bar",
+						"array": []string{
+							"arrayString1",
+							"arrayString2",
+							"arrayString3",
+						},
+					},
+				})),
+			},
+			result: map[string]string{
+				"string1": "foo",
+				"string2": "bar",
+			},
+		},
+		{
 			name: "plugged",
 			x: Plug(
 				NewStoredMessageRawExtractor(),
