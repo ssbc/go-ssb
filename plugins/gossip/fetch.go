@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
@@ -218,6 +219,13 @@ func (g *handler) fetchFeed(
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
+
+	// count the received messages
+	snk = mfr.SinkMap(snk, func(_ context.Context, val interface{}) (interface{}, error) {
+		latestSeq++
+		return val, nil
+	})
+
 	// info.Log("starting", "fetch")
 	err = luigi.Pump(toLong, snk, src)
 	return errors.Wrap(err, "gossip pump failed")
