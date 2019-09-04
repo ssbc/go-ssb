@@ -25,6 +25,7 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/plugins/whoami"
 	cli "gopkg.in/urfave/cli.v2"
 )
 
@@ -146,8 +147,9 @@ func initClient(ctx *cli.Context) error {
 	}
 	pkr = muxrpc.NewPacker(rwc)
 
-	h := noopHandler{kitlog.With(log, "unit", "noop")}
-	client = muxrpc.HandleWithRemote(pkr, &h, conn.RemoteAddr())
+	h := whoami.New(kitlog.With(log, "unit", "incoming"), localKey.Id).Handler()
+
+	client = muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
 
 	longctx = context.Background()
 	longctx, shutdownFunc = context.WithCancel(longctx)

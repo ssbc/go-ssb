@@ -216,6 +216,29 @@ func (n *node) GetEndpointFor(ref *ssb.FeedRef) (muxrpc.Endpoint, bool) {
 	return edp, has
 }
 
+func (n *node) GetAllEndpoints() []ssb.EndpointStat {
+	n.remotesLock.Lock()
+	defer n.remotesLock.Unlock()
+
+	var stats []ssb.EndpointStat
+
+	for ref, edp := range n.remotes {
+		id, _ := ssb.ParseFeedRef(ref)
+		remote := edp.Remote()
+		ok, durr := n.connTracker.Active(remote)
+		if !ok {
+			continue
+		}
+		stats = append(stats, ssb.EndpointStat{
+			ID:       id,
+			Addr:     remote,
+			Since:    durr,
+			Endpoint: edp,
+		})
+	}
+	return stats
+}
+
 func (n *node) addRemote(edp muxrpc.Endpoint) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
@@ -261,7 +284,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 		defer done() // might trigger close of closed panic
 		go func() {
 			for a := range ch {
-				if n.connTracker.Active(a) {
+				if is, _ := n.connTracker.Active(a); is {
 					//n.log.Log("event", "debug", "msg", "ignoring active", "addr", a.String())
 					continue
 				}
@@ -305,7 +328,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
-	if n.connTracker.Active(addr) {
+	if is, _ := n.connTracker.Active(addr); is {
 		return errors.Errorf("node/connect: peer already active")
 	}
 

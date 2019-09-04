@@ -8,8 +8,11 @@ import (
 	"net"
 	"os"
 
+	"go.cryptoscope.co/ssb/plugins/whoami"
+
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -62,26 +65,24 @@ func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, er
 
 	// todo: would be nice if netwrap could handle these two steps
 	// but then it still needs to have the shsClient somehow
-	shsAddr := netwrap.GetAddr(remote, "shs-bs")
-	if shsAddr == nil {
+	boxAddr := netwrap.GetAddr(remote, "shs-bs")
+	if boxAddr == nil {
 		return nil, errors.New("ssbClient: expected an address containing an shs-bs addr")
 	}
 
 	var pubKey [ed25519.PublicKeySize]byte
-	if shsAddr, ok := shsAddr.(secretstream.Addr); ok {
-		copy(pubKey[:], shsAddr.PubKey)
-	} else {
+	shsAddr, ok := boxAddr.(secretstream.Addr)
+	if !ok {
 		return nil, errors.New("ssbClient: expected shs-bs address to be of type secretstream.Addr")
 	}
+	copy(pubKey[:], shsAddr.PubKey)
 
 	conn, err := netwrap.Dial(netwrap.GetAddr(remote, "tcp"), shsClient.ConnWrapper(pubKey))
 	if err != nil {
 		return nil, errors.Wrap(err, "error dialing")
 	}
 
-	h := noopHandler{
-		logger: c.logger,
-	}
+	h := whoami.New(c.logger, own.Id).Handler()
 
 	var rwc io.ReadWriteCloser = conn
 	// logs every muxrpc packet
@@ -89,7 +90,7 @@ func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, er
 		rwc = debug.Wrap(log.NewLogfmtLogger(os.Stderr), rwc)
 	}
 
-	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(rwc), &h, conn.RemoteAddr())
+	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(rwc), h, conn.RemoteAddr())
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
@@ -114,6 +115,7 @@ func NewUnix(ctx context.Context, path string) (*client, error) {
 	if err != nil {
 		return nil, errors.Errorf("ssbClient: failed to open unix path")
 	}
+
 	h := noopHandler{
 		logger: c.logger,
 	}
@@ -160,10 +162,20 @@ func (c client) BlobsWant(ref ssb.BlobRef) error {
 	var v interface{}
 	v, err := c.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
-		return errors.Wrap(err, "ssbClient: whoami failed")
+		return errors.Wrap(err, "ssbClient: blobs.want failed")
 	}
 	c.logger.Log("blob", "wanted", "v", v, "ref", ref.Ref())
 	return nil
+}
+
+func (c client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
+	v, err := c.Async(c.rootCtx, true, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	if err != nil {
+		return false, errors.Wrap(err, "ssbClient: whoami failed")
+	}
+	c.logger.Log("blob", "has", "v", v, "ref", ref.Ref())
+	return v.(bool), nil
+
 }
 
 func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
@@ -241,9 +253,9 @@ type noopHandler struct {
 
 func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 	srv := edp.(muxrpc.Server)
-	h.logger.Log("event", "onConnect", "addr", srv.Remote())
+	level.Debug(h.logger).Log("event", "onConnect", "addr", srv.Remote())
 }
 
 func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.logger.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
+	level.Debug(h.logger).Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 }

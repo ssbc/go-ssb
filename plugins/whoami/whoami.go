@@ -58,9 +58,14 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	if req.Type == "" {
 		req.Type = "async"
 	}
+	if req.Method.String() != "whoami" {
+		req.CloseWithError(fmt.Errorf("wrong method"))
+		return
+	}
 	type ret struct {
 		ID string `json:"id"`
 	}
+
 	err := req.Return(ctx, ret{h.id.Ref()})
 	checkAndLog(h.log, err)
 }

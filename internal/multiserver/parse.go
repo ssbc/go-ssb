@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
@@ -19,6 +20,15 @@ var (
 type NetAddress struct {
 	Addr net.TCPAddr
 	Ref  *ssb.FeedRef
+}
+
+func (na NetAddress) String() string {
+	var sb strings.Builder
+	sb.WriteString("net:")
+	sb.WriteString(na.Addr.String())
+	sb.WriteString("~shs:")
+	sb.WriteString(base64.StdEncoding.EncodeToString(na.Ref.PubKey()))
+	return sb.String()
 }
 
 func ParseNetAddress(input []byte) (*NetAddress, error) {

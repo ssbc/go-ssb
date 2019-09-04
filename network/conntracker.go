@@ -34,7 +34,7 @@ func (ict instrumentedConnTracker) CloseAll() {
 	ict.root.CloseAll()
 }
 
-func (ict instrumentedConnTracker) Active(a net.Addr) bool {
+func (ict instrumentedConnTracker) Active(a net.Addr) (bool, time.Duration) {
 	return ict.root.Active(a)
 }
 
@@ -96,12 +96,15 @@ func toActive(a net.Addr) [32]byte {
 	return pk
 }
 
-func (ct *connTracker) Active(a net.Addr) bool {
+func (ct *connTracker) Active(a net.Addr) (bool, time.Duration) {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 	k := toActive(a)
-	_, ok := ct.active[k]
-	return ok
+	l, ok := ct.active[k]
+	if !ok {
+		return false, 0
+	}
+	return true, time.Since(l.started)
 }
 
 func (ct *connTracker) OnAccept(conn net.Conn) bool {

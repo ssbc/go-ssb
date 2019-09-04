@@ -23,6 +23,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/publish"
 	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/replicate"
+	"go.cryptoscope.co/ssb/plugins/status"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
@@ -226,7 +227,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// raw log plugins
 
 	// s.master.Register(rawread.NewByType(s.RootLog, mt)) // messagesByType
-
 	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
 	s.master.Register(hist)                        // createHistoryStream
 
@@ -250,15 +250,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		Latency:         s.latency,
 	}
 
-	node, err := network.New(opts)
+	s.Network, err = network.New(opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create network node")
 	}
-	s.Network = node
 	s.closers.addCloser(s.Network)
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), node))
+	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
+	s.master.Register(status.New(s.Network, s.RootLog))
 
 	return s, nil
 }

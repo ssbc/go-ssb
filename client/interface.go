@@ -15,6 +15,7 @@ type Interface interface {
 	muxrpc.Endpoint
 	io.Closer
 	// ssb.BlobStore
+	BlobsHas(*ssb.BlobRef) (bool, error)
 	BlobsWant(ssb.BlobRef) error
 
 	Whoami() (*ssb.FeedRef, error)
