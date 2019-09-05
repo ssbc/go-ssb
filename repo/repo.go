@@ -88,7 +88,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		return errors.Wrap(err, "error reading query for mlog")
 	}
 
-	return mlog, serve, nil
+	return mlogSink, serve, nil
 }
 
 func OpenRoaringMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {

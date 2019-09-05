@@ -6,6 +6,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins2"
@@ -70,10 +71,33 @@ func MountSimpleIndex(name string, fn repo.MakeSimpleIndex) Option {
 	}
 }
 
+func (s *Sbot) GetSimpleIndex(name string) (librarian.Index, bool) {
+	si, has := s.simpleIndex[name]
+	return si, has
+}
+
 func (s *Sbot) GetMultiLog(name string) (multilog.MultiLog, bool) {
 	ml, has := s.mlogIndicies[name]
 	return ml, has
 }
+
+func (s *Sbot) GetIndexNamesSimple() []string {
+	var simple []string
+	for name := range s.simpleIndex {
+		simple = append(simple, name)
+	}
+	return simple
+}
+
+func (s *Sbot) GetIndexNamesMultiLog() []string {
+	var mlogs []string
+	for name := range s.mlogIndicies {
+		mlogs = append(mlogs, name)
+	}
+	return mlogs
+}
+
+var _ ssb.Indexer = (*Sbot)(nil)
 
 func (s *Sbot) serveIndex(ctx context.Context, name string, f repo.ServeFunc) {
 	s.idxDone.Add(1)

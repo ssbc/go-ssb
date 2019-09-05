@@ -35,3 +35,5 @@ require (
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
 )
+
+replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6

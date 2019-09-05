@@ -62,6 +62,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(s.RootLog.(io.Closer))
 
+	// TODO: move to mounted indexes
 	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
@@ -103,6 +104,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	// TODO: move to mounted indexes
 	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: OpenContacts failed")
@@ -265,7 +267,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
-	s.master.Register(status.New(s.Network, s.RootLog, s.WantManager))
+	s.master.Register(status.New(s))
 
 	return s, nil
 }
