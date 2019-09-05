@@ -15,8 +15,8 @@ WARNING: Project is still in alpha, backwards incompatible changes will be made.
 ## Installation
 
 ```bash
-go install github.com/cryptoscope/ssb/cmd/go-sbot
-go install github.com/cryptoscope/ssb/cmd/sbotcli
+go install go.cryptoscope.co/ssb/cmd/go-sbot
+go install go.cryptoscope.co/ssb/cmd/sbotcli
 ```
 
 Requirements:
