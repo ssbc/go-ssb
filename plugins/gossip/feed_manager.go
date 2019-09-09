@@ -20,95 +20,6 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
-// multiSink takes each message poured into it, and passes it on to all
-// registered sinks.
-//
-// multiSink is like luigi.Broadcaster but with context support.
-type multiSink struct {
-	seq   int64
-	sinks []luigi.Sink
-	ctxs  map[luigi.Sink]context.Context
-	until map[luigi.Sink]int64
-
-	isClosed bool
-}
-
-var _ luigi.Sink = (*multiSink)(nil)
-var _ margaret.Seq = (*multiSink)(nil)
-
-func newMultiSink(seq int64) *multiSink {
-	return &multiSink{
-		seq:   seq,
-		ctxs:  make(map[luigi.Sink]context.Context),
-		until: make(map[luigi.Sink]int64),
-	}
-}
-
-func (f *multiSink) Seq() int64 {
-	return f.seq
-}
-
-// Register adds a sink to propagate messages to upto the 'until'th sequence.
-func (f *multiSink) Register(
-	ctx context.Context,
-	sink luigi.Sink,
-	until int64,
-) error {
-	f.sinks = append(f.sinks, sink)
-	f.ctxs[sink] = ctx
-	f.until[sink] = until
-	return nil
-}
-
-func (f *multiSink) Unregister(
-	sink luigi.Sink,
-) error {
-	for i, s := range f.sinks {
-		if sink != s {
-			continue
-		}
-		f.sinks = append(f.sinks[:i], f.sinks[(i+1):]...)
-		delete(f.ctxs, sink)
-		delete(f.until, sink)
-		return nil
-	}
-	return nil
-}
-
-func (f *multiSink) Close() error {
-	f.isClosed = true
-	return nil
-}
-
-func (f *multiSink) Pour(
-	ctx context.Context,
-	msg interface{},
-) error {
-	if f.isClosed {
-		return luigi.EOS{}
-	}
-	f.seq++
-
-	var deadFeeds []luigi.Sink
-
-	for _, s := range f.sinks {
-		err := s.Pour(f.ctxs[s], msg)
-		if luigi.IsEOS(err) || f.until[s] <= f.seq {
-			deadFeeds = append(deadFeeds, s)
-			continue
-		} else if err != nil {
-			// QUESTION: should CloseWithError be used here?
-			panic(err)
-		}
-	}
-
-	for _, feed := range deadFeeds {
-		f.Unregister(feed)
-	}
-
-	return nil
-}
-
 // FeedManager handles serving gossip about User Feeds.
 type FeedManager struct {
 	RootLog   margaret.Log
@@ -144,9 +55,17 @@ func NewFeedManager(
 	return fm
 }
 
-func (m *FeedManager) pour(ctx context.Context, val interface{}, _ error) error {
+func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) error {
 	m.liveFeedsMut.Lock()
 	defer m.liveFeedsMut.Unlock()
+
+	if err != nil {
+		m.logger.Log("pourErr", err)
+		if luigi.IsEOS(err) {
+			return nil
+		}
+		return err
+	}
 
 	author := val.(margaret.SeqWrapper).Value().(message.StoredMessage).GetAuthor()
 	sink, ok := m.liveFeeds[author.Ref()]
@@ -196,6 +115,10 @@ func (m *FeedManager) addLiveFeed(
 	if !ok {
 		m.liveFeeds[ssbID] = newMultiSink(seq)
 		liveFeed = m.liveFeeds[ssbID]
+	}
+
+	if m.sysGauge != nil {
+		m.sysGauge.With("part", "gossip-livefeeds").Set(float64(len(m.liveFeeds)))
 	}
 
 	until := seq + limit
@@ -261,7 +184,7 @@ func getLatestSeq(log margaret.Log) (int64, error) {
 	}
 }
 
-// newSinkCounter returns a new Sink which iterates the given counter when poured to.
+// newSinkCounter returns a new Sink which increases the given counter when poured to.
 func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 	return func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
