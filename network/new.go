@@ -205,6 +205,7 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 
 // GetEndpointFor returns a muxrpc endpoint to call the remote identified by the passed feed ref
 // retruns false if there is no such connection
+// TODO: merge with conntracker
 func (n *node) GetEndpointFor(ref *ssb.FeedRef) (muxrpc.Endpoint, bool) {
 	if ref == nil {
 		return nil, false
@@ -216,6 +217,7 @@ func (n *node) GetEndpointFor(ref *ssb.FeedRef) (muxrpc.Endpoint, bool) {
 	return edp, has
 }
 
+// TODO: merge with conntracker
 func (n *node) GetAllEndpoints() []ssb.EndpointStat {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
@@ -239,6 +241,7 @@ func (n *node) GetAllEndpoints() []ssb.EndpointStat {
 	return stats
 }
 
+// TODO: merge with conntracker
 func (n *node) addRemote(edp muxrpc.Endpoint) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
@@ -260,6 +263,7 @@ func (n *node) addRemote(edp muxrpc.Endpoint) {
 	n.remotes[r.Ref()] = edp
 }
 
+// TODO: merge with conntracker
 func (n *node) removeRemote(edp muxrpc.Endpoint) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()

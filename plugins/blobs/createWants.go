@@ -67,7 +67,6 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
 		return
 	}
-	<-ctx.Done()
 }
 
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
