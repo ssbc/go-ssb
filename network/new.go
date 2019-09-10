@@ -145,15 +145,15 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		n.log.Log("conn", "ignored", "remote", conn.RemoteAddr(), "err", err)
 		return
 	}
-	var pkr muxrpc.Packer
+	var edp muxrpc.Endpoint
 
 	ctx, cancel := ctxutils.WithError(ctx, fmt.Errorf("handle conn returned"))
 
 	defer func() {
 		durr := n.connTracker.OnClose(conn)
 		var err error
-		if pkr != nil {
-			err = errors.Wrap(pkr.Close(), "packer closing")
+		if edp != nil {
+			err = errors.Wrap(edp.Terminate(), "packer closing")
 		} else {
 			err = errors.Wrap(conn.Close(), "direct conn closing")
 		}
@@ -180,9 +180,9 @@ func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrp
 		h = hw(h)
 	}
 
-	pkr = muxrpc.NewPacker(conn)
+	pkr := muxrpc.NewPacker(conn)
 	filtered := level.NewFilter(n.log, level.AllowInfo())
-	edp := muxrpc.HandleWithLogger(pkr, h, filtered)
+	edp = muxrpc.HandleWithLogger(pkr, h, filtered)
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
 		go func() {
 			<-cn.Closed()
@@ -328,10 +328,6 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
-	if is, _ := n.connTracker.Active(addr); is {
-		return errors.Errorf("node/connect: peer already active")
-	}
-
 	shsAddr := netwrap.GetAddr(addr, "shs-bs")
 	if shsAddr == nil {
 		return errors.New("node/connect: expected an address containing an shs-bs addr")
