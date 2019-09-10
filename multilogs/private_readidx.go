@@ -87,8 +87,7 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 			return errors.Wrap(err, "error opening priv sublog")
 		}
 
-		privSeq, err := userPrivs.Append(seq.Seq())
-		log.Log("msg", "indexed private msg", "got", privSeq.Seq())
+		_, err = userPrivs.Append(seq.Seq())
 		return errors.Wrapf(err, "error appending PM for %s", kp.Id.Ref())
 	})
 }
