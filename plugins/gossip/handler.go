@@ -125,8 +125,7 @@ func (g *handler) HandleCall(
 	closeIfErr := func(err error) {
 		g.check(err)
 		if err != nil {
-			closeErr := req.Stream.CloseWithError(err)
-			g.check(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
+			req.Stream.CloseWithError(err)
 		}
 	}
 
