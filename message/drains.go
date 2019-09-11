@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.mindeco.de/ssb-gabbygrove"
+	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -69,16 +69,27 @@ type gabbyVerify struct {
 	hmacKey *[32]byte
 }
 
-func (gv gabbyVerify) Verify(ctx context.Context, v interface{}) (ssb.Message, error) {
+func (gv gabbyVerify) Verify(ctx context.Context, v interface{}) (msg ssb.Message, err error) {
 	trBytes, ok := v.([]uint8)
 	if !ok {
-		return nil, errors.Errorf("gabbyVerify: expected %T - got %T", trBytes, v)
+		err = errors.Errorf("gabbyVerify: expected %T - got %T", trBytes, v)
+		return
 	}
 	var tr gabbygrove.Transfer
-	err := tr.UnmarshalCBOR(trBytes)
-	if err != nil {
-		return nil, errors.Wrapf(err, "gabbyVerify: transfer unmarshal failed")
+	if uErr := tr.UnmarshalCBOR(trBytes); uErr != nil {
+		err = errors.Wrapf(uErr, "gabbyVerify: transfer unmarshal failed")
+		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			if panicErr, ok := r.(error); ok {
+				err = errors.Wrap(panicErr, "gabbyVerify: recovered from panic")
+			} else {
+				panic(r)
+			}
+		}
+	}()
 	if !tr.Verify(gv.hmacKey) {
 		return nil, errors.Errorf("gabbyVerify: transfer verify failed")
 	}
