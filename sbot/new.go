@@ -114,7 +114,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to open blob store")
 	}
 	s.BlobStore = bs
-	wm := blobstore.NewWantManager(kitlog.With(log, "module", "WantManager"), bs, s.eventCounter, s.systemGauge)
+	// TODO: add flag to filter specific levels and/or units and pass nop to the others
+	// wantsLog:=kitlog.With(log, "module", "WantManager")
+	wantsLog := kitlog.NewNopLogger()
+	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
 	id := s.KeyPair.Id
