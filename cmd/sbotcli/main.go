@@ -2,8 +2,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -235,7 +237,11 @@ CAVEAT: only one argument...
 			return errors.Wrapf(err, "%s: call failed.", cmd)
 		}
 		log.Log("event", "call reply")
-		goon.Dump(val)
+		jsonReply, err := json.MarshalIndent(val, "", "  ")
+		if err != nil {
+			return errors.Wrapf(err, "%s: call failed.", cmd)
+		}
+		io.Copy(os.Stdout, bytes.NewReader(jsonReply))
 		return nil
 	},
 }
