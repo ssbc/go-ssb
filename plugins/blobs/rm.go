@@ -27,6 +27,9 @@ func (h rmHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxr
 	}
 
 	if len(req.Args) != 1 {
+		// TODO: change from generic handlers to typed once (source, sink, async..)
+		// async then would have to return a value or an error and not fall into this trap of not closing a stream
+		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args"))
 		return
 	}
 

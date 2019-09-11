@@ -19,12 +19,14 @@ import (
 type Plugin struct {
 	root margaret.Log
 	net  ssb.Network
+	ws   ssb.WantManager
 }
 
-func New(n ssb.Network, root margaret.Log) *Plugin {
+func New(n ssb.Network, root margaret.Log, ws ssb.WantManager) *Plugin {
 	return &Plugin{
 		root: root,
 		net:  n,
+		ws:   ws,
 	}
 }
 
@@ -42,8 +44,10 @@ func (g Plugin) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.
 	}
 
 	s := status{
-		Root: v.(margaret.Seq),
+		Root:  v.(margaret.Seq),
+		Blobs: g.ws.AllWants(),
 	}
+
 	edps := g.net.GetAllEndpoints()
 
 	sort.Sort(byConnTime(edps))
@@ -84,4 +88,5 @@ type peerStatus struct {
 type status struct {
 	Root  margaret.Seq
 	Peers []peerStatus
+	Blobs interface{}
 }

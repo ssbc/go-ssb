@@ -126,6 +126,8 @@ func (g *handler) HandleCall(
 		g.check(err)
 		if err != nil {
 			req.Stream.CloseWithError(err)
+		} else {
+			req.Stream.Close()
 		}
 	}
 

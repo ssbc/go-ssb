@@ -258,7 +258,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
-	s.master.Register(status.New(s.Network, s.RootLog))
+	s.master.Register(status.New(s.Network, s.RootLog, s.WantManager))
 
 	return s, nil
 }

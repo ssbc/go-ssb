@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/luigi"
@@ -36,9 +37,7 @@ var (
 
 func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
-		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
-			log.Log("event", "warning", "msg", "faild to write panic file", "err", err)
-		}
+		level.Error(log).Log("err", err)
 	}
 }
 
@@ -59,10 +58,7 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 	// 	bs:  bs,
 	// })
 
-	var hs = []struct {
-		Method  muxrpc.Method
-		Handler muxrpc.Handler
-	}{
+	var hs = []muxrpc.NamedHandler{
 		{muxrpc.Method{"blobs", "get"}, getHandler{
 			log: log,
 			bs:  bs,
@@ -82,10 +78,7 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 			sources: make(map[string]luigi.Source),
 		}},
 	}
-	for _, hn := range hs {
-		rootHdlr.Register(hn.Method, hn.Handler)
-	}
-	// rootHdlr.RegisterAll(hs...)
+	rootHdlr.RegisterAll(hs...)
 
 	return plugin{
 		h:   &rootHdlr,

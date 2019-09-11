@@ -2,6 +2,7 @@ package blobs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -25,27 +26,20 @@ func (h wantHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 	}
 
 	if len(req.Args) != 1 {
+		// TODO: change from generic handlers to typed once (source, sink, async..)
+		// async then would have to return a value or an error and not fall into this trap of not closing a stream
+		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args (%d)", len(req.Args)))
 		return
 	}
 
-	ref, err := ssb.ParseRef(req.Args[0].(string))
+	br, err := ssb.ParseBlobRef(req.Args[0].(string))
 	if err != nil {
 		err = errors.Wrap(err, "error parsing blob reference")
-		checkAndLog(h.log, errors.Wrap(req.Return(ctx, err), "error returning error"))
-		return
-	}
-
-	br, ok := ref.(*ssb.BlobRef)
-	if !ok {
-		err = errors.Errorf("expected blob reference, got %T", ref)
-		checkAndLog(h.log, errors.Wrap(req.Return(ctx, err), "error returning error"))
+		checkAndLog(h.log, errors.Wrap(req.CloseWithError(err), "error returning error"))
 		return
 	}
 
 	err = h.wm.Want(br)
 	err = errors.Wrap(err, "error wanting blob reference")
-	checkAndLog(h.log, errors.Wrap(req.Return(ctx, err), "error returning error"))
-
-	err = errors.Wrap(err, "error closing stream")
 	checkAndLog(h.log, errors.Wrap(req.Return(ctx, err), "error returning error"))
 }

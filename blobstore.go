@@ -2,6 +2,7 @@ package ssb
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"go.cryptoscope.co/luigi"
@@ -46,6 +47,20 @@ type WantManager interface {
 	WantWithDist(ref *BlobRef, dist int64) error
 	//Unwant(ref *BlobRef) error
 	CreateWants(context.Context, luigi.Sink, muxrpc.Endpoint) luigi.Sink
+
+	AllWants() []BlobWant
+}
+
+type BlobWant struct {
+	Ref *BlobRef
+
+	// if Dist is negative, it is the hop count to the original wanter.
+	// if it is positive, it is the size of the blob.
+	Dist int64
+}
+
+func (w BlobWant) String() string {
+	return fmt.Sprintf("%s:%d", w.Ref.Ref()[1:5], w.Dist)
 }
 
 // BlobStoreNotification contains info on a single change of the blob store.
