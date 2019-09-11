@@ -3,6 +3,7 @@ package sbot
 import (
 	"io"
 	"net"
+	"time"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -158,11 +159,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return s.public.MakeHandler(conn)
 		}
 
-		// start := time.Now()
+		start := time.Now()
+		if s.latency != nil {
+			defer func() {
+				s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
+			}()
+		}
 		err = auth.Authorize(remote)
-		// if s.latency != nil {
-		// 	s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
-		// }
 		if err == nil {
 			return s.public.MakeHandler(conn)
 		}

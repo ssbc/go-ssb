@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
 )
@@ -28,7 +29,7 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	}
 
 	if fg.NodeCount() == 0 {
-		a.log.Log("event", "warning:authbypass", "msg", "trust on first use")
+		level.Warn(a.log).Log("msg", "authbypass - trust on first use")
 		return nil
 	}
 
@@ -58,7 +59,7 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > 5 {
 		// d == -Inf > peer not connected to the graph
 		// d == +Inf > peer directly(?) blocked
-		a.log.Log("debug", "dist", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
+		level.Debug(a.log).Log("err", "out-of-reach", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
 		return &ssb.ErrOutOfReach{Dist: hops, Max: a.maxHops}
 	}
 
