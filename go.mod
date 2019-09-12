@@ -7,7 +7,7 @@ require (
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dgraph-io/badger v2.0.0-rc.2.0.20190610165348-a804ffa35fb9+incompatible
+	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/hashicorp/go-multierror v1.0.0
@@ -19,9 +19,9 @@ require (
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go/codec v1.1.7
-	go.cryptoscope.co/librarian v0.1.3
+	go.cryptoscope.co/librarian v0.1.4-0.20190912103814-57505baa5ec9
 	go.cryptoscope.co/luigi v0.3.3
-	go.cryptoscope.co/margaret v0.0.12-0.20190816140452-29a74a081cbf
+	go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4
 	go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e
 	go.cryptoscope.co/netwrap v0.0.3
 	go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98

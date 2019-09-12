@@ -7,8 +7,5 @@ import (
 )
 
 func badgerOpts(dbPath string) badger.Options {
-	opts := badger.DefaultOptions
-	opts.Dir = dbPath
-	opts.ValueDir = opts.Dir
-	return opts
+	return badger.DefaultOptions(dbPath)
 }
