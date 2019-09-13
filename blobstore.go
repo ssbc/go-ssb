@@ -18,7 +18,7 @@ const (
 )
 
 // BlobStore is the interface of our blob store
-//go:generate counterfeiter -o mock/blobstore.go . BlobStore
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/blobstore.go . BlobStore
 type BlobStore interface {
 	// Get returns a reader of the blob with given ref.
 	Get(ref *BlobRef) (io.Reader, error)
@@ -39,7 +39,7 @@ type BlobStore interface {
 	Changes() luigi.Broadcast
 }
 
-//go:generate counterfeiter -o mock/wantmanager.go . WantManager
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
 type WantManager interface {
 	luigi.Broadcast
 	Want(ref *BlobRef) error

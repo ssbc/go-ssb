@@ -15,6 +15,7 @@ require (
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
 	github.com/sergi/go-diff v1.0.0 // indirect
