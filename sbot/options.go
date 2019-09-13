@@ -44,13 +44,16 @@ type Sbot struct {
 	promisc  bool
 	hopCount uint
 
+	// these should all be options that are applied on the network construction...
 	Network        ssb.Network
 	disableNetwork bool
-	dialer         netwrap.Dialer
-	listenAddr     net.Addr
 	appKey         []byte
-	connWrappers   []netwrap.ConnWrapper
+	listenAddr     net.Addr
+	dialer         netwrap.Dialer
 	edpWrapper     MuxrpcEndpointWrapper
+
+	preSecureWrappers  []netwrap.ConnWrapper
+	postSecureWrappers []netwrap.ConnWrapper
 
 	public ssb.PluginManager
 	master ssb.PluginManager
@@ -230,9 +233,18 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithConnWrapper(cw netwrap.ConnWrapper) Option {
+// TODO: remove all this network stuff and make them options on network
+func WithPreSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	return func(s *Sbot) error {
-		s.connWrappers = append(s.connWrappers, cw)
+		s.preSecureWrappers = append(s.preSecureWrappers, cw)
+		return nil
+	}
+}
+
+// TODO: remove all this network stuff and make them options on network
+func WithPostSecureConnWrapper(cw netwrap.ConnWrapper) Option {
+	return func(s *Sbot) error {
+		s.postSecureWrappers = append(s.postSecureWrappers, cw)
 		return nil
 	}
 }

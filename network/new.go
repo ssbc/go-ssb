@@ -26,17 +26,24 @@ import (
 const DefaultPort = 8008
 
 type Options struct {
+	Logger log.Logger
+
 	Dialer     netwrap.Dialer
 	ListenAddr net.Addr
 
 	AdvertsSend      bool
 	AdvertsConnectTo bool
 
-	KeyPair      *ssb.KeyPair
-	AppKey       []byte
-	MakeHandler  func(net.Conn) (muxrpc.Handler, error)
-	Logger       log.Logger
-	ConnWrappers []netwrap.ConnWrapper
+	KeyPair     *ssb.KeyPair
+	AppKey      []byte
+	MakeHandler func(net.Conn) (muxrpc.Handler, error)
+
+	// PreSecureWrappers are applied before the shs+boxstream wrapping takes place
+	// usefull for accessing the sycall.Conn to apply control options on the socket
+	BefreCryptoWrappers []netwrap.ConnWrapper
+
+	// AfterSecureWrappers are applied afterwards, usefull to debug muxrpc content
+	AfterSecureWrappers []netwrap.ConnWrapper
 
 	EventCounter    *prometheus.Counter
 	SystemGauge     *prometheus.Gauge
@@ -47,6 +54,8 @@ type Options struct {
 type node struct {
 	opts Options
 
+	log log.Logger
+
 	dialer        netwrap.Dialer
 	l             net.Listener
 	localDiscovRx *Discoverer
@@ -54,8 +63,9 @@ type node struct {
 	secretServer  *secretstream.Server
 	secretClient  *secretstream.Client
 	connTracker   ssb.ConnTracker
-	log           log.Logger
-	connWrappers  []netwrap.ConnWrapper
+
+	beforeCryptoConnWrappers []netwrap.ConnWrapper
+	afterSecureConnWrappers  []netwrap.ConnWrapper
 
 	remotesLock sync.Mutex
 	remotes     map[string]muxrpc.Endpoint
@@ -94,7 +104,8 @@ func New(opts Options) (ssb.Network, error) {
 		return nil, errors.Wrap(err, "error creating secretstream.Server")
 	}
 
-	n.l, err = netwrap.Listen(n.opts.ListenAddr, n.secretServer.ListenerWrapper())
+	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
+	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
@@ -113,7 +124,8 @@ func New(opts Options) (ssb.Network, error) {
 		}
 	}
 
-	n.connWrappers = opts.ConnWrappers
+	n.beforeCryptoConnWrappers = opts.BefreCryptoWrappers
+	n.afterSecureConnWrappers = opts.AfterSecureWrappers
 
 	n.edpWrapper = opts.EndpointWrapper
 	n.evtCtr = opts.EventCounter
@@ -131,76 +143,8 @@ func New(opts Options) (ssb.Network, error) {
 	return n, nil
 }
 
-func (n *node) handleConnection(ctx context.Context, conn net.Conn, hws ...muxrpc.HandlerWrapper) {
-	conn, err := n.applyConnWrappers(conn)
-	if err != nil {
-		conn.Close()
-		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
-		return
-	}
-
-	ok := n.connTracker.OnAccept(conn)
-	if !ok {
-		err := conn.Close()
-		n.log.Log("conn", "ignored", "remote", conn.RemoteAddr(), "err", err)
-		return
-	}
-	var edp muxrpc.Endpoint
-
-	ctx, cancel := ctxutils.WithError(ctx, fmt.Errorf("handle conn returned"))
-
-	defer func() {
-		durr := n.connTracker.OnClose(conn)
-		var err error
-		if edp != nil {
-			err = errors.Wrap(edp.Terminate(), "packer closing")
-		} else {
-			err = errors.Wrap(conn.Close(), "direct conn closing")
-		}
-		if err != nil {
-			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
-		}
-		cancel()
-	}()
-
-	if n.evtCtr != nil {
-		n.evtCtr.With("event", "connection").Add(1)
-	}
-
-	h, err := n.opts.MakeHandler(conn)
-	if err != nil {
-		// n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
-		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
-			return // ignore silently
-		}
-		return
-	}
-
-	for _, hw := range hws {
-		h = hw(h)
-	}
-
-	pkr := muxrpc.NewPacker(conn)
-	filtered := level.NewFilter(n.log, level.AllowInfo())
-	edp = muxrpc.HandleWithLogger(pkr, h, filtered)
-	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
-		go func() {
-			<-cn.Closed()
-			cancel()
-		}()
-	}
-
-	if n.edpWrapper != nil {
-		edp = n.edpWrapper(edp)
-	}
-	n.addRemote(edp)
-
-	srv := edp.(muxrpc.Server)
-
-	if err := srv.Serve(ctx); err != nil {
-		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
-	}
-	n.removeRemote(edp)
+func (n *node) GetConnTracker() ssb.ConnTracker {
+	return n.connTracker
 }
 
 // GetEndpointFor returns a muxrpc endpoint to call the remote identified by the passed feed ref
@@ -274,6 +218,78 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 	delete(n.remotes, r.Ref())
 }
 
+func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
+	conn, err := n.applyConnWrappers(origConn)
+	if err != nil {
+		origConn.Close()
+		n.log.Log("msg", "node/Serve: failed to wrap connection", "err", err)
+		return
+	}
+
+	ok := n.connTracker.OnAccept(conn)
+	if !ok {
+		err := origConn.Close()
+		n.log.Log("conn", "ignored", "remote", conn.RemoteAddr(), "err", err)
+		return
+	}
+	var edp muxrpc.Endpoint
+
+	ctx, cancel := ctxutils.WithError(ctx, fmt.Errorf("handle conn returned"))
+
+	defer func() {
+		durr := n.connTracker.OnClose(conn)
+		var err error
+		if edp != nil {
+			err = errors.Wrap(edp.Terminate(), "packer closing")
+		} else {
+			err = errors.Wrap(origConn.Close(), "direct conn closing")
+		}
+		if err != nil {
+			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
+		}
+		cancel()
+	}()
+
+	if n.evtCtr != nil {
+		n.evtCtr.With("event", "connection").Add(1)
+	}
+
+	h, err := n.opts.MakeHandler(conn)
+	if err != nil {
+		// n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
+		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
+			return // ignore silently
+		}
+		return
+	}
+
+	for _, hw := range hws {
+		h = hw(h)
+	}
+
+	pkr := muxrpc.NewPacker(conn)
+	filtered := level.NewFilter(n.log, level.AllowInfo())
+	edp = muxrpc.HandleWithLogger(pkr, h, filtered)
+	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+		go func() {
+			<-cn.Closed()
+			cancel()
+		}()
+	}
+
+	if n.edpWrapper != nil {
+		edp = n.edpWrapper(edp)
+	}
+	n.addRemote(edp)
+
+	srv := edp.(muxrpc.Server)
+
+	if err := srv.Serve(ctx); err != nil {
+		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
+	}
+	n.removeRemote(edp)
+}
+
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	if n.localDiscovTx != nil {
 		// should also be called when ctx canceled?
@@ -344,7 +360,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		return errors.New("node/connect: expected shs-bs address to be of type secretstream.Addr")
 	}
 
-	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), n.secretClient.ConnWrapper(pubKey))
+	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), append(n.beforeCryptoConnWrappers, n.secretClient.ConnWrapper(pubKey))...)
 	if err != nil {
 		return errors.Wrap(err, "node/connect: error dialing")
 	}
@@ -360,7 +376,7 @@ func (n *node) GetListenAddr() net.Addr {
 }
 
 func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
-	for i, cw := range n.connWrappers {
+	for i, cw := range n.afterSecureConnWrappers {
 		var err error
 		conn, err = cw(conn)
 		if err != nil {
@@ -368,10 +384,6 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 		}
 	}
 	return conn, nil
-}
-
-func (n *node) GetConnTracker() ssb.ConnTracker {
-	return n.connTracker
 }
 
 func (n *node) Close() error {

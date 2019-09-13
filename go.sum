@@ -186,6 +186,8 @@ go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e/go.mod h1:dV/i300s
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.3 h1:HfquGSUYuvBofbCM76Y1QHbwkowbpkmnMQhvp/BkPGQ=
 go.cryptoscope.co/netwrap v0.0.3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
+go.cryptoscope.co/netwrap v0.1.0 h1:7MMji1HpnjBhqJXzkGEt7HE+l3IVr5fwoDGsoEXPeqQ=
+go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
 go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98 h1:1y+91wL151GmNM7F/GANCkO3Z7q5Nq03t5/s1w6XHe0=
 go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98/go.mod h1:MldHqeBpxV83+geayFgHgsHc1/oF7yIIkpMJqo3M1rQ=
 go.cryptoscope.co/ssb v0.0.0-20190912121701-f368dd6b09da/go.mod h1:gpgPuN7P0HxY5prZunnKbl278nlMCqUekGsJaaiwxnk=

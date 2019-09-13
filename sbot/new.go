@@ -240,15 +240,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// tcp+shs
 	opts := network.Options{
-		Logger:           s.info,
-		Dialer:           s.dialer,
-		ListenAddr:       s.listenAddr,
-		AdvertsSend:      s.enableAdverts,
-		AdvertsConnectTo: s.enableDiscovery,
-		KeyPair:          s.KeyPair,
-		AppKey:           s.appKey[:],
-		MakeHandler:      mkHandler,
-		ConnWrappers:     s.connWrappers,
+		Logger:              s.info,
+		Dialer:              s.dialer,
+		ListenAddr:          s.listenAddr,
+		AdvertsSend:         s.enableAdverts,
+		AdvertsConnectTo:    s.enableDiscovery,
+		KeyPair:             s.KeyPair,
+		AppKey:              s.appKey[:],
+		MakeHandler:         mkHandler,
+		BefreCryptoWrappers: s.preSecureWrappers,
+		AfterSecureWrappers: s.postSecureWrappers,
 
 		EventCounter:    s.eventCounter,
 		SystemGauge:     s.systemGauge,

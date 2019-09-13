@@ -136,7 +136,7 @@ func main() {
 	}
 
 	if dbgLogDir != "" {
-		opts = append(opts, mksbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		opts = append(opts, mksbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			parts := strings.Split(conn.RemoteAddr().String(), "|")
 
 			if len(parts) != 2 {
@@ -157,7 +157,7 @@ func main() {
 	if debugAddr != "" {
 		opts = append(opts,
 			mksbot.WithEventMetrics(SystemEvents, RepoStats, SystemSummary),
-			mksbot.WithConnWrapper(promCountConn()),
+			mksbot.WithPreSecureConnWrapper(promCountConn()),
 		)
 	}
 
