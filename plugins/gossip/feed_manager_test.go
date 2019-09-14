@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
@@ -48,7 +49,7 @@ func loadTestRepo(
 	rootLog, err := repo.OpenLog(r)
 	require.NoError(t, err, "error opening source repository")
 
-	userFeeds, refresh, err := multilogs.OpenUserFeeds(r) // update?!
+	userFeeds, refresh, err := multilogs.OpenUserFeeds(r)
 	require.NoError(t, err, "error getting dst userfeeds multilog")
 
 	pub, err := message.OpenPublishLog(rootLog, userFeeds, keyPair)
@@ -60,19 +61,19 @@ func loadTestRepo(
 func createMessages(pub ssb.Publisher, refresh repo.ServeFunc, rootLog margaret.Log) func(t *testing.T, num int, text string) {
 
 	return func(t *testing.T, num int, text string) {
+		t.Log("creating", num, text)
 		for i := 0; i < num; i++ {
 			msg, err := pub.Publish(fmt.Sprintf("hello world #%d - %s", i, text))
 			require.NoError(t, err)
 			err = refresh(context.TODO(), rootLog, false)
 			require.NoError(t, err)
-			t.Log("msg:", msg.Ref())
+			t.Log("msg:", i, msg.Ref())
 		}
 	}
 }
 
 func TestCreateHistoryStream(t *testing.T) {
-	l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-	infoAlice := log.With(l, "bot", "alice")
+
 	userFeedLen := 23
 
 	tests := []struct {
@@ -133,6 +134,9 @@ func TestCreateHistoryStream(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Log("Test case:", test.Name)
+			r := require.New(t)
+			l, _ := logtest.KitLogger(t.Name(), t)
+			infoAlice := log.With(l, "bot", "alice")
 
 			ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 			defer cancel()
@@ -143,6 +147,11 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			create(t, userFeedLen, "prefill")
 			t.Log("created prefil")
+			log, err := userFeeds.Get(keyPair.Id.StoredAddr())
+			r.NoError(err)
+			seqv, err := log.Seq().Value()
+			r.NoError(err)
+			r.EqualValues(userFeedLen-1, seqv)
 
 			test.Args.ID = keyPair.Id.Ref()
 			var sink countSink
@@ -150,8 +159,8 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			fm := NewFeedManager(rootLog, userFeeds, infoAlice, nil, nil)
 
-			err := fm.CreateStreamHistory(ctx, &sink, &test.Args)
-			require.NoError(t, err)
+			err = fm.CreateStreamHistory(ctx, &sink, &test.Args)
+			r.NoError(err)
 			t.Log("serving")
 			create(t, test.LiveMessages, "post/live")
 			time.Sleep(200 * time.Millisecond)
