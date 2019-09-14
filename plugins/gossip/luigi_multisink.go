@@ -2,6 +2,8 @@ package gossip
 
 import (
 	"context"
+	"github.com/pkg/errors"
+	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -79,14 +81,15 @@ func (f *multiSink) Pour(
 
 	var deadFeeds []luigi.Sink
 
-	for _, s := range f.sinks {
+	for i, s := range f.sinks {
 		err := s.Pour(f.ctxs[s], msg)
-		if luigi.IsEOS(err) || f.until[s] <= f.seq {
+		if luigi.IsEOS(err) || muxrpc.IsSinkClosed(err) || f.until[s] <= f.seq {
 			deadFeeds = append(deadFeeds, s)
 			continue
 		} else if err != nil {
 			// QUESTION: should CloseWithError be used here?
-			panic(err)
+			err := errors.Wrapf(err, "multiSink: failed to pour into sink #%d (%v)", i, f.until[s] <= f.seq)
+			return err
 		}
 	}
 

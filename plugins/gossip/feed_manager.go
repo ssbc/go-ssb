@@ -267,5 +267,5 @@ func (m *FeedManager) CreateStreamHistory(
 			liveLimit(arg, latest),
 		)
 	}
-	return nil
+	return sink.Close()
 }

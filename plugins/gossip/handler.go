@@ -160,7 +160,10 @@ func (g *handler) HandleCall(
 			return
 		}
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
-		closeIfErr(errors.Wrap(err, "createHistoryStream failed"))
+		if err != nil {
+			req.Stream.CloseWithError(errors.Wrap(err, "createHistoryStream failed"))
+			return
+		}
 
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
