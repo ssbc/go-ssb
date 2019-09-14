@@ -107,7 +107,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(dir),
 		sbot.WithContext(ctx),
-		sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			return debug.WrapConn(info, conn), nil
 		}),
 	}, sbotOpts...)

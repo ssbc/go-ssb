@@ -23,7 +23,7 @@ func TestBlobToJS(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot(sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+	ts.startGoBot(sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		var ts muxtest.Transcript
 		conn = muxtest.WrapConn(&ts, conn)
 		rec <- &ts
@@ -64,7 +64,7 @@ func TestBlobFromJS(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot(sbot.WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+	ts.startGoBot(sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		var rec muxtest.Transcript
 		conn = muxtest.WrapConn(&rec, conn)
 		tsChan <- &rec
