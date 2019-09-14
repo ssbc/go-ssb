@@ -4,6 +4,7 @@ package gossip
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"sync"
 
@@ -67,7 +68,7 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 		return err
 	}
 
-	author := val.(margaret.SeqWrapper).Value().(message.StoredMessage).GetAuthor()
+	author := val.(margaret.SeqWrapper).Value().(ssb.Message).Author()
 	sink, ok := m.liveFeeds[author.Ref()]
 	if !ok {
 		return nil
@@ -195,7 +196,7 @@ func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 			return errors.Errorf("b4pour: expected []byte - got %T", v)
 		}
 		*counter++
-		return sink.Pour(ctx, message.RawSignedMessage{RawMessage: msg})
+		return sink.Pour(ctx, json.RawMessage(msg))
 	}
 }
 
@@ -205,9 +206,9 @@ func (m *FeedManager) CreateStreamHistory(
 	sink luigi.Sink,
 	arg *message.CreateHistArgs,
 ) error {
-	feedRef, err := ssb.ParseFeedRef(arg.Id)
+	feedRef, err := ssb.ParseFeedRef(arg.ID)
 	if err != nil {
-		return nil // only handle valid feed refs
+		return err // only handle valid feed refs
 	}
 
 	// check what we got
@@ -264,7 +265,7 @@ func (m *FeedManager) CreateStreamHistory(
 	if arg.Live {
 		return m.addLiveFeed(
 			ctx, sink,
-			arg.Id,
+			arg.ID,
 			latest, liveLimit(arg, latest),
 		)
 	}

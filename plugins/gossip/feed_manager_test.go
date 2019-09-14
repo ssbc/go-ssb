@@ -2,23 +2,21 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging"
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
-	pluginTest "go.cryptoscope.co/ssb/plugins/test"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -31,65 +29,51 @@ func requireFeedRef(
 	return ret
 }
 
-func requireRecvMessage(
-	t *testing.T,
-	msg message.StoredMessage,
-	log margaret.Log,
-	rcv *luigi.SliceSink,
-) {
-	before := len(*rcv)
-	_, err := log.Append(msg)
-	require.NoError(t, err)
-	time.Sleep(200 * time.Millisecond)
-	require.Equal(t, 1, len(*rcv)-before)
-}
-
 func loadTestRepo(
 	t *testing.T,
 	repoPath string,
 ) (
+	func(t *testing.T, num int, text string),
 	margaret.Log,
 	multilog.MultiLog,
 	*ssb.KeyPair,
 ) {
-	r := pluginTest.LoadTestDataPeer(t, repoPath)
-	keyPair, err := repo.OpenKeyPair(r)
+
+	os.RemoveAll(repoPath)
+	r := repo.New(repoPath)
+
+	keyPair, err := repo.DefaultKeyPair(r)
 	require.NoError(t, err, "error opening src key pair")
 
 	rootLog, err := repo.OpenLog(r)
 	require.NoError(t, err, "error opening source repository")
 
-	userFeeds, _, _, err := multilogs.OpenUserFeeds(r)
+	userFeeds, refresh, err := multilogs.OpenUserFeeds(r) // update?!
 	require.NoError(t, err, "error getting dst userfeeds multilog")
 
-	return rootLog, userFeeds, keyPair
+	pub, err := message.OpenPublishLog(rootLog, userFeeds, keyPair)
+	require.NoError(t, err, "error getting dst userfeeds multilog")
+
+	return createMessages(pub, refresh, rootLog), rootLog, userFeeds, keyPair
 }
 
-func testLogger(t *testing.T) logging.Interface {
-	var logger logging.Interface
-	if testing.Verbose() {
-		l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-		logger = log.With(l, "bot", "alice")
-	} else {
-		logger, _ = logtest.KitLogger("alice", t)
-	}
-	return logger
-}
+func createMessages(pub ssb.Publisher, refresh repo.ServeFunc, rootLog margaret.Log) func(t *testing.T, num int, text string) {
 
-func sendMessages(t *testing.T, log margaret.Log, num int, author *ssb.FeedRef) {
-	for i := 0; i < num; i++ {
-		msg := message.StoredMessage{
-			Author: author,
+	return func(t *testing.T, num int, text string) {
+		for i := 0; i < num; i++ {
+			msg, err := pub.Publish(fmt.Sprintf("hello world #%d - %s", i, text))
+			require.NoError(t, err)
+			err = refresh(context.TODO(), rootLog, false)
+			require.NoError(t, err)
+			t.Log("msg:", msg.Ref())
 		}
-		_, err := log.Append(msg)
-		require.NoError(t, err)
 	}
 }
 
 func TestCreateHistoryStream(t *testing.T) {
-	repoPath := "testdata/largeRepo"
-	infoAlice := testLogger(t)
-	userFeedLen := 432
+	l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	infoAlice := log.With(l, "bot", "alice")
+	userFeedLen := 23
 
 	tests := []struct {
 		Name          string
@@ -100,8 +84,6 @@ func TestCreateHistoryStream(t *testing.T) {
 		{
 			Name: "Fetching of entire feed",
 			Args: message.CreateHistArgs{
-				Id:    "@FCX/tsDLpubCPKKfIrw4gc+SQkHcaD17s7GI6i/ziWY=.ed25519",
-				Type:  "source",
 				Seq:   0,
 				Limit: -1,
 			},
@@ -111,8 +93,6 @@ func TestCreateHistoryStream(t *testing.T) {
 			// The sequence number here is not intuitive
 			Name: "Stream with sequence set",
 			Args: message.CreateHistArgs{
-				Id:    "@FCX/tsDLpubCPKKfIrw4gc+SQkHcaD17s7GI6i/ziWY=.ed25519",
-				Type:  "source",
 				Seq:   6,
 				Limit: -1,
 			},
@@ -122,10 +102,8 @@ func TestCreateHistoryStream(t *testing.T) {
 			// TODO: investigate what the expected sequence value is for live feeds
 			Name: "Fetching of live stream",
 			Args: message.CreateHistArgs{
-				Id:   "@FCX/tsDLpubCPKKfIrw4gc+SQkHcaD17s7GI6i/ziWY=.ed25519",
-				Type: "source",
-				Seq:  int64(userFeedLen),
-				Live: true,
+				Seq:        int64(userFeedLen),
+				CommonArgs: message.CommonArgs{Live: true},
 			},
 			LiveMessages:  4,
 			TotalReceived: 5,
@@ -133,11 +111,9 @@ func TestCreateHistoryStream(t *testing.T) {
 		{
 			Name: "Live stream should respect limit",
 			Args: message.CreateHistArgs{
-				Id:    "@FCX/tsDLpubCPKKfIrw4gc+SQkHcaD17s7GI6i/ziWY=.ed25519",
-				Type:  "source",
-				Seq:   int64(userFeedLen),
-				Limit: 5,
-				Live:  true,
+				Seq:        int64(userFeedLen),
+				Limit:      5,
+				CommonArgs: message.CommonArgs{Live: true},
 			},
 			LiveMessages:  10,
 			TotalReceived: 5,
@@ -145,11 +121,9 @@ func TestCreateHistoryStream(t *testing.T) {
 		{
 			Name: "Live stream should respect limit with old messages",
 			Args: message.CreateHistArgs{
-				Id:    "@FCX/tsDLpubCPKKfIrw4gc+SQkHcaD17s7GI6i/ziWY=.ed25519",
-				Type:  "source",
-				Seq:   int64(userFeedLen) - 5,
-				Limit: 10,
-				Live:  true,
+				Seq:        int64(userFeedLen) - 5,
+				Limit:      10,
+				CommonArgs: message.CommonArgs{Live: true},
 			},
 			LiveMessages:  15,
 			TotalReceived: 10,
@@ -163,21 +137,43 @@ func TestCreateHistoryStream(t *testing.T) {
 			ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 			defer cancel()
 
-			rootLog, userFeeds, keyPair := loadTestRepo(t, repoPath)
+			repoPath := filepath.Join("testrun", t.Name())
+			create, rootLog, userFeeds, keyPair := loadTestRepo(t, repoPath)
 			defer userFeeds.Close()
 
-			test.Args.Id = keyPair.Id.Ref()
-			sink := luigi.SliceSink([]interface{}{})
+			create(t, userFeedLen, "prefill")
+			t.Log("created prefil")
+
+			test.Args.ID = keyPair.Id.Ref()
+			var sink countSink
+			sink.info = infoAlice
 
 			fm := NewFeedManager(rootLog, userFeeds, infoAlice, nil, nil)
 
 			err := fm.CreateStreamHistory(ctx, &sink, &test.Args)
 			require.NoError(t, err)
-			sendMessages(t, rootLog, test.LiveMessages, keyPair.Id)
+			t.Log("serving")
+			create(t, test.LiveMessages, "post/live")
 			time.Sleep(200 * time.Millisecond)
 
-			require.Len(t, []interface{}(sink), test.TotalReceived,
-				"expect %d, but got %d", test.TotalReceived, len([]interface{}(sink)))
+			require.Equal(t, sink.cnt, test.TotalReceived)
 		})
 	}
+}
+
+type countSink struct {
+	cnt  int
+	info log.Logger
+}
+
+func (cs *countSink) Pour(ctx context.Context, val interface{}) error {
+	cs.info.Log("countSink", "got", "cnt", cs.cnt, "val", val)
+	cs.cnt++
+	return nil
+}
+
+func (cs *countSink) Close() error {
+	cs.info.Log(
+		"countSink", "closed")
+	return nil
 }
