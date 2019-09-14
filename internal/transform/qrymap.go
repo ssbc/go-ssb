@@ -9,26 +9,28 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 )
 
-type KeyValue struct {
-	Message ssb.Message
-	Data    json.RawMessage
-}
-
-func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
-	return mfr.SourceMap(src, func(ctx context.Context, v interface{}) (interface{}, error) {
+func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
+	return mfr.SinkMap(snk, func(ctx context.Context, v interface{}) (interface{}, error) {
 		abs, ok := v.(ssb.Message)
 		if !ok {
-			return nil, errors.Errorf("kvwrap: wrong message type. expected %T - got %T", abs, v)
+			seqWrap, ok := v.(margaret.SeqWrapper)
+			if !ok {
+				return nil, errors.Errorf("kvwrap: also not a seqWrapper - got %T", v)
+			}
+
+			sv := seqWrap.Value()
+			abs, ok = sv.(ssb.Message)
+			if !ok {
+				return nil, errors.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
+			}
 		}
 
 		if !wrap {
-			return &KeyValue{
-				Message: abs,
-				Data:    abs.ValueContentJSON(),
-			}, nil
+			return abs.ValueContentJSON(), nil
 		}
 
 		var kv ssb.KeyValueRaw
@@ -40,10 +42,6 @@ func NewKeyValueWrapper(src luigi.Source, wrap bool) luigi.Source {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
 		}
 
-		return &KeyValue{
-			Message: abs,
-			Data:    kvMsg,
-		}, nil
-
+		return kvMsg, nil
 	})
 }

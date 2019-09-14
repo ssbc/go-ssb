@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -225,6 +226,108 @@ func TestFeedFromGo(t *testing.T) {
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
+
+	<-ts.doneJS
+
+	uf, ok := s.GetMultiLog("userFeeds")
+	r.True(ok)
+	aliceLog, err := uf.Get(alice.StoredAddr())
+	r.NoError(err)
+
+	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
+	r.NoError(err)
+	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	r.NoError(err)
+	storedMsg, ok := msg.(ssb.Message)
+	r.True(ok, "wrong type of message: %T", msg)
+	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
+
+	ts.wait()
+}
+
+func TestFeedFromGoLive(t *testing.T) {
+	r := require.New(t)
+
+	ts := newRandomSession(t)
+	// ts := newSession(t, nil, nil)
+
+	ts.startGoBot()
+	s := ts.gobot
+
+	before := `fromKey = testBob
+	pull(
+		sbot.createHistoryStream({id:fromKey, live:true}),
+		pull.drain(function(msg) {
+			t.comment("got message!"+ msg.value.sequence)
+			// t.comment(JSON.stringify(msg).key)
+			if (msg.value.sequence == 5) {
+				
+				t.comment("waited")
+				exit()
+			}
+		})
+	)
+	sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
+		t.error(err, 'follow:' + fromKey)
+
+		sbot.friends.get({src: alice.id, dest: fromKey}, function(err, val) {
+			t.error(err, 'friends.get of new contact')
+			t.equals(val[alice.id], true, 'is following')
+
+			t.comment('shouldnt have bobs feed:' + fromKey)
+			pull(
+				sbot.createUserStream({id:fromKey}),
+				pull.collect(function(err, vals){
+					t.error(err)
+					t.equal(0, vals.length)
+					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, function(err, msg) {
+						t.error(err, 'about:' + msg.key)
+						setTimeout(run, 1000) // give go bot a moment to publish
+					})
+				})
+			)
+
+}) // friends.get
+
+}) // publish`
+
+	alice := ts.startJSBot(before, "")
+
+	var tmsgs = []interface{}{
+		map[string]interface{}{
+			"type":  "about",
+			"about": s.KeyPair.Id.Ref(),
+			"name":  "test user",
+		},
+		map[string]interface{}{
+			"type":      "contact",
+			"contact":   alice.Ref(),
+			"following": true,
+		},
+		map[string]interface{}{
+			"type": "text",
+			"text": `# hello world!`,
+		},
+		map[string]interface{}{
+			"type":  "about",
+			"about": alice.Ref(),
+			"name":  "test alice",
+		},
+	}
+	for i, msg := range tmsgs {
+		ref, err := s.PublishLog.Publish(msg)
+		r.NoError(err, "failed to publish test message %d", i)
+		r.NotNil(ref)
+	}
+
+	time.Sleep(2 * time.Second)
+	ref, err := s.PublishLog.Publish(map[string]interface{}{
+		"type": "test",
+		"live": true,
+	})
+	r.NoError(err)
+	r.NotNil(ref)
+	fmt.Println("send late msg")
 
 	<-ts.doneJS
 

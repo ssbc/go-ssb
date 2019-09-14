@@ -2,7 +2,6 @@ package rawread
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
@@ -110,18 +109,7 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		return
 	}
 
-	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		if err != nil {
-			return err
-		}
-		msg, ok := v.(*transform.KeyValue)
-		if !ok {
-			return errors.Errorf("sink type missmatch: expected []byte - got %T", v)
-		}
-		return req.Stream.Pour(ctx, json.RawMessage(msg.Data))
-	})
-
-	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
 		return

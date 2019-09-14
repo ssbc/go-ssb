@@ -2,7 +2,6 @@ package tangles
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -95,18 +94,7 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		return
 	}
 
-	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		if err != nil {
-			return err
-		}
-		msg, ok := v.(*transform.KeyValue)
-		if !ok {
-			return errors.Errorf("trangle sink: expected KV - got %T", v)
-		}
-		return req.Stream.Pour(ctx, json.RawMessage(msg.Data))
-	})
-
-	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
 		return

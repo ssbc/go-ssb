@@ -2,7 +2,6 @@ package rawread
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
@@ -84,18 +83,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		return
 	}
 
-	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		if err != nil {
-			return err
-		}
-		kv, ok := v.(*transform.KeyValue)
-		if !ok {
-			return errors.Errorf("type missmatch: expected %T - got %T", kv, v)
-		}
-		return req.Stream.Pour(ctx, json.RawMessage(kv.Data))
-	})
-
-	err = luigi.Pump(ctx, snk, transform.NewKeyValueWrapper(src, qry.Keys))
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logStream: failed to pump msgs"))
 		return

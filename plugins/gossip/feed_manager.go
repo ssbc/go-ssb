@@ -4,7 +4,6 @@ package gossip
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"sync"
 
@@ -191,12 +190,9 @@ func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 		if err != nil {
 			return err
 		}
-		msg, ok := v.(*transform.KeyValue)
-		if !ok {
-			return errors.Errorf("b4pour: expected []byte - got %T", v)
-		}
+
 		*counter++
-		return sink.Pour(ctx, json.RawMessage(msg.Data))
+		return sink.Pour(ctx, v)
 	}
 }
 
@@ -242,11 +238,12 @@ func (m *FeedManager) CreateStreamHistory(
 	if err != nil {
 		return errors.Wrapf(err, "invalid user log query")
 	}
-	src = transform.NewKeyValueWrapper(src, arg.Keys)
+
+	sink = transform.NewKeyValueWrapper(sink, arg.Keys)
 
 	sent := 0
-	snk := newSinkCounter(&sent, sink)
-	err = luigi.Pump(ctx, snk, src)
+
+	err = luigi.Pump(ctx, newSinkCounter(&sent, sink), src)
 	if m.sysCtr != nil {
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
