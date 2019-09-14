@@ -198,6 +198,21 @@ func (tc *testCase) runTest(t *testing.T) {
 		},
 	}
 
+	h1.Handler.(*handler).feedManager = NewFeedManager(
+		h1.Handler.(*handler).RootLog,
+		h1.Handler.(*handler).UserFeeds,
+		h1.Handler.(*handler).Info,
+		h1.Handler.(*handler).sysGauge,
+		h1.Handler.(*handler).sysCtr,
+	)
+	h2.Handler.(*handler).feedManager = NewFeedManager(
+		h2.Handler.(*handler).RootLog,
+		h2.Handler.(*handler).UserFeeds,
+		h2.Handler.(*handler).Info,
+		h2.Handler.(*handler).sysGauge,
+		h2.Handler.(*handler).sysCtr,
+	)
+
 	rpc1 := muxrpc.Handle(pkr1, h1)
 	rpc2 := muxrpc.Handle(pkr2, h2)
 
@@ -309,6 +324,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 		pkr1, pkr2, _, serve := test.PrepareConnectAndServe(b, srcRepo, dstRepo)
 		// create handlers
+		// TODO: Use new functions
 		h1 := &handler{
 			Id:           srcID,
 			RootLog:      srcRootLog,
@@ -323,6 +339,21 @@ func BenchmarkReplicate(b *testing.B) {
 			GraphBuilder: dstGraphBuilder,
 			Info:         bench,
 		}
+
+		h1.feedManager = NewFeedManager(
+			h1.RootLog,
+			h1.UserFeeds,
+			h1.Info,
+			h1.sysGauge,
+			h1.sysCtr,
+		)
+		h2.feedManager = NewFeedManager(
+			h2.RootLog,
+			h2.UserFeeds,
+			h2.Info,
+			h2.sysGauge,
+			h2.sysCtr,
+		)
 
 		rpc1 := muxrpc.Handle(pkr1, h1)
 		rpc2 := muxrpc.Handle(pkr2, h2)

@@ -43,7 +43,28 @@ func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 	}
 
 	return mfr.SourceMap(src, func(ctx context.Context, v interface{}) (interface{}, error) {
-		return il.root.Get(v.(margaret.Seq))
+		vWrapped, isWrapped := v.(margaret.SeqWrapper)
+		if isWrapped {
+			v = vWrapped.Value()
+		}
+
+		vSeq, ok := v.(margaret.Seq)
+		if !ok {
+			return nil, errors.New("indirect requires values to be pair with their sequence")
+		}
+
+		ret, err := il.root.Get(vSeq)
+		if err != nil {
+			return nil, err
+		}
+
+		if isWrapped {
+			ret = margaret.WrapWithSeq(
+				ret,
+				vWrapped.Seq(),
+			)
+		}
+		return ret, nil
 	}), nil
 }
 

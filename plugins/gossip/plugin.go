@@ -34,6 +34,7 @@ func New(
 		GraphBuilder: graphBuilder,
 		Info:         log,
 	}
+
 	for i, o := range opts {
 		switch v := o.(type) {
 		case *prometheus.Gauge:
@@ -53,6 +54,15 @@ func New(
 	if h.hopCount == 0 {
 		h.hopCount = 2
 	}
+
+	h.feedManager = NewFeedManager(
+		h.RootLog,
+		h.UserFeeds,
+		h.Info,
+		h.sysGauge,
+		h.sysCtr,
+	)
+
 	return &plugin{h}
 }
 
@@ -71,6 +81,7 @@ func NewHist(
 		GraphBuilder: graphBuilder,
 		Info:         log,
 	}
+
 	for i, o := range opts {
 		switch v := o.(type) {
 		case *prometheus.Gauge:
@@ -91,6 +102,15 @@ func NewHist(
 	if h.hopCount == 0 {
 		h.hopCount = 2
 	}
+
+	h.feedManager = NewFeedManager(
+		h.RootLog,
+		h.UserFeeds,
+		h.Info,
+		h.sysGauge,
+		h.sysCtr,
+	)
+
 	return histPlugin{h}
 }
 

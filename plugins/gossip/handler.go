@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/message"
 )
 
 type handler struct {
@@ -32,6 +33,8 @@ type handler struct {
 
 	sysGauge *prometheus.Gauge
 	sysCtr   *prometheus.Counter
+
+	feedManager *FeedManager
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
@@ -134,14 +137,30 @@ func (g *handler) HandleCall(
 	switch req.Method.String() {
 
 	case "createHistoryStream":
+		//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
+
 		if req.Type != "source" {
-			closeIfErr(errors.Errorf("createHistoryStream: wrong tipe. %s", req.Type))
+			closeIfErr(errors.Errorf("wrong tipe. %s", req.Type))
 			return
 		}
-		if err := g.pourFeed(ctx, req); err != nil {
-			closeIfErr(errors.Wrap(err, "createHistoryStream failed"))
+		if len(req.Args) < 1 {
+			err := errors.New("ssb/message: not enough arguments, expecting feed id")
+			closeIfErr(err)
 			return
 		}
+		argMap, ok := req.Args[0].(map[string]interface{})
+		if !ok {
+			err := errors.Errorf("ssb/message: not the right map - %T", req.Args[0])
+			closeIfErr(err)
+			return
+		}
+		query, err := message.NewCreateHistArgsFromMap(argMap)
+		if err != nil {
+			closeIfErr(errors.Wrap(err, "bad request"))
+			return
+		}
+		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
+		closeIfErr(errors.Wrap(err, "createHistoryStream failed"))
 
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
