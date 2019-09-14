@@ -191,12 +191,12 @@ func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 		if err != nil {
 			return err
 		}
-		msg, ok := v.([]byte)
+		msg, ok := v.(*transform.KeyValue)
 		if !ok {
 			return errors.Errorf("b4pour: expected []byte - got %T", v)
 		}
 		*counter++
-		return sink.Pour(ctx, json.RawMessage(msg))
+		return sink.Pour(ctx, json.RawMessage(msg.Data))
 	}
 }
 
@@ -212,7 +212,7 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	// check what we got
-	userLog, err := m.UserFeeds.Get(librarian.Addr(feedRef.ID))
+	userLog, err := m.UserFeeds.Get(feedRef.StoredAddr())
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -243,9 +243,6 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Wrapf(err, "invalid user log query")
 	}
 	src = transform.NewKeyValueWrapper(src, arg.Keys)
-	if err != nil {
-		return err
-	}
 
 	sent := 0
 	snk := newSinkCounter(&sent, sink)
@@ -266,7 +263,8 @@ func (m *FeedManager) CreateStreamHistory(
 		return m.addLiveFeed(
 			ctx, sink,
 			arg.ID,
-			latest, liveLimit(arg, latest),
+			latest,
+			liveLimit(arg, latest),
 		)
 	}
 	return nil
