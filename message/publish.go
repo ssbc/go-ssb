@@ -82,7 +82,11 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "publishLog: failed to establish current seq")
 	}
-	seq := currSeq.(margaret.Seq)
+	seq, ok := currSeq.(margaret.Seq)
+	if !ok {
+		return nil, errors.Errorf("publishLog: invalid sequence from publish sublog %v: %T", currSeq, currSeq)
+	}
+
 	currRootSeq, err := pl.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, errors.Wrap(err, "publishLog: failed to retreive current msg")

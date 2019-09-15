@@ -19,9 +19,10 @@ import (
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	mksbot "go.cryptoscope.co/ssb/sbot"
@@ -128,10 +129,10 @@ func main() {
 
 	if flagFatBot {
 		opts = append(opts,
-			mksbot.LateOption(mksbot.MountMultiLog("byTypes", multilogs.OpenMessageTypes)),
-			// mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)),
+			mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 			mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
+			mksbot.LateOption(mksbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 		)
 	}
 

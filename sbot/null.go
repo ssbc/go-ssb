@@ -85,7 +85,7 @@ func DropIndicies(r repo.Interface) error {
 	// drop indicies
 	var mlogs = []string{
 		multilogs.IndexNameFeeds,
-		multilogs.IndexNameTypes,
+		// multilogs.IndexNameTypes,
 		multilogs.IndexNamePrivates,
 	}
 	for _, i := range mlogs {

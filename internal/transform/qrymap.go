@@ -30,7 +30,7 @@ func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
 		}
 
 		if !wrap {
-			return abs.ValueContentJSON(), nil
+			return json.RawMessage(abs.ValueContentJSON()), nil
 		}
 
 		var kv ssb.KeyValueRaw

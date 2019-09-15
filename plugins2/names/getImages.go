@@ -2,7 +2,6 @@ package names
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -12,14 +11,13 @@ import (
 )
 
 type hImagesFor struct {
-	as  AboutStore
+	as  aboutStore
 	log logging.Interface
 }
 
 func (hImagesFor) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// defer h.log.Log("event", "onCall", "handler", "getImagesFor-return", "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"
@@ -38,7 +36,6 @@ func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 	if ai.Image.Chosen != "" {
-		h.log.Log("handler", "getImagesFor", "args", fmt.Sprintf("%v", req.Args), "img", ai.Image.Chosen)
 		err = req.Return(ctx, ai.Image.Chosen)
 		checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
 		return
@@ -53,20 +50,16 @@ func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	}
 	err = req.Return(ctx, hottest)
 	checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
-	h.log.Log("handler", "getImagesFor", "args", fmt.Sprintf("%v", req.Args), "img", hottest)
 	return
 }
 
 func checkAndLog(log logging.Interface, err error) {
 	if err != nil {
-		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
-			panic(err)
-		}
+		log.Log("handlerErr", err)
 	}
 }
 
 func parseFeedRefFromArgs(req *muxrpc.Request) (*ssb.FeedRef, error) {
-
 	if len(req.Args) != 1 {
 		return nil, errors.Errorf("not enough args")
 	}

@@ -1,4 +1,4 @@
-package multilogs
+package bytype
 
 import (
 	"context"
@@ -8,25 +8,21 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-const IndexNameTypes = "msgTypes"
-
-func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
-	return repo.OpenMultiLog(r, IndexNameTypes, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
-		if nulled, ok := value.(error); ok {
+func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
+	mlog, serve, err := repo.OpenMultiLog(r, plug.Name(), func(ctx context.Context, seq margaret.Seq, msgv interface{}, mlog multilog.MultiLog) error {
+		if nulled, ok := msgv.(error); ok {
 			if margaret.IsErrNulled(nulled) {
 				return nil
 			}
 			return nulled
 		}
-		msg, ok := value.(ssb.Message)
+		msg, ok := msgv.(ssb.Message)
 		if !ok {
-			err := errors.Errorf("error casting message. got type %T", value)
-			// fmt.Println(err)
+			err := errors.Errorf("error casting message. got type %T", msgv)
 			return err
 		}
 
@@ -49,4 +45,6 @@ func OpenMessageTypes(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, erro
 		_, err = typedLog.Append(seq)
 		return errors.Wrapf(err, "error appending message of type %q", typeStr)
 	})
+	plug.h.types = mlog
+	return mlog, serve, err
 }

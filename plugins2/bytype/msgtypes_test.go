@@ -1,4 +1,4 @@
-package multilogs
+package bytype
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func TestMessageTypes(t *testing.T) {
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
 
-	uf, serveUF, err := OpenUserFeeds(tRepo)
+	uf, serveUF, err := multilog.OpenUserFeeds(tRepo)
 	r.NoError(err)
 	ufErrc := asynctesting.ServeLog(ctx, "user feeds", tRootLog, serveUF)
 

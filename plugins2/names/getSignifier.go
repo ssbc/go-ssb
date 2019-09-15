@@ -2,7 +2,6 @@ package names
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -10,15 +9,13 @@ import (
 )
 
 type hGetSignifier struct {
-	as  AboutStore
+	as  aboutStore
 	log logging.Interface
 }
 
 func (hGetSignifier) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "handler", "getSignifer", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
-	defer h.log.Log("event", "onCall", "handler", "getSignifer-return", "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"
@@ -27,6 +24,7 @@ func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	ref, err := parseFeedRefFromArgs(req)
 	if err != nil {
 		checkAndLog(h.log, err)
+		req.CloseWithError(err)
 		return
 	}
 

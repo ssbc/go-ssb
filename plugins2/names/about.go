@@ -20,12 +20,6 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-type AboutStore interface {
-	CollectedFor(*ssb.FeedRef) (*AboutInfo, error)
-	ImageFor(*ssb.FeedRef) (*ssb.BlobRef, error)
-	All() (client.NamesGetResult, error)
-}
-
 type aboutStore struct {
 	kv *badger.DB
 }
@@ -157,9 +151,10 @@ func (ab aboutStore) CollectedFor(ref *ssb.FeedRef) (*AboutInfo, error) {
 			}
 			err = it.Value(func(v []byte) error {
 				var fieldPtr *AboutAttribute
-				v = bytes.TrimLeft(v, `"`)
-				v = bytes.TrimRight(v, `"`)
-				foundVal := string(v)
+				var foundVal string
+				if err := json.Unmarshal(v, &foundVal); err != nil {
+					return err
+				}
 				switch {
 				case bytes.HasSuffix(k, []byte(":name")):
 					fieldPtr = &reduced.Name
@@ -245,21 +240,20 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 
 	var val string
 	if aboutMSG.Name != "" {
-		addr += "name"
 		val = aboutMSG.Name
+		if err := idx.Set(ctx, addr+"name", val); err != nil {
+			return errors.Wrap(err, "db/idx about: failed to update field")
+		}
 	}
 	if aboutMSG.Description != "" {
-		addr += "description"
 		val = aboutMSG.Description
+		if err := idx.Set(ctx, addr+"description", val); err != nil {
+			return errors.Wrap(err, "db/idx about: failed to update field")
+		}
 	}
 	if aboutMSG.Image != nil {
-		addr += "image"
 		val = aboutMSG.Image.Ref()
-	}
-	if val != "" {
-		// fmt.Println("about:", addr, val)
-		err = idx.Set(ctx, addr, val)
-		if err != nil {
+		if err := idx.Set(ctx, addr+"image", val); err != nil {
 			return errors.Wrap(err, "db/idx about: failed to update field")
 		}
 	}

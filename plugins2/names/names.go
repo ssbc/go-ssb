@@ -2,7 +2,6 @@ package names
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -10,14 +9,14 @@ import (
 )
 
 type Plugin struct {
-	about AboutStore
+	about aboutStore
 }
 
 func (lt Plugin) Name() string            { return "names" }
 func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"names"} }
 func (lt Plugin) Handler() muxrpc.Handler { return newNamesHandler(nil, lt.about) }
 
-func newNamesHandler(log logging.Interface, as AboutStore) muxrpc.Handler {
+func newNamesHandler(log logging.Interface, as aboutStore) muxrpc.Handler {
 	mux := muxrpc.HandlerMux{}
 
 	if log == nil {
@@ -44,15 +43,13 @@ func newNamesHandler(log logging.Interface, as AboutStore) muxrpc.Handler {
 }
 
 type hGetAll struct {
-	as  AboutStore
+	as  aboutStore
 	log logging.Interface
 }
 
 func (hGetAll) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h hGetAll) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "handler", "getImagesFor", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
-	defer h.log.Log("event", "onCall", "handler", "getImagesFor-return", "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"
