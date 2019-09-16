@@ -48,6 +48,8 @@ func writeFile(t *testing.T, data string) string {
 type testSession struct {
 	t *testing.T
 
+	repo string
+
 	keySHS, keyHMAC []byte
 
 	// since we can't pass *testing.T to other goroutines, we use this to collect errors from background taskts
@@ -72,7 +74,11 @@ func newRandomSession(t *testing.T) *testSession {
 // if appKey is nil, the default value is used
 // if hmac is nil, the object string is signed instead
 func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
+	repo := filepath.Join("testrun", t.Name())
+	os.RemoveAll(repo)
+
 	return &testSession{
+		repo:    repo,
 		t:       t,
 		keySHS:  appKey,
 		keyHMAC: hmacKey,
@@ -83,9 +89,6 @@ func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
 func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	r := require.New(ts.t)
 	ctx := context.Background()
-
-	dir := filepath.Join("testrun", ts.t.Name())
-	os.RemoveAll(dir)
 
 	// Choose you logger!
 	// use the "logtest" line if you want to log through calls to `t.Log`
@@ -105,7 +108,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	sbotOpts = append([]sbot.Option{
 		sbot.WithInfo(info),
 		sbot.WithListenAddr("localhost:0"),
-		sbot.WithRepoPath(dir),
+		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
 		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			return debug.WrapConn(info, conn), nil
@@ -202,7 +205,7 @@ func (ts *testSession) wait() {
 		case <-ts.doneJS:
 
 		case <-ts.doneGo:
-
+			ts.gobot.FSCK()
 		case <-tick.C:
 
 		}

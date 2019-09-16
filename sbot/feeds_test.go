@@ -119,6 +119,9 @@ func TestFeedsOneByOne(t *testing.T) {
 		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
 	}
 
+	ali.FSCK()
+	bob.FSCK()
+
 	ali.Shutdown()
 	bob.Shutdown()
 

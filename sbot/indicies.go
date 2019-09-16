@@ -2,7 +2,6 @@ package sbot
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/cryptix/go/logging"
@@ -79,14 +78,13 @@ func (s *Sbot) GetMultiLog(name string) (multilog.MultiLog, bool) {
 func (s *Sbot) serveIndex(ctx context.Context, name string, f repo.ServeFunc) {
 	s.idxDone.Add(1)
 	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
 		err := f(ctx, s.RootLog, s.liveIndexUpdates)
 		s.info.Log("event", "idx server exited", "idx", name, "error", err)
 		if err != nil {
 			err := s.Close()
 			logging.CheckFatal(err)
-			os.Exit(1)
 			return
 		}
-		wg.Done()
 	}(&s.idxDone)
 }

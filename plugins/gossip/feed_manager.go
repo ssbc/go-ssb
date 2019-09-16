@@ -247,7 +247,9 @@ func (m *FeedManager) CreateStreamHistory(
 	if m.sysCtr != nil {
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
-		m.logger.Log("event", "gossiptx", "n", sent)
+		if sent > 0 {
+			m.logger.Log("event", "gossiptx", "n", sent)
+		}
 	}
 	if errors.Cause(err) == context.Canceled {
 		sink.Close()

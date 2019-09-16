@@ -240,9 +240,41 @@ func TestFeedFromGo(t *testing.T) {
 	r.NoError(err)
 	storedMsg, ok := msg.(ssb.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
+	r.EqualValues(storedMsg.Seq(), 2)
 
 	ts.wait()
+	t.Log("restarting for integrity check")
+	ts.startGoBot()
+	s = ts.gobot
+	s.FSCK()
+
+	ml, ok := s.GetMultiLog("userFeeds")
+	r.True(ok)
+	aliceLog, err = ml.Get(alice.StoredAddr())
+	r.NoError(err)
+	aseq, err := aliceLog.Seq().Value()
+	r.NoError(err)
+	seqMsg, err = aliceLog.Get(aseq.(margaret.BaseSeq))
+	r.NoError(err)
+	msg, err = s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	r.NoError(err)
+	storedMsg, ok = msg.(ssb.Message)
+	r.True(ok, "wrong type of message: %T", msg)
+	r.EqualValues(storedMsg.Seq(), 2)
+
+	bobLog, err := ml.Get(s.KeyPair.Id.StoredAddr())
+	r.NoError(err)
+	bseq, err := bobLog.Seq().Value()
+	r.NoError(err)
+	seqMsg, err = bobLog.Get(bseq.(margaret.BaseSeq))
+	r.NoError(err)
+	msg, err = s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	r.NoError(err)
+	storedMsg, ok = msg.(ssb.Message)
+	r.True(ok, "wrong type of message: %T", msg)
+	r.EqualValues(storedMsg.Seq(), 4)
+
+	s.FSCK()
 }
 
 func TestFeedFromGoLive(t *testing.T) {

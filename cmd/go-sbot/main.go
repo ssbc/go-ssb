@@ -206,7 +206,6 @@ func main() {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
 		return
 	}
-	gb := sbot.GraphBuilder
 
 	feeds, err := uf.List()
 	checkFatal(err)
@@ -214,52 +213,14 @@ func main() {
 	SystemEvents.With("event", "openedRepo").Add(1)
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	var followCnt, msgCount uint
-	for _, author := range feeds {
-		authorRef, err := ssb.ParseFeedRef(string(author))
-		checkFatal(err)
+	sbot.FSCK()
 
-		subLog, err := uf.Get(author)
-		checkFatal(err)
+	rseq, err := sbot.RootLog.Seq().Value()
+	checkFatal(err)
+	msgCount := rseq.(margaret.Seq)
+	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq()))
 
-		userLogV, err := subLog.Seq().Value()
-		checkFatal(err)
-		userLogSeq := userLogV.(margaret.Seq)
-		rlSeq, err := subLog.Get(userLogSeq)
-		if margaret.IsErrNulled(err) {
-			continue
-		} else {
-			checkFatal(err)
-		}
-		rv, err := sbot.RootLog.Get(rlSeq.(margaret.BaseSeq))
-		if margaret.IsErrNulled(err) {
-			continue
-		} else {
-			checkFatal(err)
-		}
-		msg := rv.(ssb.Message)
-
-		if msg.Seq() != userLogSeq.Seq()+1 {
-			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Seq(), userLogSeq.Seq()+1)
-			log.Log("warning", err)
-			continue
-		}
-
-		msgCount += uint(msg.Seq())
-
-		f, err := gb.Follows(authorRef)
-		checkFatal(err)
-
-		if len(feeds) < 20 {
-			h := gb.Hops(authorRef, 2)
-			log.Log("info", "currSeq", "feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
-		}
-		followCnt += uint(f.Count())
-	}
-
-	RepoStats.With("part", "msgs").Set(float64(msgCount))
-
-	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount, "follows", followCnt)
+	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
 	for {
