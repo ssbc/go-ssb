@@ -47,7 +47,8 @@ func NewFeedManager(
 		RootLog:   rootLog,
 		UserFeeds: userFeeds,
 		logger:    info,
-
+		sysCtr:    sysCtr,
+		sysGauge:  sysGauge,
 		liveFeeds: make(map[string]*multiSink),
 	}
 	// QUESTION: How should the error case be handled?

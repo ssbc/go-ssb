@@ -52,7 +52,7 @@ func New(
 		}
 	}
 	if h.hopCount == 0 {
-		h.hopCount = 2
+		h.hopCount = 1
 	}
 
 	h.feedManager = NewFeedManager(
@@ -100,7 +100,7 @@ func NewHist(
 	}
 
 	if h.hopCount == 0 {
-		h.hopCount = 2
+		h.hopCount = 1
 	}
 
 	h.feedManager = NewFeedManager(

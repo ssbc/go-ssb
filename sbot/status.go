@@ -34,10 +34,13 @@ func (s *Sbot) FSCK() {
 
 	var followCnt, msgCount uint
 	for _, author := range feeds {
-		authorRef, err := ssb.ParseFeedRef(string(author))
+		var sr ssb.StorageRef
+		err := sr.Unmarshal([]byte(author))
+		checkFatal(err)
+		authorRef, err := sr.FeedRef()
 		checkFatal(err)
 
-		subLog, err := uf.Get(authorRef.StoredAddr())
+		subLog, err := uf.Get(author)
 		checkFatal(err)
 
 		userLogV, err := subLog.Seq().Value()

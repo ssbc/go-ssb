@@ -46,6 +46,7 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 		// for now adding this as a kludge so that stuff works when you don't get your own feed during initial re-sync
 		// if it's a new key there should be follows quickly anyway and this shouldn't happen then.... yikes :'(
 		if _, ok := err.(*ErrNoSuchFrom); ok {
+			level.Warn(a.log).Log("bypass", a.from.Ref())
 			return nil
 		}
 		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
@@ -56,13 +57,12 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	// len(p) == 4
 	p, d := distLookup.Dist(to)
 	hops := len(p) - 2
-	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > 5 {
-		// d == -Inf > peer not connected to the graph
-		// d == +Inf > peer directly(?) blocked
-		level.Debug(a.log).Log("err", "out-of-reach", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
+	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > a.maxHops {
+		// d == -Inf: peer not connected to the graph
+		// d == +Inf: peer directly blocked
+		// level.Debug(a.log).Log("err", "out-of-reach", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
 		return &ssb.ErrOutOfReach{Dist: hops, Max: a.maxHops}
 	}
-
 	return nil
 
 }

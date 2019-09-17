@@ -75,9 +75,9 @@ func ParseNetAddress(input []byte) (*NetAddress, error) {
 			}
 
 			// implied by ~shs: indicating v1
-			na.Ref, err = ssb.NewFeedRefEd25519(keyBuf[:32])
-			if err != nil {
-				return nil, errors.Wrapf(ErrNoSHSKey, "multiserver: feedRef err %s", err)
+			na.Ref = &ssb.FeedRef{
+				ID:   keyBuf[:32],
+				Algo: ssb.RefAlgoFeedSSB1,
 			}
 			return &na, nil
 		}

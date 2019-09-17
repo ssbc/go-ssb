@@ -50,7 +50,7 @@ func (h *handler) fetchAllLib(
 func (h *handler) fetchAllMinus(
 	ctx context.Context,
 	e muxrpc.Endpoint,
-	fs graph.FeedSet,
+	fs *graph.StrFeedSet,
 	got []librarian.Addr,
 ) error {
 	lst, err := fs.List()
@@ -72,7 +72,7 @@ func (h *handler) fetchAllMinus(
 func (h *handler) fetchAll(
 	ctx context.Context,
 	e muxrpc.Endpoint,
-	fs graph.FeedSet,
+	fs *graph.StrFeedSet,
 ) error {
 	// we don't just want them all parallel right nw
 	// this kind of concurrency is way to harsh on the runtime

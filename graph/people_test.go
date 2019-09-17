@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"testing"
 
@@ -21,17 +23,13 @@ type testState struct {
 	store     testStore
 }
 
-type PeopleOpNewPeer struct {
-	name string
-}
+type PeopleOpNewPeer struct{ name string }
 
 func (op PeopleOpNewPeer) Op(state *testState) error {
-	publisher := newPublisher(state.t, state.store.root, state.store.userLogs)
-	state.peers[op.name] = publisher
-	ref := string(publisher.key.Id.StoredAddr())
-	state.refToName[ref] = op.name
-	state.t.Logf("creted %s as %s", op.name, ref)
-	return nil
+	var opk PeopleOpNewPeerWithAglo
+	opk.name = op.name
+	opk.algo = ssb.RefAlgoFeedSSB1
+	return opk.Op(state)
 }
 
 type PeopleOpNewPeerWithAglo struct {
@@ -39,8 +37,12 @@ type PeopleOpNewPeerWithAglo struct {
 	algo string
 }
 
+var i uint64
+
 func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
-	kp, err := ssb.NewKeyPair(nil)
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, i)
+	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)))
 	if err != nil {
 		state.t.Fatal(err)
 	}
@@ -48,9 +50,10 @@ func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
 
 	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, kp)
 	state.peers[op.name] = publisher
-	ref := string(publisher.key.Id.StoredAddr())
+	ref := publisher.key.Id.Ref()
 	state.refToName[ref] = op.name
-	state.t.Logf("creted %s as %s", op.name, ref)
+	state.t.Logf("created(%d) %s as %s (algo:%s)", i, op.name, ref, op.algo)
+	i++
 	return nil
 }
 
@@ -201,7 +204,7 @@ func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAsser
 				return nil
 			}
 			if err == nil {
-				return errors.Errorf("auth assert: host(%s) accepted remote(%s)", host, remote)
+				return errors.Errorf("auth assert: host(%s) accepted remote(%s) (dist:%d)", host, remote, hops)
 			}
 			// TODO compare err?
 			return nil
@@ -241,7 +244,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			// var newKey [32]byte
 			// copy(newKey[:], pub.key.Id.StoredAddr())
 			node, ok := g.lookup[newKey]
-			r.True(ok, "did not find peer!? %s", nick)
+			if !a.True(ok, "did not find peer!? %s (len:%d)", nick, len(g.lookup)) {
+				continue
+			}
 			cn := node.(*contactNode)
 			cn.name = nick
 		}

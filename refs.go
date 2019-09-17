@@ -252,17 +252,6 @@ type FeedRef struct {
 	Algo string
 }
 
-func NewFeedRefEd25519(b []byte) (*FeedRef, error) {
-	var r FeedRef
-	r.Algo = RefAlgoFeedSSB1
-	if len(b) != 32 {
-		return nil, ErrInvalidRef
-	}
-	r.ID = make([]byte, 32)
-	copy(r.ID, b[:])
-	return &r, nil
-}
-
 func (ref FeedRef) PubKey() ed25519.PublicKey {
 	return ref.ID
 }
@@ -273,8 +262,17 @@ func (ref FeedRef) PubKey() ed25519.PublicKey {
 // TODO: could actually be a compact representation of the pubkey bytes
 // with an additonal type byte but this _should_ make it work for now
 func (ref FeedRef) StoredAddr() librarian.Addr {
-	addr := librarian.Addr(ref.Ref())
-	return addr
+	sr, err := NewStorageRef(ref)
+	if err != nil {
+		panic(errors.Wrap(err, "failed to make storedAddr"))
+	}
+	b, err := sr.Marshal()
+	if err != nil {
+		panic(errors.Wrap(err, "error while marshalling addr"))
+	}
+	// fmt.Printf("DEBUG/stored:")
+	// spew.Dump(b)
+	return librarian.Addr(b)
 }
 
 func (ref FeedRef) Ref() string {

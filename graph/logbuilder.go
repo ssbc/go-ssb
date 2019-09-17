@@ -116,7 +116,12 @@ func (b *logBuilder) Build() (*Graph, error) {
 		bfrom := author.StoredAddr()
 		nFrom, has := known[bfrom]
 		if !has {
-			nFrom = &contactNode{dg.NewNode(), author, ""}
+
+			sr, err := ssb.NewStorageRef(author)
+			if err != nil {
+				return errors.Wrap(err, "failed to create graph node for author")
+			}
+			nFrom = &contactNode{dg.NewNode(), sr, ""}
 			dg.AddNode(nFrom)
 			known[bfrom] = nFrom
 		}
@@ -124,7 +129,11 @@ func (b *logBuilder) Build() (*Graph, error) {
 		bto := contact.StoredAddr()
 		nTo, has := known[bto]
 		if !has {
-			nTo = &contactNode{dg.NewNode(), contact, ""}
+			sr, err := ssb.NewStorageRef(contact)
+			if err != nil {
+				return errors.Wrap(err, "failed to create graph node for contact")
+			}
+			nTo = &contactNode{dg.NewNode(), sr, ""}
 			dg.AddNode(nTo)
 			known[bto] = nTo
 		}
@@ -161,7 +170,7 @@ func (b *logBuilder) Build() (*Graph, error) {
 	return g, nil
 }
 
-func (b *logBuilder) Follows(from *ssb.FeedRef) (FeedSet, error) {
+func (b *logBuilder) Follows(from *ssb.FeedRef) (*StrFeedSet, error) {
 	g, err := b.Build()
 	if err != nil {
 		return nil, errors.Wrap(err, "follows: couldn't build graph")
@@ -182,15 +191,16 @@ func (b *logBuilder) Follows(from *ssb.FeedRef) (FeedSet, error) {
 		// warning - ignores edge type!
 		edg := g.Edge(nFrom.ID(), cnv.ID())
 		if edg.(contactEdge).Weight() == 1 {
-			if err := refs.AddRef(cnv.feed); err != nil {
-				return nil, err
-			}
+			panic("fix blocking")
+			// if err := refs.AddRef(cnv.feed); err != nil {
+			// 	return nil, err
+			// }
 		}
 	}
 	return refs, nil
 }
 
-func (b *logBuilder) Hops(from *ssb.FeedRef, max int) FeedSet {
+func (b *logBuilder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 	// it would be terrible to do this without some kind of filtering/caching
 	panic("TODO:unsupported")
 }

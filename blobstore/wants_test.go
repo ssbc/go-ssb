@@ -113,7 +113,7 @@ func TestWantManager(t *testing.T) {
 				ref, err := parseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
-				wmsg = append(wmsg, want{Ref: ref, Dist: dist})
+				wmsg = append(wmsg, ssb.BlobWant{Ref: ref, Dist: dist})
 			}
 
 			out := new(luigi.SliceSink)
@@ -175,7 +175,7 @@ func TestWantManager(t *testing.T) {
 			// would be nice to generalize this further so we can add more cases.
 
 			// should contain our wants and our size response to their want
-			r.Equal(2, len(outSlice), "output slice length mismatch")
+			r.Equal(2, len(outSlice), "output slice length mismatch (%v)", outSlice)
 
 			// this should be our initial want list, but with more dist
 			ourW := wmgr.(*wantManager)

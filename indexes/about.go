@@ -35,7 +35,7 @@ type AboutAttribute struct {
 }
 
 func (ab aboutStore) GetName(ref *ssb.FeedRef) (*AboutInfo, error) {
-	addr := []byte(ref.StoredAddr() + ":")
+	addr := []byte(ref.StoredAddr())
 	// from self
 	// addr = append(addr, ref.ID...)
 
@@ -62,9 +62,14 @@ func (ab aboutStore) GetName(ref *ssb.FeedRef) (*AboutInfo, error) {
 		for iter.Seek(addr); iter.ValidForPrefix(addr); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			c, err := ssb.NewFeedRefEd25519(k[len(addr):])
+			var cr ssb.StorageRef
+			err := cr.Unmarshal(k[33 : 33+32])
 			if err != nil {
 				return errors.Wrap(err, "about: counldnt make author ref from db key")
+			}
+			c, err := cr.FeedRef()
+			if err != nil {
+				return errors.Wrap(err, "about: not a valid feed refin db key")
 			}
 			err = it.Value(func(v []byte) error {
 				// log.Printf("about debug: %s ", c.Ref())

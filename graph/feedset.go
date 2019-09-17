@@ -8,62 +8,57 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
-type FeedSet interface {
-	AddB([]byte) error
-	AddRef(*ssb.FeedRef) error
-
-	List() ([]*ssb.FeedRef, error)
-	Has(*ssb.FeedRef) bool
-	Count() int
-}
-
 type strFeedMap map[librarian.Addr]struct{}
 
-type strFeedSet struct {
+type StrFeedSet struct {
 	sync.Mutex
 	set strFeedMap
 }
 
-func NewFeedSet(size int) FeedSet {
-	return &strFeedSet{
+func NewFeedSet(size int) *StrFeedSet {
+	return &StrFeedSet{
 		set: make(strFeedMap, size),
 	}
 }
 
-func (fs *strFeedSet) AddB(b []byte) error {
+func (fs *StrFeedSet) AddStored(r *ssb.StorageRef) error {
 	fs.Lock()
 	defer fs.Unlock()
 
-	ref, err := ssb.NewFeedRefEd25519(b)
+	b, err := r.Marshal()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to marshal stored ref")
 	}
 
-	fs.set[ref.StoredAddr()] = struct{}{}
+	fs.set[librarian.Addr(b)] = struct{}{}
 	return nil
 }
 
-func (fs *strFeedSet) AddRef(ref *ssb.FeedRef) error {
+func (fs *StrFeedSet) AddRef(ref *ssb.FeedRef) error {
 	fs.Lock()
 	defer fs.Unlock()
 	fs.set[ref.StoredAddr()] = struct{}{}
 	return nil
 }
 
-func (fs *strFeedSet) Count() int {
+func (fs *StrFeedSet) Count() int {
 	fs.Lock()
 	defer fs.Unlock()
 	return len(fs.set)
 }
 
-func (fs *strFeedSet) List() ([]*ssb.FeedRef, error) {
+func (fs *StrFeedSet) List() ([]*ssb.FeedRef, error) {
 	fs.Lock()
 	defer fs.Unlock()
 	var lst = make([]*ssb.FeedRef, len(fs.set))
 	i := 0
+	var sr ssb.StorageRef
 	for feed := range fs.set {
-		var err error
-		lst[i], err = ssb.ParseFeedRef(string(feed))
+		err := sr.Unmarshal([]byte(feed))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode map entry")
+		}
+		lst[i], err = sr.FeedRef()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to make ref from map entry")
 		}
@@ -73,7 +68,7 @@ func (fs *strFeedSet) List() ([]*ssb.FeedRef, error) {
 	return lst, nil
 }
 
-func (fs *strFeedSet) Has(ref *ssb.FeedRef) bool {
+func (fs *StrFeedSet) Has(ref *ssb.FeedRef) bool {
 	fs.Lock()
 	defer fs.Unlock()
 	_, has := fs.set[ref.StoredAddr()]
