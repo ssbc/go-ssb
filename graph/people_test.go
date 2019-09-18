@@ -179,7 +179,11 @@ func PeopleAssertBlocks(from, to string, want bool) PeopleAssertMaker {
 				return err
 			}
 			if g.Blocks(a.key.Id, b.key.Id) != want {
-				return errors.Errorf("block assert failed - wanted %v", want)
+				return errors.Errorf("Blocks() assert failed - wanted %v", want)
+			}
+			set := g.BlockedList(a.key.Id)
+			if isBlocked, has := set[b.key.Id.StoredAddr()]; isBlocked != want {
+				return errors.Errorf("BlockedList() assert failed - wanted %v (has: %v)", want, has)
 			}
 			return nil
 		}

@@ -54,13 +54,13 @@ func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]bool {
 	if !has {
 		return nil
 	}
-	var blocked map[librarian.Addr]bool
+	blocked := make(map[librarian.Addr]bool)
 	edgs := g.From(nFrom.ID())
 	for edgs.Next() {
 		edg := g.Edge(nFrom.ID(), edgs.Node().ID()).(contactEdge)
 
 		if edg.Weight() == math.Inf(1) {
-			ctNode := edg.To().(contactNode)
+			ctNode := edg.To().(*contactNode)
 			blocked[ctNode.feed.StoredAddr()] = true
 		}
 	}
