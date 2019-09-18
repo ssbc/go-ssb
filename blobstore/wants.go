@@ -134,26 +134,14 @@ func (wmgr *wantManager) Want(ref *ssb.BlobRef) error {
 func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.Ref(), "dist", dist)
 	dbg = level.Debug(dbg)
+	_, err := wmgr.bs.Size(ref)
+	if err == nil {
+		dbg.Log("available", true)
+		return nil
+	}
 
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
-
-	wantDist, wanting := wmgr.wants[ref.Ref()]
-	if wanting && wantDist < 0 && dist < 0 && wantDist > dist {
-		dbg.Log("alreadyWanted", true)
-		return nil
-	}
-
-	if wanting && wantDist > 0 {
-		dbg.Log("weird", "have blob, should remove want?!")
-		return nil
-	}
-
-	f, err := wmgr.bs.Get(ref)
-	if err == nil {
-		dbg.Log("available", true)
-		return f.(io.Closer).Close()
-	}
 
 	wmgr.wants[ref.Ref()] = dist
 	wmgr.promGaugeSet("nwants", len(wmgr.wants))
@@ -167,11 +155,12 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
 	proc := &wantProc{
-		rootCtx: ctx,
-		bs:      wmgr.bs,
-		wmgr:    wmgr,
-		out:     sink,
-		edp:     edp,
+		rootCtx:     ctx,
+		bs:          wmgr.bs,
+		wmgr:        wmgr,
+		out:         sink,
+		remoteWants: make(map[string]int64),
+		edp:         edp,
 	}
 
 	proc.init()
@@ -180,21 +169,30 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 }
 
 type wantProc struct {
+	l sync.Mutex
+
 	rootCtx context.Context
 
-	bs   ssb.BlobStore
-	wmgr *wantManager
-	out  luigi.Sink
-	done func(func())
-	edp  muxrpc.Endpoint
+	info log.Logger
+
+	bs          ssb.BlobStore
+	wmgr        *wantManager
+	out         luigi.Sink
+	remoteWants map[string]int64
+	done        func(func())
+	edp         muxrpc.Endpoint
 }
 
 func (proc *wantProc) init() {
+	if remote, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
+		proc.info = log.With(proc.wmgr.info, "remote", remote.Ref()[1:5])
+	}
 	proc.wmgr.promGauge("proc", 1)
 
 	bsCancel := proc.bs.Changes().Register(luigi.FuncSink(proc.updateFromBlobStore))
 	wmCancel := proc.wmgr.Register(luigi.FuncSink(proc.updateWants))
 
+	// _i think_ the extra next func is so that the tests can see the shutdown
 	oldDone := proc.done
 	proc.done = func(next func()) {
 		proc.wmgr.promGauge("proc", -1)
@@ -220,7 +218,7 @@ func (proc *wantProc) init() {
 
 // updateFromBlobStore listens for adds and if they are wanted notifies the remote via it's sink
 func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, err error) error {
-	dbg := level.Debug(proc.wmgr.info)
+	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "blobStoreNotify")
 	proc.wmgr.l.Lock()
 	defer proc.wmgr.l.Unlock()
@@ -236,22 +234,17 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 	notif, ok := v.(ssb.BlobStoreNotification)
 	if !ok {
 		err = errors.Errorf("wantProc: unhandled notification type: %T", v)
-		level.Error(proc.wmgr.info).Log("warning", "invalid type", "err", err)
+		level.Error(proc.info).Log("warning", "invalid type", "err", err)
 		return err
 	}
 	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.Ref())
 
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
-	dist, ok := proc.wmgr.wants[notif.Ref.Ref()]
-	if !ok { // does not want it
-		dbg.Log("cause", "does not want")
-		return nil
-	}
-	if ok && dist > 0 { // already has it, don't sent it back to them
-		dbg.Log("cause", "already has")
-		return nil
-	}
+	// if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {
+	// 	dbg.Log("ignoring", "does not want")
+	// 	return nil
+	// }
 
 	sz, err := proc.bs.Size(notif.Ref)
 	if err != nil {
@@ -267,8 +260,7 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 
 //
 func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error) error {
-	dbg := level.Debug(proc.wmgr.info)
-	dbg = log.With(dbg, "event", "wantBroadcast")
+	dbg := level.Debug(proc.info)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			return nil
@@ -276,14 +268,30 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 		dbg.Log("cause", "broadcast error", "err", err)
 		return errors.Wrap(err, "wmanager broadcast error")
 	}
-	w := v.(ssb.BlobWant)
 
-	if _, err := proc.bs.Size(w.Ref); err == nil {
-		// TODO: unwant?!
+	w, ok := v.(ssb.BlobWant)
+	if !ok {
+		err := errors.Errorf("wrong type: %T", v)
+		proc.info.Log("error", "wrong type!!!!!!!!!!!!!!!!!!!!!!!!", "err", err)
+		return err
+	}
+	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.Ref()[1:6], "dist", w.Dist)
+
+	if w.Dist < 0 {
+		for want, dist := range proc.remoteWants {
+			if want == w.Ref.Ref() {
+				dbg.Log("ignoring", "update want", "openDist", dist)
+				return nil
+			}
+		}
+	}
+
+	if sz, err := proc.bs.Size(w.Ref); err == nil {
+		dbg.Log("whoop", "has size!", "sz", sz)
 		return nil
 	}
 
-	dbg.Log("op", "sending want we now want", "want", w.Ref.Ref(), "wants", len(proc.wmgr.wants))
+	dbg.Log("op", "sending want we now want", "wantCount", len(proc.wmgr.wants))
 	// TODO: should use rootCtx from sbot?
 	newW := WantMsg{w}
 	return proc.out.Pour(ctx, newW)
@@ -296,7 +304,6 @@ func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
 	}
 
 	r := muxrpc.NewSourceReader(src)
-
 	newBr, err := proc.bs.Put(io.LimitReader(r, 25*1024*1024))
 	if err != nil {
 		return errors.Wrap(err, "blob data piping failed")
@@ -316,53 +323,52 @@ func (proc *wantProc) Close() error {
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
-	dbg := level.Debug(proc.wmgr.info)
+	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "createWants.In")
-	dbg.Log("cause", "received data", "v", fmt.Sprintf("%+v", v))
+	dbg.Log("cause", "received data", "v", fmt.Sprintf("%+v %T", v, v))
+	proc.l.Lock()
+	defer proc.l.Unlock()
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
 
 	for _, w := range *mIn {
+		wantDist, wanted := proc.remoteWants[w.Ref.Ref()]
 		if w.Dist < 0 {
+			if wanted {
+				dbg.Log("ignoring", "open want!!", "d", wantDist)
+				continue
+			}
 			s, err := proc.bs.Size(w.Ref)
 			if err != nil {
 				if err == ErrNoSuchBlob {
-					d := w.Dist - 1
-					if d < -3 { // TODO: configure max dist
-						// ignore as too far away
-						continue
-					}
-					dbg.Log("cause", "forwarding", "dist", d, "ref", w.Ref.Ref(), "wants", len(proc.wmgr.wants))
-					// TODO: actually we want to send it to all but where it came from...
-					// might want to re-introduce remoteWants but then wire them up correctly
-					if err := proc.wmgr.WantWithDist(w.Ref, d); err != nil {
-						return errors.Wrap(err, "failed to accept incoming want")
-					}
+					proc.remoteWants[w.Ref.Ref()] = w.Dist
+					// mOut[w.Ref.Ref()] = w.Dist - 1
+					// proc.wmgr.wantSink.Pour(ctx, ssb.BlobWant{Ref: w.Ref, Dist: w.Dist - 1})
 
+					wErr := proc.wmgr.WantWithDist(w.Ref, w.Dist-1)
+					if wErr != nil {
+						return errors.Wrap(err, "forwarding want faild")
+					}
 					continue
 				}
+
 				return errors.Wrap(err, "error getting blob size")
 			}
-			proc.wmgr.l.Lock()
-			delete(proc.wmgr.wants, w.Ref.Ref())
-			proc.wmgr.l.Unlock()
-			mOut[w.Ref.Ref()] = s
-			dbg.Log("cause", "removed want - forwarding size")
-		} else {
-			if proc.wmgr.Wants(w.Ref) {
-				dbg.Log("msg", "peer has blob we want", "ref", w.Ref.Ref())
-				go func(ref *ssb.BlobRef) {
-					// cryptix: feel like we might need to wrap rootCtx in, too?
-					if err := proc.getBlob(ctx, ref); err != nil {
-						dbg.Log("cause", "blob fetch err", "ref", ref.Ref(), "err", err)
-					}
 
-					// blob store put should trigger this (responding that we have it now)
-					// dbg.Log("cause", "blob received")
-					// proc.out.Pour(ctx, WantMsg{ssb.BlobWant{Ref: ref, Dist: 1000}})
-				}(w.Ref)
-			}
+			delete(proc.remoteWants, w.Ref.Ref())
+			mOut[w.Ref.Ref()] = s
+		} else if proc.wmgr.Wants(w.Ref) { // someone else wants it?!
+			proc.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
+			go func(ref *ssb.BlobRef) {
+				// cryptix: feel like we might need to wrap rootCtx in, too?
+				if err := proc.getBlob(ctx, ref); err != nil {
+					proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+				}
+			}(w.Ref)
+
+		} else {
+			dbg.Log("unhandled", w.Dist)
 		}
 	}
 
@@ -377,6 +383,22 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 }
 
 type WantMsg []ssb.BlobWant
+
+/* turns a blobwant array into one object ala
+{
+	ref1:dist1,
+	ref2:dist2,
+	...
+}
+*/
+func (msg WantMsg) MarshalJSON() ([]byte, error) {
+	wantsMap := make(map[*ssb.BlobRef]int64, len(msg))
+	for _, want := range msg {
+		wantsMap[want.Ref] = want.Dist
+	}
+	data, err := json.Marshal(wantsMap)
+	return data, errors.Wrap(err, "WantMsg: error marshalling map?")
+}
 
 func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	var directWants []ssb.BlobWant

@@ -258,7 +258,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 	if errors.Cause(err) == context.Canceled {
-		return nil
+		return sink.Close()
 	} else if err != nil {
 		return errors.Wrap(err, "failed to pump messages to peer")
 	}

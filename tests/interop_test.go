@@ -102,7 +102,18 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		info, _ = logtest.KitLogger("go", ts.t)
 	}
 	// timestamps!
-	info = log.With(info, "ts", log.TimestampFormat(time.Now, "3:04:05.000"))
+	var l sync.Mutex
+	start := time.Now()
+	diffTime := func() interface{} {
+		l.Lock()
+		defer l.Unlock()
+		newStart := time.Now()
+		since := newStart.Sub(start)
+		// start = newStart
+		return since
+	}
+
+	info = log.With(info, "ts", log.Valuer(diffTime))
 
 	// prepend defaults
 	sbotOpts = append([]sbot.Option{
@@ -111,7 +122,8 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
 		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			return debug.WrapConn(info, conn), nil
+			fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+			return debug.WrapConn(log.With(info, "remote", fr.Ref()[1:5]), conn), err
 		}),
 	}, sbotOpts...)
 
@@ -144,6 +156,8 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	return
 }
 
+var jsBotCnt = 0
+
 // returns the jsbots pubkey
 func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 	r := require.New(ts.t)
@@ -157,12 +171,13 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 	r.NoError(err)
 
 	env := []string{
-		"TEST_NAME=" + ts.t.Name(),
+		fmt.Sprintf("TEST_NAME=%s%02d", ts.t.Name(), jsBotCnt),
 		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
 		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Network.GetListenAddr(), "tcp").String(),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
 	}
+	jsBotCnt++
 	if ts.keySHS != nil {
 		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
 	}
@@ -200,14 +215,14 @@ func (ts *testSession) wait() {
 	closeErrc := make(chan error)
 
 	go func() {
-		tick := time.NewTicker(2 * time.Minute) // would be nice to get -test.timeout for this
+		tick := time.NewTicker(30 * time.Second) // would be nice to get -test.timeout for this
 		select {
 		case <-ts.doneJS:
 
 		case <-ts.doneGo:
 			ts.gobot.FSCK()
 		case <-tick.C:
-
+			ts.t.Log("timeout")
 		}
 
 		ts.gobot.Shutdown()

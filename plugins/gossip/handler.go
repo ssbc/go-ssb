@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -90,6 +91,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	blocked := tGraph.BlockedList(g.Id)
 	for _, ref := range ufaddrs {
 		if _, isBlocked := blocked[ref]; isBlocked {
+			level.Warn(g.Info).Log("msg", "blocked feed still stored", "r", ref)
 			blockedAddr = append(blockedAddr, ref)
 		}
 	}
@@ -100,14 +102,21 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
 			return
 		}
+		if err != nil {
+			level.Error(g.Info).Log("fetching", "hops failed", "err", err)
+		}
 	}
 
 	err = g.fetchAllLib(ctx, e, ufaddrs)
 	if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
 		return
 	}
+	if err != nil {
+		level.Error(g.Info).Log("fetching", "stored failed", "err", err)
+	} else {
+		g.Info.Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
+	}
 
-	g.Info.Log("msg", "fetchHops done", "hops", hops.Count(), "stored", len(ufaddrs))
 }
 
 func (g *handler) check(err error) {

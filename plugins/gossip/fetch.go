@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,11 +37,12 @@ func (h *handler) fetchAllLib(
 ) error {
 	var refs = graph.NewFeedSet(len(lst))
 	for i, addr := range lst {
-		ref, err := ssb.ParseFeedRef(string(addr))
+		var sr ssb.StorageRef
+		err := sr.Unmarshal([]byte(addr))
 		if err != nil {
 			return errors.Wrapf(err, "fetchLib(%d) failed to parse (%q)", i, addr)
 		}
-		if err := refs.AddRef(ref); err != nil {
+		if err := refs.AddStored(&sr); err != nil {
 			return errors.Wrapf(err, "fetchLib(%d) set add failed", i)
 		}
 	}
@@ -99,7 +101,7 @@ func (h *handler) fetchAll(
 
 func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
 	for _, el := range list {
-		if el == a.StoredAddr() {
+		if bytes.Equal([]byte(a.StoredAddr()), []byte(el)) {
 			return true
 		}
 	}

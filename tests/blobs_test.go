@@ -2,14 +2,17 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/margaret"
 	muxtest "go.cryptoscope.co/muxrpc/test"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/sbot"
@@ -32,11 +35,13 @@ func TestBlobToJS(t *testing.T) {
 	s := ts.gobot
 
 	ts.startJSBot(`run()`,
-		`sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
-		t.true(has, "got blob")
-		t.error(err, "no err")
-		exit()
-	})`)
+		`setTimeout(() => {
+			sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
+				t.true(has, "got blob")
+				t.error(err, "no err")
+				exit()
+			})
+		}, 1000)`)
 
 	ref, err := s.BlobStore.Put(strings.NewReader("bl0000p123123"))
 	r.NoError(err)
@@ -128,4 +133,119 @@ func TestBlobFromJS(t *testing.T) {
 	for i, dpkt := range rec.Get() {
 		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
 	}
+}
+
+func TestBlobWithHop(t *testing.T) {
+	// defer leakcheck.Check(t)
+	r := require.New(t)
+
+	ts := newRandomSession(t)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
+	alice := ts.startJSBot(`
+	pull(
+		pull.once(Buffer.from("whopwhopwhop")),
+		sbot.blobs.add(function(err, hash) {
+			t.error(err)
+			t.comment('got hash:'+hash)
+			sbot.blobs.size(hash, (err, sz) => {
+				t.error(err)
+				t.comment('size'+sz)
+				sbot.publish({
+					type:'test',
+					blob: hash,
+				}, (err, msg) => {
+					t.error(err)
+					t.comment('leaked blob addr in:'+msg.key)
+					run()
+				})
+			})
+		})
+	  )
+	
+	// be done when the other party is done
+	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
+`, ``)
+
+	aliceDone := ts.doneJS
+	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   alice.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish contact message")
+	r.NotNil(newSeq)
+
+	time.Sleep(2 * time.Second)
+
+	uf, ok := bob.GetMultiLog("userFeeds")
+	r.True(ok)
+	aliceLog, err := uf.Get(alice.StoredAddr())
+	r.NoError(err)
+	seq, err := aliceLog.Seq().Value()
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(0), seq)
+
+	var wantBlob *ssb.BlobRef
+
+	seqMsg, err := aliceLog.Get(margaret.BaseSeq(0))
+	r.NoError(err)
+	r.Equal(seqMsg, margaret.BaseSeq(1))
+
+	msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	r.NoError(err)
+	storedMsg, ok := msg.(ssb.Message)
+	r.True(ok, "wrong type of message: %T", msg)
+	r.Equal(storedMsg.Seq(), margaret.BaseSeq(1).Seq())
+
+	type testWrap struct {
+		Author  ssb.FeedRef
+		Content struct {
+			Type string
+			Blob *ssb.BlobRef
+		}
+	}
+	var m testWrap
+	err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
+	r.NoError(err)
+	r.True(alice.Equal(&m.Author), "wrong author")
+	r.Equal("test", m.Content.Type)
+	r.NotNil(m.Content.Blob)
+
+	wantBlob = m.Content.Blob
+
+	// bob.WantManager.Want(wantBlob)
+
+	before := fmt.Sprintf(`wantHash = %q // blob we want from alice
+
+pull(
+	sbot.blobs.changes(),
+	pull.drain((evt)=> {
+		t.comment('blobs:change:' + JSON.stringify(evt))
+	})
+)
+
+sbot.blobs.want(wantHash, (err, has) => {
+	t.error(err, 'want err?')
+	exit()
+})
+
+run()
+`, wantBlob.Ref())
+
+	claire := ts.startJSBot(before, "")
+
+	t.Logf("started claire: %s", claire.Ref())
+	newSeq, err = bob.PublishLog.Append(map[string]interface{}{
+		"type":      "contact",
+		"contact":   claire.Ref(),
+		"following": true,
+	})
+	r.NoError(err, "failed to publish 2nd contact message")
+	r.NotNil(newSeq)
+
+	ts.wait()
+	<-aliceDone
 }

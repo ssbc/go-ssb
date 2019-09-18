@@ -33,11 +33,11 @@ function bufFromEnv(evname) {
 
 tape.createStream().pipe(process.stderr);
 tape(testName, function (t) {
-  t.timeoutAfter(30000) // doesn't exit the process
+  t.timeoutAfter(15000) // doesn't exit the process
   const tapeTimeout = setTimeout(() => {
     t.comment("test timeout")
     process.exit(1)
-  }, 50000)
+  }, 17000)
   function run() { // needs to be called by the before block when it's done
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
     t.comment("dialing")

@@ -179,9 +179,9 @@ func TestBlobsWithHops(t *testing.T) {
 		WithInfo(log.With(mainLog, "peer", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		// enabling this makes the tests hang but it can be insightfull to see all muxrpc packages
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
-		// 	return debug.WrapConn(log.With(bobLog, "remote", addr.String()), conn), nil
+		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
 		WithListenAddr(":0"))
 	r.NoError(err)
@@ -257,7 +257,7 @@ func TestBlobsWithHops(t *testing.T) {
 	err = ali.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	_, err = ali.BlobStore.Get(ref)
 	a.NoError(err)

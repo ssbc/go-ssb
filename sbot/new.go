@@ -116,8 +116,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.BlobStore = bs
 	// TODO: add flag to filter specific levels and/or units and pass nop to the others
-	// wantsLog:=kitlog.With(log, "module", "WantManager")
-	wantsLog := kitlog.NewNopLogger()
+	wantsLog := kitlog.With(log, "module", "WantManager")
+	// wantsLog := kitlog.NewNopLogger()
 	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 

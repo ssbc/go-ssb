@@ -18,7 +18,6 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 )
 
@@ -193,16 +192,16 @@ func (n *node) addRemote(edp muxrpc.Endpoint) {
 	if err != nil {
 		panic(err)
 	}
-	ref := r.Ref()
-	if oldEdp, has := n.remotes[ref]; has {
-		// n.log.Log("remotes", "previous active", "ref", ref)
-		c := client.FromEndpoint(oldEdp)
-		_, err := c.Whoami()
-		if err == nil {
-			// old one still works
-			return
-		}
-	}
+	// ref := r.Ref()
+	// if oldEdp, has := n.remotes[ref]; has {
+	// n.log.Log("remotes", "previous active", "ref", ref)
+	// c := client.FromEndpoint(oldEdp)
+	// _, err := c.Whoami()
+	// if err == nil {
+	// 	// old one still works
+	// 	return
+	// }
+	// }
 	// replace with new
 	n.remotes[r.Ref()] = edp
 }
@@ -309,8 +308,11 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 					continue
 				}
 				err := n.Connect(ctx, a)
+				if err == nil {
+					continue
+				}
 				if _, ok := errors.Cause(err).(secrethandshake.ErrProtocol); !ok {
-					n.log.Log("event", "debug", "msg", "discovery dialback", "err", err)
+					level.Debug(n.log).Log("event", "discovery dialback", "err", err, "addr", a.String())
 				}
 
 			}

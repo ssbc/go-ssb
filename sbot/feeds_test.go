@@ -39,7 +39,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(aliLog),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
@@ -102,7 +102,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	alisLog, err := uf.Get(ali.KeyPair.Id.StoredAddr())
 	r.NoError(err)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		t.Logf("runniung connect %d", i)
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)

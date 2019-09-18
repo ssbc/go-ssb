@@ -41,7 +41,6 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		if src != nil {
 			return src, nil
 		}
-
 		h.log.Log("msg", "got a nil source from the map, ignoring and making new")
 	}
 
@@ -51,7 +50,6 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 	}
 	if src == nil {
 		h.log.Log("msg", "got a nil source edp.Source, returning an error")
-		//debug.PrintStack()
 		return nil, errors.New("could not make createWants call")
 	}
 	h.sources[ref.Ref()] = src
