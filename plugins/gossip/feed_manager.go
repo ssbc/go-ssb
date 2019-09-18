@@ -170,6 +170,7 @@ func liveLimit(
 }
 
 // getLatestSeq returns the latest Sequence number for the given log.
+// TODO: this should probably be on margret itself... (ie. observable less way to get the current sequence)
 func getLatestSeq(log margaret.Log) (int64, error) {
 	latestSeqValue, err := log.Seq().Value()
 	if err != nil {
@@ -182,18 +183,6 @@ func getLatestSeq(log margaret.Log) (int64, error) {
 		return v.Seq(), nil
 	default:
 		return 0, errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", v)
-	}
-}
-
-// newSinkCounter returns a new Sink which increases the given counter when poured to.
-func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
-	return func(ctx context.Context, v interface{}, err error) error {
-		if err != nil {
-			return err
-		}
-
-		*counter++
-		return sink.Pour(ctx, v)
 	}
 }
 
@@ -240,10 +229,26 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Wrapf(err, "invalid user log query")
 	}
 
-	sink = transform.NewKeyValueWrapper(sink, arg.Keys)
+	switch feedRef.Algo {
+	case ssb.RefAlgoFeedSSB1:
+		sink = transform.NewKeyValueWrapper(sink, arg.Keys)
+
+	case ssb.RefAlgoFeedGabby:
+		switch {
+		case arg.AsJSON && !arg.Keys:
+			sink = asJSONsink(sink)
+
+		case arg.AsJSON && arg.Keys:
+			sink = transform.NewKeyValueWrapper(sink, true)
+
+		default:
+			sink = gabbyStreamSink(sink)
+		}
+	default:
+		return errors.Errorf("unsupported feed format.")
+	}
 
 	sent := 0
-
 	err = luigi.Pump(ctx, newSinkCounter(&sent, sink), src)
 	if m.sysCtr != nil {
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
@@ -253,7 +258,6 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 	if errors.Cause(err) == context.Canceled {
-		sink.Close()
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "failed to pump messages to peer")

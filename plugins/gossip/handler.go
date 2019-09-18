@@ -164,6 +164,7 @@ func (g *handler) HandleCall(
 			req.Stream.CloseWithError(errors.Wrap(err, "createHistoryStream failed"))
 			return
 		}
+		// don't close stream (feedManager will pass it on to live processing or close it itself)
 
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
