@@ -9,12 +9,10 @@ import (
 	"time"
 
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/repo"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret/codec/msgpack"
-	"go.cryptoscope.co/margaret/offset2"
-	"go.cryptoscope.co/ssb/message/legacy"
 )
 
 func check(err error) {
@@ -32,7 +30,7 @@ func fail(err error) {
 
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "usage: migrate2 <from> <to> <limit>")
+		fmt.Fprintln(os.Stderr, "usage: migrate3 <from> <to> <limit>")
 		os.Exit(1)
 	}
 	fromPath := os.Args[1]
@@ -41,10 +39,13 @@ func main() {
 	limit, err := strconv.Atoi(os.Args[3])
 	check(err)
 
-	from, err := offset2.Open(fromPath, msgpack.New(&legacy.OldStoredMessage{}))
+    repoFrom:=repo.New(fromPath)
+    repoTo:=repo.New(toPath)
+
+	from, err := repo.OpenLog(repoFrom)
 	check(err)
 
-	to, err := offset2.Open(toPath, msgpack.New(&legacy.OldStoredMessage{}))
+	to, err := repo.OpenLog(repoTo)
 	check(err)
 
 	seq, err := from.Seq().Value()

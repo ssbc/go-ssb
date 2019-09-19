@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
+	"go.cryptoscope.co/margaret/multilog/roaringfiles"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -56,6 +57,49 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	}
 
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
+
+	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
+	mode := os.O_RDWR | os.O_EXCL
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		mode |= os.O_CREATE
+	}
+	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error opening state file")
+	}
+
+	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
+
+	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
+		if rootLog == nil {
+			return errors.Errorf("repo/multilog: %s was passed a nil root log", name)
+		}
+
+		src, err := rootLog.Query(margaret.Live(live), margaret.SeqWrap(true), mlogSink.QuerySpec())
+		if err != nil {
+			return errors.Wrap(err, "error querying rootLog for mlog")
+		}
+
+		err = luigi.Pump(ctx, mlogSink, src)
+		if err == ssb.ErrShuttingDown {
+			return nil
+		}
+
+		return errors.Wrap(err, "error reading query for mlog")
+	}
+
+	return mlog, serve, nil
+}
+
+func OpenRoaringMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
+
+	dbPath := r.GetPath(PrefixMultiLog, name, "roaring")
+	err := os.MkdirAll(dbPath, 0700)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+	}
+
+	mlog, err := roaringfiles.NewMKV(filepath.Join(dbPath, "mkv"))
 
 	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
 	mode := os.O_RDWR | os.O_EXCL

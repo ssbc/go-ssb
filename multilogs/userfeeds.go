@@ -13,26 +13,28 @@ import (
 const IndexNameFeeds = "userFeeds"
 
 func OpenUserFeeds(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
-	return repo.OpenMultiLog(r, IndexNameFeeds, func(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
-		if nulled, ok := value.(error); ok {
-			if margaret.IsErrNulled(nulled) {
-				return nil
-			}
-			return nulled
-		}
+	return repo.OpenMultiLog(r, IndexNameFeeds, UserFeedsUpdate)
+}
 
-		abstractMsg, ok := value.(ssb.Message)
-		if !ok {
-			return errors.Errorf("error casting message. got type %T", value)
+func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+	if nulled, ok := value.(error); ok {
+		if margaret.IsErrNulled(nulled) {
+			return nil
 		}
+		return nulled
+	}
 
-		author := abstractMsg.Author()
-		authorLog, err := mlog.Get(author.StoredAddr())
-		if err != nil {
-			return errors.Wrap(err, "error opening sublog")
-		}
+	abstractMsg, ok := value.(ssb.Message)
+	if !ok {
+		return errors.Errorf("error casting message. got type %T", value)
+	}
 
-		_, err = authorLog.Append(seq)
-		return errors.Wrap(err, "error appending new author message")
-	})
+	author := abstractMsg.Author()
+	authorLog, err := mlog.Get(author.StoredAddr())
+	if err != nil {
+		return errors.Wrap(err, "error opening sublog")
+	}
+
+	_, err = authorLog.Append(seq)
+	return errors.Wrap(err, "error appending new author message")
 }
