@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 )
 
 const blobSize = 64 * 1024 * 250
@@ -57,7 +59,8 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -79,7 +82,8 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)
@@ -108,6 +112,7 @@ func TestBlobsPair(t *testing.T) {
 
 	g, err := bob.GraphBuilder.Build()
 	r.NoError(err)
+	time.Sleep(250 * time.Millisecond)
 	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
 	sess := &session{
@@ -398,7 +403,8 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 	var aliErrc = make(chan error, 1)
 	go func() {
@@ -420,7 +426,8 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 	var bobErrc = make(chan error, 1)
 	go func() {
@@ -437,7 +444,8 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "cle")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "cle")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 	var cleErrc = make(chan error, 1)
 	go func() {
@@ -474,6 +482,8 @@ func TestBlobsWithHops(t *testing.T) {
 		Contact:   bob.KeyPair.Id,
 	})
 	r.NoError(err)
+
+	time.Sleep(1 * time.Second)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)

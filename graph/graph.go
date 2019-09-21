@@ -2,6 +2,7 @@ package graph
 
 import (
 	"math"
+	"sync"
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb"
@@ -13,11 +14,14 @@ import (
 type key2node map[librarian.Addr]graph.Node
 
 type Graph struct {
-	simple.WeightedDirectedGraph
+	sync.Mutex
+	*simple.WeightedDirectedGraph
 	lookup key2node
 }
 
 func (g *Graph) getEdge(from, to *ssb.FeedRef) (graph.WeightedEdge, bool) {
+	g.Mutex.Lock()
+	defer g.Mutex.Unlock()
 	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil, false
@@ -50,6 +54,8 @@ func (g *Graph) Blocks(from, to *ssb.FeedRef) bool {
 }
 
 func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]bool {
+	g.Mutex.Lock()
+	defer g.Mutex.Unlock()
 	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil
@@ -68,6 +74,8 @@ func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]bool {
 }
 
 func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
+	g.Mutex.Lock()
+	defer g.Mutex.Unlock()
 	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil, &ErrNoSuchFrom{from}

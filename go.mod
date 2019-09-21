@@ -3,10 +3,8 @@ module go.cryptoscope.co/ssb
 go 1.13
 
 require (
-	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077
-	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
@@ -16,6 +14,7 @@ require (
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
+	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
@@ -38,5 +37,3 @@ require (
 )
 
 replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6
-
-replace go.cryptoscope.co/margaret => /home/cryptix/go/src/go.cryptoscope.co/margaret

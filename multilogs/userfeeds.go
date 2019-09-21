@@ -30,6 +30,13 @@ func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, m
 	}
 
 	author := abstractMsg.Author()
+	if author == nil {
+		// spew.Dump(value)
+		return errors.Errorf("nil author on message?! %v (%d)", value, seq.Seq())
+	}
+	if mlog == nil {
+		panic("passed nil mlog")
+	}
 	authorLog, err := mlog.Get(author.StoredAddr())
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")

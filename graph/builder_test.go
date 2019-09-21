@@ -116,7 +116,7 @@ func makeTypedLog(t *testing.T) testStore {
 
 	return tc
 }
-func XTestTypedLog(t *testing.T) {
+func TestTypedLog(t *testing.T) {
 	tc := makeTypedLog(t)
 	t.Run("scene1", tc.theScenario)
 	tc.close()

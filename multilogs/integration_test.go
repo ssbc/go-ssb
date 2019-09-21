@@ -177,7 +177,7 @@ func TestStaticRepos(t *testing.T) {
 		}
 
 		start := time.Now()
-		ml, serve, err := OpenUserFeeds(tr)
+		roarmlog, serve, err := OpenUserFeeds(tr)
 		r.NoError(err)
 
 		err = serve(context.Background(), testLog, false)
@@ -211,25 +211,18 @@ func TestStaticRepos(t *testing.T) {
 			r.NoError(ml.Close())
 		}
 
-		compare(ml)
+		compare(roarmlog)
 
 		start = time.Now()
-		ml, serve, err = repo.OpenRoaringMultiLog(tr, "test_roaring_"+tc.Name, UserFeedsUpdate)
+		badgermlog, serve, err := repo.OpenBadgerMultiLog(tr, "testbadger_"+tc.Name, UserFeedsUpdate)
 		r.NoError(err)
 
 		err = serve(context.Background(), testLog, false)
 		r.NoError(err)
 		t.Log("indexing  roar", tc.Name, "took", time.Since(start))
 
-		compare(ml)
+		compare(badgermlog)
 
-		start = time.Now()
-		ml, serve, err = repo.OpenRoaringMultiLog(tr, "test_roaring_"+tc.Name, UserFeedsUpdate)
-		r.NoError(err)
-		err = serve(context.Background(), testLog, false)
-		r.NoError(err)
-		t.Log("indexing2 roar", tc.Name, "took", time.Since(start))
-		compare(ml)
 	}
 }
 

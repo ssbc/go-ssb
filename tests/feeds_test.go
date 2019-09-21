@@ -246,7 +246,7 @@ func TestFeedFromGo(t *testing.T) {
 	t.Log("restarting for integrity check")
 	ts.startGoBot()
 	s = ts.gobot
-	s.FSCK()
+	s.FSCK(uf)
 
 	ml, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
@@ -274,7 +274,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(storedMsg.Seq(), 4)
 
-	s.FSCK()
+	s.FSCK(uf)
 }
 
 func TestFeedFromGoLive(t *testing.T) {

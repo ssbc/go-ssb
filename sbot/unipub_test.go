@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/ssb"
-
-	"go.cryptoscope.co/luigi"
-
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
+
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func TestPublishUnicode(t *testing.T) {
@@ -32,7 +32,8 @@ func TestPublishUnicode(t *testing.T) {
 		WithHMACSigning(hk),
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)

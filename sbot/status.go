@@ -3,7 +3,6 @@ package sbot
 import (
 	"fmt"
 	"net"
-	"os"
 	"sort"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/multiserver"
@@ -126,30 +126,34 @@ func (qry *getCurrent) Live(live bool) error     { return nil }
 func (qry *getCurrent) SeqWrap(wrap bool) error  { return nil }
 func (qry *getCurrent) Reverse(yes bool) error   { return nil }
 
-func (s *Sbot) FSCK() {
+func (s *Sbot) FSCK(idxlog multilog.MultiLog) {
 
 	checkFatal := func(err error) {
 		if err != nil {
 			level.Error(s.info).Log("error", "fsck failed", "err", err)
-			s.Shutdown()
-			s.Close()
-			os.Exit(1)
+			// s.Shutdown()
+			// s.Close()
+			// os.Exit(1)
 
 			return
 		}
 	}
-	uf, ok := s.GetMultiLog("userFeeds")
-	if !ok {
-		checkFatal(fmt.Errorf("missing userFeeds"))
-		return
+
+	if idxlog == nil {
+		var ok bool
+		idxlog, ok = s.GetMultiLog("userFeeds")
+		if !ok {
+			checkFatal(errors.Errorf("no multilog"))
+			return
+		}
 	}
 
-	gb := s.GraphBuilder
+	// gb := s.GraphBuilder
 
-	feeds, err := uf.List()
+	feeds, err := idxlog.List()
 	checkFatal(err)
 
-	var followCnt, msgCount uint
+	// var followCnt, msgCount uint
 	for _, author := range feeds {
 		var sr ssb.StorageRef
 		err := sr.Unmarshal([]byte(author))
@@ -157,7 +161,7 @@ func (s *Sbot) FSCK() {
 		authorRef, err := sr.FeedRef()
 		checkFatal(err)
 
-		subLog, err := uf.Get(author)
+		subLog, err := idxlog.Get(author)
 		checkFatal(err)
 
 		userLogV, err := subLog.Seq().Value()
@@ -182,15 +186,15 @@ func (s *Sbot) FSCK() {
 			checkFatal(err)
 		}
 
-		msgCount += uint(msg.Seq())
+		// msgCount += uint(msg.Seq())
 
-		f, err := gb.Follows(authorRef)
-		checkFatal(err)
+		// f, err := gb.Follows(authorRef)
+		// checkFatal(err)
 
-		if len(feeds) < 20 {
-			h := gb.Hops(authorRef, 2)
-			level.Info(s.info).Log("feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
-		}
-		followCnt += uint(f.Count())
+		// if len(feeds) < 20 {
+		// 	h := gb.Hops(authorRef, 2)
+		// 	level.Info(s.info).Log("feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
+		// }
+		// followCnt += uint(f.Count())
 	}
 }

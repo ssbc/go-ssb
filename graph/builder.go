@@ -203,7 +203,7 @@ func (b *builder) Build() (*Graph, error) {
 	})
 
 	g := &Graph{lookup: known}
-	g.WeightedDirectedGraph = *dg
+	g.WeightedDirectedGraph = dg
 	b.cachedGraph = g
 	return g, err
 }

@@ -19,7 +19,6 @@ import (
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2"
@@ -129,7 +128,7 @@ func main() {
 	if flagFatBot {
 		opts = append(opts,
 			mksbot.LateOption(mksbot.MountMultiLog("byTypes", multilogs.OpenMessageTypes)),
-			mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)),
+			// mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)),
 			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 		// TODO: make about
 		)
@@ -213,7 +212,7 @@ func main() {
 	SystemEvents.With("event", "openedRepo").Add(1)
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	sbot.FSCK()
+	sbot.FSCK(uf)
 
 	rseq, err := sbot.RootLog.Seq().Value()
 	checkFatal(err)

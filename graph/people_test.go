@@ -243,6 +243,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()
 		r.NoError(err, "failed to build graph for debugging")
+		g.Lock()
 		for nick, pub := range state.peers {
 			newKey := pub.key.Id.StoredAddr()
 			// var newKey [32]byte
@@ -254,6 +255,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			cn := node.(*contactNode)
 			cn.name = nick
 		}
+		g.Unlock()
 
 		for i, assert := range tc.asserts {
 			err := assert(&state)(state.store.gbuilder)
@@ -484,7 +486,7 @@ func TestPeople(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))
-		// t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
+		t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
 	}
 }
 

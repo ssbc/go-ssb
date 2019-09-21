@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/cryptix/go/logging/logtest"
-
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func TestFeedsOneByOne(t *testing.T) {
@@ -43,7 +43,8 @@ func TestFeedsOneByOne(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -66,7 +67,8 @@ func TestFeedsOneByOne(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)
@@ -95,6 +97,7 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	g, err := bob.GraphBuilder.Build()
 	r.NoError(err)
+	time.Sleep(250 * time.Millisecond)
 	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
 	uf, ok := bob.GetMultiLog("userFeeds")
@@ -119,8 +122,10 @@ func TestFeedsOneByOne(t *testing.T) {
 		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
 	}
 
-	ali.FSCK()
-	bob.FSCK()
+	auf, ok := ali.GetMultiLog("userFeeds")
+	r.True(ok)
+	ali.FSCK(auf)
+	bob.FSCK(uf)
 
 	ali.Shutdown()
 	bob.Shutdown()

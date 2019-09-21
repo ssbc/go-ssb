@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/dgraph-io/badger"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
@@ -39,11 +40,11 @@ const PrefixMultiLog = "sublogs"
 
 type ServeFunc func(context.Context, margaret.Log, bool) error
 
-// OpenMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
+// OpenBadgerMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //
 // Exposes the badger db for 100% hackability. This will go away in future versions!
 // badger + librarian as index
-func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
+func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
 
 	dbPath := r.GetPath(PrefixMultiLog, name, "db")
 	err := os.MkdirAll(dbPath, 0700)
@@ -91,7 +92,7 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	return mlog, serve, nil
 }
 
-func OpenRoaringMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
+func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
 
 	dbPath := r.GetPath(PrefixMultiLog, name, "roaring")
 	err := os.MkdirAll(dbPath, 0700)
@@ -100,8 +101,16 @@ func OpenRoaringMultiLog(r Interface, name string, f multilog.Func) (multilog.Mu
 	}
 
 	mlog, err := roaringfiles.NewMKV(filepath.Join(dbPath, "mkv"))
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to open roaring db")
+	}
 
-	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
+	if err := mlog.CompressAll(); err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to compress db")
+	}
+
+	// todo: save the current state in the multilog
+	statePath := r.GetPath(PrefixMultiLog, name, "state_mkv.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE

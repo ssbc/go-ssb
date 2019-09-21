@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/message/multimsg"
+	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func TestGabbySync(t *testing.T) {
@@ -36,7 +37,8 @@ func TestGabbySync(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -60,7 +62,8 @@ func TestGabbySync(t *testing.T) {
 		WithKeyPair(bobsKey),
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"))
+		WithListenAddr(":0"),
+		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)
