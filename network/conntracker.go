@@ -59,31 +59,24 @@ type connEntry struct {
 	c       net.Conn
 	started time.Time
 }
-type connLookupMap map[[32]byte][]connEntry
+type connLookupMap map[[32]byte]connEntry
 
 func NewConnTracker() ssb.ConnTracker {
-	return &connTracker{
-		active:   make(connLookupMap),
-		maxConns: 5,
-	}
+	return &connTracker{active: make(connLookupMap)}
 }
 
 // tracks open connections and refuses to established pubkeys
 type connTracker struct {
 	activeLock sync.Mutex
 	active     connLookupMap
-
-	maxConns int
 }
 
 func (ct *connTracker) CloseAll() {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
-	for k, entries := range ct.active {
-		for _, e := range entries {
-			if err := e.c.Close(); err != nil {
-				log.Printf("failed to close %x: %v\n", k[:5], err)
-			}
+	for k, c := range ct.active {
+		if err := c.c.Close(); err != nil {
+			log.Printf("failed to close %x: %v\n", k[:5], err)
 		}
 	}
 }
@@ -111,32 +104,21 @@ func (ct *connTracker) Active(a net.Addr) (bool, time.Duration) {
 	if !ok {
 		return false, 0
 	}
-	tcpAddr := netwrap.GetAddr(a, "tcp")
-	if tcpAddr == nil {
-		return false, 0
-	}
-	for _, e := range l {
-		remoteTCP := netwrap.GetAddr(e.c.RemoteAddr(), "tcp")
-		if remoteTCP.String() == tcpAddr.String() {
-			return true, time.Since(e.started)
-		}
-	}
-	return false, 0
+	return true, time.Since(l.started)
 }
 
 func (ct *connTracker) OnAccept(conn net.Conn) bool {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 	k := toActive(conn.RemoteAddr())
-	entries, ok := ct.active[k]
-	if ok && len(entries) > ct.maxConns {
+	_, ok := ct.active[k]
+	if ok {
 		return false
 	}
-	entries = append(entries, connEntry{
+	ct.active[k] = connEntry{
 		c:       conn,
 		started: time.Now(),
-	})
-	ct.active[k] = entries
+	}
 	return true
 }
 
@@ -145,51 +127,35 @@ func (ct *connTracker) OnClose(conn net.Conn) time.Duration {
 	defer ct.activeLock.Unlock()
 
 	k := toActive(conn.RemoteAddr())
-	entries, ok := ct.active[k]
+	who, ok := ct.active[k]
 	if !ok {
 		return 0
 	}
-	tcpAddr := netwrap.GetAddr(conn.RemoteAddr(), "tcp")
-	if tcpAddr == nil {
-		panic("no tcp addr on remote")
-	}
-
-	for i, e := range entries {
-		remoteAddr := netwrap.GetAddr(e.c.RemoteAddr(), "tcp")
-		if remoteAddr.String() == tcpAddr.String() {
-			ct.active[k] = append(entries[:i], entries[i+1:]...)
-			return time.Since(e.started)
-		}
-	}
-	if len(ct.active[k]) == 0 {
-		delete(ct.active, k)
-		return 0
-	}
-
-	panic("unable to find open con")
+	delete(ct.active, k)
+	return time.Since(who.started)
 }
 
 // NewLastWinsTracker returns a conntracker that just kills the previous connection and let's the new one in.
-// func NewLastWinsTracker() ssb.ConnTracker {
-// 	return &trackerLastWins{connTracker{active: make(connLookupMap)}}
-// }
+func NewLastWinsTracker() ssb.ConnTracker {
+	return &trackerLastWins{connTracker{active: make(connLookupMap)}}
+}
 
-// type trackerLastWins struct {
-// 	connTracker
-// }
+type trackerLastWins struct {
+	connTracker
+}
 
-// func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
-// 	ct.activeLock.Lock()
-// 	defer ct.activeLock.Unlock()
-// 	k := toActive(newConn.RemoteAddr())
-// 	oldConn, ok := ct.active[k]
-// 	if ok {
-// 		oldConn.c.Close()
-// 		delete(ct.active, k)
-// 	}
-// 	ct.active[k] = connEntry{
-// 		c:       newConn,
-// 		started: time.Now(),
-// 	}
-// 	return true
-// }
+func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
+	ct.activeLock.Lock()
+	defer ct.activeLock.Unlock()
+	k := toActive(newConn.RemoteAddr())
+	oldConn, ok := ct.active[k]
+	if ok {
+		oldConn.c.Close()
+		delete(ct.active, k)
+	}
+	ct.active[k] = connEntry{
+		c:       newConn,
+		started: time.Now(),
+	}
+	return true
+}

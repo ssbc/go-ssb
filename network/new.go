@@ -80,7 +80,7 @@ func New(opts Options) (ssb.Network, error) {
 		opts: opts,
 		// TODO: make this configurable
 		// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
-		connTracker: NewConnTracker(),
+		connTracker: NewLastWinsTracker(),
 
 		remotes: make(map[string]muxrpc.Endpoint),
 	}
