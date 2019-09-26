@@ -51,9 +51,15 @@ func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 	}
 
 	for i, author := range storedFeeds {
-		authorRef, err := ssb.ParseFeedRef(string(author))
+		var sr ssb.StorageRef
+		err := sr.Unmarshal([]byte(author))
 		if err != nil {
-			req.CloseWithError(errors.Wrapf(err, "replicate(%d): invalid stored ref", i))
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): invalid storage ref", i))
+			return
+		}
+		authorRef, err := sr.FeedRef()
+		if err != nil {
+			req.CloseWithError(errors.Wrapf(err, "replicate(%d): stored ref not a feed?", i))
 			return
 		}
 
