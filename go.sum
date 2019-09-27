@@ -210,6 +210,8 @@ go.cryptoscope.co/luigi v0.3.0/go.mod h1:RFlNZMl3Ckc4jIPrLBn3WGwSgpzb0lGDIoGsmBS
 go.cryptoscope.co/luigi v0.3.2/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLUnvks=
 go.cryptoscope.co/luigi v0.3.3 h1:X9JQ1ntb6pm2GpvwncBTkIA5LWBpVK4/cNO2dlyANHs=
 go.cryptoscope.co/luigi v0.3.3/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLUnvks=
+go.cryptoscope.co/luigi v0.3.4 h1:eDrtCoUL5Vl2Atr5ty2dq0uFbzFCc6Pz1HEqU1e7I1I=
+go.cryptoscope.co/luigi v0.3.4/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/margaret v0.0.2/go.mod h1:YyxmwJ16ip+JnH4/M1ANyr8khrC9OnaDH3eOpR14o0M=
 go.cryptoscope.co/margaret v0.0.5/go.mod h1:W+Q6lvzHIrF8+Yt3dItHHsx2R9/Xvj/NkJGM8QLM2l4=
 go.cryptoscope.co/margaret v0.0.8/go.mod h1:VbP0bqavqW5osTmdNvgukrqtmqvZC5sXyPSBUW5rzv8=
