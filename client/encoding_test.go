@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -101,6 +102,31 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	}
 
 	v, err := src.Next(context.TODO())
+	a.Nil(v)
+	a.Equal(luigi.EOS{}, errors.Cause(err))
+
+	// now with key-value wrapping
+	args.MarshalType = &ssb.KeyValueRaw{}
+	args.Keys = true
+	src, err = c.CreateHistoryStream(args)
+	r.NoError(err)
+
+	ctx = context.TODO()
+	for i := 0; i < 10; i++ {
+		// ctx, _ := context.WithTimeout(ctx, 5*time.Second)
+		streamV, err := src.Next(ctx)
+		r.NoError(err, "failed to next msg:%d", i)
+		msg, ok := streamV.(*ssb.KeyValueRaw)
+		r.True(ok, "acutal type: %T", streamV)
+
+		var v testMsg
+		spew.Dump(msg.Value.Content)
+		err = json.Unmarshal(msg.Value.Content, &v)
+		r.NoError(err, "failed JSON unmarshal message:%d", i)
+		// a.Equal(refs[i], msg.Key().Ref())
+	}
+
+	v, err = src.Next(context.TODO())
 	a.Nil(v)
 	a.Equal(luigi.EOS{}, errors.Cause(err))
 

@@ -42,6 +42,6 @@ func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
 		}
 
-		return kvMsg, nil
+		return json.RawMessage(kvMsg), nil
 	})
 }

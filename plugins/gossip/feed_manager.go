@@ -235,11 +235,11 @@ func (m *FeedManager) CreateStreamHistory(
 
 	case ssb.RefAlgoFeedGabby:
 		switch {
-		case arg.AsJSON && !arg.Keys:
-			sink = asJSONsink(sink)
+		// case arg.AsJSON && !arg.Keys:
+		// 	sink = asJSONsink(sink)
 
-		case arg.AsJSON && arg.Keys:
-			sink = transform.NewKeyValueWrapper(sink, true)
+		case arg.AsJSON:
+			sink = transform.NewKeyValueWrapper(sink, arg.Keys)
 
 		default:
 			sink = gabbyStreamSink(sink)
