@@ -155,8 +155,9 @@ func WithUNIXSocket() Option {
 					pkr := muxrpc.NewPacker(conn)
 					ctx, cancel := context.WithCancel(s.rootCtx)
 					if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+						closed := cn.Closed()
 						go func() {
-							<-cn.Closed()
+							<-closed
 							cancel()
 						}()
 					}

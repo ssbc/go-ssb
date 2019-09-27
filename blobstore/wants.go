@@ -259,7 +259,6 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
 	if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {
-		dbg.Log("ignoring", "does not want")
 		return nil
 	}
 

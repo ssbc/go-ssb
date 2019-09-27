@@ -270,8 +270,9 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	filtered := level.NewFilter(n.log, level.AllowInfo())
 	edp = muxrpc.HandleWithLogger(pkr, h, filtered)
 	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
+		closed := cn.Closed()
 		go func() {
-			<-cn.Closed()
+			<-closed
 			cancel()
 		}()
 	}

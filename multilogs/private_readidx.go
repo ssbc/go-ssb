@@ -31,7 +31,7 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 
 		msg, ok := val.(ssb.Message)
 		if !ok {
-			err := errors.Errorf("error casting message. got type %T", val)
+			err := errors.Errorf("private/readidx: error casting message. got type %T", val)
 			return err
 		}
 
@@ -56,17 +56,21 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 		case ssb.RefAlgoFeedGabby:
 			mm, ok := val.(multimsg.MultiMessage)
 			if !ok {
-				err := errors.Errorf("error casting message. got type %T", val)
-				return err
+				mmPtr, ok := val.(*multimsg.MultiMessage)
+				if !ok {
+					err := errors.Errorf("private/readidx: error casting message. got type %T", val)
+					return err
+				}
+				mm = *mmPtr
 			}
 			tr, ok := mm.AsGabby()
 			if !ok {
-				err := errors.Errorf("error getting gabby msg")
+				err := errors.Errorf("private/readidx: error getting gabby msg")
 				return err
 			}
 			evt, err := tr.UnmarshaledEvent()
 			if err != nil {
-				return errors.Wrap(err, "error unpacking event from stored message")
+				return errors.Wrap(err, "private/readidx: error unpacking event from stored message")
 			}
 			if evt.Content.Type != gabbygrove.ContentTypeArbitrary {
 				return nil
@@ -84,10 +88,10 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 
 		userPrivs, err := mlog.Get(kp.Id.StoredAddr())
 		if err != nil {
-			return errors.Wrap(err, "error opening priv sublog")
+			return errors.Wrap(err, "private/readidx: error opening priv sublog")
 		}
 
 		_, err = userPrivs.Append(seq.Seq())
-		return errors.Wrapf(err, "error appending PM for %s", kp.Id.Ref())
+		return errors.Wrapf(err, "private/readidx: error appending PM for %s", kp.Id.Ref())
 	})
 }

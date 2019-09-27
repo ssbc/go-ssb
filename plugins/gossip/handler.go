@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/kit/log"
+
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/prometheus"
@@ -49,20 +51,22 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
+	info := log.With(g.Info, "remote", remoteRef.Ref()[1:5])
+
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
 		if err != nil {
-			g.Info.Log("handleConnect", "multilog.Has(callee)", "ref", remoteRef.Ref(), "err", err)
+			info.Log("handleConnect", "multilog.Has(callee)", "err", err)
 			return
 		}
 
 		if !hasCallee {
-			g.Info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
+			info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
 			if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
-				g.Info.Log("handleConnect", "fetchFeed callee failed", "ref", remoteRef.Ref(), "err", err)
+				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
-			g.Info.Log("fetchFeed", "done callee", "ref", remoteRef.Ref())
+			info.Log("fetchFeed", "done callee")
 		}
 	}
 
@@ -76,13 +80,13 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
 	ufaddrs, err := g.UserFeeds.List()
 	if err != nil {
-		g.Info.Log("handleConnect", "UserFeeds listing failed", "err", err)
+		info.Log("handleConnect", "UserFeeds listing failed", "err", err)
 		return
 	}
 
 	tGraph, err := g.GraphBuilder.Build()
 	if err != nil {
-		g.Info.Log("handleConnect", "fetchFeed follows listing", "err", err)
+		info.Log("handleConnect", "fetchFeed follows listing", "err", err)
 		return
 	}
 
@@ -91,7 +95,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	blocked := tGraph.BlockedList(g.Id)
 	for _, ref := range ufaddrs {
 		if _, isBlocked := blocked[ref]; isBlocked {
-			level.Warn(g.Info).Log("msg", "blocked feed still stored", "r", ref)
+			level.Warn(info).Log("msg", "blocked feed still stored")
 			blockedAddr = append(blockedAddr, ref)
 		}
 	}
@@ -103,7 +107,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 		if err != nil {
-			level.Error(g.Info).Log("fetching", "hops failed", "err", err)
+			level.Error(info).Log("fetching", "hops failed", "err", err)
 		}
 	}
 
@@ -112,9 +116,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 	if err != nil {
-		level.Error(g.Info).Log("fetching", "stored failed", "err", err)
+		level.Error(info).Log("fetching", "stored failed", "err", err)
 	} else {
-		g.Info.Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
+		info.Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
 	}
 
 }
