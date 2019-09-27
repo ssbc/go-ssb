@@ -137,19 +137,27 @@ func TestBlobsPair(t *testing.T) {
 		t.Run(tc.name, tc.tf)
 	}
 
+	info.Log("block1", "done")
+
 	aliCT := ali.Network.GetConnTracker()
 	bobCT := bob.Network.GetConnTracker()
 	aliCT.CloseAll()
 	bobCT.CloseAll()
-	time.Sleep(5 * time.Second)
-	assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
-	assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
+	i := 0
+	for aliCT.Count() != 0 || bobCT.Count() != 0 {
+		time.Sleep(750 * time.Millisecond)
+		info.Log("XXXX", "waited after close", "i", i, "a", aliCT.Count(), "b", bobCT.Count())
+		i++
+		if i > 10 {
+			t.Fatal("retried waiting for close")
+		}
+	}
 
 	// disconnect and reconnect
 	sess.redial = func(t *testing.T) {
 		aliCT.CloseAll()
 		bobCT.CloseAll()
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
 		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 		err := bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -162,6 +170,8 @@ func TestBlobsPair(t *testing.T) {
 		t.Run("dcFirst/"+tc.name, tc.tf)
 	}
 
+	info.Log("block2", "done")
+
 	aliCT.CloseAll()
 	bobCT.CloseAll()
 	time.Sleep(2 * time.Second)
@@ -170,11 +180,20 @@ func TestBlobsPair(t *testing.T) {
 
 	// just re-dial
 	sess.redial = func(t *testing.T) {
+		info.Log("redial", "b>a")
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
-		time.Sleep(5 * time.Second)
-		// assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
-		assert.EqualValues(t, 1, bobCT.Count(), "b: want 1 conn")
+		i := 0
+		for aliCT.Count() != 1 || bobCT.Count() != 1 {
+			time.Sleep(750 * time.Millisecond)
+			info.Log("debugwait", "waited after connect", "i", i, "a", aliCT.Count(), "b", bobCT.Count())
+			i++
+			if i > 10 {
+				info.Log("fail", "waited for conns failed")
+				t.Fatal("retried dialing")
+			}
+		}
+
 	}
 	for _, tc := range tests {
 		t.Run("redial/"+tc.name, tc.tf)
@@ -202,11 +221,11 @@ func (s *session) simple(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 
+	s.redial(t)
+
 	// blob action
 	randBuf := make([]byte, blobSize)
 	rand.Read(randBuf)
-
-	s.redial(t)
 
 	ref, err := s.bob.BlobStore.Put(bytes.NewReader(randBuf))
 	r.NoError(err)
@@ -215,7 +234,7 @@ func (s *session) simple(t *testing.T) {
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
