@@ -88,17 +88,24 @@ type wantManager struct {
 func (wmgr *wantManager) promEvent(name string, n float64) {
 	if wmgr.evtCtr != nil {
 		wmgr.evtCtr.With("event", name).Add(n)
+	} else {
+		level.Debug(wmgr.info).Log("evt", name, "add", n)
+
 	}
 }
 
 func (wmgr *wantManager) promGauge(name string, n float64) {
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Add(n)
+	} else {
+		level.Debug(wmgr.info).Log("gauge", name, "add", n)
 	}
 }
 func (wmgr *wantManager) promGaugeSet(name string, n int) {
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Set(float64(n))
+	} else {
+		level.Debug(wmgr.info).Log("gauge", name, "set", n)
 	}
 }
 
@@ -143,6 +150,12 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
+	if wanteDist, wanted := wmgr.wants[ref.Ref()]; wanted && wanteDist > dist {
+		// already wanted higher
+		dbg.Log("wanted", true, "dist", wanteDist)
+		return nil
+	}
+
 	wmgr.wants[ref.Ref()] = dist
 	wmgr.promGaugeSet("nwants", len(wmgr.wants))
 
@@ -169,24 +182,28 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 }
 
 type wantProc struct {
-	l sync.Mutex
-
 	rootCtx context.Context
 
 	info log.Logger
 
-	bs          ssb.BlobStore
-	wmgr        *wantManager
-	out         luigi.Sink
+	bs   ssb.BlobStore
+	wmgr *wantManager
+	out  luigi.Sink
+	done func(func())
+	edp  muxrpc.Endpoint
+
+	l           sync.Mutex
 	remoteWants map[string]int64
-	done        func(func())
-	edp         muxrpc.Endpoint
 }
 
 func (proc *wantProc) init() {
 	if remote, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
 		proc.info = log.With(proc.wmgr.info, "remote", remote.Ref()[1:5])
+	} else {
+		panic("unauthenticated conn")
 	}
+	proc.info.Log("hello", "proc started")
+
 	proc.wmgr.promGauge("proc", 1)
 
 	bsCancel := proc.bs.Changes().Register(luigi.FuncSink(proc.updateFromBlobStore))
@@ -209,9 +226,9 @@ func (proc *wantProc) init() {
 	proc.wmgr.l.Lock()
 
 	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
-	level.Debug(proc.wmgr.info).Log("event", "createWants.Out", "cause", "initial wants", "n", len(proc.wmgr.wants))
+	level.Debug(proc.info).Log("event", "createWants.Out", "cause", "initial wants", "n", len(proc.wmgr.wants))
 	if err != nil {
-		level.Error(proc.wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
+		level.Error(proc.info).Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
 	proc.wmgr.l.Unlock()
 }
@@ -220,9 +237,9 @@ func (proc *wantProc) init() {
 func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, err error) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "blobStoreNotify")
-	proc.wmgr.l.Lock()
-	defer proc.wmgr.l.Unlock()
-	// dbg.Log("cause", "HELLOO", "v", fmt.Sprintf("%#v", v), "err", err)
+	proc.l.Lock()
+	defer proc.l.Unlock()
+
 	if err != nil {
 		if luigi.IsEOS(err) {
 			return nil
@@ -241,10 +258,10 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
-	// if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {
-	// 	dbg.Log("ignoring", "does not want")
-	// 	return nil
-	// }
+	if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {
+		dbg.Log("ignoring", "does not want")
+		return nil
+	}
 
 	sz, err := proc.bs.Size(notif.Ref)
 	if err != nil {
@@ -268,6 +285,8 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 		dbg.Log("cause", "broadcast error", "err", err)
 		return errors.Wrap(err, "wmanager broadcast error")
 	}
+	proc.l.Lock()
+	defer proc.l.Unlock()
 
 	w, ok := v.(ssb.BlobWant)
 	if !ok {
@@ -287,13 +306,13 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 	}
 
 	if sz, err := proc.bs.Size(w.Ref); err == nil {
-		dbg.Log("whoop", "has size!", "sz", sz)
+		level.Info(proc.info).Log("local", "has size!", "sz", sz)
 		return nil
 	}
 
-	dbg.Log("op", "sending want we now want", "wantCount", len(proc.wmgr.wants))
-	// TODO: should use rootCtx from sbot?
 	newW := WantMsg{w}
+	// dbg.Log("op", "sending want we now want", "wantCount", len(proc.wmgr.wants))
+	// TODO: should use rootCtx from sbot?
 	return proc.out.Pour(ctx, newW)
 }
 
@@ -312,12 +331,15 @@ func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
 	if newBr.Ref() != ref.Ref() {
 		// TODO: make this a type of error (forks)
 		proc.bs.Delete(newBr)
+		level.Warn(proc.info).Log("blob", "removed after missmatch", "want", ref.Ref())
 		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
 	}
+	level.Info(proc.info).Log("blob", "stored", "ref", ref.Ref())
 	return nil
 }
 
 func (proc *wantProc) Close() error {
+	// TODO: unwant open wants
 	defer proc.done(nil)
 	return errors.Wrap(proc.out.Close(), "error in lower-layer close")
 }
@@ -326,25 +348,22 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "createWants.In")
 	dbg.Log("cause", "received data", "v", fmt.Sprintf("%+v %T", v, v))
-	proc.l.Lock()
-	defer proc.l.Unlock()
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
 
 	for _, w := range *mIn {
-		wantDist, wanted := proc.remoteWants[w.Ref.Ref()]
 		if w.Dist < 0 {
-			if wanted {
-				dbg.Log("ignoring", "open want!!", "d", wantDist)
-				continue
+			if w.Dist < -4 {
+				dbg.Log("ignored", w.Ref.Ref(), "dist", w.Dist)
+				continue // ignore, too far off
 			}
 			s, err := proc.bs.Size(w.Ref)
 			if err != nil {
 				if err == ErrNoSuchBlob {
+					proc.l.Lock()
 					proc.remoteWants[w.Ref.Ref()] = w.Dist
-					// mOut[w.Ref.Ref()] = w.Dist - 1
-					// proc.wmgr.wantSink.Pour(ctx, ssb.BlobWant{Ref: w.Ref, Dist: w.Dist - 1})
+					proc.l.Unlock()
 
 					wErr := proc.wmgr.WantWithDist(w.Ref, w.Dist-1)
 					if wErr != nil {
@@ -356,19 +375,22 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 				return errors.Wrap(err, "error getting blob size")
 			}
 
+			proc.l.Lock()
 			delete(proc.remoteWants, w.Ref.Ref())
+			proc.l.Unlock()
 			mOut[w.Ref.Ref()] = s
-		} else if proc.wmgr.Wants(w.Ref) { // someone else wants it?!
-			proc.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
-			go func(ref *ssb.BlobRef) {
-				// cryptix: feel like we might need to wrap rootCtx in, too?
-				if err := proc.getBlob(ctx, ref); err != nil {
-					proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
-				}
-			}(w.Ref)
-
 		} else {
-			dbg.Log("unhandled", w.Dist)
+			if proc.wmgr.Wants(w.Ref) {
+				proc.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
+				go func(ref *ssb.BlobRef) {
+					// cryptix: feel like we might need to wrap rootCtx in, too?
+					if err := proc.getBlob(ctx, ref); err != nil {
+						proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+					}
+				}(w.Ref)
+			} else {
+				dbg.Log("ignored", w.Ref.Ref(), "dist", w.Dist)
+			}
 		}
 	}
 

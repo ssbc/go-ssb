@@ -28,15 +28,12 @@ type createWantsHandler struct {
 // getSource looks if we have a source for that remote and, if not, make a
 // source call to get one.
 func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
-	ref, err := ssb.GetFeedRefFromAddr(edp.Remote())
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting remote feed ref from addr %#v", edp.Remote())
-	}
+	ref := edp.Remote().String()
 
 	h.l.Lock()
 	defer h.l.Unlock()
 
-	src, ok := h.sources[ref.Ref()]
+	src, ok := h.sources[ref]
 	if ok {
 		if src != nil {
 			return src, nil
@@ -44,7 +41,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		h.log.Log("msg", "got a nil source from the map, ignoring and making new")
 	}
 
-	src, err = edp.Source(ctx, &blobstore.WantMsg{}, muxrpc.Method{"blobs", "createWants"})
+	src, err := edp.Source(ctx, &blobstore.WantMsg{}, muxrpc.Method{"blobs", "createWants"})
 	if err != nil {
 		return nil, errors.Wrap(err, "error making source call")
 	}
@@ -52,7 +49,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		h.log.Log("msg", "got a nil source edp.Source, returning an error")
 		return nil, errors.New("could not make createWants call")
 	}
-	h.sources[ref.Ref()] = src
+	h.sources[ref] = src
 	return src, nil
 }
 
@@ -76,6 +73,11 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	if err != nil {
 		h.log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
 	}
+
+	h.l.Lock()
+	defer h.l.Unlock()
+	delete(h.sources, edp.Remote().String())
+
 	snk.Close()
 	req.Stream.Close()
 }

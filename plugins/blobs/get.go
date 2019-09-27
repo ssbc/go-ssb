@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -25,11 +26,12 @@ func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	logger := log.With(h.log, "handler", "get", "args", fmt.Sprintf("%v", req.Args))
-	dbg := level.Debug(logger)
+	// dbg := level.Debug(logger)
 	errLog := level.Error(logger)
+	info := level.Info(logger)
 
-	dbg.Log("event", "onCall", "method", req.Method)
-	defer dbg.Log("event", "onCall", "handler", "get-return", "method", req.Method)
+	// dbg.Log("event", "onCall", "method", req.Method)
+	// defer dbg.Log("event", "onCall", "handler", "get-return", "method", req.Method)
 
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
@@ -63,6 +65,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		checkAndLog(errLog, errors.Wrap(err, "error closing stream with error"))
 		return
 	}
+	start := time.Now()
 
 	w := muxrpc.NewSinkWriter(req.Stream)
 	_, err = io.Copy(w, r)
@@ -70,4 +73,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	err = w.Close()
 	checkAndLog(errLog, errors.Wrap(err, "error closing blob output"))
+	if err == nil {
+		info.Log("event", "blob sent", "took", time.Since(start))
+	}
 }

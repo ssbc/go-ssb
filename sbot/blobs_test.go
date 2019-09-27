@@ -18,10 +18,11 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
-func TestBlobsSimple(t *testing.T) {
+const blobSize = 64 * 1024 * 250
+
+func TestBlobsPair(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
-	a := assert.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	os.RemoveAll("testrun")
@@ -31,9 +32,22 @@ func TestBlobsSimple(t *testing.T) {
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
-	// aliLog, _ := logtest.KitLogger("ali", t)
-	aliLog := log.NewLogfmtLogger(os.Stderr)
-	aliLog = log.With(aliLog, "peer", "ali")
+	info := log.NewLogfmtLogger(os.Stderr)
+	// timestamps!
+	var l sync.Mutex
+	start := time.Now()
+	diffTime := func() interface{} {
+		l.Lock()
+		defer l.Unlock()
+		newStart := time.Now()
+		since := newStart.Sub(start)
+		// start = newStart
+		return since
+	}
+
+	info = log.With(info, "ts", log.Valuer(diffTime))
+
+	aliLog := log.With(info, "peer", "ali")
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
@@ -55,9 +69,7 @@ func TestBlobsSimple(t *testing.T) {
 		close(aliErrc)
 	}()
 
-	// bobLog, _ := logtest.KitLogger("bob", t)
-	bobLog := log.NewLogfmtLogger(os.Stderr)
-	bobLog = log.With(bobLog, "peer", "bob")
+	bobLog := log.With(info, "peer", "bob")
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
@@ -98,23 +110,75 @@ func TestBlobsSimple(t *testing.T) {
 	r.NoError(err)
 	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
+	sess := &session{
+		ctx:   ctx,
+		alice: ali,
+		bob:   bob,
+		redial: func(t *testing.T) {
+			t.Log("noop")
+		},
+	}
+
+	tests := []struct {
+		name string
+		tf   func(t *testing.T)
+	}{
+		{"simple", sess.simple},
+		{"wantFirst", sess.wantFirst},
+		{"eachOne", sess.eachOne},
+		{"eachOneConnet", sess.eachOneConnet},
+		{"eachOneBothWant", sess.eachOnBothWant},
+	}
+
+	// all on a single connection
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
+	for _, tc := range tests {
+		t.Run(tc.name, tc.tf)
+	}
 
-	// blob action
-	randBuf := make([]byte, 8*1024)
-	rand.Read(randBuf)
+	aliCT := ali.Network.GetConnTracker()
+	bobCT := bob.Network.GetConnTracker()
+	aliCT.CloseAll()
+	bobCT.CloseAll()
+	time.Sleep(5 * time.Second)
+	assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
+	assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 
-	ref, err := bob.BlobStore.Put(bytes.NewReader(randBuf))
-	r.NoError(err)
+	// disconnect and reconnect
+	sess.redial = func(t *testing.T) {
+		aliCT.CloseAll()
+		bobCT.CloseAll()
+		time.Sleep(2 * time.Second)
+		assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
+		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
+		err := bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+		r.NoError(err)
+		time.Sleep(2 * time.Second)
+		assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
+		assert.EqualValues(t, 1, bobCT.Count(), "b: want 1 conn")
+	}
+	for _, tc := range tests {
+		t.Run("dcFirst/"+tc.name, tc.tf)
+	}
 
-	err = ali.WantManager.Want(ref)
-	r.NoError(err)
+	aliCT.CloseAll()
+	bobCT.CloseAll()
+	time.Sleep(2 * time.Second)
+	assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
+	assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 
-	time.Sleep(1 * time.Second)
-
-	_, err = ali.BlobStore.Get(ref)
-	a.NoError(err)
+	// just re-dial
+	sess.redial = func(t *testing.T) {
+		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+		r.NoError(err)
+		time.Sleep(5 * time.Second)
+		// assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
+		assert.EqualValues(t, 1, bobCT.Count(), "b: want 1 conn")
+	}
+	for _, tc := range tests {
+		t.Run("redial/"+tc.name, tc.tf)
+	}
 
 	ali.Shutdown()
 	bob.Shutdown()
@@ -124,6 +188,160 @@ func TestBlobsSimple(t *testing.T) {
 
 	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
 	cancel()
+}
+
+type session struct {
+	ctx context.Context
+
+	redial func(t *testing.T)
+
+	alice, bob *Sbot
+}
+
+func (s *session) simple(t *testing.T) {
+	r := require.New(t)
+	a := assert.New(t)
+
+	// blob action
+	randBuf := make([]byte, blobSize)
+	rand.Read(randBuf)
+
+	s.redial(t)
+
+	ref, err := s.bob.BlobStore.Put(bytes.NewReader(randBuf))
+	r.NoError(err)
+	t.Log("added", ref.Ref())
+
+	err = s.alice.WantManager.Want(ref)
+	r.NoError(err)
+
+	time.Sleep(3 * time.Second)
+
+	_, err = s.alice.BlobStore.Get(ref)
+	a.NoError(err)
+}
+
+func (s *session) wantFirst(t *testing.T) {
+	r := require.New(t)
+	a := assert.New(t)
+
+	// blob action
+	randBuf := make([]byte, blobSize)
+	rand.Read(randBuf)
+
+	ref, err := s.bob.BlobStore.Put(bytes.NewReader(randBuf))
+	r.NoError(err)
+	t.Log("added", ref.Ref())
+
+	err = s.alice.WantManager.Want(ref)
+	r.NoError(err)
+
+	s.redial(t)
+
+	time.Sleep(2 * time.Second)
+
+	_, err = s.alice.BlobStore.Get(ref)
+	a.NoError(err)
+
+}
+
+func (s *session) eachOne(t *testing.T) {
+	r := require.New(t)
+	a := assert.New(t)
+
+	// blob action
+	randOne := make([]byte, blobSize)
+	rand.Read(randOne)
+	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
+	r.NoError(err)
+	t.Log("added1", refOne.Ref())
+
+	randTwo := make([]byte, blobSize)
+	rand.Read(randTwo)
+	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
+	r.NoError(err)
+	t.Log("added2", refTwo.Ref())
+
+	s.redial(t)
+
+	err = s.alice.WantManager.Want(refOne)
+	r.NoError(err)
+
+	err = s.bob.WantManager.Want(refTwo)
+	r.NoError(err)
+
+	time.Sleep(2 * time.Second)
+
+	_, err = s.alice.BlobStore.Get(refOne)
+	a.NoError(err)
+	_, err = s.bob.BlobStore.Get(refTwo)
+	a.NoError(err)
+}
+
+func (s *session) eachOneConnet(t *testing.T) {
+	r := require.New(t)
+	a := assert.New(t)
+
+	// blob action
+	randOne := make([]byte, blobSize)
+	rand.Read(randOne)
+	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
+	r.NoError(err)
+	t.Log("added1", refOne.Ref())
+
+	randTwo := make([]byte, blobSize)
+	rand.Read(randTwo)
+	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
+	r.NoError(err)
+	t.Log("added2", refTwo.Ref())
+
+	err = s.alice.WantManager.Want(refOne)
+	r.NoError(err)
+
+	s.redial(t)
+
+	err = s.bob.WantManager.Want(refTwo)
+	r.NoError(err)
+
+	time.Sleep(2 * time.Second)
+
+	_, err = s.alice.BlobStore.Get(refOne)
+	a.NoError(err)
+	_, err = s.bob.BlobStore.Get(refTwo)
+	a.NoError(err)
+}
+
+func (s *session) eachOnBothWant(t *testing.T) {
+	r := require.New(t)
+	a := assert.New(t)
+
+	// blob action
+	randOne := make([]byte, blobSize)
+	rand.Read(randOne)
+	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
+	r.NoError(err)
+	t.Log("added1", refOne.Ref())
+
+	randTwo := make([]byte, blobSize)
+	rand.Read(randTwo)
+	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
+	r.NoError(err)
+	t.Log("added2", refTwo.Ref())
+
+	err = s.alice.WantManager.Want(refOne)
+	r.NoError(err)
+
+	err = s.bob.WantManager.Want(refTwo)
+	r.NoError(err)
+
+	s.redial(t)
+
+	time.Sleep(2 * time.Second)
+
+	_, err = s.alice.BlobStore.Get(refOne)
+	a.NoError(err)
+	_, err = s.bob.BlobStore.Get(refTwo)
+	a.NoError(err)
 }
 
 // check that we can get blobs from C to A through B
@@ -246,8 +464,7 @@ func TestBlobsWithHops(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// blob action
-	// n:=8*1024
-	n := 128
+	n := blobSize
 	randBuf := make([]byte, n)
 	rand.Read(randBuf)
 
@@ -257,7 +474,7 @@ func TestBlobsWithHops(t *testing.T) {
 	err = ali.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	_, err = ali.BlobStore.Get(ref)
 	a.NoError(err)
