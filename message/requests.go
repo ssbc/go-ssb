@@ -81,22 +81,39 @@ type CommonArgs struct {
 	MarshalType interface{} `json:"-"`
 }
 
+type StreamArgs struct {
+	Limit int64 `json:"limit"`
+
+	Reverse bool `json:"reverse"`
+}
+
+// CreateHistArgs defines the query parameters for the createHistoryStream rpc call
 type CreateHistArgs struct {
 	CommonArgs
+	StreamArgs
+
 	ID  string `json:"id"`
 	Seq int64  `json:"seq"`
-
-	// TODO: common or stream args?!
-	Limit   int64 `json:"limit"`
-	Reverse bool  `json:"reverse"`
 
 	AsJSON bool `json:"asJSON"`
 }
 
-type StreamArgs struct {
+// CreateLogArgs defines the query parameters for the createLogStream rpc call
+type CreateLogArgs struct {
+	CommonArgs
+	StreamArgs
+
+	Seq int64 `json:"seq"`
 }
 
+// MessagesByTypeArgs defines the query parameters for the messagesByType rpc call
 type MessagesByTypeArgs struct {
 	CommonArgs
 	Type string `json:"type"`
+}
+
+type TanglesArgs struct {
+	CommonArgs
+	StreamArgs
+	Root ssb.MessageRef `json:"root"`
 }

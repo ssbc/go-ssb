@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,7 +21,10 @@ import (
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/secretstream"
+	"go.cryptoscope.co/ssb"
+	ssbClient "go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
 	cli "gopkg.in/urfave/cli.v2"
 )
@@ -31,6 +35,7 @@ var (
 
 	pkr    muxrpc.Packer
 	client muxrpc.Endpoint
+	// client ssbClient.Interface
 
 	log   logging.Interface
 	check = logging.CheckFatal
@@ -57,6 +62,7 @@ var app = cli.App{
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "tcp address of the sbot to connect to (or listen on)"},
 		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
 		&keyFileFlag,
+		&cli.StringFlag{Name: "unixsock", Usage: "if set, unix socket is used instead of tcp"},
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
 	},
 
@@ -96,21 +102,35 @@ func todo(ctx *cli.Context) error {
 }
 
 func initClient(ctx *cli.Context) error {
-	/* network mode
+	longctx = context.Background()
+	longctx, shutdownFunc = context.WithCancel(longctx)
+	signalc := make(chan os.Signal)
+	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalc
+		fmt.Println("killed. shutting down")
+		shutdownFunc()
+		time.Sleep(1 * time.Second)
+		check(pkr.Close())
+		os.Exit(0)
+	}()
+	logging.SetCloseChan(signalc)
+
+	sockPath := ctx.String("unixsock")
+	if sockPath == "" {
+		return initClientTCP(ctx)
+	}
+	var err error
+	client, err = ssbClient.NewUnix(longctx, sockPath)
+	return errors.Wrap(err, "unix-path based client init failed")
+}
+
+func initClientTCP(ctx *cli.Context) error {
 	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
 		return err
 	}
 
-	shscap, err := base64.StdEncoding.DecodeString(ctx.String("shscap"))
-	if err != nil {
-		return errors.Wrap(err, "shs capability decode failed")
-	}
-
-	c, err := secretstream.NewClient(localKey.Pair, shscap)
-	if err != nil {
-		return errors.Wrap(err, "error creating secretstream.Client")
-	}
 	var remotPubKey = localKey.Pair.Public
 	if rk := ctx.String("remoteKey"); rk != "" {
 		rk = strings.TrimSuffix(rk, ".ed25519")
@@ -127,70 +147,24 @@ func initClient(ctx *cli.Context) error {
 		return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
 	}
 
-	conn, err := netwrap.Dial(plainAddr, c.ConnWrapper(remotPubKey))
+	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{remotPubKey[:]})
+
+	client, err = ssbClient.NewTCPWithSHSCap(longctx, localKey, shsAddr, ctx.String("shscap")) // TODO: shscap
 	if err != nil {
-		return errors.Wrap(err, "error dialing")
+		return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
 	}
-	*/
-
-	conn, err := net.Dial("unix", "/home/cryptix/.ssb-go/socket")
-	if err != nil {
-		return errors.Wrap(err, "error dialing unix sock")
-	}
-	var rwc io.ReadWriteCloser = conn
-	// logs every muxrpc packet
-	if ctx.Bool("verbose") {
-		rwc = debug.Wrap(log, rwc)
-	}
-	pkr = muxrpc.NewPacker(rwc)
-
-	h := noopHandler{}
-	// h := whoami.New(kitlog.With(log, "unit", "incoming"), localKey.Id).Handler()
-
-	client = muxrpc.HandleWithRemote(pkr, h, conn.RemoteAddr())
-
-	longctx = context.Background()
-	longctx, shutdownFunc = context.WithCancel(longctx)
-	signalc := make(chan os.Signal)
-	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalc
-		fmt.Println("killed. shutting down")
-		shutdownFunc()
-		time.Sleep(1 * time.Second)
-		check(pkr.Close())
-		os.Exit(0)
-	}()
-	logging.SetCloseChan(signalc)
-	go func() {
-		err := client.(muxrpc.Server).Serve(longctx)
-		check(err)
-	}()
 	log.Log("init", "done")
 	return nil
 }
 
-type noopHandler struct {
-	log logging.Interface
-}
-
-func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	srv := edp.(muxrpc.Server)
-	h.log.Log("event", "onConnect", "addr", srv.Remote())
-}
-
-func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "args", fmt.Sprintf("%v", req.Args), "method", req.Method, "type", req.Type)
-}
-
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 	args := message.CreateHistArgs{
-		ID:      ctx.String("id"),
-		Limit:   ctx.Int64("limit"),
-		Seq:     ctx.Int64("seq"),
-		Reverse: ctx.Bool("reverse"),
-		AsJSON:  ctx.Bool("asJSON"),
+		ID:     ctx.String("id"),
+		Seq:    ctx.Int64("seq"),
+		AsJSON: ctx.Bool("asJSON"),
 	}
+	args.Limit = ctx.Int64("limit")
+	args.Reverse = ctx.Bool("reverse")
 	args.Live = ctx.Bool("live")
 	args.Keys = ctx.Bool("keys")
 	args.Values = ctx.Bool("values")
@@ -237,8 +211,8 @@ CAVEAT: only one argument...
 		if err != nil {
 			return errors.Wrapf(err, "%s: call failed.", cmd)
 		}
-		io.Copy(os.Stdout, bytes.NewReader(jsonReply))
-		return nil
+		_, err = io.Copy(os.Stdout, bytes.NewReader(jsonReply))
+		return errors.Wrapf(err, "%s: result copy failed.", cmd)
 	},
 }
 

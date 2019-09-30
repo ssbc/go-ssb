@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 
+	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 
 	"github.com/agl/ed25519"
@@ -22,7 +23,6 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/plugins/replicate"
 )
 
 type client struct {
@@ -32,11 +32,7 @@ type client struct {
 	logger        log.Logger
 }
 
-var _ Interface = (*client)(nil)
-
-// options?
-
-const ssbAppkey = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+// options!!
 
 func FromEndpoint(edp muxrpc.Endpoint) *client {
 	c := client{
@@ -48,12 +44,21 @@ func FromEndpoint(edp muxrpc.Endpoint) *client {
 }
 
 func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, error) {
+	shscap := "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+	return newTCP(ctx, own, remote, shscap)
+}
+
+func NewTCPWithSHSCap(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*client, error) {
+	return newTCP(ctx, own, remote, shscap)
+}
+
+func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*client, error) {
 	c := client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(ctx)
 
-	appKey, err := base64.StdEncoding.DecodeString(ssbAppkey)
+	appKey, err := base64.StdEncoding.DecodeString(shscap)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: failed to decode (default) appKey")
 	}
@@ -177,6 +182,10 @@ func (c client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
 	return v.(bool), nil
 
 }
+func (c client) ReplicateUpTo() (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
+	return src, errors.Wrap(err, "ssbClient: failed to create stream")
+}
 
 func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
 	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
@@ -219,32 +228,24 @@ func (c client) PrivateRead() (luigi.Source, error) {
 	return src, nil
 }
 
-func (c client) CreateLogStream(opts message.CreateHistArgs) (luigi.Source, error) {
-	opts.Keys = true
-	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"createLogStream"}, opts)
-	return src, errors.Wrap(err, "failed to create stream")
+func (c client) CreateLogStream(opts message.CreateLogArgs) (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"createLogStream"}, opts)
+	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
 }
 
 func (c client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"createHistoryStream"}, o)
-	return src, errors.Wrap(err, "failed to create stream")
+	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", o)
 }
 
-func (c client) ReplicateUpTo() (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
-	return src, errors.Wrap(err, "failed to create stream")
+func (c client) MessagesByType(opts message.MessagesByTypeArgs) (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"messagesByType"}, opts)
+	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
 }
 
-func (c client) Tangles(root ssb.MessageRef, o message.CreateHistArgs) (luigi.Source, error) {
-	var opt struct {
-		message.CreateHistArgs
-		Root string `json:"root"`
-	}
-	opt.CreateHistArgs = o
-	opt.Keys = true
-	opt.Root = root.Ref()
-	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"tangles"}, opt)
-	return src, errors.Wrap(err, "failed to create stream")
+func (c client) Tangles(o message.TanglesArgs) (luigi.Source, error) {
+	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"tangles"}, o)
+	return src, errors.Wrap(err, "ssbClient/tangles: failed to create stream")
 }
 
 type noopHandler struct {

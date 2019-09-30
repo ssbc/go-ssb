@@ -244,7 +244,6 @@ func (lc legacyCreate) Create(val interface{}, prev *ssb.MessageRef, seq margare
 
 type gabbyCreate struct {
 	enc *gabbygrove.Encoder
-	// TODO: hmac         *[32]byte
 }
 
 func (pc gabbyCreate) Create(val interface{}, prev *ssb.MessageRef, seq margaret.Seq) (ssb.Message, error) {

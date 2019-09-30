@@ -77,7 +77,12 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		r.Equal(newMsg.Key(), ref)
 		refs = append(refs, ref.Ref())
 
-		src, err := c.CreateLogStream(message.CreateHistArgs{Limit: 1, Seq: int64(i)})
+		opts := message.CreateLogArgs{}
+		opts.Keys = true
+		opts.Limit = 1
+		opts.Seq = int64(i)
+		opts.MarshalType = ssb.KeyValueRaw{}
+		src, err := c.CreateLogStream(opts)
 		r.NoError(err)
 
 		streamV, err := src.Next(context.TODO())
@@ -93,7 +98,11 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		a.Equal(luigi.EOS{}, errors.Cause(err))
 	}
 
-	src, err := c.CreateLogStream(message.CreateHistArgs{Limit: 10})
+	opts := message.CreateLogArgs{}
+	opts.Keys = true
+	opts.Limit = 10
+	opts.MarshalType = ssb.KeyValueRaw{}
+	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
 	for i := 0; i < 10; i++ {

@@ -32,6 +32,8 @@ func TestUnixSock(t *testing.T) {
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
+		// sbot.DisableNetworkNode(), skips muxrpc handler
+		sbot.WithListenAddr(":0"),
 		sbot.WithUNIXSocket(),
 	)
 	r.NoError(err, "sbot srv init failed")
@@ -148,7 +150,11 @@ func TestPublish(t *testing.T) {
 	r.True(ok)
 	r.Equal(newMsg.Key(), ref)
 
-	src, err := c.CreateLogStream(message.CreateHistArgs{Limit: 1})
+	opts := message.CreateLogArgs{}
+	opts.Limit = 1
+	opts.Keys = true
+	opts.MarshalType = ssb.KeyValueRaw{}
+	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
 	streamV, err := src.Next(context.TODO())
@@ -220,7 +226,12 @@ func TestTangles(t *testing.T) {
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep2Ref)
 
-	src, err := c.Tangles(*rootRef, message.CreateHistArgs{Limit: 2})
+	opts := message.TanglesArgs{}
+	opts.Root = *rootRef
+	opts.Limit = 2
+	opts.Keys = true
+	opts.MarshalType = ssb.KeyValueRaw{}
+	src, err := c.Tangles(opts)
 	r.NoError(err)
 
 	streamV, err := src.Next(context.TODO())
