@@ -26,7 +26,7 @@ import (
 	"go.cryptoscope.co/ssb/message"
 )
 
-type client struct {
+type Client struct {
 	muxrpc.Endpoint
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
@@ -35,8 +35,8 @@ type client struct {
 
 // options!!
 
-func FromEndpoint(edp muxrpc.Endpoint) *client {
-	c := client{
+func FromEndpoint(edp muxrpc.Endpoint) *Client {
+	c := Client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(context.TODO())
@@ -44,17 +44,17 @@ func FromEndpoint(edp muxrpc.Endpoint) *client {
 	return &c
 }
 
-func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*client, error) {
+func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*Client, error) {
 	shscap := "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
 	return newTCP(ctx, own, remote, shscap)
 }
 
-func NewTCPWithSHSCap(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*client, error) {
+func NewTCPWithSHSCap(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*Client, error) {
 	return newTCP(ctx, own, remote, shscap)
 }
 
-func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*client, error) {
-	c := client{
+func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*Client, error) {
+	c := Client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(ctx)
@@ -111,8 +111,8 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 	return &c, nil
 }
 
-func NewUnix(ctx context.Context, path string) (*client, error) {
-	c := client{
+func NewUnix(ctx context.Context, path string) (*Client, error) {
+	c := Client{
 		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(ctx)
@@ -147,12 +147,12 @@ func NewUnix(ctx context.Context, path string) (*client, error) {
 	return &c, nil
 }
 
-func (c client) Close() error {
+func (c Client) Close() error {
 	c.rootCtxCancel()
 	return nil
 }
 
-func (c client) Whoami() (*ssb.FeedRef, error) {
+func (c Client) Whoami() (*ssb.FeedRef, error) {
 	v, err := c.Async(c.rootCtx, message.WhoamiReply{}, muxrpc.Method{"whoami"})
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: whoami failed")
@@ -164,12 +164,12 @@ func (c client) Whoami() (*ssb.FeedRef, error) {
 	return resp.ID, nil
 }
 
-func (c client) ReplicateUpTo() (luigi.Source, error) {
+func (c Client) ReplicateUpTo() (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, replicate.UpToResponse{}, muxrpc.Method{"replicate", "upto"})
 	return src, errors.Wrap(err, "ssbClient: failed to create stream")
 }
 
-func (c client) BlobsWant(ref ssb.BlobRef) error {
+func (c Client) BlobsWant(ref ssb.BlobRef) error {
 	var v interface{}
 	v, err := c.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
@@ -179,7 +179,7 @@ func (c client) BlobsWant(ref ssb.BlobRef) error {
 	return nil
 }
 
-func (c client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
+func (c Client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
 	v, err := c.Async(c.rootCtx, true, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
 		return false, errors.Wrap(err, "ssbClient: whoami failed")
@@ -189,7 +189,7 @@ func (c client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
 
 }
 
-func (c client) BlobsGet(ref *ssb.BlobRef) (io.Reader, error) {
+func (c Client) BlobsGet(ref *ssb.BlobRef) (io.Reader, error) {
 	v, err := c.Source(c.rootCtx, codec.Body{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: blobs.get failed")
@@ -222,7 +222,7 @@ func (ngr NamesGetResult) GetCommonName(feed *ssb.FeedRef) (string, bool) {
 
 }
 
-func (c client) NamesGet() (*NamesGetResult, error) {
+func (c Client) NamesGet() (*NamesGetResult, error) {
 	v, err := c.Async(c.rootCtx, NamesGetResult{}, muxrpc.Method{"names", "get"})
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: names.get failed")
@@ -232,7 +232,7 @@ func (c client) NamesGet() (*NamesGetResult, error) {
 	return &res, nil
 }
 
-func (c client) NamesSignifier(ref ssb.FeedRef) (string, error) {
+func (c Client) NamesSignifier(ref ssb.FeedRef) (string, error) {
 	var v interface{}
 	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getSignifier"}, ref.Ref())
 	if err != nil {
@@ -242,7 +242,7 @@ func (c client) NamesSignifier(ref ssb.FeedRef) (string, error) {
 	return v.(string), nil
 }
 
-func (c client) NamesImageFor(ref ssb.FeedRef) (*ssb.BlobRef, error) {
+func (c Client) NamesImageFor(ref ssb.FeedRef) (*ssb.BlobRef, error) {
 	var v interface{}
 	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getImageFor"}, ref.Ref())
 	if err != nil {
@@ -256,7 +256,7 @@ func (c client) NamesImageFor(ref ssb.FeedRef) (*ssb.BlobRef, error) {
 	return ssb.ParseBlobRef(blobRef)
 }
 
-func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
+func (c Client) Publish(v interface{}) (*ssb.MessageRef, error) {
 	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: publish call failed")
@@ -269,7 +269,7 @@ func (c client) Publish(v interface{}) (*ssb.MessageRef, error) {
 	return msgRef, errors.Wrap(err, "failed to parse new message reference")
 }
 
-func (c client) PrivatePublish(v interface{}, recps ...*ssb.FeedRef) (*ssb.MessageRef, error) {
+func (c Client) PrivatePublish(v interface{}, recps ...*ssb.FeedRef) (*ssb.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
 		if ref == nil {
@@ -289,7 +289,7 @@ func (c client) PrivatePublish(v interface{}, recps ...*ssb.FeedRef) (*ssb.Messa
 	return msgRef, errors.Wrapf(err, "failed to parse new message reference: %q", resp)
 }
 
-func (c client) PrivateRead() (luigi.Source, error) {
+func (c Client) PrivateRead() (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, ssb.KeyValueRaw{}, muxrpc.Method{"private", "read"})
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: private.read query failed")
@@ -297,22 +297,22 @@ func (c client) PrivateRead() (luigi.Source, error) {
 	return src, nil
 }
 
-func (c client) CreateLogStream(opts message.CreateLogArgs) (luigi.Source, error) {
+func (c Client) CreateLogStream(opts message.CreateLogArgs) (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"createLogStream"}, opts)
 	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
 }
 
-func (c client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
+func (c Client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"createHistoryStream"}, o)
 	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", o)
 }
 
-func (c client) MessagesByType(opts message.MessagesByTypeArgs) (luigi.Source, error) {
+func (c Client) MessagesByType(opts message.MessagesByTypeArgs) (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"messagesByType"}, opts)
 	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
 }
 
-func (c client) Tangles(o message.TanglesArgs) (luigi.Source, error) {
+func (c Client) Tangles(o message.TanglesArgs) (luigi.Source, error) {
 	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"tangles"}, o)
 	return src, errors.Wrap(err, "ssbClient/tangles: failed to create stream")
 }
