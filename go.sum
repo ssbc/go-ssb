@@ -191,9 +191,12 @@ github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472 h1:6nrO82kszcc+rcKPCJGgCj5ACTdmq6aNGav8zE5oYm0=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472/go.mod h1:oLLUlGld/axGHThR36o8bADQUHG+TKSUdoKqCvnoQB4=
 github.com/keks/persist v0.0.0-20180731151133-9546f7b3f97e/go.mod h1:KMIOJFEE+0E/mYfYExA9vOpCFDz4TQfzk6mCOtCXR9k=
+github.com/keks/persist v0.0.0-20181029214439-3af502dad70b h1:kgBiA/2v88wIVbIqW9qzVsWnlCWVv2wE56BYaFNtiJk=
 github.com/keks/persist v0.0.0-20181029214439-3af502dad70b/go.mod h1:KMIOJFEE+0E/mYfYExA9vOpCFDz4TQfzk6mCOtCXR9k=
 github.com/keks/persist v0.0.0-20191006175951-43c124092b8b h1:11DvlpW6oHk++gfPQm5hr7cxZRqhO9N3i/crEIFfHmM=
 github.com/keks/persist v0.0.0-20191006175951-43c124092b8b/go.mod h1:ZB2JImK02q72rQo5xAXYfUVDKBBjmj6nUy4zjIa2HV8=
+github.com/keks/testops v0.1.0 h1:zXndbOmnupuJ0xXaxOO3NhsLE96n9sxPAwZlv2X8xmE=
+github.com/keks/testops v0.1.0/go.mod h1:Y6dVKPZzqnKExUl1FfRJRBd7yHbnTDCFfuU5Yt0fUEU=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=

@@ -172,6 +172,7 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
+		mksbot.LateOption(mksbot.WithKeyManager(log)),
 	}
 
 	if !flagDisableUNIXSock {
