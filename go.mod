@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
+	github.com/keks/testops v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
 	github.com/machinebox/progress v0.2.0

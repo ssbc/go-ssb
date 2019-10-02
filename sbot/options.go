@@ -27,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/internal/netwraputil"
+	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/repo"
@@ -95,6 +96,8 @@ type Sbot struct {
 
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
+
+	KeyManager *keys.Store
 
 	// TODO: wrap better
 	eventCounter metrics.Counter
@@ -291,6 +294,16 @@ func WithContext(ctx context.Context) Option {
 	return func(s *Sbot) error {
 		s.rootCtx = ctx
 		return nil
+	}
+}
+
+func WithKeyManager(log kitlog.Logger) Option {
+	return func(s *Sbot) error {
+		return fmt.Errorf("TODO: make private manager an index")
+		/*
+			mount := MountSimpleIndex("keys", // key manager here // )
+			return mount(s)
+		*/
 	}
 }
 
