@@ -3,6 +3,7 @@
 package repo
 
 import (
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -31,6 +32,14 @@ func DefaultKeyPair(r Interface) (*ssb.KeyPair, error) {
 }
 
 func NewKeyPair(r Interface, name, algo string) (*ssb.KeyPair, error) {
+	return newKeyPair(r, name, algo, nil)
+}
+
+func NewKeyPairFromSeed(r Interface, name, algo string, seed io.Reader) (*ssb.KeyPair, error) {
+	return newKeyPair(r, name, algo, seed)
+}
+
+func newKeyPair(r Interface, name, algo string, seed io.Reader) (*ssb.KeyPair, error) {
 	var secPath string
 	if name == "-" {
 		secPath = r.GetPath("secret")
@@ -47,7 +56,7 @@ func NewKeyPair(r Interface, name, algo string) (*ssb.KeyPair, error) {
 	if _, err := ssb.LoadKeyPair(secPath); err == nil {
 		return nil, errors.Errorf("new key-pair name already taken")
 	}
-	keyPair, err := ssb.NewKeyPair(nil)
+	keyPair, err := ssb.NewKeyPair(seed)
 	if err != nil {
 		return nil, errors.Wrap(err, "repo: no keypair but couldn't create one either")
 	}
