@@ -43,6 +43,22 @@ type Contact struct {
 	Blocking  bool     `json:"blocking"`
 }
 
+func NewContactFollow(who *FeedRef) *Contact {
+	return &Contact{
+		Type:      "contact",
+		Contact:   who,
+		Following: true,
+	}
+}
+
+func NewContactBlock(who *FeedRef) *Contact {
+	return &Contact{
+		Type:     "contact",
+		Contact:  who,
+		Blocking: true,
+	}
+}
+
 func (c *Contact) UnmarshalJSON(b []byte) error {
 	var priv string
 	err := json.Unmarshal(b, &priv)

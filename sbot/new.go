@@ -62,8 +62,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(s.RootLog.(io.Closer))
 
+	kps, err := repo.AllKeyPairs(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
+	}
+	kps = append(kps, s.KeyPair)
+
 	// TODO: move to mounted indexes
-	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, s.KeyPair)
+	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, kps...)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
 	}
@@ -123,9 +129,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
-	id := s.KeyPair.Id
-	auth := s.GraphBuilder.Authorizer(id, int(s.hopCount))
-
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
 	}
@@ -134,7 +137,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.PublishLog, err = message.OpenPublishLog(s.RootLog, uf, s.KeyPair, pubopts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create legacy publish log")
+		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
 
 	for _, opt := range s.lateInit {
@@ -148,12 +151,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return s, nil
 	}
 
+	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
 		}
-		if id.Equal(remote) {
+		if s.KeyPair.Id.Equal(remote) {
 			return s.master.MakeHandler(conn)
 		}
 
@@ -190,7 +194,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
 
 	// whoami
-	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), id)
+	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
 	s.public.Register(whoami)
 	s.master.Register(whoami)
 
@@ -220,13 +224,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.public.Register(gossip.New(
 		kitlog.With(log, "plugin", "gossip"),
-		id, s.RootLog, uf, s.GraphBuilder,
+		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(
 		kitlog.With(log, "plugin", "gossip/hist"),
-		id, s.RootLog, uf, s.GraphBuilder,
+		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
 		histOpts...)
 	s.public.Register(hist)
 

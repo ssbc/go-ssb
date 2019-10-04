@@ -20,7 +20,7 @@ import (
 const IndexNamePrivates = "privates"
 
 // not strictly a multilog but allows multiple keys and gives us the good resumption
-func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (multilog.MultiLog, repo.ServeFunc, error) {
+func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kps ...*ssb.KeyPair) (multilog.MultiLog, repo.ServeFunc, error) {
 	return repo.OpenMultiLog(r, IndexNamePrivates, func(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := val.(error); ok {
 			if margaret.IsErrNulled(nulled) {
@@ -44,7 +44,6 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 			}
 			b64data := bytes.TrimSuffix(input[1:], []byte(".box\""))
 			boxedData := make([]byte, len(b64data))
-
 			n, err := base64.StdEncoding.Decode(boxedData, b64data)
 			if err != nil {
 				err = errors.Wrap(err, "private/readidx: invalid b64 encoding")
@@ -76,22 +75,26 @@ func OpenPrivateRead(log kitlog.Logger, r repo.Interface, kp *ssb.KeyPair) (mult
 				return nil
 			}
 			boxedContent = bytes.TrimPrefix(tr.Content, []byte("box1:"))
+
 		default:
-			err := errors.Errorf("private/readidx: unknown feed type: %s", kp.Id.Algo)
+			err := errors.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
 			log.Log("event", "error", "msg", "unahndled type", "err", err)
 			return err
 		}
 
-		if _, err := private.Unbox(kp, boxedContent); err != nil {
-			return nil
+		for _, kp := range kps {
+			if _, err := private.Unbox(kp, boxedContent); err != nil {
+				continue
+			}
+			userPrivs, err := mlog.Get(kp.Id.StoredAddr())
+			if err != nil {
+				return errors.Wrapf(err, "private/readidx: error opening priv sublog for %s", kp.Id.Ref())
+			}
+			_, err = userPrivs.Append(seq.Seq())
+			if err != nil {
+				return errors.Wrapf(err, "private/readidx: error appending PM for %s", kp.Id.Ref())
+			}
 		}
-
-		userPrivs, err := mlog.Get(kp.Id.StoredAddr())
-		if err != nil {
-			return errors.Wrap(err, "private/readidx: error opening priv sublog")
-		}
-
-		_, err = userPrivs.Append(seq.Seq())
-		return errors.Wrapf(err, "private/readidx: error appending PM for %s", kp.Id.Ref())
+		return nil
 	})
 }

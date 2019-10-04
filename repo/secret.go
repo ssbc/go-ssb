@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -35,7 +34,6 @@ func NewKeyPair(r Interface, name, algo string) (*ssb.KeyPair, error) {
 		secPath = r.GetPath("secret")
 	} else {
 		secPath = r.GetPath("secrets", name)
-		fmt.Println("path:", filepath.Dir(secPath))
 		err := os.MkdirAll(filepath.Dir(secPath), 0700)
 		if err != nil && !os.IsExist(errors.Cause(err)) {
 			return nil, err
@@ -66,4 +64,28 @@ func LoadKeyPair(r Interface, name string) (*ssb.KeyPair, error) {
 		return nil, errors.Wrapf(err, "Load: failed to open %q", secPath)
 	}
 	return keyPair, nil
+}
+
+func AllKeyPairs(r Interface) ([]*ssb.KeyPair, error) {
+	var kps []*ssb.KeyPair
+	err := filepath.Walk(r.GetPath("secrets"), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if kp, err := ssb.LoadKeyPair(path); err == nil {
+			kps = append(kps, kp)
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return kps, nil
 }
