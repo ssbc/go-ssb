@@ -10,8 +10,8 @@ import (
 type Manager interface {
 	SetKey(Type, ID, Key) error
 	AddKey(Type, ID, Key) error
-	RmKey(Type, ID) error
-	Query(Type, ID) ([]Key, error)
+	RmKeys(Type, ID) error
+	GetKeys(Type, ID) (*Keys, error)
 }
 
 type manager struct {
