@@ -346,7 +346,6 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	for _, w := range *mIn {
 		if w.Dist < 0 {
 			if w.Dist < -4 {
-				dbg.Log("ignored", w.Ref.Ref(), "dist", w.Dist)
 				continue // ignore, too far off
 			}
 			s, err := proc.bs.Size(w.Ref)
@@ -379,8 +378,6 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 						proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
 					}
 				}(w.Ref)
-			} else {
-				dbg.Log("ignored", w.Ref.Ref(), "dist", w.Dist)
 			}
 		}
 	}
