@@ -152,7 +152,6 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 	if wanteDist, wanted := wmgr.wants[ref.Ref()]; wanted && wanteDist > dist {
 		// already wanted higher
-		dbg.Log("wanted", true, "dist", wanteDist)
 		return nil
 	}
 
@@ -162,7 +161,6 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	// TODO: ctx?? this pours into the broadcast, right?
 	err = wmgr.wantSink.Pour(context.TODO(), ssb.BlobWant{ref, dist})
 	err = errors.Wrap(err, "error pouring want to broadcast")
-	dbg.Log("wanting", true)
 	return err
 }
 
@@ -288,17 +286,14 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 	w, ok := v.(ssb.BlobWant)
 	if !ok {
 		err := errors.Errorf("wrong type: %T", v)
-		proc.info.Log("error", "wrong type!!!!!!!!!!!!!!!!!!!!!!!!", "err", err)
 		return err
 	}
 	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.Ref()[1:6], "dist", w.Dist)
 
 	if w.Dist < 0 {
-		for want, dist := range proc.remoteWants {
-			if want == w.Ref.Ref() {
-				dbg.Log("ignoring", "update want", "openDist", dist)
-				return nil
-			}
+		_, wants := proc.remoteWants[w.Ref.Ref()]
+		if wants {
+			return nil
 		}
 	}
 
