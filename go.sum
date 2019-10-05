@@ -225,6 +225,8 @@ go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e h1:KNJubCN/5OPRZrG
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e/go.mod h1:dV/i300s3OxZKI0YPlY/hG7w2y9TFgu3oQkNDXBoMQY=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190919103040-8e8e851e763b h1:zTmLmQ8HPezVfOX6GNm213n2cuJC9V9GoZwrrG0tOqU=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190919103040-8e8e851e763b/go.mod h1:dV/i300s3OxZKI0YPlY/hG7w2y9TFgu3oQkNDXBoMQY=
+go.cryptoscope.co/muxrpc v1.4.1-0.20190927125555-9b455d96d34d h1:mkhQlY5P+PPzCtiCglklPgNoiS2K9CpLU4Hr44I/4Do=
+go.cryptoscope.co/muxrpc v1.4.1-0.20190927125555-9b455d96d34d/go.mod h1:xyYN33SS23HW+D4xmgT0o4Q2JX7+o1YRv/SBqaFuULM=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.3 h1:HfquGSUYuvBofbCM76Y1QHbwkowbpkmnMQhvp/BkPGQ=
 go.cryptoscope.co/netwrap v0.0.3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
@@ -232,6 +234,8 @@ go.cryptoscope.co/netwrap v0.1.0 h1:7MMji1HpnjBhqJXzkGEt7HE+l3IVr5fwoDGsoEXPeqQ=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
 go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98 h1:1y+91wL151GmNM7F/GANCkO3Z7q5Nq03t5/s1w6XHe0=
 go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98/go.mod h1:MldHqeBpxV83+geayFgHgsHc1/oF7yIIkpMJqo3M1rQ=
+go.cryptoscope.co/secretstream v1.2.0 h1:Z1aHEJFg45hMT0ZOudHh0il+12lbX+YTv9NhiJnpXJ0=
+go.cryptoscope.co/secretstream v1.2.0/go.mod h1:aHYS+r/NgcQAwUMUxDmijXei5FBDa7f+Kg9cf2Njb8A=
 go.cryptoscope.co/ssb v0.0.0-20190912121701-f368dd6b09da/go.mod h1:gpgPuN7P0HxY5prZunnKbl278nlMCqUekGsJaaiwxnk=
 go.mindeco.de/ssb-gabbygrove v0.1.5 h1:4javC43Z/1mC2Ve8+lVrrsOTusWi7iakDGWtPfb/Pt0=
 go.mindeco.de/ssb-gabbygrove v0.1.5/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=
@@ -243,6 +247,7 @@ golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472 h1:Gv7RPwsi3eZ2Fgewe3CBsu
 golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 h1:0hQKqeLdqlt5iIwVOBErRisrHJAN57yOiPRQItI20fU=
 golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
+golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc h1:c0o/qxkaO2LF5t6fQrT4b5hzyggAkLLlCUjqfRxd8Q4=
 golang.org/x/exp v0.0.0-20180321215751-8460e604b9de/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20180807140117-3d87b88a115f/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190125153040-c74c464bbbf2 h1:y102fOLFqhV41b+4GPiJoa0k/x+pJcEi2/HB1Y5T6fU=
