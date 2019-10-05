@@ -202,7 +202,6 @@ func (proc *wantProc) init() {
 	} else {
 		panic("unauthenticated conn")
 	}
-	proc.info.Log("hello", "proc started")
 
 	proc.wmgr.promGauge("proc", 1)
 
@@ -226,7 +225,6 @@ func (proc *wantProc) init() {
 	proc.wmgr.l.Lock()
 
 	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
-	level.Debug(proc.info).Log("event", "createWants.Out", "cause", "initial wants", "n", len(proc.wmgr.wants))
 	if err != nil {
 		level.Error(proc.info).Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
@@ -346,7 +344,6 @@ func (proc *wantProc) Close() error {
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "createWants.In")
-	dbg.Log("cause", "received data", "v", fmt.Sprintf("%+v %T", v, v))
 
 	mIn := v.(*WantMsg)
 	mOut := make(map[string]int64)
