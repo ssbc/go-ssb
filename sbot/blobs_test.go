@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"go.cryptoscope.co/ssb/blobstore"
 
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -20,7 +23,7 @@ import (
 	"go.cryptoscope.co/ssb/multilogs"
 )
 
-const blobSize = 64 * 1024 * 250
+const blobSize = 1024 * 512
 
 func TestBlobsPair(t *testing.T) {
 	// defer leakcheck.Check(t)
@@ -503,7 +506,13 @@ func TestBlobsWithHops(t *testing.T) {
 	err = ali.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(10 * time.Second)
+	for i := 0; ali.WantManager.Wants(ref); i++ {
+		time.Sleep(1 * time.Second)
+		if i > 15 {
+			t.Error("want timeout")
+			break
+		}
+	}
 
 	_, err = ali.BlobStore.Get(ref)
 	a.NoError(err)
@@ -511,6 +520,45 @@ func TestBlobsWithHops(t *testing.T) {
 	sz, err := ali.BlobStore.Size(ref)
 	a.NoError(err)
 	a.EqualValues(n, sz)
+
+	// too-big check
+
+	f, err := os.Open("/dev/zero")
+	r.NoError(err)
+	defer f.Close()
+
+	junkSz := int64(7 * 1024 * 1024)
+	junkBlob, err := ali.BlobStore.Put(io.LimitReader(f, junkSz))
+	r.NoError(err)
+	sz, err = ali.BlobStore.Size(junkBlob)
+	r.NoError(err)
+	r.Equal(junkSz, sz)
+
+	err = cle.WantManager.Want(junkBlob)
+	r.NoError(err)
+
+	time.Sleep(1 * time.Second)
+
+	for i := 0; bob.WantManager.Wants(junkBlob); i++ {
+		time.Sleep(1 * time.Second)
+		t.Log("polling want for junkBlob...", i)
+		if i > 15 {
+			t.Error("timeout")
+			break
+		}
+	}
+
+	a.False(bob.WantManager.Wants(junkBlob))
+
+	_, err = bob.BlobStore.Size(junkBlob)
+	a.True(err == blobstore.ErrNoSuchBlob, "err T: %T %s", err, err)
+
+	err = bob.WantManager.Want(junkBlob)
+	a.Equal(err, blobstore.ErrBlobBlocked)
+
+	a.True(cle.WantManager.Wants(junkBlob))
+	_, err = cle.BlobStore.Size(junkBlob)
+	a.True(err == blobstore.ErrNoSuchBlob, "err T: %T %s", err, err)
 
 	ali.Shutdown()
 	bob.Shutdown()

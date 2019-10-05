@@ -45,6 +45,7 @@ func TestWantManager(t *testing.T) {
 			localWants: map[string]int64{
 				"&ZR3jMW+ifnTWqd5hnrrGjjt4HpUn/dAMXvcUOx+lgbY=.sha256": -1, // "omg"
 				"&6EcSI4cJOY9tNJ3CJQsO/KS3LYwr+3t0M50wupQFaxQ=.sha256": -1, // "ohai"
+				"&8Ap4f3SSqV4WW0cHAvT+k3NYP73AJbLIvfAmLMSPz/Q=.sha256": -2, // replicating the wat want
 			},
 			remoteWants: map[string]int64{
 				"&8Ap4f3SSqV4WW0cHAvT+k3NYP73AJbLIvfAmLMSPz/Q=.sha256": -1, // "wat"
@@ -91,7 +92,9 @@ func TestWantManager(t *testing.T) {
 			wmgr := NewWantManager(log, bs)
 
 			for _, str := range tc.localBlobs {
-				bs.Put(strings.NewReader(str))
+				br, err := bs.Put(strings.NewReader(str))
+				r.NoError(err)
+				r.NotNil(br)
 			}
 
 			for refStr, dist := range tc.localWants {
@@ -116,7 +119,8 @@ func TestWantManager(t *testing.T) {
 				wmsg = append(wmsg, ssb.BlobWant{Ref: ref, Dist: dist})
 			}
 
-			out := new(luigi.SliceSink)
+			var outSlice []interface{}
+			out := luigi.NewSliceSink(&outSlice)
 			ctx := context.Background()
 			edp := &mmock.FakeEndpoint{
 				SourceStub: func(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
@@ -169,8 +173,6 @@ func TestWantManager(t *testing.T) {
 				return m
 			}
 
-			outSlice := *(*[]interface{})(out)
-
 			// TODO this is pretty specific to the only test case defined above.
 			// would be nice to generalize this further so we can add more cases.
 
@@ -192,7 +194,6 @@ func TestWantManager(t *testing.T) {
 				a.NoError(err, "error putting blob")
 			}
 
-			outSlice = *(*[]interface{})(out)
 			ourW.l.Lock()
 			// should contain our wants and our size response to their want
 			r.Equal(3, len(outSlice), "output slice length mismatch")

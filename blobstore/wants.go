@@ -18,11 +18,16 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
+type MaxSize int
+
+var ErrBlobBlocked = errors.New("blobstore: unable to receive blob")
+
 func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}) ssb.WantManager {
 	wmgr := &wantManager{
-		bs:    bs,
-		wants: make(map[string]int64),
-		info:  log,
+		bs:      bs,
+		info:    log,
+		wants:   make(map[string]int64),
+		blocked: make(map[string]struct{}),
 	}
 
 	for i, o := range opts {
@@ -31,9 +36,15 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 			wmgr.gauge = v
 		case *prometheus.Counter:
 			wmgr.evtCtr = v
+		case MaxSize:
+			wmgr.maxSize = uint(v)
 		default:
 			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
+	}
+
+	if wmgr.maxSize == 0 {
+		wmgr.maxSize = 5 * 1024 * 1024
 	}
 
 	wmgr.promGaugeSet("proc", 0)
@@ -74,6 +85,10 @@ type wantManager struct {
 	luigi.Broadcast
 
 	bs ssb.BlobStore
+
+	maxSize uint
+
+	blocked map[string]struct{}
 
 	wants    map[string]int64
 	wantSink luigi.Sink
@@ -150,6 +165,10 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
+	if _, blocked := wmgr.blocked[ref.Ref()]; blocked {
+		return ErrBlobBlocked
+	}
+
 	if wanteDist, wanted := wmgr.wants[ref.Ref()]; wanted && wanteDist > dist {
 		// already wanted higher
 		return nil
@@ -195,11 +214,11 @@ type wantProc struct {
 }
 
 func (proc *wantProc) init() {
-	if remote, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
-		proc.info = log.With(proc.wmgr.info, "remote", remote.Ref()[1:5])
-	} else {
-		panic("unauthenticated conn")
+	var remote = "unknown"
+	if r, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
+		remote = r.Ref()[1:5]
 	}
+	proc.info = log.With(proc.wmgr.info, "remote", remote)
 
 	proc.wmgr.promGauge("proc", 1)
 
@@ -290,6 +309,10 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 	}
 	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.Ref()[1:6], "dist", w.Dist)
 
+	if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
+		return nil
+	}
+
 	if w.Dist < 0 {
 		_, wants := proc.remoteWants[w.Ref.Ref()]
 		if wants {
@@ -315,13 +338,14 @@ func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
 	}
 
 	r := muxrpc.NewSourceReader(src)
-	newBr, err := proc.bs.Put(io.LimitReader(r, 25*1024*1024))
+	r = io.LimitReader(r, int64(proc.wmgr.maxSize))
+	newBr, err := proc.bs.Put(r)
 	if err != nil {
 		return errors.Wrap(err, "blob data piping failed")
 	}
 
 	if newBr.Ref() != ref.Ref() {
-		// TODO: make this a type of error (forks)
+		// TODO: make this a type of error?
 		proc.bs.Delete(newBr)
 		level.Warn(proc.info).Log("blob", "removed after missmatch", "want", ref.Ref())
 		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
@@ -344,6 +368,10 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	mOut := make(map[string]int64)
 
 	for _, w := range *mIn {
+		if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
+			continue
+		}
+
 		if w.Dist < 0 {
 			if w.Dist < -4 {
 				continue // ignore, too far off
@@ -376,6 +404,10 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 					// cryptix: feel like we might need to wrap rootCtx in, too?
 					if err := proc.getBlob(ctx, ref); err != nil {
 						proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+						proc.wmgr.l.Lock()
+						delete(proc.wmgr.wants, ref.Ref())
+						proc.wmgr.blocked[ref.Ref()] = struct{}{}
+						proc.wmgr.l.Unlock()
 					}
 				}(w.Ref)
 			}
