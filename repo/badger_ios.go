@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // +build darwin
 // +build arm arm64
 

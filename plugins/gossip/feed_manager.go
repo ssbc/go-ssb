@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package gossip
 
 // TODO: Fetch streams concurrently.

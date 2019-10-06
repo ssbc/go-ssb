@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // +build freebsd linux windows darwin,amd64 darwin,386
 
 package repo

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // first draft of an (surely) incomlete implemenation of multiserver addresses
 package multiserver
 

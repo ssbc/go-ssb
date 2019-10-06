@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // ssb-drop-feed nulls entries of one particular feed from repo
 // there is no warning or undo
 package main
