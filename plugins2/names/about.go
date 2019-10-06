@@ -39,9 +39,9 @@ func (ab aboutStore) ImageFor(ref *ssb.FeedRef) (*ssb.BlobRef, error) {
 	var br ssb.BlobRef
 
 	err := ab.kv.View(func(txn *badger.Txn) error {
-		addr := ref.StoredAddr()
+		addr := ref.Ref()
 		addr += ":"
-		addr += ref.StoredAddr()
+		addr += ref.Ref()
 		addr += ":image"
 		it, err := txn.Get([]byte(addr))
 		if err != nil {
@@ -118,7 +118,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 }
 
 func (ab aboutStore) CollectedFor(ref *ssb.FeedRef) (*AboutInfo, error) {
-	addr := []byte(ref.StoredAddr() + ":")
+	addr := []byte(ref.Ref() + ":")
 	// from self
 	// addr = append(addr, ref.ID...)
 
@@ -235,27 +235,27 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	}
 
 	// about:from:field
-	addr := aboutMSG.About.StoredAddr()
+	addr := aboutMSG.About.Ref()
 	addr += ":"
-	addr += msg.Author().StoredAddr()
+	addr += msg.Author().Ref()
 	addr += ":"
 
 	var val string
 	if aboutMSG.Name != "" {
 		val = aboutMSG.Name
-		if err := idx.Set(ctx, addr+"name", val); err != nil {
+		if err := idx.Set(ctx, librarian.Addr(addr+"name"), val); err != nil {
 			return errors.Wrap(err, "db/idx about: failed to update field")
 		}
 	}
 	if aboutMSG.Description != "" {
 		val = aboutMSG.Description
-		if err := idx.Set(ctx, addr+"description", val); err != nil {
+		if err := idx.Set(ctx, librarian.Addr(addr+"description"), val); err != nil {
 			return errors.Wrap(err, "db/idx about: failed to update field")
 		}
 	}
 	if aboutMSG.Image != nil {
 		val = aboutMSG.Image.Ref()
-		if err := idx.Set(ctx, addr+"image", val); err != nil {
+		if err := idx.Set(ctx, librarian.Addr(addr+"image"), val); err != nil {
 			return errors.Wrap(err, "db/idx about: failed to update field")
 		}
 	}

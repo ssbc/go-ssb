@@ -44,7 +44,8 @@ type handler struct {
 func (g handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	if len(req.Args) < 1 {
+	args := req.Args()
+	if len(args) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
@@ -53,7 +54,7 @@ func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		Type string
 	}
 
-	switch v := req.Args[0].(type) {
+	switch v := args[0].(type) {
 
 	case map[string]interface{}:
 		q, err := message.NewCreateHistArgsFromMap(v)
@@ -75,7 +76,7 @@ func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		qry.Type = v
 
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args[0]))
+		req.CloseWithError(errors.Errorf("invalid argument type %T", args[0]))
 		return
 	}
 

@@ -62,12 +62,13 @@ func checkAndLog(log logging.Interface, err error) {
 }
 
 func parseFeedRefFromArgs(req *muxrpc.Request) (*ssb.FeedRef, error) {
-	if len(req.Args) != 1 {
+	args := req.Args()
+	if len(args) != 1 {
 		return nil, errors.Errorf("not enough args")
 	}
 
 	var refStr string
-	switch arg := req.Args[0].(type) {
+	switch arg := args[0].(type) {
 	case string:
 		refStr = arg
 	case map[string]interface{}:

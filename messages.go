@@ -105,9 +105,25 @@ func (c *Contact) UnmarshalJSON(b []byte) error {
 type About struct {
 	Type        string   `json:"type"`
 	About       *FeedRef `json:"about"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Image       *BlobRef `json:"image"`
+	Name        string   `json:"name,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Image       *BlobRef `json:"image,omitempty"`
+}
+
+func NewAboutName(who *FeedRef, name string) *About {
+	return &About{
+		Type:  "about",
+		About: who,
+		Name:  name,
+	}
+}
+
+func NewAboutImage(who *FeedRef, img *BlobRef) *About {
+	return &About{
+		Type:  "about",
+		About: who,
+		Image: img,
+	}
 }
 
 func (a *About) UnmarshalJSON(b []byte) error {

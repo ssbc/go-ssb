@@ -51,12 +51,13 @@ func TestAboutNames(t *testing.T) {
 		}
 		close(aliErrc)
 	}()
+
 	var newName ssb.About
 	newName.Type = "about"
 	newName.Name = fmt.Sprintf("testName:%x", hk[:16])
 	newName.About = ali.KeyPair.Id
 
-	_, err = ali.PublishLog.Append(newName)
+	_, err = ali.PublishLog.Publish(newName)
 	r.NoError(err)
 
 	src, err := ali.RootLog.Query()

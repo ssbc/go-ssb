@@ -11,13 +11,14 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
 	"go.cryptoscope.co/margaret/multilog/roaringfiles"
+	"modernc.org/kv"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -147,19 +148,32 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 
 const PrefixIndex = "indexes"
 
-func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkIndex) (librarian.Index, *badger.DB, ServeFunc, error) {
-	pth := r.GetPath(PrefixIndex, name, "db")
+func OpenIndex(r Interface, name string, f func(librarian.SeqSetterIndex) librarian.SinkIndex) (librarian.Index, ServeFunc, error) {
+	pth := r.GetPath(PrefixIndex, name, "mkv")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "error making index directory")
+		return nil, nil, errors.Wrap(err, "error making index directory")
 	}
 
-	db, err := badger.Open(badgerOpts(pth))
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
+	opts := &kv.Options{}
+	dbname := filepath.Join(pth, "idx.mkv")
+	var db *kv.DB
+	_, err = os.Stat(dbname)
+	if os.IsNotExist(err) {
+		db, err = kv.Create(dbname, opts)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to create KV")
+		}
+	} else if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to stat path location")
+	} else {
+		db, err = kv.Open(dbname, opts)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to open KV")
+		}
 	}
 
-	idx := libbadger.NewIndex(db, 0)
+	idx := libmkv.NewIndex(db, margaret.BaseSeq(0))
 	sinkidx := f(idx)
 
 	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
@@ -170,13 +184,13 @@ func OpenIndex(r Interface, name string, f func(librarian.Index) librarian.SinkI
 
 		err = luigi.Pump(ctx, sinkidx, src)
 		if err == ssb.ErrShuttingDown {
-			return nil
+			return db.Close()
 		}
 
 		return errors.Wrap(err, "contacts index pump failed")
 	}
 
-	return idx, db, serve, nil
+	return idx, serve, nil
 }
 
 func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.SinkIndex) (*badger.DB, librarian.SinkIndex, ServeFunc, error) {
