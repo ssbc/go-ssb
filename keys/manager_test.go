@@ -50,7 +50,7 @@ func TestManagerOPd(t *testing.T) {
 
 	var (
 		db *kv.DB
-		mgr = &manager{db}
+		mgr = &Manager{db}
 	)
 
 	tcs := []testops.TestCase{
@@ -180,7 +180,7 @@ func TestManager(t *testing.T) {
 	db, err := kv.Create(filepath.Join(tDir, "db"), &kv.Options{})
 	require.NoError(t, err, "db open")
 
-	mgr := &manager{db}
+	mgr := &Manager{db}
 
 	err = mgr.AddKey(0, ID("test"), Key("topsecret"))
 	require.NoError(t, err, "db add key 1")

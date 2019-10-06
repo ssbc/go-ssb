@@ -41,7 +41,8 @@ func (r repo) GetPath(rel ...string) string {
 
 const PrefixMultiLog = "sublogs"
 
-type ServeFunc func(context.Context, margaret.Log, bool) error
+// ServeFunc is a func that indexes use for staying up to date.
+type ServeFunc func(ctx context.Context, log margaret.Log, live bool) error
 
 // OpenBadgerMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
 //

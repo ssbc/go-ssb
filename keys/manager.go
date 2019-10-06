@@ -7,24 +7,17 @@ import (
 	"modernc.org/kv"
 )
 
-type Manager interface {
-	SetKey(Type, ID, Key) error
-	AddKey(Type, ID, Key) error
-	RmKeys(Type, ID) error
-	GetKeys(Type, ID) (*Keys, error)
+type Manager struct {
+	idx librarian.Index
 }
 
-type manager struct {
-	db *kv.DB
-}
-
-func (mgr *manager) AddKey(t Type, id ID, key Key) error {
-	dbk := &dbKey{
+func (mgr *Manager) AddKey(t Type, id ID, key Key) error {
+	idxk := &idxKey{
 		t: t,
 		id: id,
 	}
 
-	dbkBytes, err := dbk.MarshalBinary()
+	idxkBytes, err := idxk.MarshalBinary()
 	if err != nil {
 		return err
 	}
@@ -32,7 +25,7 @@ func (mgr *manager) AddKey(t Type, id ID, key Key) error {
 	var lenBuf [2]byte
 	binary.LittleEndian.PutUint16(lenBuf[:], uint16(len(key)))
 
-	_, _, err = mgr.db.Put(nil, dbkBytes, func(_, old []byte) ([]byte, bool, error) {
+	_, _, err = mgr.DB.Put(nil, idxkBytes, func(_, old []byte) ([]byte, bool, error) {
 		var new []byte
 
 		if len(old) == 0 {
@@ -54,13 +47,13 @@ func (mgr *manager) AddKey(t Type, id ID, key Key) error {
 	return err
 }
 
-func (mgr *manager) SetKey(t Type, id ID, key Key) error {
-	dbk := &dbKey{
+func (mgr *Manager) SetKey(t Type, id ID, key Key) error {
+	idxk := &idxKey{
 		t: t,
 		id: id,
 	}
 
-	dbkBs, err := dbk.MarshalBinary()
+	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return err
 	}
@@ -71,35 +64,35 @@ func (mgr *manager) SetKey(t Type, id ID, key Key) error {
 	binary.LittleEndian.PutUint16(keyBs[2:4], uint16(len(key)))
 	copy(keyBs[4:], key)
 
-	return mgr.db.Set(dbkBs, keyBs)
+	return mgr.DB.Set(idxkBs, keyBs)
 }
 
-func (mgr *manager) RmKeys(t Type, id ID) error {
-	dbk := &dbKey{
+func (mgr *Manager) RmKeys(t Type, id ID) error {
+	idxk := &idxKey{
 		t: t,
 		id: id,
 	}
 
-	dbkBs, err := dbk.MarshalBinary()
+	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	return mgr.db.Delete(dbkBs)
+	return mgr.DB.Delete(idxkBs)
 }
 
-func (mgr *manager) GetKeys(t Type, id ID) (*Keys, error) {
-	dbk := &dbKey{
+func (mgr *Manager) GetKeys(t Type, id ID) (*Keys, error) {
+	idxk := &idxKey{
 		t: t,
 		id: id,
 	}
 
-	dbkBs, err := dbk.MarshalBinary()
+	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := mgr.db.Get(nil, dbkBs)
+	data, err := mgr.DB.Get(nil, idxkBs)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 type opManagerSetKey struct {
-	Mgr *manager
+	Mgr *Manager
 	Type Type
 	ID ID
 	Key Key
@@ -25,7 +25,7 @@ func (op opManagerSetKey) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerAddKey struct {
-	Mgr *manager
+	Mgr *Manager
 	Type Type
 	ID ID
 	Key Key
@@ -43,7 +43,7 @@ func (op opManagerAddKey) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerRmKeys struct {
-	Mgr *manager
+	Mgr *Manager
 	Type Type
 	ID ID
 
@@ -60,7 +60,7 @@ func (op opManagerRmKeys) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerGetKeys struct {
-	Mgr *manager
+	Mgr *Manager
 	Type Type
 	ID ID
 
