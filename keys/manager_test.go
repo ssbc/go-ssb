@@ -171,7 +171,7 @@ func TestManager(t *testing.T) {
 					Mgr:    &mgr,
 					ID:     ID("test"),
 					Ctx:    &ctx,
-					ExpErr: fmt.Sprintf("no such key at (IDSign, %x)", []byte("test")),
+					ExpErr: fmt.Sprintf("no such key at (IDSign, %x)", "test"),
 				},
 			},
 		},
