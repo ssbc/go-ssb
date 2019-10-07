@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,12 +12,13 @@ type opManagerSetKey struct {
 	Type Type
 	ID   ID
 	Key  Key
+	Ctx  *context.Context
 
 	ExpErr string
 }
 
 func (op opManagerSetKey) Do(t *testing.T, env interface{}) {
-	err := op.Mgr.SetKey(op.Type, op.ID, op.Key)
+	err := op.Mgr.SetKey(*op.Ctx, op.Type, op.ID, op.Key)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on mgr.SetKey")
 	} else {
@@ -29,12 +31,13 @@ type opManagerAddKey struct {
 	Type Type
 	ID   ID
 	Key  Key
+	Ctx  *context.Context
 
 	ExpErr string
 }
 
 func (op opManagerAddKey) Do(t *testing.T, env interface{}) {
-	err := op.Mgr.AddKey(op.Type, op.ID, op.Key)
+	err := op.Mgr.AddKey(*op.Ctx, op.Type, op.ID, op.Key)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on mgr.AddKey")
 	} else {
@@ -46,12 +49,13 @@ type opManagerRmKeys struct {
 	Mgr  *Manager
 	Type Type
 	ID   ID
+	Ctx  *context.Context
 
 	ExpErr string
 }
 
 func (op opManagerRmKeys) Do(t *testing.T, env interface{}) {
-	err := op.Mgr.RmKeys(op.Type, op.ID)
+	err := op.Mgr.RmKeys(*op.Ctx, op.Type, op.ID)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error removing a key")
 	} else {
@@ -63,13 +67,14 @@ type opManagerGetKeys struct {
 	Mgr  *Manager
 	Type Type
 	ID   ID
+	Ctx  *context.Context
 
 	ExpKeys Keys
 	ExpErr  string
 }
 
 func (op opManagerGetKeys) Do(t *testing.T, env interface{}) {
-	keys, err := op.Mgr.GetKeys(op.Type, op.ID)
+	keys, err := op.Mgr.GetKeys(*op.Ctx, op.Type, op.ID)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error querying keys")
 	} else {

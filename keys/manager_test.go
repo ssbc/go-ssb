@@ -1,8 +1,10 @@
 package keys
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,6 +35,7 @@ func TestManager(t *testing.T) {
 		idx librarian.SeqSetterIndex
 		db  *kv.DB
 		mgr Manager
+		ctx = context.Background()
 	)
 
 	tcs := []testops.TestCase{
@@ -56,6 +59,7 @@ func TestManager(t *testing.T) {
 					Mgr: &mgr,
 					ID:  ID("test"),
 					Key: Key("topsecret"),
+					Ctx: &ctx,
 				},
 				opIndexGet{
 					Index: &idx,
@@ -90,6 +94,7 @@ func TestManager(t *testing.T) {
 					Mgr: &mgr,
 					ID:  ID("test"),
 					Key: Key("alsosecret"),
+					Ctx: &ctx,
 				},
 				opIndexGet{
 					Index: &idx,
@@ -124,6 +129,7 @@ func TestManager(t *testing.T) {
 					Mgr: &mgr,
 					ID:  ID("foo"),
 					Key: Key("bar"),
+					Ctx: &ctx,
 				},
 				opDBGet{
 					DB: &db,
@@ -147,21 +153,25 @@ func TestManager(t *testing.T) {
 				opManagerGetKeys{
 					Mgr:     &mgr,
 					ID:      ID("test"),
+					Ctx:     &ctx,
 					ExpKeys: Keys{Key("topsecret"), Key("alsosecret")},
 				},
 				opManagerGetKeys{
 					Mgr:     &mgr,
 					ID:      ID("foo"),
+					Ctx:     &ctx,
 					ExpKeys: Keys{Key("bar")},
 				},
 				opManagerRmKeys{
 					Mgr: &mgr,
 					ID:  ID("test"),
+					Ctx: &ctx,
 				},
 				opManagerGetKeys{
 					Mgr:    &mgr,
 					ID:     ID("test"),
-					ExpErr: "no such value",
+					Ctx:    &ctx,
+					ExpErr: fmt.Sprintf("no such key at (IDSign, %x)", []byte("test")),
 				},
 			},
 		},
