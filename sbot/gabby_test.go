@@ -18,7 +18,8 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 )
 
 func TestGabbySync(t *testing.T) {
@@ -40,7 +41,7 @@ func TestGabbySync(t *testing.T) {
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -65,7 +66,7 @@ func TestGabbySync(t *testing.T) {
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)

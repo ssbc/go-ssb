@@ -26,7 +26,6 @@ import (
 	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -125,7 +124,6 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
-		sbot.LateOption(sbot.MountMultiLog("byTypes", multilogs.OpenMessageTypes)),
 
 		// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
 		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {

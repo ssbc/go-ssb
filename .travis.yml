@@ -1,18 +1,14 @@
 language: go
 
-# bummer.. go.mod still fetches the code to it's cache even if vendor/ is filled
-# https://arslan.io/2018/08/26/using-go-modules-with-vendor-support-on-travis-ci/
 matrix:
   include:
-  - go: "1.11.x"
-    script: go test -race ./...
   - go: "1.12.x"
+    script: go test -race ./...
+  - go: "1.13.x"
     script: go test -race ./...
   - go: "1.x"
     script: go test -race ./...
 
-env:
-  - GO111MODULE="on"
 
 go_import_path: go.cryptoscope.co/ssb
 

@@ -4,7 +4,6 @@ package blobs
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
@@ -22,7 +21,6 @@ type addHandler struct {
 func (addHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "handler", "add", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "sink"

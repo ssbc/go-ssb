@@ -15,9 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func TestPublishUnicode(t *testing.T) {
@@ -35,7 +36,7 @@ func TestPublishUnicode(t *testing.T) {
 		WithInfo(aliLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)

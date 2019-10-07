@@ -87,8 +87,8 @@ func TestCreateHistoryStream(t *testing.T) {
 		{
 			Name: "Fetching of entire feed",
 			Args: message.CreateHistArgs{
-				Seq:   0,
-				Limit: -1,
+				Seq:        0,
+				StreamArgs: message.StreamArgs{Limit: -1},
 			},
 			TotalReceived: userFeedLen,
 		},
@@ -96,8 +96,8 @@ func TestCreateHistoryStream(t *testing.T) {
 			// The sequence number here is not intuitive
 			Name: "Stream with sequence set",
 			Args: message.CreateHistArgs{
-				Seq:   6,
-				Limit: -1,
+				Seq:        6,
+				StreamArgs: message.StreamArgs{Limit: -1},
 			},
 			TotalReceived: userFeedLen - 5,
 		},
@@ -115,7 +115,7 @@ func TestCreateHistoryStream(t *testing.T) {
 			Name: "Live stream should respect limit",
 			Args: message.CreateHistArgs{
 				Seq:        int64(userFeedLen),
-				Limit:      5,
+				StreamArgs: message.StreamArgs{Limit: 5},
 				CommonArgs: message.CommonArgs{Live: true},
 			},
 			LiveMessages:  10,
@@ -125,7 +125,7 @@ func TestCreateHistoryStream(t *testing.T) {
 			Name: "Live stream should respect limit with old messages",
 			Args: message.CreateHistArgs{
 				Seq:        int64(userFeedLen) - 5,
-				Limit:      10,
+				StreamArgs: message.StreamArgs{Limit: 10},
 				CommonArgs: message.CommonArgs{Live: true},
 			},
 			LiveMessages:  15,

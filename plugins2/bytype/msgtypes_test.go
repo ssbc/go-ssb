@@ -13,6 +13,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -32,11 +33,11 @@ func TestMessageTypes(t *testing.T) {
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
 
-	uf, serveUF, err := multilog.OpenUserFeeds(tRepo)
+	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
 	r.NoError(err)
 	ufErrc := asynctesting.ServeLog(ctx, "user feeds", tRootLog, serveUF)
 
-	mt, serveMT, err := OpenMessageTypes(tRepo)
+	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", IndexUpdate)
 	r.NoError(err)
 	mtErrc := asynctesting.ServeLog(ctx, "message types", tRootLog, serveMT)
 

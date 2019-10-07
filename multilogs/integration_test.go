@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+// +build ignore
+
+// TODO: make testdata fetchable
+
 package multilogs
 
 import (

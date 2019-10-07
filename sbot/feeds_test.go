@@ -18,7 +18,8 @@ import (
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 )
 
 func TestFeedsOneByOne(t *testing.T) {
@@ -46,7 +47,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -70,7 +71,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)

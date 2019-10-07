@@ -22,7 +22,6 @@ type hasHandler struct {
 func (hasHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	h.log.Log("event", "onCall", "handler", "has", "args", fmt.Sprintf("%v", req.Args), "method", req.Method)
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"

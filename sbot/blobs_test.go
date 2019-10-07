@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -22,7 +24,6 @@ import (
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
 )
 
 const blobSize = 1024 * 512
@@ -65,7 +66,7 @@ func TestBlobsPair(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -88,7 +89,7 @@ func TestBlobsPair(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)
@@ -409,7 +410,7 @@ func TestBlobsWithHops(t *testing.T) {
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 	var aliErrc = make(chan error, 1)
 	go func() {
@@ -432,7 +433,7 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 	var bobErrc = make(chan error, 1)
 	go func() {
@@ -450,7 +451,7 @@ func TestBlobsWithHops(t *testing.T) {
 		WithInfo(log.With(mainLog, "peer", "cle")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "cle")),
 		WithListenAddr(":0"),
-		LateOption(MountMultiLog("byTypes", multilogs.OpenMessageTypes)))
+		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
 	r.NoError(err)
 	var cleErrc = make(chan error, 1)
 	go func() {

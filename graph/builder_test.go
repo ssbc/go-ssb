@@ -23,6 +23,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -94,7 +95,7 @@ func makeTypedLog(t *testing.T) testStore {
 	tc.root = tRootLog
 	tc.userLogs = uf
 
-	mt, serveMT, err := multilogs.OpenMessageTypes(tRepo)
+	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
 	r.NoError(err, "sbot: failed to open message type sublogs")
 	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT)
 
