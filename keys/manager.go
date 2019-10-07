@@ -1,21 +1,26 @@
 package keys
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 
-	"modernc.org/kv"
+	"go.cryptoscope.co/librarian"
+
+	"github.com/pkg/errors"
 )
 
 type Manager struct {
-	idx librarian.Index
+	Index librarian.SetterIndex
 }
 
 func (mgr *Manager) AddKey(t Type, id ID, key Key) error {
 	idxk := &idxKey{
-		t: t,
+		t:  t,
 		id: id,
 	}
+
+	ctx := context.TODO()
 
 	idxkBytes, err := idxk.MarshalBinary()
 	if err != nil {
@@ -25,84 +30,88 @@ func (mgr *Manager) AddKey(t Type, id ID, key Key) error {
 	var lenBuf [2]byte
 	binary.LittleEndian.PutUint16(lenBuf[:], uint16(len(key)))
 
-	_, _, err = mgr.DB.Put(nil, idxkBytes, func(_, old []byte) ([]byte, bool, error) {
-		var new []byte
-
-		if len(old) == 0 {
-			new = []byte{0,0}
+	ks, err := mgr.GetKeys(t, id)
+	if err != nil {
+		if err.Error() == "no such value" {
+			ks = Keys{}
 		} else {
-			new = make([]byte, len(old), len(old) + 2 + len(key))
-			copy(new, old)
+			return errors.Wrap(err, "error getting old value")
 		}
+	}
 
-		count := binary.LittleEndian.Uint16(new[:2]) + 1
-		binary.LittleEndian.PutUint16(new[:2], count)
+	ks = append(ks, key)
 
-		new = append(new, lenBuf[:]...)
-		new = append(new, []byte(key)...)
-
-		return new, true, nil
-	})
+	err = mgr.Index.Set(ctx, librarian.Addr(idxkBytes), ks)
 
 	return err
 }
 
 func (mgr *Manager) SetKey(t Type, id ID, key Key) error {
 	idxk := &idxKey{
-		t: t,
+		t:  t,
 		id: id,
 	}
+
+	ctx := context.TODO()
 
 	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	// uint16LE key count || unit16LE key length || key
-	keyBs := make([]byte, 2 + 2 + len(key))
-	binary.LittleEndian.PutUint16(keyBs[:2], uint16(1))
-	binary.LittleEndian.PutUint16(keyBs[2:4], uint16(len(key)))
-	copy(keyBs[4:], key)
-
-	return mgr.DB.Set(idxkBs, keyBs)
+	return mgr.Index.Set(ctx, librarian.Addr(idxkBs), Keys{key})
 }
 
 func (mgr *Manager) RmKeys(t Type, id ID) error {
 	idxk := &idxKey{
-		t: t,
+		t:  t,
 		id: id,
 	}
+
+	ctx := context.TODO()
 
 	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	return mgr.DB.Delete(idxkBs)
+	return mgr.Index.Delete(ctx, librarian.Addr(idxkBs))
 }
 
-func (mgr *Manager) GetKeys(t Type, id ID) (*Keys, error) {
+func (mgr *Manager) GetKeys(t Type, id ID) (Keys, error) {
 	idxk := &idxKey{
-		t: t,
+		t:  t,
 		id: id,
 	}
+
+	ctx := context.TODO()
 
 	idxkBs, err := idxk.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := mgr.DB.Get(nil, idxkBs)
+	data, err := mgr.Index.Get(ctx, librarian.Addr(idxkBs))
 	if err != nil {
 		return nil, err
 	}
 
-	if data == nil {
-		return nil, fmt.Errorf("no such key")
+	ksIface, err := data.Value()
+	if err != nil {
+		return nil, err
 	}
 
-	ks := &Keys{}
+	var ks Keys
 
-	_, err = ks.Write(data)
+	switch ksIface.(type) {
+	case Keys:
+		ks = ksIface.(Keys)
+	case librarian.UnsetValue:
+		// TODO make this error checkable
+		err = fmt.Errorf("no such value")
+	default:
+		err = fmt.Errorf("expected type %T, got %T", ks, ksIface)
+	}
+
 	return ks, err
 }

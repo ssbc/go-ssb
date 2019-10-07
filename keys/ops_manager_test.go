@@ -7,10 +7,10 @@ import (
 )
 
 type opManagerSetKey struct {
-	Mgr *Manager
+	Mgr  *Manager
 	Type Type
-	ID ID
-	Key Key
+	ID   ID
+	Key  Key
 
 	ExpErr string
 }
@@ -25,10 +25,10 @@ func (op opManagerSetKey) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerAddKey struct {
-	Mgr *Manager
+	Mgr  *Manager
 	Type Type
-	ID ID
-	Key Key
+	ID   ID
+	Key  Key
 
 	ExpErr string
 }
@@ -43,9 +43,9 @@ func (op opManagerAddKey) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerRmKeys struct {
-	Mgr *Manager
+	Mgr  *Manager
 	Type Type
-	ID ID
+	ID   ID
 
 	ExpErr string
 }
@@ -60,12 +60,12 @@ func (op opManagerRmKeys) Do(t *testing.T, env interface{}) {
 }
 
 type opManagerGetKeys struct {
-	Mgr *Manager
+	Mgr  *Manager
 	Type Type
-	ID ID
+	ID   ID
 
 	ExpKeys Keys
-	ExpErr string
+	ExpErr  string
 }
 
 func (op opManagerGetKeys) Do(t *testing.T, env interface{}) {
@@ -76,5 +76,5 @@ func (op opManagerGetKeys) Do(t *testing.T, env interface{}) {
 		require.EqualErrorf(t, err, op.ExpErr, "expected error %q querying keys, but got: %v", op.ExpErr, err)
 	}
 
-	require.Equal(t, op.ExpKeys, *keys, "keys mismatch")
+	require.Equal(t, op.ExpKeys, keys, "keys mismatch")
 }

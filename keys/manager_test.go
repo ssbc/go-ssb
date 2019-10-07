@@ -1,6 +1,8 @@
 package keys
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -9,38 +11,17 @@ import (
 	"github.com/keks/testops"
 	"github.com/stretchr/testify/require"
 	"modernc.org/kv"
+
+	"go.cryptoscope.co/librarian"
 )
 
-/*
-TODO: op-ify this.
+type opDo func(t *testing.T, env interface{})
 
-possible ops:
+func (op opDo) Do(t *testing.T, env interface{}) {
+	op(t, env)
+}
 
-db:
-- create
-- open
-- close
-- set 
-- get
-- put
-
-manager:
-- create
-- add key
-- set key
-- rm key
-- query keys
-
-keys:
-- decode
-- len
-
-dbkey:
-- encode
-- len
-*/
-
-func TestManagerOPd(t *testing.T) {
+func TestManager(t *testing.T) {
 	tDir, err := ioutil.TempDir(".", "test-manager-")
 	require.NoError(t, err, "mk temp dir")
 
@@ -49,8 +30,9 @@ func TestManagerOPd(t *testing.T) {
 	}()
 
 	var (
-		db *kv.DB
-		mgr = &Manager{db}
+		idx librarian.SeqSetterIndex
+		db  *kv.DB
+		mgr Manager
 	)
 
 	tcs := []testops.TestCase{
@@ -58,91 +40,137 @@ func TestManagerOPd(t *testing.T) {
 			Name: "compound test", // TODO: split this into smaller tests
 			Ops: []testops.Op{
 				opDBCreate{
-					Name: "testdb",
+					Name: filepath.Join(tDir, "testdb"),
 					Opts: &kv.Options{},
-					DB: &db,
+					DB:   &db,
 				},
+				opIndexNew{
+					DB:    &db,
+					Type:  Keys(nil),
+					Index: &idx,
+				},
+				opDo(func(t *testing.T, env interface{}) {
+					mgr = Manager{idx}
+				}),
 				opManagerAddKey{
-					Mgr: mgr,
-					ID: ID("test"),
+					Mgr: &mgr,
+					ID:  ID("test"),
 					Key: Key("topsecret"),
 				},
-				opDBGet{
-					DB: db,
-					Key: []byte{
+				opIndexGet{
+					Index: &idx,
+					Addr: librarian.Addr([]byte{
+						0, 0, // type is 0
 						4, 0, // db key is four byte long
-						't','e','s','t', // "test"
+						't', 'e', 's', 't', // "test"
+					}),
+
+					ExpValue: Keys{Key("topsecret")},
+				},
+				opDBGet{
+					DB: &db,
+					Key: []byte{
+						0, 0, // type is 0
+						4, 0, // db key is four byte long
+						't', 'e', 's', 't', // "test"
 					},
 
-					ExpValue: []byte{
-						1,0, // one key
-						9,0, // key is 9 bytes long
-						't','o','p','s','e','c','r','e','t', // "topsecret"
-					},
+					ExpValue: func(ks Keys) []byte {
+						var strs = make([]string, len(ks))
+						for i := range ks {
+							strs[i] = base64.StdEncoding.EncodeToString((ks)[i])
+						}
+
+						exp, err := json.Marshal(strs)
+						require.NoError(t, err, "json encode of test string")
+						return exp
+					}(Keys{Key("topsecret")}),
 				},
 				opManagerAddKey{
-					Mgr: mgr,
-					ID: ID("test"),
+					Mgr: &mgr,
+					ID:  ID("test"),
 					Key: Key("alsosecret"),
 				},
-				opDBGet{
-					DB: db,
-					Key: []byte{
+				opIndexGet{
+					Index: &idx,
+					Addr: librarian.Addr([]byte{
+						0, 0, // type is 0
 						4, 0, // db key is four byte long
-						't','e','s','t', // "test"
+						't', 'e', 's', 't', // "test"
+					}),
+
+					ExpValue: Keys{Key("topsecret"), Key("alsosecret")},
+				},
+				opDBGet{
+					DB: &db,
+					Key: []byte{
+						0, 0, // type 0
+						4, 0, // db key is four byte long
+						't', 'e', 's', 't', // "test"
 					},
 
-					ExpValue: []byte{
-						2,0, // two keys
-						9,0, // first key is 9 bytes long
-						't','o','p','s','e','c','r','e','t', // "topsecret"
-						10,0, // second key is 10 bytes long
-						'a', 'l','s','o','s','e','c','r','e','t', // "alsosecret"
-					},
+					ExpValue: func(ks Keys) []byte {
+						var strs = make([]string, len(ks))
+						for i := range ks {
+							strs[i] = base64.StdEncoding.EncodeToString((ks)[i])
+						}
+
+						exp, err := json.Marshal(strs)
+						require.NoError(t, err, "json encode of test string")
+						return exp
+					}(Keys{Key("topsecret"), Key("alsosecret")}),
 				},
 				opManagerSetKey{
-					Mgr: mgr,
-					ID: ID("foo"),
+					Mgr: &mgr,
+					ID:  ID("foo"),
 					Key: Key("bar"),
 				},
 				opDBGet{
-					DB: db,
+					DB: &db,
 					Key: []byte{
+						0, 0, // type 0
 						3, 0, // db key is four byte long
-						'f','o','o', // "foo"
+						'f', 'o', 'o', // "foo"
 					},
 
-					ExpValue: []byte{
-						1,0, // one key
-						3,0, // key is 3 bytes long
-						'b', 'a', 'r', // "bar"
-					},
+					ExpValue: func(ks Keys) []byte {
+						var strs = make([]string, len(ks))
+						for i := range ks {
+							strs[i] = base64.StdEncoding.EncodeToString((ks)[i])
+						}
+
+						exp, err := json.Marshal(strs)
+						require.NoError(t, err, "json encode of test string")
+						return exp
+					}(Keys{Key("bar")}),
 				},
 				opManagerGetKeys{
-					Mgr: mgr,
-					ID: ID("test"),
+					Mgr:     &mgr,
+					ID:      ID("test"),
 					ExpKeys: Keys{Key("topsecret"), Key("alsosecret")},
 				},
 				opManagerGetKeys{
-					Mgr: mgr,
-					ID: ID("foo"),
+					Mgr:     &mgr,
+					ID:      ID("foo"),
 					ExpKeys: Keys{Key("bar")},
 				},
 				opManagerRmKeys{
-					ID: ID("test"),
+					Mgr: &mgr,
+					ID:  ID("test"),
 				},
 				opManagerGetKeys{
-					ID: ID("test"),
-					ExpKeys: Keys{},
+					Mgr:    &mgr,
+					ID:     ID("test"),
+					ExpErr: "no such value",
 				},
 			},
 		},
 		{
-			Name: "encode dbKey",
+			Name: "encode idxKey",
 			Ops: []testops.Op{
 				opDBKeyEncode{
-					Key: &dbKey{
-						t: 0,
+					Key: &idxKey{
+						t:  0,
 						id: ID("test"),
 					},
 					ExpData: []byte{
@@ -152,8 +180,8 @@ func TestManagerOPd(t *testing.T) {
 					},
 				},
 				opDBKeyEncode{
-					Key: &dbKey{
-						t: 1,
+					Key: &idxKey{
+						t:  1,
 						id: ID("test"),
 					},
 					ExpData: []byte{
@@ -166,57 +194,10 @@ func TestManagerOPd(t *testing.T) {
 		},
 	}
 
-	testops.Run(t, nil, tcs)
-}
-
-func TestManager(t *testing.T) {
-	tDir, err := ioutil.TempDir(".", "test-manager-")
-	require.NoError(t, err, "mk temp dir")
-
-	defer func() {
-		require.NoError(t, os.RemoveAll(tDir), "rm temp dir")
-	}()
-
-	db, err := kv.Create(filepath.Join(tDir, "db"), &kv.Options{})
-	require.NoError(t, err, "db open")
-
-	mgr := &Manager{db}
-
-	err = mgr.AddKey(0, ID("test"), Key("topsecret"))
-	require.NoError(t, err, "db add key 1")
-
-	data, err := db.Get(nil, []byte{0,0,4,0,'t','e','s','t'})
-	require.NoError(t, err, "db get")
-	require.NotNil(t, data, "key is nil")
-	require.Equal(t, []byte{1,0,9,0,'t','o','p','s','e','c','r','e','t'}, data, "key is not correct")
-
-	err = mgr.AddKey(0, ID("test"), Key("alsosecret"))
-	require.NoError(t, err, "mgr add key 2")
-
-	data, err = db.Get(nil, []byte{0,0,4,0,'t','e','s','t'})
-	require.NoError(t, err, "db get")
-	require.NotNil(t, data, "key is nil")
-	require.Equal(t, []byte{2,0,9,0,'t','o','p','s','e','c','r','e','t',10,0,'a','l','s','o','s','e','c','r','e','t'}, data, "key is not correct")
-
-	err = mgr.SetKey(0, ID("foo"), Key("bar"))
-	require.NoError(t, err, "mgr set foo")
-
-	data, err = db.Get(nil, []byte{0,0,3,0,'f','o','o'})
-	require.NoError(t, err, "db set foo")
-	require.NotNil(t, data, "key is nil")
-	require.Equal(t, []byte{1,0,3,0,'b','a','r'}, data, "key is not correct")
-
-	ks, err := mgr.GetKeys(0, ID("foo"))
-	require.NoError(t, err, "mgr get foo")
-	require.Equal(t, &Keys{Key("bar")}, ks, "keys at foo")
-
-	ks, err = mgr.GetKeys(0, ID("test"))
-	require.NoError(t, err, "mgr get test")
-	require.Equal(t, &Keys{Key("topsecret"), Key("alsosecret")}, ks, "keys at test")
-
-	err = mgr.RmKeys(0, ID("test"))
-	require.NoError(t, err, "mgr rm test")
-
-	ks, err = mgr.GetKeys(0, ID("test"))
-	require.Error(t, err, "mgr get test after rm")
+	testops.Run(t, []testops.Env{testops.Env{
+		Name: "Keys",
+		Func: func(tc testops.TestCase) (func(*testing.T), error) {
+			return tc.Runner(nil), nil
+		},
+	}}, tcs)
 }

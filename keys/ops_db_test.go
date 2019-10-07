@@ -1,18 +1,61 @@
 package keys
 
 import (
+	"context"
 	"testing"
 
-	"modernc.org/kv"
 	"github.com/stretchr/testify/require"
+	"modernc.org/kv"
+
+	"go.cryptoscope.co/librarian"
+	libmkv "go.cryptoscope.co/librarian/mkv"
 )
+
+type opIndexNew struct {
+	DB   **kv.DB
+	Type interface{}
+
+	Index *librarian.SeqSetterIndex
+}
+
+func (op opIndexNew) Do(t *testing.T, env interface{}) {
+	*op.Index = libmkv.NewIndex(*op.DB, op.Type)
+	require.NotNil(t, *op.Index, "libmkv.NewIndex returned nil")
+}
+
+type opIndexGet struct {
+	Index *librarian.SeqSetterIndex
+	Addr  librarian.Addr
+
+	ExpValue  interface{}
+	ExpGetErr string
+	ExpObsErr string
+}
+
+func (op opIndexGet) Do(t *testing.T, env interface{}) {
+	obs, err := (*op.Index).Get(context.TODO(), op.Addr)
+	if op.ExpGetErr == "" {
+		require.NoError(t, err, "unexpected error on idx.Get")
+	} else {
+		require.EqualError(t, err, op.ExpGetErr, "expected different error on idx.Get")
+	}
+
+	v, err := obs.Value()
+	if op.ExpObsErr == "" {
+		require.NoError(t, err, "unexpected error opening observable after idx.Get")
+	} else {
+		require.EqualError(t, err, op.ExpObsErr, "expected different error opening observable after idx.Get")
+	}
+
+	require.Equal(t, op.ExpValue, v)
+}
 
 type opDBCreate struct {
 	Name string
 	Opts *kv.Options
 
 	ExpErr string
-	DB **kv.DB
+	DB     **kv.DB
 }
 
 func (op opDBCreate) Do(t *testing.T, env interface{}) {
@@ -30,7 +73,7 @@ type opDBOpen struct {
 	Opts *kv.Options
 
 	ExpErr string
-	DB **kv.DB
+	DB     **kv.DB
 }
 
 func (op opDBOpen) Do(t *testing.T, env interface{}) {
@@ -44,7 +87,7 @@ func (op opDBOpen) Do(t *testing.T, env interface{}) {
 }
 
 type opDBClose struct {
-	DB *kv.DB
+	DB     *kv.DB
 	ExpErr string
 }
 
@@ -58,9 +101,9 @@ func (op opDBClose) Do(t *testing.T, env interface{}) {
 }
 
 type opDBSet struct {
-	DB *kv.DB
+	DB         *kv.DB
 	Key, Value []byte
-	ExpErr string
+	ExpErr     string
 }
 
 func (op opDBSet) Do(t *testing.T, env interface{}) {
@@ -73,36 +116,42 @@ func (op opDBSet) Do(t *testing.T, env interface{}) {
 }
 
 type opDBGet struct {
-	DB *kv.DB
+	DB  **kv.DB
 	Key []byte
 
+	Log bool
+
 	ExpValue []byte
-	ExpErr string
+	ExpErr   string
 }
 
 func (op opDBGet) Do(t *testing.T, env interface{}) {
-	val, err := op.DB.Get(nil, op.Key)
+	val, err := (*op.DB).Get(nil, op.Key)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "error getting value from db")
 	} else {
 		require.EqualErrorf(t, err, op.ExpErr, "expected error getting value from db %q but got: %v", op.ExpErr, err)
 	}
 
+	if op.Log {
+		t.Logf("DB.Get - Key:%x Value:%x Exp:%x", op.Key, val, op.ExpValue)
+	}
+
 	require.Equal(t, op.ExpValue, val, "read wrong value from db")
 }
 
 type opDBPut struct {
-	DB *kv.DB
-	Key []byte
+	DB     **kv.DB
+	Key    []byte
 	Update func(old, new []byte) ([]byte, bool, error)
 
-	ExpOld []byte
+	ExpOld     []byte
 	ExpWritten bool
-	ExpErr string
+	ExpErr     string
 }
 
 func (op opDBPut) Do(t *testing.T, env interface{}) {
-	old, written, err := op.DB.Put(nil, op.Key, op.Update)
+	old, written, err := (*op.DB).Put(nil, op.Key, op.Update)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "error getting value from db")
 	} else {

@@ -104,6 +104,8 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472 h1:6nrO82kszcc+rcKPCJGgCj5ACTdmq6aNGav8zE5oYm0=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472/go.mod h1:oLLUlGld/axGHThR36o8bADQUHG+TKSUdoKqCvnoQB4=
+github.com/keks/testops v0.1.0 h1:zXndbOmnupuJ0xXaxOO3NhsLE96n9sxPAwZlv2X8xmE=
+github.com/keks/testops v0.1.0/go.mod h1:Y6dVKPZzqnKExUl1FfRJRBd7yHbnTDCFfuU5Yt0fUEU=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515 h1:T+h1c/A9Gawja4Y9mFVWj2vyii2bbUNDw3kt9VxK2EY=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
