@@ -5,6 +5,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -245,7 +246,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		} else {
 			err = errors.Wrap(origConn.Close(), "direct conn closing")
 		}
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
 			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
 		}
 		cancel()
@@ -335,14 +336,17 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				// but means this needs to be restarted anyway
 				return nil
 			}
+
 			switch cause := errors.Cause(err).(type) {
+
 			case secrethandshake.ErrProtocol:
 				// ignore
 			default:
-				n.log.Log("msg", "node/Serve: failed to accept connection", "err", err,
-					"cause", cause, "causeT", fmt.Sprintf("%T", cause))
+				if cause != io.EOF { // handshake ended early
+					n.log.Log("msg", "node/Serve: failed to accept connection", "err", err,
+						"cause", cause, "causeT", fmt.Sprintf("%T", cause))
+				}
 			}
-
 			continue
 		}
 

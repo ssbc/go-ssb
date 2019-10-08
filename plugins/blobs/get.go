@@ -27,10 +27,9 @@ type getHandler struct {
 func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	logger := log.With(h.log, "handler", "get", "args", fmt.Sprintf("%q", req.RawArgs))
-	// dbg := level.Debug(logger)
+	logger := log.With(h.log, "handler", "get")
 	errLog := level.Error(logger)
-	info := level.Info(logger)
+	// dbg := level.Debug(logger)
 
 	// dbg.Log("event", "onCall", "method", req.Method)
 	// defer dbg.Log("event", "onCall", "handler", "get-return", "method", req.Method)
@@ -62,6 +61,10 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
+	logger = log.With(logger, "blob", ref.Ref())
+	info := level.Info(logger)
+	errLog = level.Error(logger)
+
 	r, err := h.bs.Get(ref)
 	if err != nil {
 		err = req.Stream.CloseWithError(errors.New("do not have blob"))
@@ -77,6 +80,6 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	err = w.Close()
 	checkAndLog(errLog, errors.Wrap(err, "error closing blob output"))
 	if err == nil {
-		info.Log("event", "blob sent", "took", time.Since(start))
+		info.Log("event", "transmission successfull", "took", time.Since(start))
 	}
 }
