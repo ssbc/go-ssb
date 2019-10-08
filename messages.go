@@ -202,11 +202,16 @@ type ValuePost struct {
 }
 
 type Post struct {
-	Type     string        `json:"type"`
-	Text     string        `json:"text"`
-	Root     *MessageRef   `json:"root"`
-	Branch   MessageRefs   `json:"branch"`
-	Mentions []interface{} `json:"mentions"`
+	Type     string      `json:"type"`
+	Text     string      `json:"text"`
+	Root     *MessageRef `json:"root,omitempty"`
+	Branch   MessageRefs `json:"branch,omitempty"`
+	Mentions []Mention   `json:"mentions,omitempty"`
+}
+
+type Mention struct {
+	Link FeedRef `json:"link"`
+	Name string  `json:"name"`
 }
 
 type ValueVote struct {

@@ -224,14 +224,14 @@ func (ngr NamesGetResult) GetCommonName(feed *ssb.FeedRef) (string, bool) {
 
 }
 
-func (c Client) NamesGet() (*NamesGetResult, error) {
+func (c Client) NamesGet() (NamesGetResult, error) {
 	v, err := c.Async(c.rootCtx, NamesGetResult{}, muxrpc.Method{"names", "get"})
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: names.get failed")
 	}
 	c.logger.Log("names", "get", "v", fmt.Sprintf("%T", v))
 	res := v.(NamesGetResult)
-	return &res, nil
+	return res, nil
 }
 
 func (c Client) NamesSignifier(ref ssb.FeedRef) (string, error) {
