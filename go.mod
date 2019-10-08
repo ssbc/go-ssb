@@ -27,12 +27,11 @@ require (
 	go.cryptoscope.co/librarian v0.2.0
 	go.cryptoscope.co/luigi v0.3.5-0.20190924074117-8ca146aad481
 	go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd
-	go.cryptoscope.co/muxrpc v1.5.0
+	go.cryptoscope.co/muxrpc v1.5.2
 	go.cryptoscope.co/netwrap v0.1.0
-	go.cryptoscope.co/secretstream v1.2.0
+	go.cryptoscope.co/secretstream v1.2.1
 	go.mindeco.de/ssb-gabbygrove v0.1.5
-	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
-	golang.org/x/sys v0.0.0-20190911201528-7ad0cfa0b7b5 // indirect
+	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/text v0.3.2
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
