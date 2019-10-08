@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -32,8 +32,8 @@ type FeedManager struct {
 	liveFeedsMut sync.Mutex
 
 	// metrics
-	sysGauge *prometheus.Gauge
-	sysCtr   *prometheus.Counter
+	sysGauge metrics.Gauge
+	sysCtr   metrics.Counter
 }
 
 // NewFeedManager returns a new FeedManager used for gossiping about User
@@ -42,8 +42,8 @@ func NewFeedManager(
 	rootLog margaret.Log,
 	userFeeds multilog.MultiLog,
 	info logging.Interface,
-	sysGauge *prometheus.Gauge,
-	sysCtr *prometheus.Counter,
+	sysGauge metrics.Gauge,
+	sysCtr metrics.Counter,
 ) *FeedManager {
 	fm := &FeedManager{
 		RootLog:   rootLog,

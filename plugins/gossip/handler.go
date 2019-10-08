@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
@@ -36,8 +36,8 @@ type handler struct {
 	activeLock  sync.Mutex
 	activeFetch sync.Map
 
-	sysGauge *prometheus.Gauge
-	sysCtr   *prometheus.Counter
+	sysGauge metrics.Gauge
+	sysCtr   metrics.Counter
 
 	feedManager *FeedManager
 }

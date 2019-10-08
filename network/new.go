@@ -10,16 +10,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-kit/kit/log/level"
-
 	"github.com/agl/ed25519"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 )
@@ -47,9 +47,9 @@ type Options struct {
 	// AfterSecureWrappers are applied afterwards, usefull to debug muxrpc content
 	AfterSecureWrappers []netwrap.ConnWrapper
 
-	EventCounter    *prometheus.Counter
-	SystemGauge     *prometheus.Gauge
-	Latency         *prometheus.Summary
+	EventCounter    metrics.Counter
+	SystemGauge     metrics.Gauge
+	Latency         metrics.Histogram
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 }
 
@@ -73,9 +73,9 @@ type node struct {
 	remotes     map[string]muxrpc.Endpoint
 
 	edpWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
-	evtCtr     *prometheus.Counter
-	sysGauge   *prometheus.Gauge
-	latency    *prometheus.Summary
+	evtCtr     metrics.Counter
+	sysGauge   metrics.Gauge
+	latency    metrics.Histogram
 }
 
 func New(opts Options) (ssb.Network, error) {

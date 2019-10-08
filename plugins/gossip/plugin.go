@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
@@ -39,9 +39,9 @@ func New(
 
 	for i, o := range opts {
 		switch v := o.(type) {
-		case *prometheus.Gauge:
+		case metrics.Gauge:
 			h.sysGauge = v
-		case *prometheus.Counter:
+		case metrics.Counter:
 			h.sysCtr = v
 		case HopCount:
 			h.hopCount = int(v)
@@ -86,9 +86,9 @@ func NewHist(
 
 	for i, o := range opts {
 		switch v := o.(type) {
-		case *prometheus.Gauge:
+		case metrics.Gauge:
 			h.sysGauge = v
-		case *prometheus.Counter:
+		case metrics.Counter:
 			h.sysCtr = v
 		case Promisc:
 			h.promisc = bool(v)

@@ -12,7 +12,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -34,9 +34,9 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 
 	for i, o := range opts {
 		switch v := o.(type) {
-		case *prometheus.Gauge:
+		case metrics.Gauge:
 			wmgr.gauge = v
-		case *prometheus.Counter:
+		case metrics.Counter:
 			wmgr.evtCtr = v
 		case MaxSize:
 			wmgr.maxSize = uint(v)
@@ -98,8 +98,8 @@ type wantManager struct {
 	l sync.Mutex
 
 	info   logging.Interface
-	evtCtr *prometheus.Counter
-	gauge  *prometheus.Gauge
+	evtCtr metrics.Counter
+	gauge  metrics.Gauge
 }
 
 func (wmgr *wantManager) promEvent(name string, n float64) {

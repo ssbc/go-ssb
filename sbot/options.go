@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
@@ -80,9 +80,9 @@ type Sbot struct {
 	WantManager ssb.WantManager
 
 	// TODO: wrap better
-	eventCounter *prometheus.Counter
-	systemGauge  *prometheus.Gauge
-	latency      *prometheus.Summary
+	eventCounter metrics.Counter
+	systemGauge  metrics.Gauge
+	latency      metrics.Histogram
 }
 
 type Option func(*Sbot) error
@@ -252,7 +252,7 @@ func WithPostSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	}
 }
 
-func WithEventMetrics(ctr *prometheus.Counter, lvls *prometheus.Gauge, lat *prometheus.Summary) Option {
+func WithEventMetrics(ctr metrics.Counter, lvls metrics.Gauge, lat metrics.Histogram) Option {
 	return func(s *Sbot) error {
 		s.eventCounter = ctr
 		s.systemGauge = lvls
