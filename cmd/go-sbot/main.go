@@ -127,6 +127,7 @@ func main() {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithUNIXSocket(),
+		mksbot.LateOption(mksbot.WithKeyManager(log)),
 	}
 
 	if flagFatBot {

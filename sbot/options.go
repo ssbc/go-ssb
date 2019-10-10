@@ -24,6 +24,8 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -78,6 +80,8 @@ type Sbot struct {
 
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
+
+	KeyManager *keys.Manager
 
 	// TODO: wrap better
 	eventCounter *prometheus.Counter
@@ -233,6 +237,25 @@ func WithContext(ctx context.Context) Option {
 	return func(s *Sbot) error {
 		s.rootCtx = ctx
 		return nil
+	}
+}
+
+func WithKeyManager(log kitlog.Logger) Option {
+	return func(s *Sbot) error {
+		mount := MountSimpleIndex("keys",
+			func(r repo.Interface) (librarian.Index, repo.ServeFunc, error) {
+				var (
+					idx   librarian.Index
+					serve repo.ServeFunc
+					err   error
+				)
+
+				s.KeyManager, idx, serve, err = indexes.OpenKeys(log, r)
+
+				return idx, serve, err
+			})
+
+		return mount(s)
 	}
 }
 
