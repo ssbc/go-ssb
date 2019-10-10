@@ -32,6 +32,7 @@ require (
 	go.cryptoscope.co/secretstream v1.2.1
 	go.mindeco.de/ssb-gabbygrove v0.1.5
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.2
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
@@ -39,3 +40,5 @@ require (
 )
 
 replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6
+
+replace go.cryptoscope.co/muxrpc => /home/cryptix/go/src/go.cryptoscope.co/muxrpc

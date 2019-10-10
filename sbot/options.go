@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cryptix/go/logging"
+
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
@@ -20,7 +22,6 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
@@ -143,45 +144,48 @@ func WithUNIXSocket() Option {
 		if err != nil {
 			return err
 		}
+		s.closers.addCloser(uxLis)
 
 		go func() {
+			// time.Sleep(5 * time.Second)
+			// var selfAddr secretstream.Addr
+			// selfAddr.PubKey = make([]byte, 32)
+			// copy(selfAddr.PubKey, s.KeyPair.Id.ID)
+
 			for {
-				conn, err := uxLis.Accept()
+				c, err := uxLis.Accept()
 				if err != nil {
 					err = errors.Wrap(err, "unix sock accept failed")
 					s.info.Log("warn", err)
+					logging.CheckFatal(err)
 					continue
 				}
 
-				go func() {
+				go func(conn net.Conn) {
+					defer conn.Close()
+
 					pkr := muxrpc.NewPacker(conn)
-					ctx, cancel := context.WithCancel(s.rootCtx)
-					if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
-						closed := cn.Closed()
-						go func() {
-							<-closed
-							cancel()
-						}()
-					}
+
+					// TODO: fix address spoofing in handlers
+					// sameAs := netwrap.WrapAddr(conn.RemoteAddr(), selfAddr)
 
 					h, err := s.master.MakeHandler(conn)
 					if err != nil {
 						err = errors.Wrap(err, "unix sock make handler")
 						s.info.Log("warn", err)
-						cancel()
+						logging.CheckFatal(err)
 						return
 					}
 
-					// spoof remote as us
-					sameAs := netwrap.WrapAddr(conn.RemoteAddr(), secretstream.Addr{PubKey: s.KeyPair.Id.ID})
-					edp := muxrpc.HandleWithRemote(pkr, h, sameAs)
+					edp := muxrpc.HandleWithLogger(pkr, h, kitlog.With(s.info, "unix", conn.LocalAddr().String()))
 
 					srv := edp.(muxrpc.Server)
-					if err := srv.Serve(ctx); err != nil {
+					if err := srv.Serve(s.rootCtx); err != nil {
 						s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
 					}
-					cancel()
-				}()
+					edp.Terminate()
+
+				}(c)
 			}
 		}()
 		return nil

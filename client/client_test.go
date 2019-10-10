@@ -7,10 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"go.cryptoscope.co/muxrpc"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/plugins2"
 
 	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,6 +100,113 @@ func TestWhoami(t *testing.T) {
 	srv.Shutdown()
 	r.NoError(srv.Close())
 	r.NoError(<-srvErrc)
+}
+
+func TestLotsOfWhoami(t *testing.T) {
+	r, a := require.New(t), assert.New(t)
+
+	srvRepo := filepath.Join("testrun", t.Name(), "serv")
+	os.RemoveAll(srvRepo)
+	// srvLog := log.NewJSONLogger(os.Stderr)
+	srvLog, _ := logtest.KitLogger("srv", t)
+	srv, err := sbot.New(
+		sbot.WithInfo(srvLog),
+		sbot.WithRepoPath(srvRepo),
+		// sbot.DisableNetworkNode(), skips muxrpc handler
+		sbot.WithListenAddr(":0"),
+		sbot.WithUNIXSocket(),
+	)
+	r.NoError(err, "sbot srv init failed")
+
+	c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
+	r.NoError(err, "failed to make client connection")
+	// end test boilerplate
+
+	for i := 50; i > 0; i-- {
+		ref, err := c.Whoami()
+		r.NoError(err, "call %d errored", i)
+		r.NotNil(ref)
+		a.Equal(srv.KeyPair.Id.Ref(), ref.Ref(), "call %d has wrong result", i)
+	}
+
+	a.NoError(c.Close())
+
+	srv.Shutdown()
+	r.NoError(srv.Close())
+}
+
+func TestLotsOfStatus(t *testing.T) {
+	r, a := require.New(t), assert.New(t)
+
+	srvRepo := filepath.Join("testrun", t.Name(), "serv")
+	os.RemoveAll(srvRepo)
+	srvLog := log.NewJSONLogger(os.Stderr)
+	// srvLog, _ := logtest.KitLogger("srv", t)
+	srv, err := sbot.New(
+		sbot.WithInfo(srvLog),
+		sbot.WithRepoPath(srvRepo),
+		// sbot.DisableNetworkNode(), skips muxrpc handler
+		sbot.WithListenAddr(":0"),
+		sbot.WithUNIXSocket(),
+	)
+	r.NoError(err, "sbot srv init failed")
+
+	ctx, done := context.WithCancel(context.Background())
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	n := 25
+	for i := n; i > 0; i-- {
+		fn := func() error {
+			tick := time.NewTicker(250 * time.Millisecond)
+			for range tick.C {
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+
+				}
+				c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
+				if err != nil {
+					return errors.Wrap(err, "failed to make client connection")
+				}
+				// end test boilerplate
+
+				_, err = c.Async(ctx, map[string]interface{}{}, muxrpc.Method{"status"})
+				if err != nil {
+					if errors.Cause(err) == context.Canceled {
+						return nil
+					}
+					return errors.Wrapf(err, "tick%p failed", tick)
+				}
+				if err := c.Close(); err != nil {
+					return errors.Wrapf(err, "tick%p failed close", tick)
+				}
+
+			}
+			return nil
+		}
+		g.Go(fn)
+	}
+
+	c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
+	r.NoError(err, "failed to make client connection")
+
+	for i := 25; i > 0; i-- {
+		time.Sleep(500 * time.Millisecond)
+		ref, err := c.Publish(struct{ Test int }{i})
+		r.NoError(err, "publish %d errored", i)
+		r.NotNil(ref)
+	}
+	time.Sleep(1 * time.Second)
+
+	done()
+
+	a.NoError(c.Close())
+
+	srv.Shutdown()
+	r.NoError(srv.Close())
+	r.NoError(g.Wait())
 }
 
 func TestPublish(t *testing.T) {

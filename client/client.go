@@ -33,6 +33,8 @@ type Client struct {
 	rootCtx       context.Context
 	rootCtxCancel context.CancelFunc
 	logger        log.Logger
+
+	closer io.Closer
 }
 
 // options!!
@@ -89,6 +91,7 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 	if err != nil {
 		return nil, errors.Wrap(err, "error dialing")
 	}
+	c.closer = conn
 
 	h := whoami.New(c.logger, own.Id).Handler()
 
@@ -107,7 +110,10 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 
 	go func() {
 		err := srv.Serve(c.rootCtx)
-		c.logger.Log("warning", "muxrpc.Serve exited", "err", err)
+		if err != nil {
+			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
+		}
+		conn.Close()
 	}()
 
 	return &c, nil
@@ -123,18 +129,15 @@ func NewUnix(ctx context.Context, path string) (*Client, error) {
 	if err != nil {
 		return nil, errors.Errorf("ssbClient: failed to open unix path")
 	}
+	c.closer = conn
 
 	h := noopHandler{
 		logger: c.logger,
 	}
 
-	var rwc io.ReadWriteCloser = conn
 	// logs every muxrpc packet
-	if os.Getenv("MUXRPCDBUG") != "" {
-		rwc = debug.Wrap(log.NewLogfmtLogger(os.Stderr), rwc)
-	}
 
-	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(rwc), &h)
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h)
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
@@ -143,14 +146,19 @@ func NewUnix(ctx context.Context, path string) (*Client, error) {
 
 	go func() {
 		err := srv.Serve(c.rootCtx)
-		c.logger.Log("warning", "muxrpc.Serve exited", "err", err)
+		if err != nil {
+			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
+		}
+		conn.Close()
 	}()
 
 	return &c, nil
 }
 
 func (c Client) Close() error {
+	c.Endpoint.Terminate()
 	c.rootCtxCancel()
+	c.closer.Close()
 	return nil
 }
 
@@ -324,10 +332,7 @@ type noopHandler struct {
 }
 
 func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	srv := edp.(muxrpc.Server)
-	level.Debug(h.logger).Log("event", "onConnect", "addr", srv.Remote())
 }
 
 func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	level.Debug(h.logger).Log("event", "onCall", "args", fmt.Sprintf("%q", req.RawArgs), "method", req.Method)
 }
