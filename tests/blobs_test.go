@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -15,25 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	muxtest "go.cryptoscope.co/muxrpc/test"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestBlobToJS(t *testing.T) {
 	r := require.New(t)
 
-	rec := make(chan *muxtest.Transcript, 1)
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot(sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		var ts muxtest.Transcript
-		conn = muxtest.WrapConn(&ts, conn)
-		rec <- &ts
-		return conn, nil
-	}))
+	ts.startGoBot()
 	s := ts.gobot
 
 	ts.startJSBot(`run()`,
@@ -53,10 +44,6 @@ func TestBlobToJS(t *testing.T) {
 
 	// TODO: check wantManager for this connection is stopped when the jsbot exited
 
-	transcript := <-rec
-	for i, dpkt := range transcript.Get() {
-		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
-	}
 }
 
 func TestBlobFromJS(t *testing.T) {
@@ -66,17 +53,10 @@ func TestBlobFromJS(t *testing.T) {
 	testRef, err := ssb.ParseBlobRef(fooBarRef) // foobar
 	r.NoError(err)
 
-	tsChan := make(chan *muxtest.Transcript, 1)
-
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot(sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		var rec muxtest.Transcript
-		conn = muxtest.WrapConn(&rec, conn)
-		tsChan <- &rec
-		return conn, nil
-	}))
+	ts.startGoBot()
 	s := ts.gobot
 
 	ts.startJSBot(
@@ -131,10 +111,6 @@ func TestBlobFromJS(t *testing.T) {
 
 	ts.wait()
 
-	rec := <-tsChan
-	for i, dpkt := range rec.Get() {
-		t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
-	}
 }
 
 func TestBlobWithHop(t *testing.T) {
