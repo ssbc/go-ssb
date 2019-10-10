@@ -25,10 +25,10 @@ type WrappedLog struct {
 }
 
 func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
-    if mm, ok := val.(*MultiMessage); ok {
-      return wl.Log.Append(*mm)
-    }
-  
+	if mm, ok := val.(*MultiMessage); ok {
+		return wl.Log.Append(*mm)
+	}
+
 	var mm MultiMessage
 
 	if osm, ok := val.(legacy.OldStoredMessage); ok {
@@ -43,7 +43,6 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 		}
 		return wl.Log.Append(mm)
 	}
-
 
 	abs, ok := val.(ssb.Message)
 	if !ok {

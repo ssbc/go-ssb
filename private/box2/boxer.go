@@ -7,19 +7,18 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/nacl/secretbox"
-
 	//"go.cryptoscope.co/ssb/keys"
 )
 
 type Message struct {
 	Raw []byte
 
-	HeaderBox []byte
+	HeaderBox   []byte
 	AfterHeader []byte
 
-	OffBody 	int
-	RawSlots   []byte
-	BodyBox []byte
+	OffBody  int
+	RawSlots []byte
+	BodyBox  []byte
 }
 
 type Boxer struct {
@@ -34,7 +33,7 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos Infos, ks []Key) (*Message, err
 	var outMsg Message
 
 	// TODO Verify if this is indeed the right amount of memory
-	if needed := 32 + len(ks) * 32 + len(msg) + 16 + 4 * 32; len(buf) < needed {
+	if needed := 32 + len(ks)*32 + len(msg) + 16 + 4*32; len(buf) < needed {
 		buf = make([]byte, needed)
 	}
 
@@ -48,10 +47,9 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos Infos, ks []Key) (*Message, err
 		return nil, errors.Wrap(err, "error reading random data")
 	}
 
-
 	// The keys returned by the Derive... functions are subslices of buf.
 	// The calls to copy() in between are so we can safely reuse it.
-	
+
 	used += KeySize
 	readKey := ReadKey(buf[:KeySize])
 	buf = buf[KeySize:]
@@ -90,7 +88,7 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos Infos, ks []Key) (*Message, err
 	// append header (todo)
 
 	// header length + len(rceps) * slot length
-	var bodyOff uint16 = 32 + uint16(len(ks)) * 32 
+	var bodyOff uint16 = 32 + uint16(len(ks))*32
 	used += 16
 
 	// header plaintext
@@ -99,7 +97,7 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos Infos, ks []Key) (*Message, err
 	binary.LittleEndian.PutUint16(header, bodyOff)
 
 	// store this buffer as beginning of ciphertext
-	ctxtLen := (len(ks) + 1) * KeySize + len(msg) + secretbox.Overhead
+	ctxtLen := (len(ks)+1)*KeySize + len(msg) + secretbox.Overhead
 	outMsg.Raw = buf[:ctxtLen]
 
 	// header ciphertext
@@ -144,7 +142,7 @@ var zeroKey [KeySize]byte
 
 // TODO: Maybe return entire decrypted message?
 func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, error) {
-	if needed := len(ctxt) + len(ks) * KeySize; len(buf) < needed {
+	if needed := len(ctxt) + len(ks)*KeySize; len(buf) < needed {
 		buf = make([]byte, needed)
 	}
 
@@ -156,10 +154,10 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, erro
 	msg.AfterHeader = buf[32:len(ctxt)]
 	copy(msg.AfterHeader, ctxt[32:])
 
-	buf = buf[32 + len(ctxt):]
+	buf = buf[32+len(ctxt):]
 
-	dks := buf[:len(ks) * KeySize]
-	buf = buf[len(ks) * KeySize:]
+	dks := buf[:len(ks)*KeySize]
+	buf = buf[len(ks)*KeySize:]
 
 	for i, bk := range ks {
 		mk, err := bk.Derive(buf, infos, KeySize)
@@ -167,16 +165,16 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, erro
 			return nil, errors.Wrap(err, "error deriving recipient key")
 		}
 
-		dst := dks[i*KeySize:(i+1)*KeySize]
+		dst := dks[i*KeySize : (i+1)*KeySize]
 		copy(dst, []byte(mk))
 	}
 
 	var (
-		undo, hdr []byte
+		undo, hdr       []byte
 		msgKey, readKey []byte
-		ok bool
-		key [KeySize]byte
-		i int
+		ok              bool
+		key             [KeySize]byte
+		i               int
 	)
 
 	defer copy(key[:], zeroKey[:])
@@ -187,8 +185,8 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, erro
 	undo, hdr, buf = alloc(buf, 16)
 
 	for i = 0; i*KeySize < len(msg.AfterHeader) && i*KeySize < len(dks) && i < MaxSlots; i++ {
-		for j := range dks[i*KeySize:(i+1)*KeySize] {
-			 msgKey[j] = dks[i*KeySize + j] ^ msg.AfterHeader[i*KeySize + j]
+		for j := range dks[i*KeySize : (i+1)*KeySize] {
+			msgKey[j] = dks[i*KeySize+j] ^ msg.AfterHeader[i*KeySize+j]
 		}
 
 		// we need the copies so we can safely reuse the buffer
@@ -218,7 +216,7 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, erro
 	msg.OffBody = int(binary.LittleEndian.Uint16(hdr))
 
 	// header parsed, can release allocated buffer space
-	buf=undo
+	buf = undo
 
 	// TODO copy?
 	msg.RawSlots = ctxt[KeySize:msg.OffBody]
@@ -231,13 +229,13 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, erro
 	copy(key[:], bodyKey_)
 
 	var plain []byte
-	_, plain, buf = alloc(buf, len(msg.BodyBox) - secretbox.Overhead)
+	_, plain, buf = alloc(buf, len(msg.BodyBox)-secretbox.Overhead)
 
 	plain, ok = secretbox.Open(plain[:0], msg.BodyBox, &zero24, &key)
 	if !ok {
 		return nil, fmt.Errorf("body decrypt error")
 	}
-	
+
 	return plain, nil
 }
 

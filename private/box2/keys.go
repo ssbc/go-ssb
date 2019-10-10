@@ -1,20 +1,20 @@
 package box2
 
 import (
-	"encoding/binary"
 	"crypto/sha256"
+	"encoding/binary"
 
 	"golang.org/x/crypto/hkdf"
 )
 
 var (
-	infoReadKey Info
+	infoReadKey   Info
 	infoHeaderKey Info
-	infoBodyKey Info
+	infoBodyKey   Info
 )
 
 func init() {
-	infoReadKey   = Info("keytype:readkey")
+	infoReadKey = Info("keytype:readkey")
 	infoHeaderKey = Info("keytype:headerkey")
 	infoBodyKey = Info("keytype:bodykey")
 }
@@ -22,7 +22,7 @@ func init() {
 type Info []byte
 
 func (info Info) Len() int {
-	return 2+len(info)
+	return 2 + len(info)
 }
 
 type Infos []Info
@@ -56,7 +56,7 @@ func (k Key) Derive(buf []byte, infos Infos, outLen int) (Key, error) {
 	var (
 		used int
 	)
-	
+
 	// length-prefix and concatenate info elements
 	for _, info := range infos {
 		binary.LittleEndian.PutUint16(buf[used:], uint16(len(info)))

@@ -1,8 +1,8 @@
 package box2
 
 import (
-	"testing"
 	"math/rand"
+	"testing"
 
 	"github.com/stretchr/testify/require"
 )
