@@ -155,6 +155,12 @@ func WithUNIXSocket() Option {
 			for {
 				c, err := uxLis.Accept()
 				if err != nil {
+					if nerr, ok := err.(*net.OpError); ok {
+						if nerr.Err.Error() == "use of closed network connection" {
+							return
+						}
+					}
+
 					err = errors.Wrap(err, "unix sock accept failed")
 					s.info.Log("warn", err)
 					logging.CheckFatal(err)
