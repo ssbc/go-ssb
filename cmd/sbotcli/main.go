@@ -146,14 +146,14 @@ func initClientTCP(ctx *cli.Context) error {
 
 	plainAddr, err := net.ResolveTCPAddr("tcp", ctx.String("addr"))
 	if err != nil {
-		return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
+		return errors.Wrapf(err, "int: failed to resolve TCP address")
 	}
 
 	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{remotPubKey[:]})
 
 	client, err = ssbClient.NewTCPWithSHSCap(longctx, localKey, shsAddr, ctx.String("shscap")) // TODO: shscap
 	if err != nil {
-		return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
+		return errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
 	}
 	log.Log("init", "done")
 	return nil

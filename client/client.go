@@ -67,6 +67,10 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 		return nil, errors.Wrap(err, "ssbClient: failed to decode (default) appKey")
 	}
 
+	if n := len(appKey); n != 32 {
+		return nil, errors.Errorf("ssbClient: invalid length for appKey: %d", n)
+	}
+
 	shsClient, err := secretstream.NewClient(own.Pair, appKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: error creating secretstream.Client")

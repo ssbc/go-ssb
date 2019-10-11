@@ -272,13 +272,6 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	pkr := muxrpc.NewPacker(conn)
 	filtered := level.NewFilter(n.log, level.AllowInfo())
 	edp = muxrpc.HandleWithLogger(pkr, h, filtered)
-	if cn, ok := pkr.(muxrpc.CloseNotifier); ok {
-		closed := cn.Closed()
-		go func() {
-			<-closed
-			cancel()
-		}()
-	}
 
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)

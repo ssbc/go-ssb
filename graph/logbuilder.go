@@ -180,14 +180,13 @@ func (b *logBuilder) Follows(from *ssb.FeedRef) (*StrFeedSet, error) {
 	refs := NewFeedSet(nodes.Len())
 
 	for nodes.Next() {
-		cnv := nodes.Node().(contactNode)
+		cnv := nodes.Node().(*contactNode)
 		// warning - ignores edge type!
 		edg := g.Edge(nFrom.ID(), cnv.ID())
 		if edg.(contactEdge).Weight() == 1 {
-			panic("fix blocking")
-			// if err := refs.AddRef(cnv.feed); err != nil {
-			// 	return nil, err
-			// }
+			if err := refs.AddStored(cnv.feed); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return refs, nil

@@ -272,7 +272,7 @@ func OpenBlobStore(r Interface) (ssb.BlobStore, error) {
 var lockFileExistsRe = regexp.MustCompile(`cannot access DB \"(.*)\": lock file \"(.*)\" exists`)
 
 func isLockFileExistsErr(err error) bool {
-	panic("TODO: check process isn't running")
+	log.Println("TODO: check process isn't running")
 	if err == nil {
 		return false
 	}
