@@ -27,7 +27,7 @@ require (
 	go.cryptoscope.co/librarian v0.2.0
 	go.cryptoscope.co/luigi v0.3.5-0.20190924074117-8ca146aad481
 	go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd
-	go.cryptoscope.co/muxrpc v1.5.3-0.20191008092844-324ac7ac5ca6
+	go.cryptoscope.co/muxrpc v1.5.3-0.20191011092035-573ec084427a
 	go.cryptoscope.co/netwrap v0.1.0
 	go.cryptoscope.co/secretstream v1.2.1
 	go.mindeco.de/ssb-gabbygrove v0.1.5
@@ -40,5 +40,3 @@ require (
 )
 
 replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6
-
-replace go.cryptoscope.co/muxrpc => /home/cryptix/go/src/go.cryptoscope.co/muxrpc
