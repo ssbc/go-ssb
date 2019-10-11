@@ -10,9 +10,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/cryptix/go/logging"
+	"golang.org/x/sync/errgroup"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
@@ -42,7 +42,7 @@ type Sbot struct {
 	rootCtx  context.Context
 	Shutdown context.CancelFunc
 	closers  multiCloser
-	idxDone  sync.WaitGroup
+	idxDone  errgroup.Group
 
 	promisc  bool
 	hopCount uint

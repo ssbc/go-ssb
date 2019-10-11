@@ -39,7 +39,9 @@ func (s *Sbot) Close() error {
 	}
 	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
 
-	s.idxDone.Wait()
+	if err := s.idxDone.Wait(); err != nil {
+		return errors.Wrap(err, "sbot: index group failed")
+	}
 	// TODO: timeout?
 	s.info.Log("event", "closing", "msg", "waited")
 

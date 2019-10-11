@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// +build ignore
+
 package tangles
 
 import (
@@ -14,44 +16,48 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func XTestTangles(t *testing.T) {
-	// > test boilerplate
-	// TODO: abstract serving and error channel handling
-	// Meta TODO: close handling and status of indexing
+func TestTangles(t *testing.T) {
 	r := require.New(t)
-	//info, _ := logtest.KitLogger(t.Name(), t)
 
-	tRepoPath, err := ioutil.TempDir("", t.Name())
-	r.NoError(err)
+	hk := make([]byte, 32)
+	n, err := rand.Read(hk)
+	r.Equal(32, n)
 
-	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
 
 	tRepo := repo.New(tRepoPath)
-	tRootLog, err := repo.OpenLog(tRepo)
+
+	// make three new keypairs with nicknames
+	n2kp := make(map[string]*ssb.KeyPair)
+
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	r.NoError(err)
+	n2kp["arny"] = kpArny
+
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	r.NoError(err)
+	n2kp["bert"] = kpBert
+
+	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", ssb.RefAlgoFeedSSB1)
+	r.NoError(err)
+	n2kp["cloe"] = kpCloe
+
+	kps, err := repo.AllKeyPairs(tRepo)
+	r.NoError(err)
+	r.Len(kps, 3)
+
+	// make the bot
+	logger := log.NewLogfmtLogger(os.Stderr)
+	mainbot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		WithHMACSigning(hk),
+		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
+		DisableNetworkNode(),
+	)
 	r.NoError(err)
 
-	uf, _, serveUF, err := OpenUserFeeds(tRepo)
-	r.NoError(err)
-	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
-
-	mt, _, serve, err := OpenTangles(tRepo)
-	r.NoError(err)
-	mtErrc := serveLog(ctx, "message types", tRootLog, serve)
-
-	alice, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	alicePublish, err := message.OpenPublishLog(tRootLog, uf, alice)
-	r.NoError(err)
-
-	bob, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	bobPublish, err := message.OpenPublishLog(tRootLog, uf, bob)
-	r.NoError(err)
-
-	claire, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	clairePublish, err := message.OpenPublishLog(tRootLog, uf, claire)
-	r.NoError(err)
 
 	// > create contacts
 	var tmsgs = []interface{}{

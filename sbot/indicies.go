@@ -4,9 +4,8 @@ package sbot
 
 import (
 	"context"
-	"sync"
 
-	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
@@ -109,15 +108,13 @@ func (s *Sbot) GetIndexNamesMultiLog() []string {
 var _ ssb.Indexer = (*Sbot)(nil)
 
 func (s *Sbot) serveIndex(ctx context.Context, name string, f repo.ServeFunc) {
-	s.idxDone.Add(1)
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
+	s.idxDone.Go(func() error { // could improve this with context version
 		err := f(ctx, s.RootLog, s.liveIndexUpdates)
-		s.info.Log("event", "idx server exited", "idx", name, "error", err)
+		level.Warn(s.info).Log("event", "idx server exited", "idx", name, "error", err)
 		if err != nil {
-			err := s.Close()
-			logging.CheckFatal(err)
-			return
+			s.Shutdown()
+			return errors.Wrapf(err, "sbot: %s idx update func errored", name)
 		}
-	}(&s.idxDone)
+		return nil
+	})
 }
