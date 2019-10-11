@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,8 +24,9 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
-	srvLog, _ := logtest.KitLogger("srv", t)
+
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),

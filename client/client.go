@@ -20,7 +20,6 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
-	"go.cryptoscope.co/muxrpc/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
@@ -95,13 +94,7 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 
 	h := whoami.New(c.logger, own.Id).Handler()
 
-	var rwc io.ReadWriteCloser = conn
-	// logs every muxrpc packet
-	if os.Getenv("MUXRPCDBUG") != "" {
-		rwc = debug.Wrap(log.NewLogfmtLogger(os.Stderr), rwc)
-	}
-
-	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(rwc), h, conn.RemoteAddr())
+	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(conn), h, conn.RemoteAddr())
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
@@ -134,8 +127,6 @@ func NewUnix(ctx context.Context, path string) (*Client, error) {
 	h := noopHandler{
 		logger: c.logger,
 	}
-
-	// logs every muxrpc packet
 
 	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h)
 

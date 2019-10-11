@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,8 +27,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
 
-	srvLog := log.NewJSONLogger(os.Stderr)
-	// srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
 
 	testKP, err := ssb.NewKeyPair(nil)
 	r.NoError(err)

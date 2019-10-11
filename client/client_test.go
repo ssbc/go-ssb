@@ -15,7 +15,6 @@ import (
 	"go.cryptoscope.co/ssb/plugins2"
 
 	"github.com/cryptix/go/logging/logtest"
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,8 +33,8 @@ func TestUnixSock(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
-	srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
@@ -65,8 +64,8 @@ func TestWhoami(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
-	srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
@@ -107,8 +106,8 @@ func TestLotsOfWhoami(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
-	srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
@@ -140,8 +139,8 @@ func TestLotsOfStatus(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	srvLog := log.NewJSONLogger(os.Stderr)
-	// srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
@@ -214,8 +213,9 @@ func TestPublish(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
-	srvLog, _ := logtest.KitLogger("srv", t)
+
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
@@ -294,7 +294,7 @@ func TestTangles(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := log.NewJSONLogger(os.Stderr)
+	// srvLog := newReltimeLogger()
 	srvLog, _ := logtest.KitLogger("srv", t)
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
