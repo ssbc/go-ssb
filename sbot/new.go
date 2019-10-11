@@ -9,12 +9,15 @@ import (
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -60,26 +63,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	r := repo.New(s.repoPath)
 
+	// optionize?!
 	s.RootLog, err = repo.OpenLog(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
 	}
 	s.closers.addCloser(s.RootLog.(io.Closer))
-
-	kps, err := repo.AllKeyPairs(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
-	}
-	kps = append(kps, s.KeyPair)
-
-	// TODO: move to mounted indexes
-	pl, servePrivs, err := multilogs.OpenPrivateRead(kitlog.With(log, "module", "privLogs"), r, kps...)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create privte read idx")
-	}
-	s.closers.addCloser(pl)
-	s.serveIndex(ctx, "privLogs", servePrivs)
-	s.mlogIndicies["privLogs"] = pl
 
 	// TODO: rewirte about as consumer of msgs by type, like contacts
 	// ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "abouts"), r)
@@ -89,6 +78,24 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// // s.closers.addCloser(ab)
 	// s.serveIndex(ctx, "abouts", serveAbouts)
 	// s.AboutStore = ab
+
+	bs, err := repo.OpenBlobStore(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open blob store")
+	}
+	s.BlobStore = bs
+	// TODO: add flag to filter specific levels and/or units and pass nop to the others
+	wantsLog := kitlog.With(log, "module", "WantManager")
+	// wantsLog := kitlog.NewNopLogger()
+	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
+	s.WantManager = wm
+
+	for _, opt := range s.lateInit {
+		err := opt(s)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to apply late option")
+		}
+	}
 
 	uf, ok := s.mlogIndicies["userFeeds"]
 	if !ok {
@@ -103,17 +110,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	bs, err := repo.OpenBlobStore(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open blob store")
-	}
-	s.BlobStore = bs
-	// TODO: add flag to filter specific levels and/or units and pass nop to the others
-	wantsLog := kitlog.With(log, "module", "WantManager")
-	// wantsLog := kitlog.NewNopLogger()
-	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
-	s.WantManager = wm
-
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
 	}
@@ -125,31 +121,25 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
 
-	for _, opt := range s.lateInit {
-		err := opt(s)
-		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to apply late option")
-		}
-	}
-
 	// LogBuilder doesn't fully work yet
-	// if mt, ok := s.mlogIndicies["byTypes"]; ok {
-	// 	contactLog, err := mt.Get(librarian.Addr("contact"))
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
-	// 	}
-	// 	s.GraphBuilder, err = graph.NewLogBuilder(s.info, mutil.Indirect(s.RootLog, contactLog))
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
-	// 	}
-	// } else {
-	gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: OpenContacts failed")
+	if mt, ok := s.mlogIndicies["msgTypes"]; ok {
+		s.info.Log("warning", "using experimental bytype:contact graph implementation")
+		contactLog, err := mt.Get(librarian.Addr("contact"))
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
+		}
+		s.GraphBuilder, err = graph.NewLogBuilder(s.info, mutil.Indirect(s.RootLog, contactLog))
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
+		}
+	} else {
+		gb, serveContacts, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: OpenContacts failed")
+		}
+		s.serveIndex(ctx, "contacts", serveContacts)
+		s.GraphBuilder = gb
 	}
-	s.serveIndex(ctx, "contacts", serveContacts)
-	s.GraphBuilder = gb
-	// }
 
 	if s.disableNetwork {
 		return s, nil
@@ -207,12 +197,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
-	userPrivs, err := pl.Get(s.KeyPair.Id.StoredAddr())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to open user private index")
-	}
 
-	s.master.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+	if pl, ok := s.mlogIndicies["privLogs"]; ok {
+		userPrivs, err := pl.Get(s.KeyPair.Id.StoredAddr())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open user private index")
+		}
+		s.master.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+	}
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
@@ -260,8 +252,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(get.New(s))
 
 	// raw log plugins
-
-	// s.master.Register(rawread.NewByType(s.RootLog, mt)) // messagesByType
 	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
 	s.master.Register(hist)                        // createHistoryStream
 

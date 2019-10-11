@@ -9,16 +9,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/private"
-
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb"
-
 	"github.com/go-kit/kit/log"
-	"go.cryptoscope.co/ssb/repo"
-
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/margaret"
+
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func TestMultipleIdentities(t *testing.T) {
@@ -54,11 +53,13 @@ func TestMultipleIdentities(t *testing.T) {
 
 	// make the bot
 	logger := log.NewLogfmtLogger(os.Stderr)
+	mlogPriv := multilogs.NewPrivateRead(logger, kps...)
 	mainbot, err := New(
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
 		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
+		LateOption(MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)

@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging"
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -51,6 +50,8 @@ func writeFile(t *testing.T, data string) string {
 type testSession struct {
 	t *testing.T
 
+	info log.Logger
+
 	repo string
 
 	keySHS, keyHMAC []byte
@@ -80,29 +81,14 @@ func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
 	repo := filepath.Join("testrun", t.Name())
 	os.RemoveAll(repo)
 
-	return &testSession{
-		repo:    repo,
-		t:       t,
-		keySHS:  appKey,
-		keyHMAC: hmacKey,
-	}
-}
-
-// returns the created go-sbot, the pubkey of the jsbot, a wait and a cleanup function
-func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
-	r := require.New(ts.t)
-	ctx := context.Background()
-
 	// Choose you logger!
 	// use the "logtest" line if you want to log through calls to `t.Log`
 	// use the "NewLogfmtLogger" line if you want to log to stdout
 	// the test logger does not print anything if the command hangs, so you have an alternative
-	var info logging.Interface
+	var info = log.NewNopLogger()
 	if testing.Verbose() {
-		// TODO: multiwriter
-		info = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-	} else {
-		info, _ = logtest.KitLogger("go", ts.t)
+		// TODO: multiwriter?
+		info = log.NewLogfmtLogger(os.Stderr)
 	}
 	// timestamps!
 	var l sync.Mutex
@@ -116,11 +102,23 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		return since
 	}
 
-	info = log.With(info, "ts", log.Valuer(diffTime))
+	return &testSession{
+		info:    log.With(info, "ts", log.Valuer(diffTime)),
+		repo:    repo,
+		t:       t,
+		keySHS:  appKey,
+		keyHMAC: hmacKey,
+	}
+}
+
+// returns the created go-sbot, the pubkey of the jsbot, a wait and a cleanup function
+func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
+	r := require.New(ts.t)
+	ctx := context.Background()
 
 	// prepend defaults
 	sbotOpts = append([]sbot.Option{
-		sbot.WithInfo(info),
+		sbot.WithInfo(ts.info),
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
@@ -142,7 +140,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	if os.Getenv("MUXDBG") != "" {
 		sbotOpts = append(sbotOpts,
 			sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-				return debug.WrapConn(info, conn), nil
+				return debug.WrapConn(ts.info, conn), nil
 			}),
 		)
 	}

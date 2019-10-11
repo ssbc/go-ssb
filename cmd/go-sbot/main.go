@@ -16,21 +16,25 @@ import (
 	"syscall"
 	"time"
 
+	// debug
+	_ "net/http/pprof"
+
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/cryptix/go/logging"
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
+	"go.cryptoscope.co/ssb/repo"
 	mksbot "go.cryptoscope.co/ssb/sbot"
-
-	// debug
-	_ "net/http/pprof"
 )
 
 var (
@@ -41,10 +45,14 @@ var (
 	flagEnAdv    bool
 	flagEnDiscov bool
 	flagPromisc  bool
-	listenAddr   string
-	debugAddr    string
-	repoDir      string
-	dbgLogDir    string
+
+	flagDecryptPrivate  bool
+	flagDisableUNIXSock bool
+
+	listenAddr string
+	debugAddr  string
+	repoDir    string
+	dbgLogDir  string
 
 	// helper
 	log        logging.Interface
@@ -76,6 +84,9 @@ func initFlags() {
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
+
+	flag.BoolVar(&flagDecryptPrivate, "decryptprivate", false, "store which messages can be decrypted")
+	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
@@ -127,8 +138,25 @@ func main() {
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
-		// todo: make flag to disable unix sock
-		// mksbot.WithUNIXSocket(),
+	}
+
+	if !flagDisableUNIXSock {
+		opts = append(opts, mksbot.WithUNIXSocket())
+	}
+
+	if flagDecryptPrivate {
+		// TODO: refactor into plugins2
+		r := repo.New(repoDir)
+		kps, err := repo.AllKeyPairs(r)
+		checkFatal(errors.Wrap(err, "sbot: failed to open all keypairs in repo"))
+
+		defKP, err := repo.DefaultKeyPair(r)
+		checkFatal(errors.Wrap(err, "sbot: failed to open default keypair"))
+		kps = append(kps, defKP)
+
+		mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
+
+		opts = append(opts, mksbot.LateOption(mksbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)))
 	}
 
 	if flagFatBot {

@@ -10,9 +10,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"github.com/go-kit/kit/log"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/repo"
+	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
@@ -21,7 +25,15 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot()
+	testRepo := repo.New(ts.repo)
+	aliceKP,err := repo.DefaultKeyPair(testRepo)
+	r.NoError(err)
+
+	mlogPriv := multilogs.NewPrivateRead(log.With(ts.info, "module", "privLogs"), aliceKP)
+
+	ts.startGoBot(
+		sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.Open)),
+	)
 	s := ts.gobot
 
 	before := `fromKey = testBob

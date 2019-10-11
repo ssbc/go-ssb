@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/luigi"
-
-	"github.com/cryptix/go/logging/logtest"
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -36,15 +37,22 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		r.NoError(err)
 		alice.Id.Algo = algo
 
-		// srvLog := log.NewJSONLogger(os.Stderr)
-		srvLog, _ := logtest.KitLogger("srv", t)
+		srvLog := kitlog.NewNopLogger()
+		if testing.Verbose() {
+			srvLog = kitlog.NewJSONLogger(os.Stderr)
+		}
+
+		mlogPriv := multilogs.NewPrivateRead(kitlog.With(srvLog, "module", "privLogs"), alice)
+
 		srv, err := sbot.New(
 			sbot.WithKeyPair(alice),
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
 			sbot.WithUNIXSocket(),
+			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.Open)),
 		)
+
 		r.NoError(err, "sbot srv init failed")
 
 		c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
