@@ -4,8 +4,10 @@ package repo
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/dgraph-io/badger"
 	_ "github.com/mattn/go-sqlite3"
@@ -103,9 +105,21 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
 	}
 
-	mlog, err := roaringfiles.NewMKV(filepath.Join(dbPath, "mkv"))
+	mkvPath := filepath.Join(dbPath, "mkv")
+	mlog, err := roaringfiles.NewMKV(mkvPath)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to open roaring db")
+		// yuk..
+		if !isLockFileExistsErr(err) {
+			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
+		}
+		if err := cleanupLockFiles(dbPath); err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
+
+		}
+		mlog, err = roaringfiles.NewMKV(mkvPath)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to open roaring db")
+		}
 	}
 
 	if err := mlog.CompressAll(); err != nil {
@@ -146,6 +160,22 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	return mlog, serve, nil
 }
 
+func cleanupLockFiles(root string) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		name := filepath.Base(path)
+		if info.Size() == 0 && len(name) == 41 && name[0] == '.' {
+			log.Println("dropping empty lockflile", path)
+			if err := os.Remove(path); err != nil {
+				return errors.Wrapf(err, "failed to remove %s", name)
+			}
+		}
+		return nil
+	})
+}
+
 const PrefixIndex = "indexes"
 
 func OpenIndex(r Interface, name string, f func(librarian.SeqSetterIndex) librarian.SinkIndex) (librarian.Index, ServeFunc, error) {
@@ -162,14 +192,24 @@ func OpenIndex(r Interface, name string, f func(librarian.SeqSetterIndex) librar
 	if os.IsNotExist(err) {
 		db, err = kv.Create(dbname, opts)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to create KV")
+			return nil, nil, errors.Wrap(err, "failed to create mkv")
 		}
 	} else if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to stat path location")
 	} else {
 		db, err = kv.Open(dbname, opts)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to open KV")
+
+			if !isLockFileExistsErr(err) {
+				return nil, nil, err
+			}
+			if err := cleanupLockFiles(pth); err != nil {
+				return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
+			}
+			db, err = kv.Open(dbname, opts)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to open mkv")
+			}
 		}
 	}
 
@@ -227,4 +267,22 @@ func OpenBadgerIndex(r Interface, name string, f func(*badger.DB) librarian.Sink
 func OpenBlobStore(r Interface) (ssb.BlobStore, error) {
 	bs, err := blobstore.New(r.GetPath("blobs"))
 	return bs, errors.Wrap(err, "error opening blob store")
+}
+
+var lockFileExistsRe = regexp.MustCompile(`cannot access DB \"(.*)\": lock file \"(.*)\" exists`)
+
+func isLockFileExistsErr(err error) bool {
+	panic("TODO: check process isn't running")
+	if err == nil {
+		return false
+	}
+	errStr := errors.Cause(err).Error()
+	if !lockFileExistsRe.MatchString(errStr) {
+		return false
+	}
+	matches := lockFileExistsRe.FindStringSubmatch(errStr)
+	if len(matches) == 3 {
+		return true
+	}
+	return false
 }

@@ -63,7 +63,7 @@ func checkAndLog(err error) {
 	}
 }
 
-func init() {
+func initFlags() {
 	u, err := user.Current()
 	checkFatal(err)
 
@@ -105,6 +105,7 @@ func init() {
 }
 
 func main() {
+	initFlags()
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	defer func() {
 		cancel()
@@ -126,7 +127,8 @@ func main() {
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
-		mksbot.WithUNIXSocket(),
+		// todo: make flag to disable unix sock
+		// mksbot.WithUNIXSocket(),
 	}
 
 	if flagFatBot {
