@@ -239,6 +239,8 @@ go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4 h1:gLSldWRujtUO
 go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4/go.mod h1:3rt+RmZTFZEgfvFxz0ZPDBIWtLJOouWtzV6YbBl6sek=
 go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd h1:ZrHoEdDRN2zTRsJvOEogcGwsrN8dS3RW0LmJ+wvwBWk=
 go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd/go.mod h1:tL7wYSzxnOxe6EV21KUE8ve9nveEpArnfg1dQ6vedIY=
+go.cryptoscope.co/margaret v0.0.12-0.20191014110746-8f9c468d2078 h1:sH3iXh6LXa95mDkiHVf7IZ0NIcK1X7dWAnwy9TbR1jw=
+go.cryptoscope.co/margaret v0.0.12-0.20191014110746-8f9c468d2078/go.mod h1:tL7wYSzxnOxe6EV21KUE8ve9nveEpArnfg1dQ6vedIY=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e h1:KNJubCN/5OPRZrG+IEwSAStOR8efkpxjEPyVI+WqAK0=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e/go.mod h1:dV/i300s3OxZKI0YPlY/hG7w2y9TFgu3oQkNDXBoMQY=
 go.cryptoscope.co/muxrpc v1.5.0 h1:O7bHqN1+qYFgfpXZ8Mk1JwGyTgSlx7C1Oj5i58tgdAE=
