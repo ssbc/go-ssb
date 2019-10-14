@@ -265,13 +265,15 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Wrap(err, "failed to pump messages to peer")
 	}
 
-	if arg.Live {
-		return m.addLiveFeed(
-			ctx, sink,
-			arg.ID,
-			latest,
-			liveLimit(arg, latest),
-		)
-	}
+	// cryptix: this seems to produce some hangs
+	// TODO: make tests with leaving and joining peers while messages are published
+	//if arg.Live {
+	//	return m.addLiveFeed(
+	//		ctx, sink,
+	//		arg.ID,
+	//		latest,
+	//		liveLimit(arg, latest),
+	//	)
+	//}
 	return sink.Close()
 }
