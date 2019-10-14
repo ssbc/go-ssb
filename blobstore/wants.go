@@ -407,6 +407,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 					if err := proc.getBlob(ctx, ref); err != nil {
 						proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
 						proc.wmgr.l.Lock()
+						// TODO: only block after a certain number of attempts?!
 						delete(proc.wmgr.wants, ref.Ref())
 						proc.wmgr.blocked[ref.Ref()] = struct{}{}
 						proc.wmgr.l.Unlock()
