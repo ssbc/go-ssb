@@ -209,9 +209,20 @@ func (g *handler) fetchFeed(
 
 	method := muxrpc.Method{"createHistoryStream"}
 
+	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
+		if err != nil {
+			if luigi.IsEOS(err) {
+				return nil
+			}
+			return err
+		}
+		_, err = g.RootLog.Append(val)
+		return errors.Wrap(err, "failed to append verified message to rootLog")
+	})
+
 	var (
 		src luigi.Source
-		snk luigi.Sink = message.NewVerifySink(fr, latestSeq, latestMsg, g.RootLog, g.hmacSec)
+		snk luigi.Sink = message.NewVerifySink(fr, latestSeq, latestMsg, store, g.hmacSec)
 	)
 
 	switch fr.Algo {

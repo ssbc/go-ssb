@@ -22,13 +22,13 @@ import (
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who *ssb.FeedRef, start margaret.Seq, abs ssb.Message, rl margaret.Log, hmacKey *[32]byte) luigi.Sink {
+func NewVerifySink(who *ssb.FeedRef, start margaret.Seq, abs ssb.Message, snk luigi.Sink, hmacKey *[32]byte) luigi.Sink {
 
 	sd := &streamDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
 		latestMsg: abs,
-		rootLog:   rl,
+		storage:   snk,
 	}
 	switch who.Algo {
 	case ssb.RefAlgoFeedSSB1:
@@ -108,7 +108,7 @@ type streamDrain struct {
 	latestSeq margaret.BaseSeq
 	latestMsg ssb.Message
 
-	rootLog margaret.Log
+	storage luigi.Sink
 }
 
 func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
@@ -122,7 +122,7 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 		return err
 	}
 
-	_, err = ld.rootLog.Append(next)
+	err = ld.storage.Pour(ctx, next)
 	if err != nil {
 		return errors.Wrapf(err, "muxDrain(%s): failed to append message(%s:%d)", ld.who.Ref(), next.Key().Ref(), next.Seq())
 	}
@@ -132,7 +132,7 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 	return nil
 }
 
-func (ld streamDrain) Close() error { return nil }
+func (ld streamDrain) Close() error { return ld.storage.Close() }
 
 // ValidateNext checks the author stays the same across the feed,
 // that he previous hash is correct and that the sequence number is increasing correctly
