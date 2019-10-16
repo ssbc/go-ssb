@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -91,7 +92,17 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
 	aliceAsGabby := *alice
 	aliceAsGabby.Algo = ssb.RefAlgoFeedGabby
-	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, s.RootLog, nil)
+	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
+		if err != nil {
+			if luigi.IsEOS(err) {
+				return nil
+			}
+			return err
+		}
+		_, err = s.RootLog.Append(val)
+		return errors.Wrap(err, "failed to append verified message to rootLog")
+	})
+	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
 
 	err = luigi.Pump(ctx, snk, src)
 	r.NoError(err)
