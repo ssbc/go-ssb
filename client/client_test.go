@@ -6,13 +6,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
-
-	"go.cryptoscope.co/muxrpc"
-	"golang.org/x/sync/errgroup"
-
-	"go.cryptoscope.co/ssb/plugins2"
 
 	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
@@ -20,12 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
+
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
 func TestUnixSock(t *testing.T) {
@@ -134,78 +135,165 @@ func TestLotsOfWhoami(t *testing.T) {
 	r.NoError(srv.Close())
 }
 
-func TestLotsOfStatus(t *testing.T) {
-	r, a := require.New(t), assert.New(t)
+func TestStatusCalls(t *testing.T) {
+	defer leakcheck.Check(t)
 
-	srvRepo := filepath.Join("testrun", t.Name(), "serv")
-	os.RemoveAll(srvRepo)
-	srvLog := newReltimeLogger()
+	mkTCP := func(t *testing.T) (*sbot.Sbot, mkClient) {
+		r := require.New(t)
 
-	srv, err := sbot.New(
-		sbot.WithInfo(srvLog),
-		sbot.WithRepoPath(srvRepo),
-		// sbot.DisableNetworkNode(), skips muxrpc handler
-		sbot.WithListenAddr(":0"),
-		sbot.WithUNIXSocket(),
-	)
-	r.NoError(err, "sbot srv init failed")
+		srvRepo := filepath.Join("testrun", t.Name(), "serv")
+		os.RemoveAll(srvRepo)
+		srvLog := newReltimeLogger()
 
-	ctx, done := context.WithCancel(context.Background())
+		srv, err := sbot.New(
+			sbot.WithInfo(srvLog),
+			sbot.WithRepoPath(srvRepo),
+			sbot.WithListenAddr(":0"),
+		)
+		r.NoError(err, "sbot srv init failed")
 
-	g, ctx := errgroup.WithContext(ctx)
-
-	n := 25
-	for i := n; i > 0; i-- {
-		fn := func() error {
-			tick := time.NewTicker(250 * time.Millisecond)
-			for range tick.C {
-				select {
-				case <-ctx.Done():
-					return nil
-				default:
-
-				}
-				c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
-				if err != nil {
-					return errors.Wrap(err, "failed to make client connection")
-				}
-				// end test boilerplate
-
-				_, err = c.Async(ctx, map[string]interface{}{}, muxrpc.Method{"status"})
-				if err != nil {
-					if errors.Cause(err) == context.Canceled {
-						return nil
-					}
-					return errors.Wrapf(err, "tick%p failed", tick)
-				}
-				if err := c.Close(); err != nil {
-					return errors.Wrapf(err, "tick%p failed close", tick)
-				}
-
+		go func() {
+			err := srv.Network.Serve(context.TODO())
+			if err != nil {
+				panic(err)
 			}
-			return nil
+		}()
+
+		kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
+		r.NoError(err, "failed to load servers keypair")
+		srvAddr := srv.Network.GetListenAddr()
+		return srv, func(ctx context.Context) (*client.Client, error) {
+			c, err := client.NewTCP(ctx, kp, srvAddr)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to make TCP client connection")
+			}
+			return c, nil
 		}
-		g.Go(fn)
 	}
 
-	c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
-	r.NoError(err, "failed to make client connection")
+	mkUnix := func(t *testing.T) (*sbot.Sbot, mkClient) {
+		r := require.New(t)
 
-	for i := 25; i > 0; i-- {
-		time.Sleep(500 * time.Millisecond)
-		ref, err := c.Publish(struct{ Test int }{i})
-		r.NoError(err, "publish %d errored", i)
-		r.NotNil(ref)
+		srvRepo := filepath.Join("testrun", t.Name(), "serv")
+		os.RemoveAll(srvRepo)
+		srvLog := newReltimeLogger()
+
+		srv, err := sbot.New(
+			sbot.WithInfo(srvLog),
+			sbot.WithRepoPath(srvRepo),
+			// sbot.DisableNetworkNode(), skips muxrpc handler
+			sbot.WithListenAddr(":0"),
+			sbot.WithUNIXSocket(),
+		)
+		r.NoError(err, "sbot srv init failed")
+
+		return srv, func(ctx context.Context) (*client.Client, error) {
+			c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to make unix client connection")
+			}
+			return c, nil
+		}
 	}
-	time.Sleep(1 * time.Second)
 
-	done()
+	t.Run("tcp", LotsOfStatusCalls(mkTCP))
+	t.Run("unix", LotsOfStatusCalls(mkUnix))
+}
 
-	a.NoError(c.Close())
+type mkClient func(context.Context) (*client.Client, error)
+type mkPair func(t *testing.T) (*sbot.Sbot, mkClient)
 
-	srv.Shutdown()
-	r.NoError(srv.Close())
-	r.NoError(g.Wait())
+func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
+
+	return func(t *testing.T) {
+		r, a := require.New(t), assert.New(t)
+
+		srv, mkClient := newPair(t)
+		r.NotNil(srv, "no server from init func")
+
+		ctx, done := context.WithCancel(context.Background())
+
+		g, ctx := errgroup.WithContext(ctx)
+
+		var statusCalls uint32
+
+		n := 25 // spawn n clients
+		for i := n; i > 0; i-- {
+			fn := func() error {
+				tick := time.NewTicker(250 * time.Millisecond)
+				for range tick.C {
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+					}
+
+					c, err := mkClient(ctx)
+					if err != nil {
+						if errors.Cause(err) == context.Canceled {
+							return nil
+						}
+						return errors.Wrapf(err, "tick%p failed", tick)
+					}
+
+					_, err = c.Async(ctx, map[string]interface{}{}, muxrpc.Method{"status"})
+					if err != nil {
+						if errors.Cause(err) == context.Canceled {
+							return nil
+						}
+						return errors.Wrapf(err, "tick%p failed", tick)
+					}
+					if err := c.Close(); err != nil {
+						return errors.Wrapf(err, "tick%p failed close", tick)
+					}
+					// fmt.Println(resp)
+					atomic.AddUint32(&statusCalls, 1)
+				}
+				return nil
+			}
+			g.Go(fn)
+		}
+
+		c, err := mkClient(ctx)
+		r.NoError(err, "failed to make client connection")
+
+		// check that we can read messages as we create them from the same connection
+		var lopt message.CreateLogArgs
+		lopt.Live = true
+		lopt.Keys = true
+		lopt.MarshalType = ssb.KeyValueRaw{}
+		src, err := c.CreateLogStream(lopt)
+		r.NoError(err)
+
+		for i := 25; i > 0; i-- {
+			time.Sleep(500 * time.Millisecond)
+			ref, err := c.Publish(struct{ Test int }{i})
+			r.NoError(err, "publish %d errored", i)
+			r.NotNil(ref)
+
+			v, err := src.Next(ctx)
+			r.NoError(err, "message live err %d errored", i)
+
+			msg, ok := v.(ssb.Message)
+			r.True(ok, "not a message: %T", v)
+
+			a.Equal(msg.Key().Hash, ref.Hash, "wrong message: %d - %s", i, ref.Ref())
+		}
+		time.Sleep(1 * time.Second)
+		a.NoError(c.Close())
+
+		done()
+
+		a.GreaterOrEqual(statusCalls, uint32(1000), "expected more status calls")
+
+		v, err := srv.RootLog.Seq().Value()
+		r.NoError(err)
+		r.EqualValues(24, v)
+
+		srv.Shutdown()
+		r.NoError(srv.Close())
+		r.NoError(g.Wait())
+	}
 }
 
 func TestPublish(t *testing.T) {

@@ -102,6 +102,7 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
+		conn.Close()
 		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
@@ -136,6 +137,7 @@ func NewUnix(ctx context.Context, path string) (*Client, error) {
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
+		conn.Close()
 		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
@@ -330,4 +332,5 @@ func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
 }
 
 func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+	req.Stream.CloseWithError(fmt.Errorf("go-ssb/client: unsupported call"))
 }

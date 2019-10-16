@@ -62,7 +62,18 @@ type connEntry struct {
 	started time.Time
 	done    chan struct{}
 }
+
 type connLookupMap map[[32]byte]connEntry
+
+func toActive(a net.Addr) [32]byte {
+	var pk [32]byte
+	shs, ok := netwrap.GetAddr(a, "shs-bs").(secretstream.Addr)
+	if !ok {
+		panic("not an SHS connection")
+	}
+	copy(pk[:], shs.PubKey)
+	return pk
+}
 
 func NewConnTracker() ssb.ConnTracker {
 	return &connTracker{active: make(connLookupMap)}
@@ -92,16 +103,6 @@ func (ct *connTracker) Count() uint {
 	ct.activeLock.Lock()
 	defer ct.activeLock.Unlock()
 	return uint(len(ct.active))
-}
-
-func toActive(a net.Addr) [32]byte {
-	var pk [32]byte
-	shs, ok := netwrap.GetAddr(a, "shs-bs").(secretstream.Addr)
-	if !ok {
-		panic("not an SHS connection")
-	}
-	copy(pk[:], shs.PubKey)
-	return pk
 }
 
 func (ct *connTracker) Active(a net.Addr) (bool, time.Duration) {
@@ -160,17 +161,13 @@ func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
 	oldConn, ok := ct.active[k]
 	ct.activeLock.Unlock()
 	if ok {
-		err := oldConn.c.Close()
-		if err == nil { // error case means broken pipe, nothig to do but to replace
-			// need to wait until the previous conn closed and was removed from the map
-			// otherwise, it's close can remove the new conn from the map and create ghosts
-			select {
-			case <-oldConn.done:
-				// cleaned up after itself
-			case <-time.After(10 * time.Second):
-				log.Println("[warning] not accepted, would ghost connection:", oldConn.c.RemoteAddr().String(), time.Since(oldConn.started))
-				return false
-			}
+		oldConn.c.Close()
+		select {
+		case <-oldConn.done:
+			// cleaned up after itself
+		case <-time.After(10 * time.Second):
+          log.Println("[ConnTracker/lastWins] warning: not accepted, would ghost connection:", oldConn.c.RemoteAddr().String(), time.Since(oldConn.started))
+			return false
 		}
 	}
 	ct.activeLock.Lock()
