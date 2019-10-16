@@ -17,8 +17,11 @@ import (
 
 type createWantsHandler struct {
 	log logging.Interface
-	bs  ssb.BlobStore
-	wm  ssb.WantManager
+
+	self ssb.FeedRef
+
+	bs ssb.BlobStore
+	wm ssb.WantManager
 
 	// sources is a map if sources where the responses are read from.
 	sources map[string]luigi.Source
@@ -56,7 +59,15 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 }
 
 func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-	_, err := h.getSource(ctx, edp)
+	ref, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	if err != nil {
+		return
+	}
+	if ref.Equal(&h.self) {
+		return
+	}
+
+	_, err = h.getSource(ctx, edp)
 	if err != nil {
 		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
 		return

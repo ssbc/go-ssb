@@ -43,7 +43,7 @@ func checkAndLog(log logging.Interface, err error) {
 	}
 }
 
-func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin {
+func New(log logging.Interface, self ssb.FeedRef, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin {
 	rootHdlr := muxrpc.HandlerMux{}
 
 	// TODO: needs priv checks
@@ -75,6 +75,7 @@ func New(log logging.Interface, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin
 		}},
 		{muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
 			log:     log,
+			self:    self,
 			bs:      bs,
 			wm:      wm,
 			sources: make(map[string]luigi.Source),

@@ -87,7 +87,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: add flag to filter specific levels and/or units and pass nop to the others
 	wantsLog := kitlog.With(log, "module", "WantManager")
 	// wantsLog := kitlog.NewNopLogger()
-	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
+	wm := blobstore.NewWantManager(wantsLog, bs, s.KeyPair.Id, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
 	for _, opt := range s.lateInit {
@@ -212,7 +212,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), bs, wm)
+	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, bs, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
