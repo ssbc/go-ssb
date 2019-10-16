@@ -35,7 +35,6 @@ var (
 	longctx      context.Context
 	shutdownFunc func()
 
-	pkr    muxrpc.Packer
 	client muxrpc.Endpoint
 	// client ssbClient.Interface
 
@@ -94,9 +93,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Log("runErr", err)
 	}
-	if pkr != nil {
-		log.Log("pkrClose", pkr.Close())
-	}
 }
 
 func todo(ctx *cli.Context) error {
@@ -113,7 +109,6 @@ func initClient(ctx *cli.Context) error {
 		fmt.Println("killed. shutting down")
 		shutdownFunc()
 		time.Sleep(1 * time.Second)
-		check(pkr.Close())
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(signalc)
@@ -151,7 +146,7 @@ func initClientTCP(ctx *cli.Context) error {
 
 	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{remotPubKey[:]})
 
-	client, err = ssbClient.NewTCPWithSHSCap(longctx, localKey, shsAddr, ctx.String("shscap")) // TODO: shscap
+	client, err = ssbClient.NewTCPWithSHSCap(longctx, localKey, shsAddr, ctx.String("shscap"))
 	if err != nil {
 		return errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
 	}
