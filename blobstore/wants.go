@@ -41,7 +41,9 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 		case MaxSize:
 			wmgr.maxSize = uint(v)
 		default:
-			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
+			if v != nil {
+				level.Warn(log).Log("event", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
+			}
 		}
 	}
 
