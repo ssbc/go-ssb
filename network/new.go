@@ -84,6 +84,8 @@ func New(opts Options) (ssb.Network, error) {
 		// TODO: make this configurable
 		// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 		connTracker: NewAcceptAllTracker(),
+		// So the annyance is that we can't have long-running client conns over TCP with this one even though it keeps the bot cleaner
+		// connTracker: NewLastWinsTracker(),
 
 		remotes: make(map[string]muxrpc.Endpoint),
 	}

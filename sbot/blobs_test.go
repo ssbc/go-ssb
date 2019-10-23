@@ -145,7 +145,7 @@ func TestBlobsPair(t *testing.T) {
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
 	for _, tc := range tests {
-		t.Run(tc.name, tc.tf)
+		t.Run("noop/"+tc.name, tc.tf)
 	}
 
 	info.Log("block1", "done")
@@ -195,7 +195,7 @@ func TestBlobsPair(t *testing.T) {
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
 		i := 0
-		for aliCT.Count() != 1 || bobCT.Count() != 1 {
+		for aliCT.Count() < 1 || bobCT.Count() < 1 {
 			time.Sleep(750 * time.Millisecond)
 			info.Log("debugwait", "waited after connect", "i", i, "a", aliCT.Count(), "b", bobCT.Count())
 			i++

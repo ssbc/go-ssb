@@ -105,6 +105,7 @@ type wantManager struct {
 }
 
 func (wmgr *wantManager) promEvent(name string, n float64) {
+	name = "blobs." + name
 	if wmgr.evtCtr != nil {
 		wmgr.evtCtr.With("event", name).Add(n)
 	} else {
@@ -114,6 +115,7 @@ func (wmgr *wantManager) promEvent(name string, n float64) {
 }
 
 func (wmgr *wantManager) promGauge(name string, n float64) {
+	name = "blobs." + name
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Add(n)
 	} else {
@@ -121,6 +123,7 @@ func (wmgr *wantManager) promGauge(name string, n float64) {
 	}
 }
 func (wmgr *wantManager) promGaugeSet(name string, n int) {
+	name = "blobs." + name
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Set(float64(n))
 	} else {
