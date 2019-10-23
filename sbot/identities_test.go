@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
@@ -112,6 +114,26 @@ func TestMultipleIdentities(t *testing.T) {
 	}
 
 	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+
+	src, err := mainbot.RootLog.Query()
+	r.NoError(err)
+
+	ctx := context.Background()
+	for {
+		v, err := src.Next(ctx)
+		if luigi.IsEOS(err) {
+			break
+		}
+		r.NoError(err)
+		msg, ok := v.(ssb.Message)
+		r.True(ok, "wrong type: %T", v)
+		r.NotNil(msg)
+
+		var emptyv interface{}
+		err = json.Unmarshal(msg.ValueContentJSON(), &emptyv)
+		r.NoError(err)
+		// spew.Dump(emptyv)
+	}
 
 	// individual PMs got delivered
 	pl, ok := mainbot.GetMultiLog("privLogs")

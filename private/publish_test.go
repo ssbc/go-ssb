@@ -16,8 +16,8 @@ import (
 	"go.cryptoscope.co/luigi"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -50,7 +50,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
 			sbot.WithUNIXSocket(),
-			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.Open)),
+			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		)
 
 		r.NoError(err, "sbot srv init failed")
