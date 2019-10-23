@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -103,6 +102,7 @@ func TestWhoami(t *testing.T) {
 }
 
 func TestLotsOfWhoami(t *testing.T) {
+	defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
@@ -221,11 +221,11 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		for i := n; i > 0; i-- {
 			fn := func() error {
 				tick := time.NewTicker(250 * time.Millisecond)
-				for range tick.C {
+				for {
 					select {
 					case <-ctx.Done():
 						return nil
-					default:
+					case <-tick.C:
 					}
 
 					c, err := mkClient(ctx)
@@ -249,7 +249,6 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 					// fmt.Println(resp)
 					atomic.AddUint32(&statusCalls, 1)
 				}
-				return nil
 			}
 			g.Go(fn)
 		}
@@ -283,6 +282,7 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		a.NoError(c.Close())
 
 		done()
+		r.NoError(g.Wait())
 
 		a.GreaterOrEqual(statusCalls, uint32(1000), "expected more status calls")
 
@@ -292,11 +292,11 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		srv.Shutdown()
 		r.NoError(srv.Close())
-		r.NoError(g.Wait())
 	}
 }
 
 func TestPublish(t *testing.T) {
+	defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
@@ -378,12 +378,13 @@ func TestPublish(t *testing.T) {
 }
 
 func TestTangles(t *testing.T) {
+	defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	// srvLog := newReltimeLogger()
-	srvLog, _ := logtest.KitLogger("srv", t)
+	srvLog := newReltimeLogger()
+
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),

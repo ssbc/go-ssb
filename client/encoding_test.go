@@ -17,11 +17,13 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestEncodeHistStreamAsJSON(t *testing.T) {
+	defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
