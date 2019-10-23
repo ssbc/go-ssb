@@ -56,15 +56,17 @@ func TestManager(t *testing.T) {
 					mgr = Manager{idx}
 				}),
 				opManagerAddKey{
-					Mgr: &mgr,
-					ID:  ID("test"),
-					Key: Key("topsecret"),
-					Ctx: &ctx,
+					Mgr:  &mgr,
+					ID:   ID("test"),
+					Type: "IDSign",
+					Key:  Key("topsecret"),
+					Ctx:  &ctx,
 				},
 				opIndexGet{
 					Index: &idx,
 					Addr: librarian.Addr([]byte{
-						0, 0, // type is 0
+						6, 0, // type is 6 byte long
+						'I', 'D', 'S', 'i', 'g', 'n', // "IDSign"
 						4, 0, // db key is four byte long
 						't', 'e', 's', 't', // "test"
 					}),
@@ -74,7 +76,8 @@ func TestManager(t *testing.T) {
 				opDBGet{
 					DB: &db,
 					Key: []byte{
-						0, 0, // type is 0
+						6, 0, // type is 6 byte long
+						'I', 'D', 'S', 'i', 'g', 'n', // "IDSign"
 						4, 0, // db key is four byte long
 						't', 'e', 's', 't', // "test"
 					},
@@ -91,15 +94,17 @@ func TestManager(t *testing.T) {
 					}(Keys{Key("topsecret")}),
 				},
 				opManagerAddKey{
-					Mgr: &mgr,
-					ID:  ID("test"),
-					Key: Key("alsosecret"),
-					Ctx: &ctx,
+					Mgr:  &mgr,
+					ID:   ID("test"),
+					Type: "IDSign",
+					Key:  Key("alsosecret"),
+					Ctx:  &ctx,
 				},
 				opIndexGet{
 					Index: &idx,
 					Addr: librarian.Addr([]byte{
-						0, 0, // type is 0
+						6, 0, // type is 6 byte long
+						'I', 'D', 'S', 'i', 'g', 'n', // "IDSign"
 						4, 0, // db key is four byte long
 						't', 'e', 's', 't', // "test"
 					}),
@@ -109,7 +114,8 @@ func TestManager(t *testing.T) {
 				opDBGet{
 					DB: &db,
 					Key: []byte{
-						0, 0, // type 0
+						6, 0, // type is 6 byte long
+						'I', 'D', 'S', 'i', 'g', 'n', // "IDSign"
 						4, 0, // db key is four byte long
 						't', 'e', 's', 't', // "test"
 					},
@@ -134,7 +140,7 @@ func TestManager(t *testing.T) {
 				opDBGet{
 					DB: &db,
 					Key: []byte{
-						0, 0, // type 0
+						0, 0, // empty type
 						3, 0, // db key is four byte long
 						'f', 'o', 'o', // "foo"
 					},
@@ -153,6 +159,7 @@ func TestManager(t *testing.T) {
 				opManagerGetKeys{
 					Mgr:     &mgr,
 					ID:      ID("test"),
+					Type:    "IDSign",
 					Ctx:     &ctx,
 					ExpKeys: Keys{Key("topsecret"), Key("alsosecret")},
 				},
@@ -163,15 +170,60 @@ func TestManager(t *testing.T) {
 					ExpKeys: Keys{Key("bar")},
 				},
 				opManagerRmKeys{
-					Mgr: &mgr,
-					ID:  ID("test"),
-					Ctx: &ctx,
+					Mgr:  &mgr,
+					ID:   ID("test"),
+					Type: "IDSign",
+					Ctx:  &ctx,
 				},
 				opManagerGetKeys{
 					Mgr:    &mgr,
 					ID:     ID("test"),
+					Type:   "IDSign",
 					Ctx:    &ctx,
 					ExpErr: fmt.Sprintf("no such key at (IDSign, %x)", "test"),
+				},
+			},
+		},
+		{
+			Name: "idxKey encode - short buffer",
+			Ops: []testops.Op{
+				opDBKeyEncode{
+					Key: &idxKey{
+						t:  "type",
+						id: ID("test"),
+					},
+					BufLen: 1,
+					ExpErr: "buffer too short: need 12, got 1",
+				},
+			},
+		},
+		{
+			Name: "idxKey decode",
+			Ops: []testops.Op{
+				opDBKeyDecode{
+					Bytes:  []byte{0}, // only one byte, too short to read type length
+					ExpErr: "data too short to read type length",
+				},
+				opDBKeyDecode{
+					Bytes:  []byte{4, 0, 1}, // buffer too short to read type of length 4
+					ExpErr: "invalid key - claimed type length exceeds buffer",
+				},
+				opDBKeyDecode{
+					Bytes:  []byte{4, 0, 't', 'e', 's', 't', 6}, // buffer too short to read type of length 4 plus 2 byte size
+					ExpErr: "invalid key - claimed type length exceeds buffer",
+				},
+				opDBKeyDecode{
+					Bytes: []byte{
+						4, 0, 't', 'e', 's', 't',
+						6, 0, 'f', 'o', 'o', 'b'}, // buffer too short to read id of length 6
+					ExpErr: "invalid key - claimed id length exceeds buffer",
+				},
+				opDBKeyDecode{
+					Bytes: []byte{
+						4, 0, 't', 'e', 's', 't',
+						6, 0, 'f', 'o', 'o', 'b', 'a', 'r',
+					},
+					ExpKey: &idxKey{t: "test", id: ID("foobar")},
 				},
 			},
 		},
@@ -180,22 +232,24 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				opDBKeyEncode{
 					Key: &idxKey{
-						t:  0,
+						t:  "type",
 						id: ID("test"),
 					},
 					ExpData: []byte{
-						0, 0,
+						4, 0,
+						't', 'y', 'p', 'e',
 						4, 0,
 						't', 'e', 's', 't',
 					},
 				},
 				opDBKeyEncode{
 					Key: &idxKey{
-						t:  1,
+						t:  "group",
 						id: ID("test"),
 					},
 					ExpData: []byte{
-						1, 0,
+						5, 0,
+						'g', 'r', 'o', 'u', 'p',
 						4, 0,
 						't', 'e', 's', 't',
 					},

@@ -7,20 +7,53 @@ import (
 )
 
 type opDBKeyEncode struct {
-	Key *idxKey
+	Key    *idxKey
+	BufLen int
 
 	ExpData []byte
 	ExpErr  string
 }
 
 func (op opDBKeyEncode) Do(t *testing.T, env interface{}) {
-	data, err := op.Key.MarshalBinary()
+	var (
+		data []byte
+		err  error
+	)
+
+	if op.BufLen == 0 {
+		data, err = op.Key.MarshalBinary()
+	} else {
+		data = make([]byte, op.BufLen)
+		var n int64
+		n, err = op.Key.Read(data)
+		data = data[:int(n)]
+	}
+
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on idxk.Encode")
+		require.Equal(t, op.ExpData, data, "wrong marshaled data")
 	} else {
 		require.EqualError(t, err, op.ExpErr, "wrong error")
 	}
-	require.Equal(t, op.ExpData, data, "wrong marshaled data")
+}
+
+type opDBKeyDecode struct {
+	Bytes []byte
+
+	ExpKey *idxKey
+	ExpErr string
+}
+
+func (op opDBKeyDecode) Do(t *testing.T, env interface{}) {
+	idxk := &idxKey{}
+	err := idxk.UnmarshalBinary(op.Bytes)
+
+	if op.ExpErr == "" {
+		require.NoError(t, err, "unexpected error on idxk.Unmarshal")
+		require.Equal(t, op.ExpKey, idxk, "wrong key")
+	} else {
+		require.EqualError(t, err, op.ExpErr, "wrong error")
+	}
 }
 
 type opDBKeyLen struct {
