@@ -14,3 +14,9 @@ plugins/gossip/testdata
 # ignore go analysis files, anywhere
 **/c.out
 **/trace.out
+
+# ignore vim swap files
+**/.*.sw[op]
+
+# ignore go coverage reports
+**/cover.out
