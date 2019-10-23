@@ -21,6 +21,10 @@ type Message struct {
 	BodyBox  []byte
 }
 
+func NewBoxer(rand io.Reader) *Boxer {
+	return &Boxer{rand: rand}
+}
+
 type Boxer struct {
 	// TODO store base infos?
 	// TODO use a simple buffer pool?
