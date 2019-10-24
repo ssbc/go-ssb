@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
@@ -29,7 +30,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
 
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	testKP, err := ssb.NewKeyPair(nil)
 	r.NoError(err)

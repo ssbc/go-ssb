@@ -49,7 +49,7 @@ func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (Builder, error)
 		},
 	}
 
-	go func() {
+	go func() { // TODO: add io.Closer to Builder to kill this query
 		src, err := contacts.Query(margaret.Live(true))
 		if err != nil {
 			err = errors.Wrap(err, "failed to make live query for contacts")

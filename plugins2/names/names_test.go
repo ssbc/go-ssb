@@ -14,12 +14,14 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
-func TestNames(t *testing.T) {
+func XTestNames(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	hk := make([]byte, 32)
@@ -72,9 +74,6 @@ func TestNames(t *testing.T) {
 		{"bert", ssb.NewAboutName(kpCloe.Id, "that cloe")},
 		{"cloe", ssb.NewAboutName(kpBert.Id, "iditot")},
 		{"cloe", ssb.NewAboutName(kpCloe.Id, "i'm cloe!")},
-		// {"arny", map[string]interface{}{"hello": 123}},
-		// {"bert", map[string]interface{}{"world": 456}},
-		// {"cloe", map[string]interface{}{"test": 789}},
 	}
 
 	for idx, intro := range intros {
@@ -118,4 +117,6 @@ func TestNames(t *testing.T) {
 
 	r.NoError(c.Close())
 
+	mainbot.Shutdown()
+	r.NoError(mainbot.Close())
 }

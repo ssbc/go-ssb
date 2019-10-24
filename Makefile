@@ -4,9 +4,6 @@ PKGS := $(shell go list ./... | grep -v /vendor | grep -v node_modules)
 test:
 	go test -failfast -race -timeout 2m $(PKGS)
 
-
-BIN_DIR := $(GOPATH)/bin
-
 VERSION = $(shell git describe --tags --exact-match)
 ifeq ($(VERSION),)
 	VERSION = $(shell git rev-parse --short HEAD)

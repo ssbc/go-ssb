@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
 func TestFeedFromJS(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
 
@@ -149,6 +150,7 @@ pull(
 }
 
 func TestFeedFromGo(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
@@ -277,9 +279,13 @@ func TestFeedFromGo(t *testing.T) {
 	r.EqualValues(storedMsg.Seq(), 4)
 
 	s.FSCK(uf)
+
+	ts.wait()
 }
 
-func TestFeedFromGoLive(t *testing.T) {
+// We need more complete tests that cover joining and leaving peers to make sure we don't leak querys, rpc streams or other goroutiens
+func XTestFeedFromGoLive(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)

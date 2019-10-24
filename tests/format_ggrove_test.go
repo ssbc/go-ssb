@@ -15,11 +15,13 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestGabbyFeedFromGo(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newSession(t, nil, nil)

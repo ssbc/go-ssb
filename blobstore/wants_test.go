@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +19,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	mmock "go.cryptoscope.co/muxrpc/mock"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 func TestWantManager(t *testing.T) {
@@ -90,7 +90,8 @@ func TestWantManager(t *testing.T) {
 					a.NoError(delBlobStore(), "error deleting blob store directory")
 				}
 			}()
-			log, _ := logtest.KitLogger(t.Name(), t)
+
+			log := testutils.NewRelativeTimeLogger(nil)
 			wmgr := NewWantManager(log, bs)
 
 			for _, str := range tc.localBlobs {

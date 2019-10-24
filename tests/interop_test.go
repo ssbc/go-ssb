@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -25,6 +24,7 @@ import (
 	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -81,29 +81,8 @@ func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
 	repo := filepath.Join("testrun", t.Name())
 	os.RemoveAll(repo)
 
-	// Choose you logger!
-	// use the "logtest" line if you want to log through calls to `t.Log`
-	// use the "NewLogfmtLogger" line if you want to log to stdout
-	// the test logger does not print anything if the command hangs, so you have an alternative
-	var info = log.NewNopLogger()
-	if testing.Verbose() {
-		// TODO: multiwriter?
-		info = log.NewLogfmtLogger(os.Stderr)
-	}
-	// timestamps!
-	var l sync.Mutex
-	start := time.Now()
-	diffTime := func() interface{} {
-		l.Lock()
-		defer l.Unlock()
-		newStart := time.Now()
-		since := newStart.Sub(start)
-		// start = newStart
-		return since
-	}
-
 	return &testSession{
-		info:    log.With(info, "ts", log.Valuer(diffTime)),
+		info:    testutils.NewRelativeTimeLogger(nil),
 		repo:    repo,
 		t:       t,
 		keySHS:  appKey,
@@ -173,11 +152,7 @@ var jsBotCnt = 0
 func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot.js")
-	if testing.Verbose() {
-		cmd.Stderr = os.Stderr
-	} else {
-		cmd.Stderr = logtest.Logger("js", ts.t)
-	}
+	cmd.Stderr = os.Stderr
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 

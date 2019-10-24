@@ -10,19 +10,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
+	"go.cryptoscope.co/ssb/internal/testutils"
+
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 )
 
 func TestGabbySync(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	// a := assert.New(t)
 	ctx := context.TODO()
@@ -34,14 +36,15 @@ func TestGabbySync(t *testing.T) {
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
-	aliLog, _ := logtest.KitLogger("ali", t)
+	mainLog := testutils.NewRelativeTimeLogger(nil)
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
-		WithInfo(aliLog),
+		WithInfo(log.With(mainLog, "unit", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -58,15 +61,15 @@ func TestGabbySync(t *testing.T) {
 	r.NoError(err)
 	bobsKey.Id.Algo = ssb.RefAlgoFeedGabby
 
-	bobLog, _ := logtest.KitLogger("bob", t)
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithKeyPair(bobsKey),
-		WithInfo(bobLog),
+		WithInfo(log.With(mainLog, "unit", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)

@@ -11,19 +11,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
+	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
 func TestFeedsOneByOne(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -35,19 +35,20 @@ func TestFeedsOneByOne(t *testing.T) {
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
-	aliLog, _ := logtest.KitLogger("ali", t)
-	// aliLog := log.NewLogfmtLogger(os.Stderr)
+	mainLog := testutils.NewRelativeTimeLogger(nil)
+
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
-		WithInfo(aliLog),
+		WithInfo(log.With(mainLog, "unit", "ali")),
 		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)
@@ -59,19 +60,18 @@ func TestFeedsOneByOne(t *testing.T) {
 		close(aliErrc)
 	}()
 
-	bobLog, _ := logtest.KitLogger("bob", t)
-	// bobLog := log.NewLogfmtLogger(os.Stderr)
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
-		WithInfo(bobLog),
+		WithInfo(log.With(mainLog, "unit", "bob")),
 		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err)
 
 	var bobErrc = make(chan error, 1)

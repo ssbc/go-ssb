@@ -11,17 +11,17 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
 func TestPublishUnicode(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx := context.TODO()
 
@@ -30,13 +30,14 @@ func TestPublishUnicode(t *testing.T) {
 	r.Equal(32, n)
 	os.RemoveAll("testrun")
 
-	aliLog, _ := logtest.KitLogger("ali", t)
+	mainLog := testutils.NewRelativeTimeLogger(nil)
 	ali, err := New(
 		WithHMACSigning(hk),
-		WithInfo(aliLog),
+		WithInfo(mainLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)))
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
 	r.NoError(err)
 
 	var aliErrc = make(chan error, 1)

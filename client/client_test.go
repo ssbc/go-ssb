@@ -25,6 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
@@ -33,7 +34,7 @@ func TestUnixSock(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
@@ -64,7 +65,7 @@ func TestWhoami(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
@@ -107,7 +108,7 @@ func TestLotsOfWhoami(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
@@ -143,7 +144,7 @@ func TestStatusCalls(t *testing.T) {
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
-		srvLog := newReltimeLogger()
+		srvLog := testutils.NewRelativeTimeLogger(nil)
 
 		srv, err := sbot.New(
 			sbot.WithInfo(srvLog),
@@ -176,7 +177,7 @@ func TestStatusCalls(t *testing.T) {
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
-		srvLog := newReltimeLogger()
+		srvLog := testutils.NewRelativeTimeLogger(nil)
 
 		srv, err := sbot.New(
 			sbot.WithInfo(srvLog),
@@ -302,7 +303,7 @@ func TestPublish(t *testing.T) {
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
 
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
@@ -383,7 +384,7 @@ func TestTangles(t *testing.T) {
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),

@@ -17,12 +17,14 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 )
 
 func TestMultipleIdentities(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	hk := make([]byte, 32)

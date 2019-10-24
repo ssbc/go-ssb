@@ -15,11 +15,12 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 )
 
 func TestBlobToJS(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
-
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
@@ -47,6 +48,7 @@ func TestBlobToJS(t *testing.T) {
 }
 
 func TestBlobFromJS(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	const fooBarRef = "&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256"
@@ -114,7 +116,7 @@ func TestBlobFromJS(t *testing.T) {
 }
 
 func TestBlobWithHop(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)

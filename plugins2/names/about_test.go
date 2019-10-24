@@ -11,18 +11,21 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestAboutNames(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx := context.TODO()
 
@@ -33,10 +36,9 @@ func TestAboutNames(t *testing.T) {
 	repoPath := filepath.Join("testrun", t.Name(), "about")
 	os.RemoveAll(repoPath)
 
-	aliLog, _ := logtest.KitLogger("ali", t)
 	ali, err := sbot.New(
 		sbot.WithHMACSigning(hk),
-		sbot.WithInfo(aliLog),
+		sbot.WithInfo(testutils.NewRelativeTimeLogger(nil)),
 		sbot.WithRepoPath(repoPath),
 		sbot.WithUNIXSocket(),
 		sbot.LateOption(sbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),

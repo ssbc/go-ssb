@@ -6,11 +6,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,24 +15,11 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/sbot"
 )
-
-func newReltimeLogger() log.Logger {
-	srvLog := log.NewJSONLogger(os.Stderr)
-	var l sync.Mutex
-	start := time.Now()
-	diffTime := func() interface{} {
-		l.Lock()
-		defer l.Unlock()
-		newStart := time.Now()
-		since := newStart.Sub(start)
-		return since
-	}
-	return log.With(srvLog, "ts", log.Valuer(diffTime))
-}
 
 func TestReplicateUpTo(t *testing.T) {
 	r, a := require.New(t), assert.New(t)
@@ -43,7 +27,7 @@ func TestReplicateUpTo(t *testing.T) {
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
 
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),

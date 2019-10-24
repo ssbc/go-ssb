@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -25,7 +26,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
 	os.RemoveAll(srvRepo)
 
-	srvLog := newReltimeLogger()
+	srvLog := testutils.NewRelativeTimeLogger(nil)
 
 	srv, err := sbot.New(
 		sbot.WithInfo(srvLog),
