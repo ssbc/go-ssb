@@ -139,6 +139,14 @@ func (ref MessageRef) Ref() string {
 	return fmt.Sprintf("%%%s.%s", base64.StdEncoding.EncodeToString(ref.Hash), ref.Algo)
 }
 
+func (ref MessageRef) Equal(other MessageRef) bool {
+	if ref.Algo != other.Algo {
+		return false
+	}
+
+	return bytes.Equal(ref.Hash, other.Hash)
+}
+
 var (
 	_ encoding.TextMarshaler   = (*MessageRef)(nil)
 	_ encoding.TextUnmarshaler = (*MessageRef)(nil)

@@ -12,14 +12,15 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
+	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 func TestFeedsOneByOne(t *testing.T) {
@@ -34,6 +35,8 @@ func TestFeedsOneByOne(t *testing.T) {
 	rand.Read(appKey)
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
+
+	botgroup, ctx := errgroup.WithContext(ctx)
 
 	mainLog := testutils.NewRelativeTimeLogger(nil)
 
@@ -51,14 +54,13 @@ func TestFeedsOneByOne(t *testing.T) {
 	)
 	r.NoError(err)
 
-	var aliErrc = make(chan error, 1)
-	go func() {
+	botgroup.Go(func() error {
 		err := ali.Network.Serve(ctx)
 		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
+			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
 		}
-		close(aliErrc)
-	}()
+		return err
+	})
 
 	bob, err := New(
 		WithAppKey(appKey),
@@ -74,14 +76,13 @@ func TestFeedsOneByOne(t *testing.T) {
 	)
 	r.NoError(err)
 
-	var bobErrc = make(chan error, 1)
-	go func() {
+	botgroup.Go(func() error {
 		err := bob.Network.Serve(ctx)
 		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
+			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
 		}
-		close(bobErrc)
-	}()
+		return err
+	})
 
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
@@ -108,7 +109,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	alisLog, err := uf.Get(ali.KeyPair.Id.StoredAddr())
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 50; i++ {
 		t.Logf("runniung connect %d", i)
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
@@ -136,8 +137,8 @@ func TestFeedsOneByOne(t *testing.T) {
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
 	cancel()
+	r.NoError(botgroup.Wait())
 }
 
 // utils

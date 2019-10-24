@@ -8,27 +8,29 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
-	"go.mindeco.de/ssb-gabbygrove"
+	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message/legacy"
 )
 
-func NewWrappedLog(in margaret.Log) *WrappedLog {
-	return &WrappedLog{Log: in}
-}
-
-var _ margaret.Log = (*WrappedLog)(nil)
-
-type WrappedLog struct {
+type AlterableLog interface {
 	margaret.Log
+	margaret.Alterer
+	io.Closer
 }
+
+func NewWrappedLog(in AlterableLog) *WrappedLog {
+	return &WrappedLog{AlterableLog: in}
+}
+
+type WrappedLog struct{ AlterableLog }
 
 func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
-    if mm, ok := val.(*MultiMessage); ok {
-      return wl.Log.Append(*mm)
-    }
-  
+	if mm, ok := val.(*MultiMessage); ok {
+		return wl.AlterableLog.Append(*mm)
+	}
+
 	var mm MultiMessage
 
 	if osm, ok := val.(legacy.OldStoredMessage); ok {
@@ -41,9 +43,8 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 			Timestamp_: osm.Timestamp,
 			Raw_:       osm.Raw,
 		}
-		return wl.Log.Append(mm)
+		return wl.AlterableLog.Append(mm)
 	}
-
 
 	abs, ok := val.(ssb.Message)
 	if !ok {
@@ -63,12 +64,5 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 		return margaret.SeqEmpty, errors.Errorf("wrappedLog: unsupported message type: %T", val)
 	}
 
-	return wl.Log.Append(mm)
-}
-
-func (wl WrappedLog) Close() error {
-	if clo, ok := wl.Log.(io.Closer); ok {
-		return clo.Close()
-	}
-	return nil
+	return wl.AlterableLog.Append(mm)
 }

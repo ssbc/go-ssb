@@ -4,7 +4,6 @@ package sbot
 
 import (
 	"context"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -14,9 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/offset2"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -32,20 +33,12 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 	}
 	defer uf.Close()
 
-	rootLog, err := repo.OpenLog(r)
+	rootLog, err := offset2.Open(r.GetPath("log"), multimsg.MargaretCodec{})
 	if err != nil {
 		err = errors.Wrap(err, "NullFeed: root-log open failed")
 		return err
 	}
-	if c, ok := rootLog.(io.Closer); ok {
-		defer c.Close()
-	}
-
-	alterLog, ok := rootLog.(margaret.Alterer)
-	if !ok {
-		err = errors.Errorf("NullFeed: not an alterer: %T", rootLog)
-		return err
-	}
+	defer rootLog.Close()
 
 	userSeqs, err := uf.Get(ref.StoredAddr())
 	if err != nil {
@@ -69,7 +62,7 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 		if !ok {
 			return errors.Errorf("")
 		}
-		return alterLog.Null(seq)
+		return rootLog.Null(seq)
 	})
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil {

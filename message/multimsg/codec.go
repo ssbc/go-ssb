@@ -13,12 +13,14 @@ import (
 
 type MargaretCodec struct{}
 
+func (c MargaretCodec) NewEncoder(w io.Writer) margaret.Encoder { return encoder{w: w} }
+func (c MargaretCodec) NewDecoder(r io.Reader) margaret.Decoder { return decoder{r: r} }
+
 func (c MargaretCodec) Marshal(v interface{}) ([]byte, error) {
 	mm, ok := v.(MultiMessage)
 	if !ok {
 		return nil, errors.Errorf("mmCodec: wrong type: %T", v)
 	}
-
 	return mm.MarshalBinary()
 }
 
@@ -28,18 +30,7 @@ func (c MargaretCodec) Unmarshal(data []byte) (interface{}, error) {
 	return &mm, err
 }
 
-func (c MargaretCodec) NewEncoder(w io.Writer) margaret.Encoder {
-
-	return encoder{w: w}
-}
-
-func (c MargaretCodec) NewDecoder(r io.Reader) margaret.Decoder {
-	return decoder{r: r}
-}
-
-type encoder struct {
-	w io.Writer
-}
+type encoder struct{ w io.Writer }
 
 func (enc encoder) Encode(v interface{}) error {
 	mm, ok := v.(MultiMessage)
@@ -54,9 +45,7 @@ func (enc encoder) Encode(v interface{}) error {
 	return err
 }
 
-type decoder struct {
-	r io.Reader
-}
+type decoder struct{ r io.Reader }
 
 func (dec decoder) Decode() (interface{}, error) {
 	bin, err := ioutil.ReadAll(io.LimitReader(dec.r, 64*1024))

@@ -54,3 +54,5 @@ type ErrWrongType struct {
 func (ewt ErrWrongType) Error() string {
 	return fmt.Sprintf("ErrWrongType: want: %s has: %s", ewt.want, ewt.has)
 }
+
+var ErrUnuspportedFormat = errors.Errorf("ssb: unsupported format")

@@ -51,3 +51,7 @@ type Status struct {
 		MultiLog map[string]int64
 	}
 }
+
+type ContentNuller interface {
+	NullContent(feed *FeedRef, seq uint) error
+}

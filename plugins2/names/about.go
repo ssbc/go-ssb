@@ -209,6 +209,8 @@ func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, repo.Ser
 		return nil, nil, errors.Wrap(err, "error getting about index")
 	}
 
+	// TODO: hook serve to close db
+
 	plug.about = aboutStore{db}
 
 	return idx, serve, err

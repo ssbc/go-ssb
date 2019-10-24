@@ -18,13 +18,13 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -66,7 +66,7 @@ type Sbot struct {
 
 	repoPath         string
 	KeyPair          *ssb.KeyPair
-	RootLog          margaret.Log
+	RootLog          multimsg.AlterableLog
 	liveIndexUpdates bool
 
 	PublishLog     ssb.Publisher

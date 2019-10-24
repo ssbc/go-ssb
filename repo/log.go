@@ -4,12 +4,11 @@ package repo
 
 import (
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/offset2"
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
-func OpenLog(r Interface, path ...string) (margaret.Log, error) {
+func OpenLog(r Interface, path ...string) (multimsg.AlterableLog, error) {
 	// prefix path with "logs" if path is not empty, otherwise use "log"
 	path = append([]string{"log"}, path...)
 	if len(path) > 1 {

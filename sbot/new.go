@@ -111,7 +111,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 		uf, ok = s.mlogIndicies[userFeedsName]
 		if !ok {
-			return nil, errors.Errorf("sbot: failed to open userFeeds index")
+			return nil, errors.Errorf("sbot: failed get loaded default index")
+		}
+	}
+
+	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
+		var dcrTrigger dropContentTrigger
+		dcrTrigger.root = s.RootLog
+		dcrTrigger.feeds = uf
+		dcrTrigger.nuller = s
+		err = MountSimpleIndex("content-delete-requests", dcrTrigger.MakeSimpleIndex)(s)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open load default DCR index")
 		}
 	}
 
