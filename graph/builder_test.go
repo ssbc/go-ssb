@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +21,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/repo"
@@ -29,7 +29,7 @@ import (
 
 func makeBadger(t *testing.T) testStore {
 	r := require.New(t)
-	info, _ := logtest.KitLogger(t.Name(), t)
+	info := testutils.NewRelativeTimeLogger(nil)
 
 	tRepoPath, err := ioutil.TempDir("", "badgerTest")
 	r.NoError(err)
@@ -76,7 +76,7 @@ func TestBadger(t *testing.T) {
 
 func makeTypedLog(t *testing.T) testStore {
 	r := require.New(t)
-	info, _ := logtest.KitLogger(t.Name(), t)
+	info := testutils.NewRelativeTimeLogger(nil)
 
 	tRepoPath, err := ioutil.TempDir("", "test_mlog")
 	r.NoError(err)

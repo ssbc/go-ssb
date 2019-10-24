@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging"
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -27,6 +25,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins/test"
 	"go.cryptoscope.co/ssb/repo"
@@ -62,15 +61,9 @@ func (tc *testCase) runTest(t *testing.T) {
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	defer cancel()
 
-	var infoAlice, infoBob logging.Interface
-	if testing.Verbose() {
-		l := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-		infoAlice = log.With(l, "bot", "alice")
-		infoBob = log.With(l, "bot", "bob")
-	} else {
-		infoAlice, _ = logtest.KitLogger("alice", t)
-		infoBob, _ = logtest.KitLogger("bob", t)
-	}
+	l := testutils.NewRelativeTimeLogger(nil)
+	infoAlice := log.With(l, "bot", "alice")
+	infoBob := log.With(l, "bot", "bob")
 
 	srcRepo := test.LoadTestDataPeer(t, tc.path)
 	srcKeyPair, err := repo.DefaultKeyPair(srcRepo)
@@ -271,7 +264,7 @@ func BenchmarkReplicate(b *testing.B) {
 	var wg sync.WaitGroup
 
 	srcRepo := test.LoadTestDataPeer(b, "testdata/largeRepo")
-	bench, _ := logtest.KitLogger("bench", b)
+	bench := log.NewNopLogger()
 	b.ResetTimer()
 
 	srcRootLog, err := repo.OpenLog(srcRepo)

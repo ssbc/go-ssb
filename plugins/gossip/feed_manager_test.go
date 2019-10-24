@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +17,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
@@ -137,7 +137,7 @@ func TestCreateHistoryStream(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Log("Test case:", test.Name)
 			r := require.New(t)
-			l, _ := logtest.KitLogger(t.Name(), t)
+			l := testutils.NewRelativeTimeLogger(nil)
 			infoAlice := log.With(l, "bot", "alice")
 
 			ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)

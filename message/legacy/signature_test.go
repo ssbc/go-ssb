@@ -7,11 +7,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
 
@@ -216,7 +216,7 @@ func runCompatScript(t *testing.T, env []string) string {
 
 	var buf bytes.Buffer
 	cmd := exec.Command("node", "./signature_compat.js")
-	cmd.Stderr = logtest.Logger("nodejs", t)
+	cmd.Stderr = os.Stderr
 	cmd.Stdout = &buf
 	cmd.Env = env
 

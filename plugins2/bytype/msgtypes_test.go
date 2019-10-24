@@ -22,7 +22,6 @@ func TestMessageTypes(t *testing.T) {
 	// TODO: abstract serving and error channel handling
 	// Meta TODO: close handling and status of indexing
 	r := require.New(t)
-	//info, _ := logtest.KitLogger(t.Name(), t)
 
 	tRepoPath, err := ioutil.TempDir("", t.Name())
 	r.NoError(err)

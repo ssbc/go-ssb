@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cryptix/go/logging/logtest"
-
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/offset2"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -22,7 +21,7 @@ import (
 func TestUpgradeToMultiMessage(t *testing.T) {
 	r := require.New(t)
 
-	logger, _ := logtest.KitLogger(t.Name(), t)
+	logger := testutils.NewRelativeTimeLogger(nil)
 
 	testPath := filepath.Join("testrun", t.Name())
 	os.RemoveAll(testPath)
