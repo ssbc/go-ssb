@@ -452,35 +452,35 @@ func TestPeople(t *testing.T) {
 			},
 		},
 
-		{
-			name: "inviteAccept",
-			ops: []PeopleOp{
-				PeopleOpNewPeer{"alice"},
-				PeopleOpNewPeer{"bob"},
-				PeopleOpNewPeer{"claire"},
+		// { TODO: unfinished
+		// 	name: "inviteAccept",
+		// 	ops: []PeopleOp{
+		// 		PeopleOpNewPeer{"alice"},
+		// 		PeopleOpNewPeer{"bob"},
+		// 		PeopleOpNewPeer{"claire"},
 
-				// friends
-				PeopleOpFollow{"alice", "bob"},
-				PeopleOpFollow{"bob", "alice"},
+		// 		// friends
+		// 		PeopleOpFollow{"alice", "bob"},
+		// 		PeopleOpFollow{"bob", "alice"},
 
-				// bob invites claire
-				PeopleOpInvites{"bob", "claire"},
-			},
-			asserts: []PeopleAssertMaker{
-				// follow setup
-				PeopleAssertFollows("alice", "bob", true),
-				PeopleAssertFollows("bob", "alice", true),
+		// 		// bob invites claire
+		// 		PeopleOpInvites{"bob", "claire"},
+		// 	},
+		// 	asserts: []PeopleAssertMaker{
+		// 		// follow setup
+		// 		PeopleAssertFollows("alice", "bob", true),
+		// 		PeopleAssertFollows("bob", "alice", true),
 
-				// invite confirm interpretation
-				PeopleAssertFollows("bob", "claire", true),
-				PeopleAssertFollows("claire", "bob", true),
-				PeopleAssertPathDist("alice", "claire", 2),
+		// 		// invite confirm interpretation
+		// 		PeopleAssertFollows("bob", "claire", true),
+		// 		PeopleAssertFollows("claire", "bob", true),
+		// 		PeopleAssertPathDist("alice", "claire", 2),
 
-				PeopleAssertAuthorize("alice", "claire", 0, false),
-				PeopleAssertAuthorize("alice", "claire", 1, true),
-				PeopleAssertAuthorize("alice", "claire", 2, true),
-			},
-		},
+		// 		PeopleAssertAuthorize("alice", "claire", 0, false),
+		// 		PeopleAssertAuthorize("alice", "claire", 1, true),
+		// 		PeopleAssertAuthorize("alice", "claire", 2, true),
+		// 	},
+		// },
 	}
 
 	tcs = append(tcs, blockScenarios...)
@@ -488,7 +488,7 @@ func TestPeople(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))
-		t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
+		// t.Run(tc.name+"/tlog", tc.run(makeTypedLog))
 	}
 }
 
