@@ -19,16 +19,16 @@ import (
 	// debug
 	_ "net/http/pprof"
 
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/cryptix/go/logging"
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
@@ -61,6 +61,14 @@ var (
 	// juicy bits
 	appKey  string
 	hmacSec string
+)
+
+// Version and Build are set by ldflags
+var (
+	Version = "snapshot"
+	Build   = ""
+
+	flagPrintVersion bool
 )
 
 func checkAndLog(err error) {
@@ -96,6 +104,8 @@ func initFlags() {
 	flag.BoolVar(&flagFatBot, "fatbot", false, "if set, sbot loads additional index plugins (bytype, get, tangles)")
 	flag.BoolVar(&flagsReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
+	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
+
 	flag.Parse()
 
 	if dbgLogDir != "" {
@@ -117,6 +127,13 @@ func initFlags() {
 
 func main() {
 	initFlags()
+
+	if flagPrintVersion {
+		log.Log("version", Version, "build", Build)
+		os.Exit(0)
+		return
+	}
+
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
 	defer func() {
 		cancel()
@@ -255,7 +272,7 @@ func main() {
 
 	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
-	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr)
+	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
 	for {
 		// Note: This is where the serving starts ;)
 		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))

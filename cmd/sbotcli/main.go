@@ -31,6 +31,12 @@ import (
 	cli "gopkg.in/urfave/cli.v2"
 )
 
+// Version and Build are set by ldflags
+var (
+	Version = "snapshot"
+	Build   = ""
+)
+
 var (
 	longctx      context.Context
 	shutdownFunc func()
@@ -41,7 +47,8 @@ var (
 	log   logging.Interface
 	check = logging.CheckFatal
 
-	keyFileFlag = cli.StringFlag{Name: "key,k", Value: "unset"}
+	keyFileFlag  = cli.StringFlag{Name: "key,k", Value: "unset"}
+	unixSockFlag = cli.StringFlag{Name: "unixsock", Usage: "if set, unix socket is used instead of tcp"}
 )
 
 func init() {
@@ -49,21 +56,20 @@ func init() {
 	check(err)
 
 	keyFileFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "secret")
+	unixSockFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "socket")
 }
-
-var Revision = "unset"
 
 var app = cli.App{
 	Name:    os.Args[0],
 	Usage:   "client for controlling Cryptoscope's SSB server",
-	Version: "alpha3",
+	Version: "alpha4",
 
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "shs key"},
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "tcp address of the sbot to connect to (or listen on)"},
 		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
 		&keyFileFlag,
-		&cli.StringFlag{Name: "unixsock", Usage: "if set, unix socket is used instead of tcp"},
+		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
 	},
 
@@ -86,8 +92,7 @@ func main() {
 	log = logging.Logger("cli")
 
 	cli.VersionPrinter = func(c *cli.Context) {
-		// go install -ldflags="-X main.Revision=$(git rev-parse HEAD)"
-		fmt.Printf("%s ( rev: %s )\n", c.App.Version, Revision)
+		fmt.Printf("%s (rev: %s, built: %s)\n", c.App.Version, Version, Build)
 	}
 
 	if err := app.Run(os.Args); err != nil {
