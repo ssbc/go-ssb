@@ -77,8 +77,8 @@ func LoadKeyPair(r Interface, name string) (*ssb.KeyPair, error) {
 	return keyPair, nil
 }
 
-func AllKeyPairs(r Interface) ([]*ssb.KeyPair, error) {
-	var kps []*ssb.KeyPair
+func AllKeyPairs(r Interface) (map[string]*ssb.KeyPair, error) {
+	kps := make(map[string]*ssb.KeyPair)
 	err := filepath.Walk(r.GetPath("secrets"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -90,7 +90,7 @@ func AllKeyPairs(r Interface) ([]*ssb.KeyPair, error) {
 			return nil
 		}
 		if kp, err := ssb.LoadKeyPair(path); err == nil {
-			kps = append(kps, kp)
+			kps[filepath.Base(path)] = kp
 			return nil
 		}
 		return nil
