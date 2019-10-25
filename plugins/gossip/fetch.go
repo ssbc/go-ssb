@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -202,8 +203,9 @@ func (g *handler) fetchFeed(
 			}
 			if g.sysCtr != nil {
 				g.sysCtr.With("event", "gossiprx").Add(float64(n))
+			} else {
+				level.Debug(info).Log("event", "gossiprx", "new", n, "took", time.Since(start))
 			}
-			info.Log("event", "gossiprx", "new", n, "took", time.Since(start))
 		}
 	}()
 
