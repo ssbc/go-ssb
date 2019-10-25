@@ -97,14 +97,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	uf, ok := s.mlogIndicies["userFeeds"]
+	const userFeedsName = "userFeeds"
+	uf, ok := s.mlogIndicies[userFeedsName]
 	if !ok {
-		log.Log("warning", "loading default idx", "idx", "userFeeds")
-		err = MountMultiLog("userFeeds", multilogs.OpenUserFeeds)(s)
+		log.Log("warning", "loading default idx", "idx", userFeedsName)
+		err = MountMultiLog(userFeedsName, multilogs.OpenUserFeeds)(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
 		}
-		uf, ok = s.mlogIndicies["userFeeds"]
+		uf, ok = s.mlogIndicies[userFeedsName]
 		if !ok {
 			return nil, errors.Errorf("sbot: failed to open userFeeds index")
 		}
