@@ -120,7 +120,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	if err != nil {
 		level.Error(info).Log("fetching", "stored failed", "err", err)
 	} else {
-		info.Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
+		level.Debug(info).Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
 	}
 
 }

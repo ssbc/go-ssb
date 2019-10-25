@@ -406,11 +406,12 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 			mOut[w.Ref.Ref()] = s
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
-				proc.info.Log("event", "createWants.In", "msg", "peer has blob we want", "ref", w.Ref.Ref())
+				dbg.Log("msg", "peer has blob we want", "ref", w.Ref.Ref())
+				// TODO: make chan with available endpoints and try one by one
 				go func(ref *ssb.BlobRef) {
 					// cryptix: feel like we might need to wrap rootCtx in, too?
 					if err := proc.getBlob(ctx, ref); err != nil {
-						proc.info.Log("event", "blob fetch err", "ref", ref.Ref(), "error", err.Error())
+						level.Error(proc.info).Log("event", "blob fetch err", "ref", ref.Ref(), "err", err.Error())
 						proc.wmgr.l.Lock()
 						// TODO: only block after a certain number of attempts?!
 						delete(proc.wmgr.wants, ref.Ref())

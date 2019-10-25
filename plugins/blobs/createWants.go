@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/luigi"
@@ -51,8 +52,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		return nil, errors.Wrap(err, "error making source call")
 	}
 	if src == nil {
-		h.log.Log("msg", "got a nil source edp.Source, returning an error")
-		return nil, errors.New("could not make createWants call")
+		return nil, errors.New("failed to get createWants source from remote")
 	}
 	h.sources[ref] = src
 	return src, nil
@@ -69,7 +69,7 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 
 	_, err = h.getSource(ctx, edp)
 	if err != nil {
-		h.log.Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
+		level.Warn(h.log).Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
 		return
 	}
 }
@@ -77,14 +77,14 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
-		h.log.Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
+		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
 		req.Stream.CloseWithError(errors.Wrap(err, "failed to get source"))
 		return
 	}
 	snk := h.wm.CreateWants(ctx, req.Stream, edp)
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil && !muxrpc.IsSinkClosed(err) {
-		h.log.Log("event", "onCall", "handler", "createWants", "pumpErr", err)
+		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "err", err)
 	}
 
 	h.l.Lock()
