@@ -91,7 +91,7 @@ func (h *handler) fetchAll(
 	}
 	for _, r := range lst {
 		err := h.fetchFeed(ctx, r, e)
-		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
+		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled || errors.Cause(err) == muxrpc.ErrSessionTerminated {
 			return err
 		} else if err != nil {
 			// assuming forked feed for instance

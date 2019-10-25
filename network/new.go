@@ -283,7 +283,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	srv := edp.(muxrpc.Server)
 
 	if err := srv.Serve(ctx); err != nil {
-		n.log.Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
+		level.Debug(n.log).Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
 	}
 	n.removeRemote(edp)
 }
