@@ -164,8 +164,13 @@ func main() {
 	if flagDecryptPrivate {
 		// TODO: refactor into plugins2
 		r := repo.New(repoDir)
-		kps, err := repo.AllKeyPairs(r)
+		kpsByPath, err := repo.AllKeyPairs(r)
 		checkFatal(errors.Wrap(err, "sbot: failed to open all keypairs in repo"))
+
+		var kps []*ssb.KeyPair
+		for _, v := range kpsByPath {
+		  kps = append(kps, v)
+		}
 
 		defKP, err := repo.DefaultKeyPair(r)
 		checkFatal(errors.Wrap(err, "sbot: failed to open default keypair"))
