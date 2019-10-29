@@ -62,7 +62,7 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	if math.IsInf(d, -1) || math.IsInf(d, 1) || hops < 0 || hops > a.maxHops {
 		// d == -Inf: peer not connected to the graph
 		// d == +Inf: peer directly blocked
-		// level.Debug(a.log).Log("err", "out-of-reach", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
+		level.Debug(a.log).Log("err", "out-of-reach", "d", d, "p", fmt.Sprintf("%v", p), "to", to.Ref())
 		return &ssb.ErrOutOfReach{Dist: hops, Max: a.maxHops}
 	}
 	return nil

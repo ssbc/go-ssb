@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"github.com/go-kit/kit/log/level"
 	"io"
 	"net"
 	"time"
@@ -189,9 +190,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		// shit - don't see a way to pass being a different feedtype with shs1
+		// we also need to pass this up the stack...!
 		remote.Algo = ssb.RefAlgoFeedGabby
 		err = auth.Authorize(remote)
 		if err == nil {
+			level.Debug(log).Log("warn", "found gg feed, using that")
 			return s.public.MakeHandler(conn)
 		}
 		return nil, err
