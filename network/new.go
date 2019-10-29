@@ -366,6 +366,9 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 
 	conn, err := n.dialer(netwrap.GetAddr(addr, "tcp"), append(n.beforeCryptoConnWrappers, n.secretClient.ConnWrapper(pubKey))...)
 	if err != nil {
+		if conn != nil {
+			conn.Close()
+		}
 		return errors.Wrap(err, "node/connect: error dialing")
 	}
 
