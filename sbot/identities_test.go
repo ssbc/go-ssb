@@ -51,9 +51,14 @@ func TestMultipleIdentities(t *testing.T) {
 	r.NoError(err)
 	n2kp["cloe"] = kpCloe
 
-	kps, err := repo.AllKeyPairs(tRepo)
+	kpsByPath, err := repo.AllKeyPairs(tRepo)
 	r.NoError(err)
-	r.Len(kps, 3)
+	r.Len(kpsByPath, 3)
+
+	var kps []*ssb.KeyPair
+	for _, v := range kpsByPath {
+		kps = append(kps, v)
+	}
 
 	// make the bot
 	logger := log.NewLogfmtLogger(os.Stderr)
