@@ -7,10 +7,6 @@ import (
 
 type ID []byte
 
-type Key []byte
-
-type Keys []Key
-
 type Type string
 
 type idxKey struct {

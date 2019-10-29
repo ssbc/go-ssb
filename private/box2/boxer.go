@@ -6,8 +6,8 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/ssb/keys"
 	"golang.org/x/crypto/nacl/secretbox"
-	//"go.cryptoscope.co/ssb/keys"
 )
 
 type Message struct {
@@ -33,7 +33,7 @@ type Boxer struct {
 
 const KeySize = 256 / 8
 
-func (bxr *Boxer) Encrypt(buf, msg []byte, infos Infos, ks []Key) (*Message, error) {
+func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Message, error) {
 	var outMsg Message
 
 	// TODO Verify if this is indeed the right amount of memory
@@ -145,7 +145,7 @@ var zero24 [24]byte
 var zeroKey [KeySize]byte
 
 // TODO: Maybe return entire decrypted message?
-func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos Infos, ks []Key) ([]byte, error) {
+func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos keys.Infos, ks keys.Keys) ([]byte, error) {
 	if needed := len(ctxt) + len(ks)*KeySize; len(buf) < needed {
 		buf = make([]byte, needed)
 	}
