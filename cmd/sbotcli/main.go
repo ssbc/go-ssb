@@ -41,8 +41,7 @@ var (
 	longctx      context.Context
 	shutdownFunc func()
 
-	client muxrpc.Endpoint
-	// client ssbClient.Interface
+	client *ssbClient.Client
 
 	log   logging.Interface
 	check = logging.CheckFatal
