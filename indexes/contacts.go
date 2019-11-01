@@ -18,16 +18,16 @@ import (
 const FolderNameContacts = "contacts"
 
 func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, repo.ServeFunc, error) {
+	var builder graph.IndexingBuilder
 	f := func(db *badger.DB) librarian.SinkIndex {
-		return graph.NewBuilder(kitlog.With(log, "module", "graph"), db)
+		builder = graph.NewBuilder(kitlog.With(log, "module", "graph"), db)
+		return builder.OpenIndex()
 	}
 
-	db, sinkIdx, serve, err := repo.OpenBadgerIndex(r, FolderNameContacts, f)
+	db, _, serve, err := repo.OpenBadgerIndex(r, FolderNameContacts, f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting contacts index")
 	}
-
-	bldr := sinkIdx.(graph.Builder)
 
 	nextServe := func(ctx context.Context, log margaret.Log, live bool) error {
 		err := serve(ctx, log, live)
@@ -38,5 +38,5 @@ func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, repo.Serv
 		return db.Close()
 	}
 
-	return bldr, nextServe, nil
+	return builder, nextServe, nil
 }

@@ -24,8 +24,6 @@ import (
 
 // Builder can build a trust graph and answer other questions
 type Builder interface {
-	librarian.SinkIndex
-
 	Build() (*Graph, error)
 	Follows(*ssb.FeedRef) (*StrFeedSet, error)
 	Hops(*ssb.FeedRef, int) *StrFeedSet
@@ -33,10 +31,15 @@ type Builder interface {
 	DeleteAuthor(who *ssb.FeedRef) error
 }
 
+type IndexingBuilder interface {
+	Builder
+
+	OpenIndex() librarian.SinkIndex
+}
+
 type builder struct {
-	librarian.SinkIndex
 	kv  *badger.DB
-	idx librarian.Index
+	idx librarian.SeqSetterIndex
 	log kitlog.Logger
 
 	cacheLock   sync.Mutex
@@ -45,15 +48,16 @@ type builder struct {
 
 // NewBuilder creates a Builder that is backed by a badger database
 func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
-	contactsIdx := libbadger.NewIndex(db, 0)
-
 	b := &builder{
 		kv:  db,
-		idx: contactsIdx,
+		idx: libbadger.NewIndex(db, 0),
 		log: log,
 	}
+	return b
+}
 
-	b.SinkIndex = librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func (b *builder) OpenIndex() librarian.SinkIndex {
+	return librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
 		b.cacheLock.Lock()
 		defer b.cacheLock.Unlock()
 
@@ -67,7 +71,7 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
 		abs, ok := val.(ssb.Message)
 		if !ok {
 			err := errors.Errorf("graph/idx: invalid msg value %T", val)
-			log.Log("msg", "contact eval failed", "reason", err)
+			b.log.Log("msg", "contact eval failed", "reason", err)
 			return err
 		}
 
@@ -101,9 +105,7 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
 		b.cachedGraph = nil
 		// TODO: patch existing graph
 		return nil
-	}, contactsIdx)
-
-	return b
+	}, b.idx)
 }
 
 func (b *builder) DeleteAuthor(who *ssb.FeedRef) error {

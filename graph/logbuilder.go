@@ -11,7 +11,6 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"gonum.org/v1/gonum/graph"
@@ -22,17 +21,6 @@ import (
 )
 
 type logBuilder struct {
-	//  KILL ME
-	//  KILL ME
-	// this is just a left-over from the badger-based builder
-	// it's only here to fulfil the Builder interface
-	// badger _should_ split it's indexing out of it and then we can remove this here as well
-	librarian.SinkIndex
-	//  KILL ME
-	// dont! call these methods
-	//  KILL ME
-	//  KILL ME
-
 	logger kitlog.Logger
 
 	contactsLog margaret.Log
@@ -45,7 +33,7 @@ type logBuilder struct {
 // NewLogBuilder is a much nicer abstraction than the direct k:v implementation.
 // most likely terribly slow though. Additionally, we have to unmarshal from stored.Raw again...
 // TODO: actually compare the two with benchmarks if only to compare the 3rd!
-func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (Builder, error) {
+func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (*logBuilder, error) {
 	lb := logBuilder{
 		logger:      logger,
 		contactsLog: contacts,

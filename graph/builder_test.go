@@ -45,14 +45,17 @@ func makeBadger(t *testing.T) testStore {
 	r.NoError(err)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
 
+	var builder *builder
+
 	var tc testStore
 	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) librarian.SinkIndex {
-		return NewBuilder(info, db)
+		builder = NewBuilder(info, db)
+		return builder.OpenIndex()
 	})
 	r.NoError(err)
 	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve)
 	tc.root = tRootLog
-	tc.gbuilder = sinkIdx.(Builder)
+	tc.gbuilder = builder
 	tc.userLogs = uf
 
 	tc.close = func() {
