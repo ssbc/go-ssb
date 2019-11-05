@@ -13,11 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/offset2"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -33,7 +31,7 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 	}
 	defer uf.Close()
 
-	rootLog, err := offset2.Open(r.GetPath("log"), multimsg.MargaretCodec{})
+	rootLog, err := repo.OpenLog(r)
 	if err != nil {
 		err = errors.Wrap(err, "NullFeed: root-log open failed")
 		return err
@@ -60,7 +58,7 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 		}
 		seq, ok := v.(margaret.Seq)
 		if !ok {
-			return errors.Errorf("")
+			return errors.Errorf("NullFeed: not a sequenc from userlog query")
 		}
 		return rootLog.Null(seq)
 	})
