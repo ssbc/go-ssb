@@ -2,9 +2,9 @@ package private
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -21,6 +21,7 @@ type Manager struct {
 	author *ssb.FeedRef
 
 	keymgr *keys.Manager
+	rand   io.Reader
 }
 
 func (mgr *Manager) Pour(ctx context.Context, v interface{}) error {
@@ -29,7 +30,8 @@ func (mgr *Manager) Pour(ctx context.Context, v interface{}) error {
 		return fmt.Errorf("expected type %T, got %T", msg, v)
 	}
 
-	plain, err := mgr.Decrypt(ctx, msg.ContentBytes(), msg.Author())
+	var plain json.RawMessage
+	err := mgr.Decrypt(ctx, &plain, msg.ContentBytes(), msg.Author())
 	if err != nil {
 		return nil // couldn't decrypt message; okay!
 	}
@@ -56,6 +58,13 @@ type encConfig struct {
 func WithRecipients(rcpts ...ssb.Ref) EncryptOption {
 	return func(cfg *encConfig) error {
 		cfg.rcpts = append(cfg.rcpts, rcpts...)
+		return nil
+	}
+}
+
+func WithBox2() EncryptOption {
+	return func(cfg *encConfig) error {
+		cfg.boxVersion = 2
 		return nil
 	}
 }
@@ -91,7 +100,7 @@ func (mgr *Manager) Encrypt(ctx context.Context, content interface{}, opts ...En
 	switch cfg.boxVersion {
 	case 1:
 		var (
-			bxr   = box.NewBoxer(rand.Reader)
+			bxr   = box.NewBoxer(mgr.rand)
 			rcpts = make([]*ssb.FeedRef, len(cfg.rcpts))
 			ok    bool
 		)
@@ -119,7 +128,7 @@ func (mgr *Manager) Encrypt(ctx context.Context, content interface{}, opts ...En
 		for _, rcpt := range cfg.rcpts {
 			switch ref := rcpt.(type) {
 			case *ssb.FeedRef:
-				keyType = "shared-secret-by-feeds"
+				keyType = "box2-shared-by-feeds"
 				keyID = keys.ID(sortAndConcat(mgr.author.ID, ref.ID))
 			case *ssb.MessageRef:
 				// TODO: maybe verify this is a group message?
@@ -140,7 +149,7 @@ func (mgr *Manager) Encrypt(ctx context.Context, content interface{}, opts ...En
 		}
 
 		// then, encrypt message
-		bxr := box2.NewBoxer(rand.Reader)
+		bxr := box2.NewBoxer(mgr.rand)
 		boxmsg, err := bxr.Encrypt(nil, contentBs, nil, keySlice)
 		if err != nil {
 			return nil, errors.Wrap(err, "error encrypting message (box1)")
@@ -192,7 +201,7 @@ func sortAndConcat(bss ...[]byte) []byte {
 	return buf
 }
 
-func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *ssb.FeedRef, opts ...EncryptOption) (interface{}, error) {
+func (mgr *Manager) Decrypt(ctx context.Context, dst interface{}, ctxt []byte, author *ssb.FeedRef, opts ...EncryptOption) error {
 	var (
 		cfg encConfig = defaultEncConfig
 		err error
@@ -201,7 +210,7 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *ssb.FeedRe
 	for _, opt := range opts {
 		err = opt(&cfg)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -211,8 +220,9 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *ssb.FeedRe
 		keyType keys.Type
 		keyID   keys.ID
 		plain   []byte
-		v       interface{}
 	)
+
+	fmt.Println("decrypt cfg", cfg)
 
 	switch cfg.boxVersion {
 	case 1: // case box1
@@ -224,32 +234,32 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *ssb.FeedRe
 
 		ks, err = mgr.keymgr.GetKeys(ctx, keyType, keyID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get key for recipient %s", mgr.author.Ref())
+			return errors.Wrapf(err, "could not get key for recipient %s", mgr.author.Ref())
 		}
 
 		if len(ks) < 1 {
-			return nil, fmt.Errorf("no cv25519 secret for feed id %s", mgr.author)
+			return fmt.Errorf("no cv25519 secret for feed id %s", mgr.author)
 		}
 		copy(keyPair.Pair.Secret[:], ks[0])
 		copy(keyPair.Pair.Public[:], mgr.author.ID)
 
 		// try decrypt
-		bxr := box.NewBoxer(rand.Reader)
+		bxr := box.NewBoxer(mgr.rand)
 
 		plain, err = bxr.Decrypt(&keyPair, []byte(ctxt))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not decrypt")
+			return errors.Wrap(err, "could not decrypt")
 		}
 
-		err = json.Unmarshal(plain, &v)
+		err = json.Unmarshal(plain, dst)
 	case 2: // case box2
 		// fetch feed2feed shared key
-		keyType = "shared-secret-by-feeds"
+		keyType = "box2-shared-by-feeds"
 		keyID = sortAndConcat(mgr.author.ID, author.ID)
 
 		ks, err = mgr.keymgr.GetKeys(ctx, keyType, keyID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get key for author %s", author.Ref())
+			return errors.Wrapf(err, "could not get key for author %s", author.Ref())
 		}
 
 		// fetch groups author is member of
@@ -259,11 +269,20 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *ssb.FeedRe
 		// TODO: we don't know which group keys to fetch yet
 
 		// try decrypt
+		// TODO pass in buffer
+		// TODO set infos
+		bxr := box2.NewBoxer(mgr.rand)
+		plain, err = bxr.Decrypt(nil, []byte(ctxt), nil, ks)
+		if err != nil {
+			return errors.Wrap(err, "could not decrypt")
+		}
+
+		err = json.Unmarshal(plain, dst)
 	default:
-		return nil, fmt.Errorf("expected string to end with either %q or %q", ".box", ".box2")
+		return fmt.Errorf("expected string to end with either %q or %q", ".box", ".box2")
 	}
 
-	return v, err
+	return err
 }
 
 func (mgr *Manager) ResponsePlan(msg ssb.Message) (msgkit.Plan, error) {

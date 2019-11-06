@@ -15,6 +15,8 @@ func TestBoxer(t *testing.T) {
 	buf := make([]byte, 4096)
 	key := make(keys.Key, KeySize)
 
+	bxr.rand.Read(key)
+
 	phrase := "squeamish ossifrage"
 
 	msg, err := bxr.Encrypt(buf, []byte(phrase), nil, keys.Keys{key})

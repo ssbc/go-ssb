@@ -1,9 +1,8 @@
 package private
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +11,7 @@ import (
 
 type OpManagerEncrypt struct {
 	Manager    *Manager
-	Message    *[]byte // TODO make this interface{}
+	Message    *interface{}
 	Recipients []ssb.Ref
 	Options    []EncryptOption
 
@@ -42,35 +41,36 @@ type OpManagerDecrypt struct {
 	Sender     *ssb.FeedRef
 	Options    []EncryptOption
 
-	Message *[]byte // TODO make this interface{}
+	Message interface{}
 
 	ExpDecryptErr string
 	ExpBase64Err  string
-	ExpMessage    []byte // TODO make this interface{}
+	ExpJSONErr    string
+	ExpMessage    interface{}
 }
 
+func (op OpManagerDecrypt) Do(t *testing.T, env interface{}) {
+	ctx := context.TODO()
+
+	// check that output field is a pointer
+	rv := reflect.ValueOf(op.Message)
+	require.Equal(t, rv.Kind(), reflect.Ptr, "output not a pointer")
+
+	// attempt decryption
+	err := op.Manager.Decrypt(ctx, op.Message, *op.Ciphertext, op.Sender, op.Options...)
+	expErr(t, err, op.ExpDecryptErr, "decrypt")
+
+	// check that ExpMessage == *op.Message
+	// (which doesn't work directly becuause pointers and interfaces).
+	require.Equal(t, op.ExpMessage, rv.Elem().Interface(), "msg decrypted not equal")
+}
+
+// expErr uses either require.NoError or require.EqualError, depending on
+// whether the expErr arguemnt is the empty string or not
 func expErr(t *testing.T, err error, expErr string, comment string) {
 	if expErr == "" {
 		require.NoError(t, err, comment)
 	} else {
 		require.EqualError(t, err, expErr, comment)
 	}
-}
-
-func (op OpManagerDecrypt) Do(t *testing.T, env interface{}) {
-	ctx := context.TODO()
-
-	t.Log(*op.Ciphertext)
-
-	// TODO: figure out how to pass in the recipients.
-	//       maybe don't pass them in as options??
-	out, err := op.Manager.Decrypt(ctx, *op.Ciphertext, op.Sender)
-	expErr(t, err, op.ExpDecryptErr, "decrypt")
-
-	out, err = base64.StdEncoding.DecodeString(out.(string))
-	expErr(t, err, op.ExpBase64Err, "base64 decode")
-
-	require.True(t, bytes.Equal(out.([]byte), op.ExpMessage), "msg decrypted not equal")
-
-	*op.Message = out.([]byte)
 }

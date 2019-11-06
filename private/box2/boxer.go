@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/ssb/keys"
 	"golang.org/x/crypto/nacl/secretbox"
+
+	"go.cryptoscope.co/ssb/keys"
 )
 
 type Message struct {
@@ -34,10 +36,14 @@ type Boxer struct {
 const KeySize = 256 / 8
 
 func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Message, error) {
-	var outMsg Message
-
+	//fmt.Println("enc", ks, infos)
+	var (
+		outMsg  Message
+		ctxtLen = (len(ks)+1)*KeySize + len(msg) + secretbox.Overhead
+		needed  = (5+len(ks))*KeySize + ctxtLen + 16
+	)
 	// TODO Verify if this is indeed the right amount of memory
-	if needed := 32 + len(ks)*32 + len(msg) + 16 + 4*32; len(buf) < needed {
+	if len(buf) < needed {
 		buf = make([]byte, needed)
 	}
 
@@ -50,6 +56,8 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Mes
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading random data")
 	}
+
+	fmt.Printf("enc msgKey %x\n", msgKey)
 
 	// The keys returned by the Derive... functions are subslices of buf.
 	// The calls to copy() in between are so we can safely reuse it.
@@ -101,19 +109,19 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Mes
 	binary.LittleEndian.PutUint16(header, bodyOff)
 
 	// store this buffer as beginning of ciphertext
-	ctxtLen := (len(ks)+1)*KeySize + len(msg) + secretbox.Overhead
 	outMsg.Raw = buf[:ctxtLen]
 
 	// header ciphertext
-	outMsg.HeaderBox = buf[:0]
-	used += 32
-	buf = buf[32:]
-
 	copy(k[:], []byte(headerKey))
-	outMsg.HeaderBox = secretbox.Seal(outMsg.HeaderBox, header, &zero24, &k)
+	outMsg.HeaderBox = secretbox.Seal(buf[:0], header, &zero24, &k)
+	l := len(outMsg.HeaderBox)
+	used += l
+	buf = buf[l:]
+	fmt.Printf("enc key %x\n", k)
+	fmt.Printf("enc ctxt %x\n", outMsg.HeaderBox)
 
 	// append slots
-	for _, bk := range ks {
+	for j, bk := range ks {
 		mk, err := bk.Derive(buf, infos, KeySize)
 		if err != nil {
 			return nil, errors.Wrap(err, "error deriving recipient key")
@@ -124,6 +132,8 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Mes
 		for i := range mk {
 			slot[i] = mk[i] ^ msgKey[i]
 		}
+
+		fmt.Printf("enc slot %d %x\n", j, slot)
 
 		used += KeySize
 		buf = buf[KeySize:]
@@ -136,6 +146,10 @@ func (bxr *Boxer) Encrypt(buf, msg []byte, infos keys.Infos, ks keys.Keys) (*Mes
 	copy(k[:], []byte(bodyKey))
 	outMsg.BodyBox = secretbox.Seal(outMsg.BodyBox, msg, &zero24, &k)
 
+	fmt.Println("enc outMsg")
+	spew.Dump(outMsg)
+
+	//fmt.Println("enc", outMsg.Raw)
 	return &outMsg, nil
 }
 
@@ -146,7 +160,10 @@ var zeroKey [KeySize]byte
 
 // TODO: Maybe return entire decrypted message?
 func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos keys.Infos, ks keys.Keys) ([]byte, error) {
-	if needed := len(ctxt) + len(ks)*KeySize; len(buf) < needed {
+	//fmt.Println("dec", ks, infos)
+	//fmt.Println("dec", ctxt)
+	needed := (len(ks)+3)*KeySize + 16 + len(ctxt)
+	if len(buf) < needed {
 		buf = make([]byte, needed)
 	}
 
@@ -188,28 +205,38 @@ func (bxr *Boxer) Decrypt(buf, ctxt []byte, infos keys.Infos, ks keys.Keys) ([]b
 
 	undo, hdr, buf = alloc(buf, 16)
 
-	for i = 0; i*KeySize < len(msg.AfterHeader) && i*KeySize < len(dks) && i < MaxSlots; i++ {
-		for j := range dks[i*KeySize : (i+1)*KeySize] {
-			msgKey[j] = dks[i*KeySize+j] ^ msg.AfterHeader[i*KeySize+j]
-		}
+	fmt.Println("dec dks", len(dks)/KeySize)
 
-		// we need the copies so we can safely reuse the buffer
+OUTER:
+	for i = 0; (i+1)*KeySize < len(msg.AfterHeader) && i < MaxSlots; i++ {
+		for j := 0; j*KeySize < len(dks); j++ {
+			for k := range dks[j*KeySize : (j+1)*KeySize] {
+				msgKey[j] = dks[j*KeySize+k] ^ msg.AfterHeader[i*KeySize+k]
+			}
 
-		readKey_, err := MessageKey(msgKey).DeriveReadKey(buf, infos, KeySize)
-		if err != nil {
-			return nil, errors.Wrap(err, "error deriving read key")
-		}
-		copy(readKey, readKey_)
+			fmt.Println("dec msgKey", msgKey)
 
-		hdrKey_, err := ReadKey(readKey).DeriveHeaderKey(buf, infos, KeySize)
-		if err != nil {
-			return nil, errors.Wrap(err, "error deriving header key")
-		}
-		copy(key[:], hdrKey_)
+			// we need the copies so we can safely reuse the buffer
 
-		hdr, ok = secretbox.Open(hdr[:0], msg.HeaderBox, &zero24, &key)
-		if ok {
-			break
+			readKey_, err := MessageKey(msgKey).DeriveReadKey(buf, infos, KeySize)
+			if err != nil {
+				return nil, errors.Wrap(err, "error deriving read key")
+			}
+			copy(readKey, readKey_)
+
+			hdrKey_, err := ReadKey(readKey).DeriveHeaderKey(buf, infos, KeySize)
+			if err != nil {
+				return nil, errors.Wrap(err, "error deriving header key")
+			}
+			copy(key[:], hdrKey_)
+
+			hdr, ok = secretbox.Open(hdr[:0], msg.HeaderBox, &zero24, &key)
+			fmt.Println("dec key", key)
+			fmt.Println("dec ctxt", msg.HeaderBox)
+			fmt.Println(i, j, ok)
+			if ok {
+				break OUTER
+			}
 		}
 	}
 
