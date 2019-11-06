@@ -201,7 +201,9 @@ func newIdentity(t *testing.T, name string, km *keys.Manager) testIdentity {
 		err error
 	)
 
-	id.KeyPair, err = ssb.NewKeyPair(nil)
+	rand := rand.New(rand.NewSource(idCount))
+
+	id.KeyPair, err = ssb.NewKeyPair(rand)
 	require.NoError(t, err)
 
 	id.ref = id.Id
@@ -210,7 +212,7 @@ func newIdentity(t *testing.T, name string, km *keys.Manager) testIdentity {
 	id.manager = &Manager{
 		author: id.Id,
 		keymgr: km,
-		rand:   rand.New(rand.NewSource(idCount)),
+		rand:   rand,
 	}
 
 	idCount++

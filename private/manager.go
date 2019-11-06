@@ -119,10 +119,9 @@ func (mgr *Manager) Encrypt(ctx context.Context, content interface{}, opts ...En
 	case 2:
 		// first, look up keys
 		var (
-			keySlice = make(keys.Keys, 0, len(cfg.rcpts))
-			ks       keys.Keys
-			keyType  keys.Type
-			keyID    keys.ID
+			ks      = make(keys.Keys, 0, len(cfg.rcpts))
+			keyType keys.Type
+			keyID   keys.ID
 		)
 
 		for _, rcpt := range cfg.rcpts {
@@ -136,21 +135,17 @@ func (mgr *Manager) Encrypt(ctx context.Context, content interface{}, opts ...En
 				keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
 			}
 
-			ks, err = mgr.keymgr.GetKeys(ctx, keyType, keyID)
+			ks_, err := mgr.keymgr.GetKeys(ctx, keyType, keyID)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not get key for recipient %s", rcpt.Ref())
 			}
 
-			box2ks := make(keys.Keys, len(ks))
-			for i := range box2ks {
-				box2ks[i] = keys.Key(ks[i])
-			}
-			keySlice = append(keySlice, box2ks...)
+			ks = append(ks, ks_...)
 		}
 
 		// then, encrypt message
 		bxr := box2.NewBoxer(mgr.rand)
-		boxmsg, err := bxr.Encrypt(nil, contentBs, nil, keySlice)
+		boxmsg, err := bxr.Encrypt(nil, contentBs, nil, ks)
 		if err != nil {
 			return nil, errors.Wrap(err, "error encrypting message (box1)")
 		}
@@ -221,8 +216,6 @@ func (mgr *Manager) Decrypt(ctx context.Context, dst interface{}, ctxt []byte, a
 		keyID   keys.ID
 		plain   []byte
 	)
-
-	fmt.Println("decrypt cfg", cfg)
 
 	switch cfg.boxVersion {
 	case 1: // case box1
