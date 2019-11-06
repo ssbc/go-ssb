@@ -21,24 +21,16 @@ import (
 )
 
 // NullFeed overwrites all the entries from ref in repo with zeros
-func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
+func (s *Sbot) NullFeed(ref *ssb.FeedRef) error {
 	ctx := context.Background()
 
-	uf, _, err := multilogs.OpenUserFeeds(r)
-	if err != nil {
-		err = errors.Wrap(err, "NullFeed: failed to open multilog")
-		return err
+	uf, ok := s.GetMultiLog("userFeeds")
+	if !ok {
+		return errors.Errorf("NullFeed: failed to open multilog")
 	}
-	defer uf.Close()
 
-	rootLog, err := repo.OpenLog(r)
-	if err != nil {
-		err = errors.Wrap(err, "NullFeed: root-log open failed")
-		return err
-	}
-	defer rootLog.Close()
-
-	userSeqs, err := uf.Get(ref.StoredAddr())
+	feedAddr := ref.StoredAddr()
+	userSeqs, err := uf.Get(feedAddr)
 	if err != nil {
 		err = errors.Wrap(err, "NullFeed: failed to open log for feed argument")
 		return err
@@ -60,7 +52,7 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 		if !ok {
 			return errors.Errorf("NullFeed: not a sequenc from userlog query")
 		}
-		return rootLog.Null(seq)
+		return s.RootLog.Null(seq)
 	})
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
@@ -68,7 +60,9 @@ func NullFeed(r repo.Interface, ref *ssb.FeedRef) error {
 		return err
 	}
 	log.Printf("\ndropped %d entries", i)
-	return nil
+
+	err := uf.Delete(feedAddr)
+	return errors.Wrap(err, "")
 }
 
 // Drop indicies deletes the following folders of the indexes.

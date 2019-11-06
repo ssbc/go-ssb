@@ -105,31 +105,25 @@ func TestNullFeed(t *testing.T) {
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", 2)
 
-	// bot needs to be switched off for whole-feed nulling
-	mainbot.Shutdown()
-	r.NoError(mainbot.Close())
-
-	// TODO: try on running sbot
-
-	err = NullFeed(tRepo, kpBert.Id)
+	err = mainbot.NullFeed(kpBert.Id)
 	r.NoError(err, "null feed bert failed")
 
-	err = DropIndicies(tRepo)
-	r.NoError(err, "drop idxes failed")
+	// err = DropIndicies(tRepo)
+	// r.NoError(err, "drop idxes failed")
 
-	err = RebuildIndicies(tRepoPath)
-	r.NoError(err, "rebuild idxes failed")
+	// err = RebuildIndicies(tRepoPath)
+	// r.NoError(err, "rebuild idxes failed")
 
-	// restart
-	logger.Log("evt", "null done, restarting")
-	mainbot, err = New(
-		WithInfo(logger),
-		WithRepoPath(tRepoPath),
-		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
-		DisableNetworkNode(),
-	)
-	r.NoError(err)
+	// // restart
+	// logger.Log("evt", "null done, restarting")
+	// mainbot, err = New(
+	// 	WithInfo(logger),
+	// 	WithRepoPath(tRepoPath),
+	// 	WithHMACSigning(hk),
+	// 	LateOption(MountSimpleIndex("get", indexes.OpenGet)),
+	// 	DisableNetworkNode(),
+	// )
+	// r.NoError(err)
 
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", -1)
