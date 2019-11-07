@@ -15,6 +15,9 @@ import (
 	"go.cryptoscope.co/secretstream/secrethandshake"
 )
 
+// SecretPerms are the file permissions for holding SSB secrets.
+const SecretPerms os.FileMode = 0600
+
 type KeyPair struct {
 	Id   *FeedRef
 	Pair secrethandshake.EdKeyPair
@@ -58,7 +61,7 @@ func SaveKeyPair(kp *KeyPair, path string) error {
 		return errors.Errorf("ssb.SaveKeyPair: key already exists:%q", path)
 	}
 	os.MkdirAll(filepath.Dir(path), 0700)
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms)
 	if err != nil {
 		return errors.Wrap(err, "ssb.SaveKeyPair: failed to create file")
 	}
