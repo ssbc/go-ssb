@@ -5,6 +5,7 @@ package ssb
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -84,6 +85,14 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: could not open key file %s", fname)
 	}
 	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: could not stat key file %s", fname)
+	}
+	if perms := info.Mode().Perm(); perms != SecretPerms {
+		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
+	}
 
 	return ParseKeyPair(nocomment.NewReader(f))
 }
