@@ -14,9 +14,13 @@ WARNING: Project is still in alpha, backwards incompatible changes will be made.
 
 ## Installation
 
+You can install the project using Golang's [install command](https://golang.org/cmd/go/#hdr-Compile_and_install_packages_and_dependencies) which will place the commands into the directory pointed to by the GOBIN environment variable.
+
 ```bash
-go install go.cryptoscope.co/ssb/cmd/go-sbot
-go install go.cryptoscope.co/ssb/cmd/sbotcli
+git clone https://github.com/cryptoscope/ssb
+cd ssb
+go install ./cmd/go-sbot
+go install ./cmd/sbotcli
 ```
 
 Requirements:
