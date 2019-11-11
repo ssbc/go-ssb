@@ -282,6 +282,9 @@ func (ref FeedRef) Ref() string {
 }
 
 func (ref FeedRef) Equal(b *FeedRef) bool {
+	if ref.Algo != b.Algo {
+		return false
+	}
 	return bytes.Equal(ref.ID, b.ID)
 }
 
@@ -375,6 +378,23 @@ func ParseBlobRef(s string) (*BlobRef, error) {
 		return nil, errors.Errorf("blobRef: not a blob! %T", ref)
 	}
 	return newRef, nil
+}
+
+func (ref BlobRef) Equal(b *BlobRef) bool {
+	if ref.Algo != b.Algo {
+		return false
+	}
+	return bytes.Equal(ref.Hash, b.Hash)
+}
+
+func (br BlobRef) IsValid() error {
+	if br.Algo != "sha256" {
+		return errors.Errorf("unknown hash algorithm %q", br.Algo)
+	}
+	if len(br.Hash) != 32 {
+		return errors.Errorf("expected hash length 32, got %v", len(br.Hash))
+	}
+	return nil
 }
 
 // MarshalText encodes the BlobRef using Ref()

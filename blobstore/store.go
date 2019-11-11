@@ -67,11 +67,8 @@ type blobStore struct {
 }
 
 func (store *blobStore) getPath(ref *ssb.BlobRef) (string, error) {
-	if ref.Algo != "sha256" {
-		return "", errors.Errorf("unknown hash algorithm %q", ref.Algo)
-	}
-	if len(ref.Hash) != 32 {
-		return "", errors.Errorf("expected hash length 32, got %v", len(ref.Hash))
+	if err := ref.IsValid(); err != nil {
+		return "", errors.Wrap(err, "blobs: invalid reference")
 	}
 
 	hexHash := hex.EncodeToString(ref.Hash)
@@ -81,11 +78,8 @@ func (store *blobStore) getPath(ref *ssb.BlobRef) (string, error) {
 }
 
 func (store *blobStore) getHexDirPath(ref *ssb.BlobRef) (string, error) {
-	if ref.Algo != "sha256" {
-		return "", errors.Errorf("unknown hash algorithm %q", ref.Algo)
-	}
-	if len(ref.Hash) != 32 {
-		return "", errors.Errorf("expected hash length 32, got %v", len(ref.Hash))
+	if err := ref.IsValid(); err != nil {
+		return "", errors.Wrap(err, "blobs: invalid reference")
 	}
 
 	hexHash := hex.EncodeToString(ref.Hash)
