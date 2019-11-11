@@ -28,6 +28,10 @@ type BlobStore interface {
 	// Put stores the data in the reader in the blob store and returns the address.
 	Put(blob io.Reader) (*BlobRef, error)
 
+	// PutExpected makes sure the added blob really is the passedBlobref
+	// helpful for want/get operations which don't want to wast resources
+	// PutExpected(io.Reader, *BlobRef) error
+
 	// Delete deletes a blob from the blob store.
 	Delete(ref *BlobRef) error
 
@@ -70,6 +74,10 @@ func (w BlobWant) String() string {
 type BlobStoreNotification struct {
 	Op  BlobStoreOp
 	Ref *BlobRef
+}
+
+func (bn BlobStoreNotification) String() string {
+	return bn.Op.String() + ": " + bn.Ref.Ref()
 }
 
 // BlobStoreOp specifies the operation in a blob store notification.

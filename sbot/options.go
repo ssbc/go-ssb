@@ -88,6 +88,13 @@ type Sbot struct {
 
 type Option func(*Sbot) error
 
+func WithBlobStore(bs ssb.BlobStore) Option {
+	return func(s *Sbot) error {
+		s.BlobStore = bs
+		return nil
+	}
+}
+
 // DisableLiveIndexMode makes the update processing halt once it reaches the end of the rootLog
 // makes it easier to rebuild indicies.
 func DisableLiveIndexMode() Option {

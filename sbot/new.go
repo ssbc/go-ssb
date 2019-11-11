@@ -3,10 +3,11 @@
 package sbot
 
 import (
-	"github.com/go-kit/kit/log/level"
 	"io"
 	"net"
 	"time"
+
+	"github.com/go-kit/kit/log/level"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -80,15 +81,17 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// s.serveIndex(ctx, "abouts", serveAbouts)
 	// s.AboutStore = ab
 
-	bs, err := repo.OpenBlobStore(r)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open blob store")
+	if s.BlobStore == nil { // load default, local file blob store
+		s.BlobStore, err = repo.OpenBlobStore(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open blob store")
+		}
 	}
-	s.BlobStore = bs
+
 	// TODO: add flag to filter specific levels and/or units and pass nop to the others
 	wantsLog := kitlog.With(log, "module", "WantManager")
 	// wantsLog := kitlog.NewNopLogger()
-	wm := blobstore.NewWantManager(wantsLog, bs, s.eventCounter, s.systemGauge)
+	wm := blobstore.NewWantManager(wantsLog, s.BlobStore, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
 
 	for _, opt := range s.lateInit {
@@ -216,7 +219,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, bs, wm)
+	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
