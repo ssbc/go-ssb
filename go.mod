@@ -30,7 +30,7 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	go.cryptoscope.co/librarian v0.2.0
 	go.cryptoscope.co/luigi v0.3.5-0.20190924074117-8ca146aad481
-	go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd
+	go.cryptoscope.co/margaret v0.0.13-0.20191112171912-4f8f49bca4d5
 	go.cryptoscope.co/muxrpc v1.5.0
 	go.cryptoscope.co/netwrap v0.1.0
 	go.cryptoscope.co/secretstream v1.2.0

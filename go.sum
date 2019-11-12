@@ -40,6 +40,7 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/dgraph-io/badger v1.3.0/go.mod h1:VZxzAIRPHRVNRKRo6AXrX9BJegn6il06VMTZVJYCIjQ=
 github.com/dgraph-io/badger v1.5.3/go.mod h1:VZxzAIRPHRVNRKRo6AXrX9BJegn6il06VMTZVJYCIjQ=
 github.com/dgraph-io/badger v1.5.4/go.mod h1:VZxzAIRPHRVNRKRo6AXrX9BJegn6il06VMTZVJYCIjQ=
+github.com/dgraph-io/badger v2.0.0-rc.2.0.20190610165348-a804ffa35fb9+incompatible/go.mod h1:VZxzAIRPHRVNRKRo6AXrX9BJegn6il06VMTZVJYCIjQ=
 github.com/dgraph-io/badger v2.0.0-rc2+incompatible h1:6fXfqViMStaKb73bxivvD9hgwYdWyiEKzwWNVkXhslE=
 github.com/dgraph-io/badger v2.0.0-rc2+incompatible/go.mod h1:VZxzAIRPHRVNRKRo6AXrX9BJegn6il06VMTZVJYCIjQ=
 github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
@@ -241,6 +242,8 @@ go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4 h1:gLSldWRujtUO
 go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4/go.mod h1:3rt+RmZTFZEgfvFxz0ZPDBIWtLJOouWtzV6YbBl6sek=
 go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd h1:ZrHoEdDRN2zTRsJvOEogcGwsrN8dS3RW0LmJ+wvwBWk=
 go.cryptoscope.co/margaret v0.0.12-0.20191005123912-12e4063e76dd/go.mod h1:tL7wYSzxnOxe6EV21KUE8ve9nveEpArnfg1dQ6vedIY=
+go.cryptoscope.co/margaret v0.0.13-0.20191112171912-4f8f49bca4d5 h1:bV7FAEfyVJTZ2eWfhFDmT4paflBYuhLDAyCUyOhTWSg=
+go.cryptoscope.co/margaret v0.0.13-0.20191112171912-4f8f49bca4d5/go.mod h1:CdBpld+JrVMdT2d63Pi9fS7gMCRjZTEzV5tfu2F9rlQ=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e h1:KNJubCN/5OPRZrG+IEwSAStOR8efkpxjEPyVI+WqAK0=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e/go.mod h1:dV/i300s3OxZKI0YPlY/hG7w2y9TFgu3oQkNDXBoMQY=
 go.cryptoscope.co/muxrpc v1.5.0 h1:O7bHqN1+qYFgfpXZ8Mk1JwGyTgSlx7C1Oj5i58tgdAE=
