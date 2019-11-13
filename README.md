@@ -4,6 +4,8 @@ A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) 
 
 WARNING: Project is still in alpha, backwards incompatible changes will be made.  We suggest vendoring for a stable experience.
 
+If you encounter a bug, please refer to our [public issue tracker](https://github.com/cryptoscope/ssb/issues).
+
 ## Server Features
 
 * [x] Follow-graph implementation (based on [gonum](https://www.gonum.org)) to authorize incoming connections
@@ -259,6 +261,8 @@ $ go test -v
 
 
 ## Known Bugs
+
+See our [issue tracker](https://github.com/cryptoscope/ssb/issues) for a complete list.
 
 ### compilation error regarding Badger
 
