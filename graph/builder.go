@@ -30,6 +30,7 @@ type Builder interface {
 	Follows(*ssb.FeedRef) (*StrFeedSet, error)
 	Hops(*ssb.FeedRef, int) *StrFeedSet
 	Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer
+	DeleteAuthor(who *ssb.FeedRef) error
 }
 
 type builder struct {
@@ -105,6 +106,27 @@ func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
 	return b
 }
 
+func (b *builder) DeleteAuthor(who *ssb.FeedRef) error {
+	b.cacheLock.Lock()
+	defer b.cacheLock.Unlock()
+	b.cachedGraph = nil
+	return b.kv.Update(func(txn *badger.Txn) error {
+		iter := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iter.Close()
+
+		prefix := []byte(who.StoredAddr())
+		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
+			it := iter.Item()
+
+			k := it.Key()
+			if err := txn.Delete(k); err != nil {
+				return errors.Wrapf(err, "DeleteAuthor: failed to drop record %x", k)
+			}
+		}
+		return nil
+	})
+}
+
 func (b *builder) Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer {
 	return &authorizer{
 		b:       b,
@@ -115,8 +137,7 @@ func (b *builder) Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer {
 }
 
 func (b *builder) Build() (*Graph, error) {
-	dg := simple.NewWeightedDirectedGraph(0, math.Inf(1))
-	known := make(key2node)
+	dg := NewGraph()
 
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
@@ -153,19 +174,19 @@ func (b *builder) Build() (*Graph, error) {
 			}
 
 			bfrom := librarian.Addr(rawFrom)
-			nFrom, has := known[bfrom]
+			nFrom, has := dg.lookup[bfrom]
 			if !has {
 				nFrom = &contactNode{dg.NewNode(), &from, ""}
 				dg.AddNode(nFrom)
-				known[bfrom] = nFrom
+				dg.lookup[bfrom] = nFrom
 			}
 
 			bto := librarian.Addr(rawTo)
-			nTo, has := known[bto]
+			nTo, has := dg.lookup[bto]
 			if !has {
 				nTo = &contactNode{dg.NewNode(), &to, ""}
 				dg.AddNode(nTo)
-				known[bto] = nTo
+				dg.lookup[bto] = nTo
 			}
 
 			if nFrom.ID() == nTo.ID() {
@@ -204,10 +225,8 @@ func (b *builder) Build() (*Graph, error) {
 		return nil
 	})
 
-	g := &Graph{lookup: known}
-	g.WeightedDirectedGraph = dg
-	b.cachedGraph = g
-	return g, err
+	b.cachedGraph = dg
+	return dg, err
 }
 
 type Lookup struct {

@@ -21,6 +21,13 @@ type Graph struct {
 	lookup key2node
 }
 
+func NewGraph() *Graph {
+	return &Graph{
+		WeightedDirectedGraph: simple.NewWeightedDirectedGraph(0, math.Inf(1)),
+		lookup:                make(key2node),
+	}
+}
+
 func (g *Graph) getEdge(from, to *ssb.FeedRef) (graph.WeightedEdge, bool) {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()

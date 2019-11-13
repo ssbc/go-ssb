@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -142,8 +143,15 @@ func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 			}
 
 			path, dist := dijk.Dist(b.key.Id)
-			if len(path)-2 != hops {
-				return errors.Errorf("wrong hop count: %v %f", path, dist)
+			if hops < 0 {
+				if !math.IsInf(dist, +1) {
+					return errors.Errorf("expected no path but got %v %f", path, dist)
+				}
+
+			} else {
+				if len(path)-2 != hops {
+					return errors.Errorf("wrong hop count: %v %f", path, dist)
+				}
 			}
 			return nil
 		}
@@ -248,10 +256,8 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		g.Lock()
 		for nick, pub := range state.peers {
 			newKey := pub.key.Id.StoredAddr()
-			// var newKey [32]byte
-			// copy(newKey[:], pub.key.Id.StoredAddr())
 			node, ok := g.lookup[newKey]
-			if !a.True(ok, "did not find peer!? %s (len:%d)", nick, len(g.lookup)) {
+			if !a.True(ok, "did not find peer %s in graph lookup table (len:%d)", nick, len(g.lookup)) {
 				continue
 			}
 			cn := node.(*contactNode)
@@ -485,6 +491,7 @@ func TestPeople(t *testing.T) {
 
 	tcs = append(tcs, blockScenarios...)
 	tcs = append(tcs, hopsScenarios...)
+	tcs = append(tcs, deleteScenarios...)
 
 	for _, tc := range tcs {
 		t.Run(tc.name+"/badger", tc.run(makeBadger))

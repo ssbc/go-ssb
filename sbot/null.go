@@ -56,17 +56,23 @@ func (s *Sbot) NullFeed(ref *ssb.FeedRef) error {
 	})
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to pump entries and null them %d", i)
+		err = errors.Wrapf(err, "NullFeed: failed to pump entries and null them %d", i)
 		return err
 	}
-	log.Printf("\ndropped %d entries", i)
 
 	err = uf.Delete(feedAddr)
-	// TODO: find private messages idx
+	if err != nil {
+		err = errors.Wrapf(err, "NullFeed: error while deleting feed from userFeeds index")
+		return err
+	}
 
-	// TODO: get hold of graph idx to trigger delete
-	// s.GraphBuilder.Delete
-	return errors.Wrap(err, "")
+	err = s.GraphBuilder.DeleteAuthor(ref)
+	if err != nil {
+		err = errors.Wrapf(err, "NullFeed: error while deleting feed from graph index")
+		return err
+	}
+
+	return nil
 }
 
 // Drop indicies deletes the following folders of the indexes.

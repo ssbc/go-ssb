@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"time"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -34,7 +35,11 @@ type logBuilder struct {
 
 	logger kitlog.Logger
 
+	contactsLog margaret.Log
+
 	current *Graph
+
+	currentQueryCancel context.CancelFunc
 }
 
 // NewLogBuilder is a much nicer abstraction than the direct k:v implementation.
@@ -42,27 +47,42 @@ type logBuilder struct {
 // TODO: actually compare the two with benchmarks if only to compare the 3rd!
 func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (Builder, error) {
 	lb := logBuilder{
-		logger: logger,
-		current: &Graph{
-			WeightedDirectedGraph: simple.NewWeightedDirectedGraph(0, math.Inf(1)),
-			lookup:                make(key2node),
-		},
+		logger:      logger,
+		contactsLog: contacts,
+		current:     NewGraph(),
 	}
 
-	go func() { // TODO: add io.Closer to Builder to kill this query
-		src, err := contacts.Query(margaret.Live(true))
-		if err != nil {
-			err = errors.Wrap(err, "failed to make live query for contacts")
-			level.Error(logger).Log("err", err, "event", "query build failed")
-			return
-		}
-		err = luigi.Pump(context.TODO(), luigi.FuncSink(lb.buildGraph), src)
-		if err != nil {
-			level.Error(logger).Log("err", err, "event", "graph build failed")
-		}
-	}()
+	_, err := lb.Build()
 
-	return &lb, nil
+	return &lb, errors.Wrap(err, "failed to build graph")
+}
+
+func (b *logBuilder) startQuery(ctx context.Context) {
+	src, err := b.contactsLog.Query(margaret.Live(true))
+	if err != nil {
+		err = errors.Wrap(err, "failed to make live query for contacts")
+		level.Error(b.logger).Log("err", err, "event", "query build failed")
+		return
+	}
+	err = luigi.Pump(ctx, luigi.FuncSink(b.buildGraph), src)
+	if err != nil {
+		level.Error(b.logger).Log("err", err, "event", "graph build failed")
+	}
+}
+
+// DeleteAuthor just triggers a rebuild (and expects the author to have dissapeard from the message source)
+func (b *logBuilder) DeleteAuthor(who *ssb.FeedRef) error {
+	b.current.Lock()
+	defer b.current.Unlock()
+
+	b.currentQueryCancel()
+	b.current = nil
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go b.startQuery(ctx)
+	b.currentQueryCancel = cancel
+
+	return nil
 }
 
 func (b *logBuilder) Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer {
@@ -78,10 +98,11 @@ func (b *logBuilder) Build() (*Graph, error) {
 	b.current.Lock()
 	defer b.current.Unlock()
 
-	if b.current == nil {
-		return nil, errors.Errorf("TODO:wait?!")
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go b.startQuery(ctx)
+	b.currentQueryCancel = cancel
 
+	time.Sleep(1 * time.Second)
 	return b.current, nil
 }
 
