@@ -61,7 +61,11 @@ func (s *Sbot) NullFeed(ref *ssb.FeedRef) error {
 	}
 	log.Printf("\ndropped %d entries", i)
 
-	err := uf.Delete(feedAddr)
+	err = uf.Delete(feedAddr)
+	// TODO: find private messages idx
+
+	// TODO: get hold of graph idx to trigger delete
+	// s.GraphBuilder.Delete
 	return errors.Wrap(err, "")
 }
 
