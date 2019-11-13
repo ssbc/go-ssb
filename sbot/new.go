@@ -117,6 +117,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
 		var dcrTrigger dropContentTrigger
+		dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
 		dcrTrigger.root = s.RootLog
 		dcrTrigger.feeds = uf
 		dcrTrigger.nuller = s

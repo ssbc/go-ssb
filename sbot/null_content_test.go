@@ -59,22 +59,17 @@ func TestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 	r.Len(kps, 2)
 
-	var dcrPlug dropContentTrigger
-
 	// make the bot
 	logger := testutils.NewRelativeTimeLogger(nil)
+
 	mainbot, err := New(
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
 		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
-		LateOption(MountSimpleIndex("dcr", dcrPlug.MakeSimpleIndex)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)
-
-	dcrPlug.nuller = mainbot
-	dcrPlug.root = mainbot.RootLog
 
 	// create some messages
 	intros := []struct {
@@ -134,7 +129,6 @@ func TestNullContentRequest(t *testing.T) {
 	// get hash of message to drop
 	uf, ok := mainbot.GetMultiLog("userFeeds")
 	r.True(ok, "userFeeds mlog not present")
-	dcrPlug.feeds = uf
 
 	// try to request on arnies feed fails because the formt doesn't support it
 	arniesLog, err := uf.Get(kpArny.Id.StoredAddr())
@@ -192,7 +186,7 @@ func TestNullContentRequest(t *testing.T) {
 	del, err := mainbot.PublishAs("bert", dropContent)
 	r.NoError(err)
 	r.NotNil(del)
-	t.Log(del.Ref())
+	t.Log("dcr request:", del.Ref())
 
 	time.Sleep(1 * time.Second)
 
@@ -211,7 +205,8 @@ func TestNullContentRequest(t *testing.T) {
 	del2, err := mainbot.PublishAs("bert", cantDropThis)
 	r.NoError(err)
 	r.NotNil(del2)
-	t.Log(del2.Ref())
+	t.Log("invalid dcr:", del2.Ref())
+
 	// not gone
 	msg, err = mainbot.Get(*del2)
 	r.NoError(err)

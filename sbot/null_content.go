@@ -7,6 +7,8 @@ import (
 
 	"go.cryptoscope.co/ssb/message/multimsg"
 
+	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
@@ -74,6 +76,8 @@ func (s *Sbot) NullContent(fr *ssb.FeedRef, seq uint) error {
 const FolderNameDelete = "drop-content-requests"
 
 type dropContentTrigger struct {
+	logger kitlog.Logger
+
 	root  margaret.Log
 	feeds multilog.MultiLog
 
@@ -92,18 +96,18 @@ func (cdr *dropContentTrigger) consume() {
 
 		feed, err := cdr.feeds.Get(evt.author.StoredAddr())
 		if err != nil {
-			// level.Warn(cdr.log).Log("err",err)
+			level.Warn(cdr.logger).Log("err", err)
 			continue
 		}
 
 		if !evt.dcr.Valid(mutil.Indirect(cdr.root, feed)) {
-			// level.Warn(cdr.log).Log("event","invalid drop-content-request")
+			level.Warn(cdr.logger).Log("event", "invalid drop-content-request")
 			continue
 		}
 
 		err = cdr.nuller.NullContent(evt.author, evt.dcr.Sequence)
 		if err != nil {
-			// level.Error(cdr.log).Log("err", err)
+			level.Error(cdr.logger).Log("err", err)
 			continue
 		}
 
