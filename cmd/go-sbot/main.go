@@ -23,6 +23,7 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
@@ -39,7 +40,8 @@ import (
 
 var (
 	// flags
-	flagsReindex bool
+	flagCleanup  bool
+	flagReindex  bool
 	flagFatBot   bool
 	flagHops     uint
 	flagEnAdv    bool
@@ -102,7 +104,9 @@ func initFlags() {
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 
 	flag.BoolVar(&flagFatBot, "fatbot", false, "if set, sbot loads additional index plugins (bytype, get, tangles)")
-	flag.BoolVar(&flagsReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
+	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
+
+	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
 
 	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
 
@@ -169,7 +173,7 @@ func main() {
 
 		var kps []*ssb.KeyPair
 		for _, v := range kpsByPath {
-		  kps = append(kps, v)
+			kps = append(kps, v)
 		}
 
 		defKP, err := repo.DefaultKeyPair(r)
@@ -222,7 +226,7 @@ func main() {
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
-	if flagsReindex {
+	if flagReindex {
 		opts = append(opts,
 			mksbot.DisableNetworkNode(),
 			mksbot.DisableLiveIndexMode())
@@ -248,13 +252,6 @@ func main() {
 	}()
 	logging.SetCloseChan(c)
 
-	if flagsReindex {
-		log.Log("mode", "reindexing")
-		err = sbot.Close()
-		checkAndLog(err)
-		return
-	}
-
 	id := sbot.KeyPair.Id
 	uf, ok := sbot.GetMultiLog("userFeeds")
 	if !ok {
@@ -277,7 +274,42 @@ func main() {
 
 	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
+	if flagReindex {
+		log.Log("mode", "reindexing")
+		err = sbot.Close()
+		checkAndLog(err)
+		return
+	}
+
+	// removes blocked feeds
+	if flagCleanup {
+		log.Log("mode", "cleanup")
+
+		tg, err := sbot.GraphBuilder.Build()
+		checkAndLog(err)
+
+		for addr := range tg.BlockedList(sbot.KeyPair.Id) {
+			has, err := multilog.Has(uf, addr)
+			checkAndLog(err)
+			if has {
+				var sr ssb.StorageRef
+				err = sr.Unmarshal([]byte(addr))
+				checkAndLog(err)
+				fr, err := sr.FeedRef()
+				checkAndLog(err)
+				err = sbot.NullFeed(fr)
+				checkAndLog(err)
+				log.Log("event", "nulled feed", "fr", fr.Ref())
+			}
+		}
+
+		sbot.Shutdown()
+		err = sbot.Close()
+		checkAndLog(err)
+		return
+	}
 	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
+
 	for {
 		// Note: This is where the serving starts ;)
 		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))

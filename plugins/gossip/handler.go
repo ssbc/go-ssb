@@ -98,7 +98,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	blocked := tGraph.BlockedList(g.Id)
 	for _, ref := range ufaddrs {
 		if _, isBlocked := blocked[ref]; isBlocked {
-			level.Warn(info).Log("msg", "blocked feed still stored", "ref", fmt.Sprintf("%x", ref[:6]))
+			level.Warn(info).Log("msg", "blocked feed still stored (run go-sbot -cleanup)", "ref", fmt.Sprintf("%x", ref[:6]))
 			blockedAddr = append(blockedAddr, ref)
 		}
 	}
