@@ -136,6 +136,13 @@ func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Inde
 
 func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {
 	return librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+		if nulled, ok := val.(error); ok {
+			if margaret.IsErrNulled(nulled) {
+				return nil
+			}
+			return nulled
+		}
+
 		msg, ok := val.(ssb.Message)
 		if !ok {
 			return errors.Errorf("index/dcrTigger: unexpected message type: %T", val)

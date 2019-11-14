@@ -24,10 +24,23 @@ import (
 
 // Builder can build a trust graph and answer other questions
 type Builder interface {
+
+	// Build a complete graph of all follow/block relations
 	Build() (*Graph, error)
+
+	// Return the stored state between a and b
+	// 0: no / unfollow
+	// 1: following
+	// -1: blocking
+	State(from, to *ssb.FeedRef) int
+
+	// Follows returns a set of all people ref follows
 	Follows(*ssb.FeedRef) (*StrFeedSet, error)
+
 	Hops(*ssb.FeedRef, int) *StrFeedSet
+
 	Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer
+
 	DeleteAuthor(who *ssb.FeedRef) error
 }
 
@@ -106,6 +119,36 @@ func (b *builder) OpenIndex() librarian.SinkIndex {
 		// TODO: patch existing graph
 		return nil
 	}, b.idx)
+}
+
+func (bld *builder) State(a, b *ssb.FeedRef) int {
+	addr := a.StoredAddr()
+	addr += b.StoredAddr()
+	obv, err := bld.idx.Get(context.Background(), addr)
+	if err != nil {
+		return 0
+	}
+
+	stv, err := obv.Value()
+	if err != nil {
+		return 0
+	}
+
+	state, ok := stv.(int)
+	if !ok {
+		return 0
+	}
+
+	switch state {
+	case 1:
+		return 1
+	case 2:
+		return -1
+	default:
+		return 0
+	}
+
+	return -1
 }
 
 func (b *builder) DeleteAuthor(who *ssb.FeedRef) error {

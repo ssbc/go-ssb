@@ -247,3 +247,17 @@ func (b *logBuilder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 	// goon.Dump(final)
 	return fs
 }
+
+func (bld *logBuilder) State(a, b *ssb.FeedRef) int {
+	g, err := bld.Build()
+	if err != nil {
+		panic(err)
+	}
+	if g.Blocks(a, b) {
+		return -1
+	}
+	if g.Follows(a, b) {
+		return 1
+	}
+	return 0
+}

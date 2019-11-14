@@ -75,8 +75,7 @@ func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]struct{} {
 		nTo := edgs.Node()
 		edg := g.Edge(nFrom.ID(), nTo.ID()).(contactEdge)
 
-		if edg.isBlock {
-			// if math.IsInf(edg.Weight(), 1) {
+		if math.IsInf(edg.Weight(), 1) {
 			ctNode := nTo.(*contactNode)
 			blocked[ctNode.feed.StoredAddr()] = struct{}{}
 		}

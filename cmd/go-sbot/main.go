@@ -21,6 +21,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -287,19 +288,27 @@ func main() {
 
 		tg, err := sbot.GraphBuilder.Build()
 		checkAndLog(err)
-
-		for addr := range tg.BlockedList(sbot.KeyPair.Id) {
-			has, err := multilog.Has(uf, addr)
+		botRef := sbot.KeyPair.Id
+		for blocked := range tg.BlockedList(botRef) {
+			var sr ssb.StorageRef
+			err = sr.Unmarshal([]byte(blocked))
 			checkAndLog(err)
-			if has {
-				var sr ssb.StorageRef
-				err = sr.Unmarshal([]byte(addr))
+			blockedRef, err := sr.FeedRef()
+			checkAndLog(err)
+
+			blocks := tg.Blocks(botRef, blockedRef)
+			if !blocks {
+				dbState := sbot.GraphBuilder.State(botRef, blockedRef)
+				level.Warn(log).Log("event", "feed in block list that isn't blocked?", "ref", blockedRef.Ref(), "state", dbState)
+				continue
+			}
+
+			isStored, err := multilog.Has(uf, blocked)
+			checkAndLog(err)
+			if isStored {
+				level.Info(log).Log("event", "nulled feed", "ref", blockedRef.Ref())
+				err = sbot.NullFeed(blockedRef)
 				checkAndLog(err)
-				fr, err := sr.FeedRef()
-				checkAndLog(err)
-				err = sbot.NullFeed(fr)
-				checkAndLog(err)
-				log.Log("event", "nulled feed", "fr", fr.Ref())
 			}
 		}
 

@@ -4,6 +4,7 @@ package graph
 
 import (
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 )
 
@@ -113,6 +114,30 @@ var blockScenarios = []PeopleTestCase{
 			PeopleAssertAuthorize("alice", "edith", 2, true),
 		},
 	},
+
+	{
+		name: "just some blocks",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"1"},
+			PeopleOpNewPeer{"2"},
+			PeopleOpNewPeer{"3"},
+			PeopleOpNewPeer{"4"},
+
+			PeopleOpBlock{"1", "2"},
+			PeopleOpBlock{"1", "3"},
+			PeopleOpBlock{"1", "4"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertBlocks("1", "2", true),
+			PeopleAssertBlocks("1", "3", true),
+			PeopleAssertBlocks("1", "4", true),
+
+			PeopleAssertOnBlocklist("1", "2", "3", "4"),
+			PeopleAssertOnBlocklist("2"),
+			PeopleAssertOnBlocklist("3"),
+			PeopleAssertOnBlocklist("4"),
+		},
+	},
 }
 
 func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
@@ -143,16 +168,9 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 					return nil
 				}
 				addr := pFrom.key.Id.StoredAddr()
-				// state.t.Logf("%s: %x", want, addr)
 				wants[addr] = struct{}{}
 			}
-			for blocked := range set {
-				// state.t.Logf("%x", blocked)
-				if _, isWant := wants[blocked]; !isWant {
-
-					return errors.Errorf("BlockedList(): expected blocked peer: %x", blocked)
-				}
-			}
+			require.EqualValues(state.t, set, wants)
 			return nil
 		}
 	}
