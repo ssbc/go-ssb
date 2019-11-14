@@ -124,9 +124,14 @@ func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Inde
 		return nil, nil, errors.Wrap(err, "error getting dcr trigger index")
 	}
 
-	go dcr.consume()
-	// TODO: hook serve to close db
-	return sinkIdx, serve, nil
+	wrappedServe := func(ctx context.Context, log margaret.Log, live bool) error {
+		go dcr.consume()
+		err := serve(ctx, log, live)
+		close(dcr.check)
+		return err
+	}
+
+	return sinkIdx, wrappedServe, nil
 }
 
 func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {
