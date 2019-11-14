@@ -155,7 +155,7 @@ func TestCreateHistoryStream(t *testing.T) {
 			r.NoError(err)
 			r.EqualValues(userFeedLen-1, seqv)
 
-			test.Args.ID = keyPair.Id.Ref()
+			test.Args.ID = keyPair.Id
 			var sink countSink
 			sink.info = infoAlice
 

@@ -59,24 +59,26 @@ func (g *Graph) Blocks(from, to *ssb.FeedRef) bool {
 	if !has {
 		return false
 	}
-	return w.Weight() == math.Inf(1)
+	return math.IsInf(w.Weight(), 1)
 }
 
-func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]bool {
+func (g *Graph) BlockedList(from *ssb.FeedRef) map[librarian.Addr]struct{} {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()
 	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
 		return nil
 	}
-	blocked := make(map[librarian.Addr]bool)
+	blocked := make(map[librarian.Addr]struct{})
 	edgs := g.From(nFrom.ID())
 	for edgs.Next() {
-		edg := g.Edge(nFrom.ID(), edgs.Node().ID()).(contactEdge)
+		nTo := edgs.Node()
+		edg := g.Edge(nFrom.ID(), nTo.ID()).(contactEdge)
 
-		if edg.Weight() == math.Inf(1) {
-			ctNode := edg.To().(*contactNode)
-			blocked[ctNode.feed.StoredAddr()] = true
+		if edg.isBlock {
+			// if math.IsInf(edg.Weight(), 1) {
+			ctNode := nTo.(*contactNode)
+			blocked[ctNode.feed.StoredAddr()] = struct{}{}
 		}
 	}
 	return blocked

@@ -1,0 +1,128 @@
+package tests
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/repo"
+)
+
+// first simple case
+// alice, bob, claire
+// alice<>bob and bob<>claire are friends
+// but alice starts blocking claire
+// clair should not get new messages from alice's feed anymore
+func TestBlocking(t *testing.T) {
+	defer leakcheck.Check(t)
+	r := require.New(t)
+	const n = 23
+
+	ts := newRandomSession(t)
+
+	kpAlice, err := repo.NewKeyPair(repo.New(ts.repo), "alice", ssb.RefAlgoFeedSSB1)
+	r.NoError(err)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
+	_, err = bob.PublishAs("alice", ssb.NewContactFollow(bob.KeyPair.Id))
+	r.NoError(err)
+	aliceHelloWorld, err := bob.PublishAs("alice", ssb.Post{Type: "post", Text: "hello, world!"})
+	r.NoError(err)
+
+	claire := ts.startJSBotWithName("TestBlocking/claire", fmt.Sprintf(`
+	let testAlice = %q
+	let testAlicePost = %q
+	function mkMsg(msg) {
+		return function(cb) {
+			sbot.publish(msg, cb)
+		}
+	}
+	n = 23
+	let msgs = []
+	msgs.push(mkMsg({type:"contact", contact: testAlice, following: true}))
+	msgs.push(mkMsg({type:"contact", contact: testBob, following: true}))
+	for (var i = n; i>0; i--) {
+		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
+	}
+	
+	// be done when the other party is done
+	sbot.on('rpc:connect', rpc => rpc.on('closed', function() {
+		//
+		t.comment('now should have feed:' + testAlice)
+		pull(
+		  sbot.createUserStream({id:testAlice, reverse:true, limit: 1}),
+		  pull.collect(function(err, msgs) {
+			t.error(err, 'query worked')
+			t.equal(msgs.length, 1, 'got all the messages')
+			t.equal(msgs[0].key, testAlicePost, 'latest keys match')
+			t.equal(msgs[0].value.sequence, 2, 'latest sequence')
+			exit()
+		  })
+		)
+}))
+	
+	parallel(msgs, function(err, results) {
+		t.error(err, "parallel of publish")
+		t.equal(msgs.length, results.length, "message count")
+		run() // triggers connect and after block
+	})
+	`, kpAlice.Id.Ref(), aliceHelloWorld.Ref()), ``)
+
+	newSeq, err := bob.PublishLog.Append(ssb.NewContactFollow(claire))
+	r.NoError(err)
+	r.NotNil(newSeq)
+	newSeq, err = bob.PublishLog.Append(ssb.NewContactFollow(kpAlice.Id))
+	r.NoError(err)
+	r.NotNil(newSeq)
+
+	<-ts.doneJS
+
+	_, err = bob.PublishAs("alice", ssb.NewContactBlock(claire))
+	r.NoError(err)
+	dontGet, err := bob.PublishAs("alice", ssb.Post{Type: "post", Text: "post sync - who the heck is claire?"})
+	r.NoError(err)
+
+	// restart claire and connect again
+	// check that C doesn't get alices new posts
+	ts.startJSBotWithName("TestBlocking/claire", fmt.Sprintf(`
+	let testAlice = %q
+	let testAlicePost = %q
+	let testAliceNowBlocked = %q
+	
+	// be done when the other party is done
+	sbot.on('rpc:connect', rpc => rpc.on('closed', function() {
+		//
+		t.comment('still only up to 2?')
+		pull(
+		  sbot.createUserStream({id:testAlice, reverse:true, limit: 1}),
+		  pull.collect(function(err, msgs) {
+			t.error(err, 'query worked')
+			t.equal(msgs.length, 1, 'got all the messages')
+			t.equal(msgs[0].key, testAlicePost, 'latest keys match')
+			t.notEqual(msgs[0].key, testAliceNowBlocked, 'shouldnt have message after block!')
+			t.equal(msgs[0].value.sequence, 2, 'latest sequence')
+			exit()
+		  })
+		)
+	}))
+	
+	pull(
+		sbot.createUserStream({id:testAlice}),
+		pull.collect(function(err, msgs) {
+			t.error(err, 'init query worked')
+			t.equal(msgs.length, 2, 'should have previous messages')
+			run()
+		})
+	)
+	`,
+		kpAlice.Id.Ref(),
+		aliceHelloWorld.Ref(),
+		dontGet.Ref(),
+	), ``)
+
+	ts.wait()
+}

@@ -148,17 +148,25 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 
 var jsBotCnt = 0
 
-// returns the jsbots pubkey
 func (ts *testSession) startJSBot(jsbefore, jsafter string) *ssb.FeedRef {
+	return ts.startJSBotWithName("", jsbefore, jsafter)
+}
+
+// returns the jsbots pubkey
+func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *ssb.FeedRef {
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot.js")
 	cmd.Stderr = os.Stderr
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
+	if name == "" {
+		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+	}
+
 	jsBotCnt++
 	env := []string{
-		"TEST_NAME=" + fmt.Sprint(ts.t.Name(), jsBotCnt),
+		"TEST_NAME=" + name,
 		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
 		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Network.GetListenAddr(), "tcp").String(),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),

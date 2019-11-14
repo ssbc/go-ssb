@@ -46,7 +46,12 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 			}
 			switch k {
 			case "id":
-				qry.ID = val
+				var err error
+				qry.ID, err = ssb.ParseFeedRef(val)
+				if err != nil {
+					return nil, errors.Wrapf(err, "ssb/message: not a feed ref")
+				}
+
 				// TODO:
 				// case "type":
 				// qry.Type = val
@@ -94,8 +99,8 @@ type CreateHistArgs struct {
 	CommonArgs
 	StreamArgs
 
-	ID  string `json:"id"`
-	Seq int64  `json:"seq"`
+	ID  *ssb.FeedRef `json:"id"`
+	Seq int64        `json:"seq"`
 
 	AsJSON bool `json:"asJSON"`
 }

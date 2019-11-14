@@ -96,10 +96,6 @@ func (tc *testCase) runTest(t *testing.T) {
 
 	srcGraphBuilder, srcGraphBuilderServe, err := indexes.OpenContacts(infoAlice, srcRepo)
 	r.NoError(err, "error getting src contacts index")
-	defer func() {
-		err := srcGraphBuilder.Close()
-		r.NoError(err, "error closing src graph builder")
-	}()
 
 	go func() {
 		err := srcGraphBuilderServe(ctx, srcRootLog, true)
@@ -127,10 +123,6 @@ func (tc *testCase) runTest(t *testing.T) {
 
 	dstGraphBuilder, dstGraphBuilderServe, err := indexes.OpenContacts(infoAlice, dstRepo)
 	r.NoError(err, "error getting dst contacts index")
-	defer func() {
-		err := dstGraphBuilder.Close()
-		r.NoError(err, "error closing dst graph builder")
-	}()
 
 	go func() {
 		err := dstGraphBuilderServe(ctx, dstRootLog, true)

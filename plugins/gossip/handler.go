@@ -137,6 +137,7 @@ func (g *handler) HandleCall(
 	req *muxrpc.Request,
 	edp muxrpc.Endpoint,
 ) {
+
 	if req.Type == "" {
 		req.Type = "async"
 	}
@@ -175,6 +176,22 @@ func (g *handler) HandleCall(
 			closeIfErr(errors.Wrap(err, "bad request"))
 			return
 		}
+		remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
+		if err != nil {
+			closeIfErr(errors.Wrap(err, "bad request"))
+			return
+		}
+		tg, err := g.GraphBuilder.Build()
+		if err != nil {
+			closeIfErr(errors.Wrap(err, "internal error"))
+			return
+		}
+
+		if tg.Blocks(query.ID, remote) {
+			req.Stream.Close()
+			return
+		}
+
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
 		if err != nil {
 			req.Stream.CloseWithError(errors.Wrap(err, "createHistoryStream failed"))

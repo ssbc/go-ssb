@@ -2,6 +2,11 @@
 
 package graph
 
+import (
+	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
+)
+
 /*
 Quoting from https://github.com/ssbc/ssb-friends README.md
 
@@ -39,6 +44,10 @@ var blockScenarios = []PeopleTestCase{
 			PeopleAssertAuthorize("alice", "claire", 0, false),
 			PeopleAssertAuthorize("alice", "claire", 1, false),
 			PeopleAssertAuthorize("alice", "claire", 2, false),
+
+			PeopleAssertOnBlocklist("alice"),
+			PeopleAssertOnBlocklist("bob", "claire"),
+			PeopleAssertOnBlocklist("claire"),
 		},
 	},
 
@@ -104,4 +113,47 @@ var blockScenarios = []PeopleTestCase{
 			PeopleAssertAuthorize("alice", "edith", 2, true),
 		},
 	},
+}
+
+func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
+	return func(state *testState) PeopleAssert {
+		pFrom, ok := state.peers[from]
+		if !ok {
+			state.t.Fatal("no such wanted peer:", from)
+			return nil
+		}
+
+		return func(bld Builder) error {
+
+			g, err := bld.Build()
+			if err != nil {
+				return err
+			}
+
+			set := g.BlockedList(pFrom.key.Id)
+			if len(set) != len(who) {
+				return errors.Errorf("BlockedList() wrong length: %d", len(set))
+			}
+
+			var wants = make(map[librarian.Addr]struct{}, len(who))
+			for _, want := range who {
+				pFrom, ok := state.peers[want]
+				if !ok {
+					state.t.Fatal("no such wanted peer:", want)
+					return nil
+				}
+				addr := pFrom.key.Id.StoredAddr()
+				// state.t.Logf("%s: %x", want, addr)
+				wants[addr] = struct{}{}
+			}
+			for blocked := range set {
+				// state.t.Logf("%x", blocked)
+				if _, isWant := wants[blocked]; !isWant {
+
+					return errors.Errorf("BlockedList(): expected blocked peer: %x", blocked)
+				}
+			}
+			return nil
+		}
+	}
 }

@@ -1,8 +1,9 @@
+const Path = require('path')
 const { readFileSync } = require('fs')
-const { generate } = require('ssb-keys')
-const pull = require('pull-stream')
+const { loadOrCreateSync } = require('ssb-keys')
+const pull = require('pull-stream') // used in eval scripts
 const tape = require('tape')
-const parallel = require('run-parallel')
+const parallel = require('run-parallel') // used in eval scripts
 
 const createSbot = require('ssb-server')
   .use(require('ssb-gossip'))
@@ -26,7 +27,7 @@ const scriptAfter = readFileSync(process.env.TEST_AFTER).toString()
 const testSHSappKey = bufFromEnv('TEST_APPKEY')
 const testHMACkey = bufFromEnv('TEST_HMACKEY')
 
-function bufFromEnv (evname) {
+function bufFromEnv(evname) {
   const has = process.env[evname]
   if (has) {
     return Buffer.from(has, 'base64')
@@ -41,7 +42,7 @@ tape(testName, function (t) {
     t.comment('test timeout')
     process.exit(1)
   }, 17000)
-  function run () { // needs to be called by the before block when it's done
+  function run() { // needs to be called by the before block when it's done
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
     t.comment('dialing:' + to)
     sbot.connect(to, (err) => {
@@ -50,16 +51,19 @@ tape(testName, function (t) {
     })
   }
 
-  function exit () { // call this when you're done
+  function exit() { // call this when you're done
     sbot.close()
     t.comment('closed sbot')
     clearTimeout(tapeTimeout)
     t.end()
     process.exit(0)
   }
+
+  const tempRepo = Path.join('testrun', testName)
+  const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const opts = {
-    temp: testName,
-    keys: generate()
+    path: tempRepo,
+    keys: keys
   }
 
   if (testSHSappKey !== false) {

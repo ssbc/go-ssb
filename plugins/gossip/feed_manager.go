@@ -194,13 +194,8 @@ func (m *FeedManager) CreateStreamHistory(
 	sink luigi.Sink,
 	arg *message.CreateHistArgs,
 ) error {
-	feedRef, err := ssb.ParseFeedRef(arg.ID)
-	if err != nil {
-		return err // only handle valid feed refs
-	}
-
 	// check what we got
-	userLog, err := m.UserFeeds.Get(feedRef.StoredAddr())
+	userLog, err := m.UserFeeds.Get(arg.ID.StoredAddr())
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -231,7 +226,7 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Wrapf(err, "invalid user log query")
 	}
 
-	switch feedRef.Algo {
+	switch arg.ID.Algo {
 	case ssb.RefAlgoFeedSSB1:
 		sink = transform.NewKeyValueWrapper(sink, arg.Keys)
 
@@ -256,7 +251,7 @@ func (m *FeedManager) CreateStreamHistory(
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
 		if sent > 0 {
-			m.logger.Log("event", "gossiptx", "n", sent)
+			m.logger.Log("event", "gossiptx", "n", sent, "fr", arg.ID.Ref())
 		}
 	}
 	if errors.Cause(err) == context.Canceled {

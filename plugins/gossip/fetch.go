@@ -188,7 +188,7 @@ func (g *handler) fetchFeed(
 	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", g.Id.Ref())
 
 	var q = message.CreateHistArgs{
-		ID:         fr.Ref(),
+		ID:         fr,
 		Seq:        int64(latestSeq + 1),
 		StreamArgs: message.StreamArgs{Limit: -1},
 	}

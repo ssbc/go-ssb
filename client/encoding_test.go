@@ -17,8 +17,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -83,7 +83,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	r.EqualValues(9, seqv)
 
 	args := message.CreateHistArgs{
-		ID:     testKP.Id.Ref(),
+		ID:     testKP.Id,
 		AsJSON: true,
 	}
 	args.MarshalType = json.RawMessage{}

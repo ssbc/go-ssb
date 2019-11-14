@@ -160,8 +160,16 @@ func initClientTCP(ctx *cli.Context) error {
 }
 
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
+	var ref *ssb.FeedRef
+	if id := ctx.String("id"); id != "" {
+		var err error
+		ref, err = ssb.ParseFeedRef(id)
+		if err != nil {
+			panic(err)
+		}
+	}
 	args := message.CreateHistArgs{
-		ID:     ctx.String("id"),
+		ID:     ref,
 		Seq:    ctx.Int64("seq"),
 		AsJSON: ctx.Bool("asJSON"),
 	}
