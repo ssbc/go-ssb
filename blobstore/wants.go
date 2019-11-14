@@ -291,7 +291,7 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 
 	m := map[string]int64{notif.Ref.Ref(): sz}
 	err = proc.out.Pour(ctx, m)
-	dbg.Log("cause", "has wanted blob")
+	dbg.Log("cause", "broadcasting received blob", "sz", sz)
 	return errors.Wrap(err, "errors pouring into sink")
 
 }
@@ -357,7 +357,8 @@ func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
 		level.Warn(proc.info).Log("blob", "removed after missmatch", "want", ref.Ref())
 		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
 	}
-	level.Info(proc.info).Log("blob", "stored", "ref", ref.Ref())
+	sz, _ := proc.bs.Size(newBr)
+	level.Info(proc.info).Log("blob", "stored", "ref", ref.Ref(), "sz", sz)
 	return nil
 }
 
