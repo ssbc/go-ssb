@@ -87,7 +87,7 @@ func (g *Graph) MakeDijkstra(from *ssb.FeedRef) (*Lookup, error) {
 	defer g.Mutex.Unlock()
 	nFrom, has := g.lookup[from.StoredAddr()]
 	if !has {
-		return nil, &ErrNoSuchFrom{from}
+		return nil, &ErrNoSuchFrom{Who: from}
 	}
 	return &Lookup{
 		path.DijkstraFrom(nFrom, g),

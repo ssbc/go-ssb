@@ -20,9 +20,13 @@ type authorizer struct {
 }
 
 // ErrNoSuchFrom should only happen if you reconstruct your existing log from the network
-type ErrNoSuchFrom struct{ *ssb.FeedRef }
+type ErrNoSuchFrom struct {
+	Who *ssb.FeedRef
+}
 
-func (nsf ErrNoSuchFrom) Error() string { return fmt.Sprintf("ssb/graph: no such from: %s", nsf.Ref()) }
+func (nsf ErrNoSuchFrom) Error() string {
+	return fmt.Sprintf("ssb/graph: no such from: %s", nsf.Who.Ref())
+}
 
 func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	fg, err := a.b.Build()
@@ -45,12 +49,6 @@ func (a *authorizer) Authorize(to *ssb.FeedRef) error {
 	var distLookup *Lookup
 	distLookup, err = fg.MakeDijkstra(a.from)
 	if err != nil {
-		// for now adding this as a kludge so that stuff works when you don't get your own feed during initial re-sync
-		// if it's a new key there should be follows quickly anyway and this shouldn't happen then.... yikes :'(
-		if _, ok := err.(*ErrNoSuchFrom); ok {
-			level.Warn(a.log).Log("bypass", a.from.Ref())
-			return nil
-		}
 		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
 	}
 
