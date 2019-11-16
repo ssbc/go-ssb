@@ -173,7 +173,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// 	s.serveIndex(ctx, "contacts", peerServ)
 	// }
 
-	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount))
+	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {

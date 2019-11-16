@@ -4,7 +4,6 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
@@ -81,31 +79,9 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	default:
 	}
 
-	ufaddrs, err := g.UserFeeds.List()
-	if err != nil {
-		info.Log("handleConnect", "UserFeeds listing failed", "err", err)
-		return
-	}
-
-	tGraph, err := g.GraphBuilder.Build()
-	if err != nil {
-		info.Log("handleConnect", "fetchFeed follows listing", "err", err)
-		return
-	}
-
-	// TODO: port Blocked to FeedSet and make set operations
-	var blockedAddr []librarian.Addr
-	blocked := tGraph.BlockedList(g.Id)
-	for _, ref := range ufaddrs {
-		if _, isBlocked := blocked[ref]; isBlocked {
-			level.Warn(info).Log("msg", "blocked feed still stored (run go-sbot -cleanup)", "ref", fmt.Sprintf("%x", ref[:10]))
-			blockedAddr = append(blockedAddr, ref)
-		}
-	}
-
 	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
 	if hops != nil {
-		err := g.fetchAllMinus(ctx, e, hops, append(ufaddrs, blockedAddr...))
+		err := g.fetchAll(ctx, e, hops)
 		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
 			return
 		}
@@ -113,17 +89,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			level.Error(info).Log("fetching", "hops failed", "err", err)
 		}
 	}
-
-	err = g.fetchAllLib(ctx, e, ufaddrs)
-	if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
-		return
-	}
-	if err != nil {
-		level.Error(info).Log("fetching", "stored failed", "err", err)
-	} else {
-		level.Debug(info).Log("msg", "fetch done", "hops", hops.Count(), "stored", len(ufaddrs))
-	}
-
+	level.Debug(info).Log("msg", "fetch done", "hops", hops.Count())
 }
 
 func (g *handler) check(err error) {
@@ -188,6 +154,18 @@ func (g *handler) HandleCall(
 		}
 
 		if tg.Blocks(query.ID, remote) {
+			req.Stream.Close()
+			return
+		}
+
+		l, err := tg.MakeDijkstra(query.ID)
+		if err != nil {
+			req.Stream.Close()
+			return
+		}
+
+		path, _ := l.Dist(remote)
+		if len(path) == 0 {
 			req.Stream.Close()
 			return
 		}

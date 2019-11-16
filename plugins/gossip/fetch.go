@@ -52,28 +52,6 @@ func (h *handler) fetchAllLib(
 	return h.fetchAll(ctx, e, refs)
 }
 
-func (h *handler) fetchAllMinus(
-	ctx context.Context,
-	e muxrpc.Endpoint,
-	fs *graph.StrFeedSet,
-	got []librarian.Addr,
-) error {
-	lst, err := fs.List()
-	if err != nil {
-		return err
-	}
-	var refs = graph.NewFeedSet(len(lst))
-	for _, ref := range lst {
-		if !isIn(got, ref) {
-			err := refs.AddRef(ref)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return h.fetchAll(ctx, e, refs)
-}
-
 func (h *handler) fetchAll(
 	ctx context.Context,
 	e muxrpc.Endpoint,
@@ -90,7 +68,14 @@ func (h *handler) fetchAll(
 	if err != nil {
 		return err
 	}
+	tGraph, err := h.GraphBuilder.Build()
+	if err != nil {
+		return err
+	}
 	for _, r := range lst {
+		if tGraph.Blocks(h.Id, r) {
+			continue
+		}
 		err := h.fetchFeed(ctx, r, e)
 		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled || errors.Cause(err) == muxrpc.ErrSessionTerminated {
 			return err
