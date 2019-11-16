@@ -240,7 +240,7 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		sig := <-c
-		log.Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
+		level.Warn(log).Log("event", "killed", "msg", "received signal, shutting down", "signal", sig.String())
 		cancel()
 		sbot.Shutdown()
 		time.Sleep(2 * time.Second)
@@ -273,10 +273,10 @@ func main() {
 	msgCount := rseq.(margaret.Seq)
 	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq()))
 
-	log.Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
+	level.Info(log).Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
 	if flagReindex {
-		log.Log("mode", "reindexing")
+		level.Warn(log).Log("mode", "reindexing")
 		err = sbot.Close()
 		checkAndLog(err)
 		return
@@ -284,7 +284,7 @@ func main() {
 
 	// removes blocked feeds
 	if flagCleanup {
-		log.Log("mode", "cleanup")
+		level.Warn(log).Log("mode", "cleanup")
 
 		tg, err := sbot.GraphBuilder.Build()
 		checkAndLog(err)
@@ -317,12 +317,14 @@ func main() {
 		checkAndLog(err)
 		return
 	}
-	log.Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
 
+	level.Info(log).Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
 	for {
 		// Note: This is where the serving starts ;)
 		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))
-		log.Log("event", "sbot node.Serve returned", "err", err)
+		if err != nil {
+			level.Warn(log).Log("event", "sbot node.Serve returned", "err", err)
+		}
 		SystemEvents.With("event", "nodeServ exited").Add(1)
 		time.Sleep(1 * time.Second)
 		select {

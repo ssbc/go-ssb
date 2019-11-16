@@ -41,19 +41,18 @@ func (s *Sbot) Close() error {
 	// TODO: if already closed?
 	if s.Network != nil {
 		s.Network.GetConnTracker().CloseAll()
+		level.Debug(s.info).Log("event", "closing", "msg", "connections closed")
 	}
-	s.info.Log("event", "closing", "msg", "sbot close waiting for idxes")
 
 	if err := s.idxDone.Wait(); err != nil {
 		return errors.Wrap(err, "sbot: index group failed")
 	}
-	// TODO: timeout?
-	s.info.Log("event", "closing", "msg", "waited")
+	level.Debug(s.info).Log("event", "closing", "msg", "waited for indexes to close")
 
 	if err := s.closers.Close(); err != nil {
 		return err
 	}
-	s.info.Log("event", "closing", "msg", "closers closed")
+	level.Info(s.info).Log("event", "closing", "msg", "closers closed")
 	return nil
 }
 
