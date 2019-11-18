@@ -16,14 +16,14 @@ import (
 	"go.cryptoscope.co/luigi"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 func TestPublishUnicode(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	hk := make([]byte, 32)
 	n, err := rand.Read(hk)
@@ -64,7 +64,7 @@ func TestPublishUnicode(t *testing.T) {
 	r.NoError(err)
 	var i = 0
 	for {
-		v, err := src.Next(context.TODO())
+		v, err := src.Next(ctx)
 		if luigi.IsEOS(err) {
 			break
 		}
@@ -79,6 +79,7 @@ func TestPublishUnicode(t *testing.T) {
 	r.Equal(i, 1)
 
 	ali.Shutdown()
+	cancel()
 	r.NoError(ali.Close())
 	r.NoError(<-aliErrc)
 }
