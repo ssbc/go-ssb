@@ -159,7 +159,7 @@ func TestNullFeed(t *testing.T) {
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(8 * time.Second)
 	checkUserLogSeq(mainbot, "bert", 1000)
 
 	bertBot.Shutdown()
