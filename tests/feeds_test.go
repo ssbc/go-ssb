@@ -24,7 +24,11 @@ func TestFeedFromJS(t *testing.T) {
 	ts.startGoBot()
 	bob := ts.gobot
 
-	alice := ts.startJSBot(`
+	// just for keygen, needed later
+	claire := ts.startJSBotWithName("claire", `exit()`, "")
+
+	alice := ts.startJSBot(fmt.Sprintf(`
+	let claireRef = %q
 	function mkMsg(msg) {
 		return function(cb) {
 			sbot.publish(msg, cb)
@@ -35,16 +39,17 @@ func TestFeedFromJS(t *testing.T) {
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
+	msgs.push(mkMsg({type: 'contact', contact: claireRef, following: true}))
 
 	// be done when the other party is done
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 
 	parallel(msgs, function(err, results) {
 		t.error(err, "parallel of publish")
-		t.equal(n, results.length, "message count")
+		t.equal(n+1, results.length, "message count")
 		run() // triggers connect and after block
 	})
-`, ``)
+`, claire.Ref()), ``)
 
 	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
@@ -62,10 +67,10 @@ func TestFeedFromJS(t *testing.T) {
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(n-1), seq)
+	r.Equal(margaret.BaseSeq(n), seq) // +1 for the context message
 
 	var lastMsg string
-	for i := 0; i < n; i++ {
+	for i := 0; i < n; i++ { // don't check the contact:following message from A to C
 		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
@@ -96,34 +101,38 @@ func TestFeedFromJS(t *testing.T) {
 		}
 	}
 
-	before := fmt.Sprintf(`fromKey = %q // global - pubKey of the first alice
-t.comment('shouldnt have alices feed:' + fromKey)
+	before := fmt.Sprintf(`
+aliceRef = %q // global - pubKey of the first alice
+
+t.comment('shouldnt have alices feed:' + aliceRef)
 
 sbot.on('rpc:connect', (rpc) => {
   rpc.on('closed', () => { 
-    t.comment('now should have feed:' + fromKey)
+    t.comment('now should have feed:' + aliceRef)
     pull(
-      sbot.createUserStream({id:fromKey, reverse:true, limit: 1}),
+      sbot.createUserStream({id:aliceRef, reverse:true, limit: 2}),
       pull.collect(function(err, msgs) {
         t.error(err, 'query worked')
-        t.equal(1, msgs.length, 'got all the messages')
-        t.equal(%q, msgs[0].key, 'latest keys match')
-        t.equal(23, msgs[0].value.sequence, 'latest sequence')
+		t.equal(2, msgs.length, 'got all the messages')
+		// skip the contact message
+		t.equal('contact', msgs[0].value.content.type, 'latest sequence')
+        t.equal(%q, msgs[1].key, 'latest keys match')
+        t.equal(23, msgs[1].value.sequence, 'latest sequence')
         exit()
       })
     )
   })
 })
 
-sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
-  t.error(err, 'follow:' + fromKey)
+sbot.publish({type: 'contact', contact: aliceRef, following: true}, function(err, msg) {
+  t.error(err, 'follow:' + aliceRef)
 
-sbot.friends.get({src: alice.id, dest: fromKey}, function(err, val) {
+sbot.friends.get({src: alice.id, dest: aliceRef}, function(err, val) {
   t.error(err, 'friends.get of new contact')
   t.equals(val[alice.id], true, 'is following')
 
 pull(
-  sbot.createUserStream({id:fromKey}),
+  sbot.createUserStream({id:aliceRef}),
   pull.collect(function(err, vals){
     t.error(err)
     t.equal(0, vals.length)
@@ -134,8 +143,7 @@ pull(
 }) // friends.get
 
 }) // publish`, alice.Ref(), lastMsg)
-
-	claire := ts.startJSBot(before, "")
+	claire = ts.startJSBotWithName("claire", before, "")
 
 	t.Logf("started claire: %s", claire.Ref())
 	newSeq, err = bob.PublishLog.Append(map[string]interface{}{

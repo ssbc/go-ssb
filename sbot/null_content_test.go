@@ -250,13 +250,7 @@ func TestNullContentAndSync(t *testing.T) {
 	r.Len(kps, 2)
 
 	// assert helpers
-	checkLogSeq := func(l margaret.Log, seq int) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(seq, v.(margaret.Seq).Seq())
-	}
-
-	checkUserLogSeq := func(bot *Sbot, name string, seq int) {
+	checkUserLogSeq := func(bot *Sbot, name string, want int) {
 		kp, has := n2kp[name]
 		r.True(has, "%s not in map", name)
 
@@ -266,7 +260,9 @@ func TestNullContentAndSync(t *testing.T) {
 		l, err := uf.Get(kp.Id.StoredAddr())
 		r.NoError(err)
 
-		checkLogSeq(l, seq)
+		v, err := l.Seq().Value()
+		r.NoError(err)
+		r.EqualValues(want, v.(margaret.Seq).Seq(), "userFeed of %s has unexpected sequence", name)
 	}
 
 	checkMessageNulled := func(bot *Sbot, name string, seq uint, isNulled bool) {
@@ -379,7 +375,7 @@ func TestNullContentAndSync(t *testing.T) {
 	err = mainbot.Network.Connect(ctx, otherBot.Network.GetListenAddr())
 	r.NoError(err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	checkUserLogSeq(otherBot, "arny", 3)
 	checkUserLogSeq(otherBot, "bert", 5)

@@ -158,16 +158,22 @@ func (g *handler) HandleCall(
 			return
 		}
 
-		l, err := tg.MakeDijkstra(query.ID)
-		if err != nil {
-			req.Stream.Close()
-			return
-		}
+		if !g.promisc { // if we are very liberal about who we gossip with
+			// see if there is a path from the wanted feed
+			l, err := tg.MakeDijkstra(query.ID)
+			if err != nil {
+				req.Stream.Close()
+				return
+			}
 
-		path, _ := l.Dist(remote)
-		if len(path) == 0 {
-			req.Stream.Close()
-			return
+			// to the remote requesting it
+			path, _ := l.Dist(remote)
+			if len(path) == 0 || len(path) > 3 {
+				req.Stream.Close()
+				return
+			}
+
+			// now we know that at least someone they know, knows the remote
 		}
 
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
