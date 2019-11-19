@@ -24,6 +24,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/internal/netwraputil"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/repo"
@@ -155,9 +156,6 @@ func WithUNIXSocket() Option {
 
 		go func() {
 			// time.Sleep(5 * time.Second)
-			// var selfAddr secretstream.Addr
-			// selfAddr.PubKey = make([]byte, 32)
-			// copy(selfAddr.PubKey, s.KeyPair.Id.ID)
 
 			for {
 				c, err := uxLis.Accept()
@@ -174,13 +172,16 @@ func WithUNIXSocket() Option {
 					continue
 				}
 
+				spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id)
+				wc, err := spoofWrapper(c)
+				if err != nil {
+					c.Close()
+					continue
+				}
 				go func(conn net.Conn) {
 					defer conn.Close()
 
 					pkr := muxrpc.NewPacker(conn)
-
-					// TODO: fix address spoofing in handlers
-					// sameAs := netwrap.WrapAddr(conn.RemoteAddr(), selfAddr)
 
 					h, err := s.master.MakeHandler(conn)
 					if err != nil {
@@ -190,15 +191,17 @@ func WithUNIXSocket() Option {
 						return
 					}
 
-					edp := muxrpc.HandleWithLogger(pkr, h, kitlog.With(s.info, "unix", conn.LocalAddr().String()))
+					logWithAddr := kitlog.With(s.info, "unix", conn.LocalAddr().String())
+					edp := muxrpc.HandleWithLogger(pkr, h, logWithAddr)
 
+					ctx, cancel := context.WithCancel(s.rootCtx)
 					srv := edp.(muxrpc.Server)
-					if err := srv.Serve(s.rootCtx); err != nil {
+					if err := srv.Serve(ctx); err != nil {
 						s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
 					}
 					edp.Terminate()
-
-				}(c)
+					cancel()
+				}(wc)
 			}
 		}()
 		return nil

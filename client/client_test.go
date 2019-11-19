@@ -25,8 +25,8 @@ import (
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 
-	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 func TestUnixSock(t *testing.T) {
@@ -54,8 +54,46 @@ func TestUnixSock(t *testing.T) {
 	r.NotNil(ref)
 	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
 
-	a.NoError(c.Close())
+	// make sure we can publish
+	var msgs []*ssb.MessageRef
+	const msgCount = 15
+	for i := 0; i < msgCount; i++ {
+		ref, err := c.Publish(struct{ I int }{i})
+		r.NoError(err)
+		r.NotNil(ref)
+		msgs = append(msgs, ref)
+	}
 
+	// and stream those messages back
+	var o message.CreateHistArgs
+	o.ID = srv.KeyPair.Id
+	o.Keys = true
+	o.MarshalType = ssb.KeyValueRaw{}
+	src, err := c.CreateHistoryStream(o)
+	r.NoError(err)
+	r.NotNil(src)
+
+	ctx := context.TODO()
+	i := 0
+	for {
+		v, err := src.Next(ctx)
+		if err != nil {
+			if luigi.IsEOS(err) {
+				break
+			}
+			r.NoError(err)
+		}
+		r.NotNil(v)
+
+		msg, ok := v.(ssb.Message)
+		r.True(ok, "%d: wrong type: %T", i, v)
+
+		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		i++
+	}
+	r.Equal(msgCount, i, "did not get all messages")
+
+	a.NoError(c.Close())
 	srv.Shutdown()
 	r.NoError(srv.Close())
 }

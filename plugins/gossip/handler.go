@@ -142,6 +142,7 @@ func (g *handler) HandleCall(
 			closeIfErr(errors.Wrap(err, "bad request"))
 			return
 		}
+
 		remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 		if err != nil {
 			closeIfErr(errors.Wrap(err, "bad request"))
