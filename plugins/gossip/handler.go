@@ -147,18 +147,20 @@ func (g *handler) HandleCall(
 			closeIfErr(errors.Wrap(err, "bad request"))
 			return
 		}
-		tg, err := g.GraphBuilder.Build()
-		if err != nil {
-			closeIfErr(errors.Wrap(err, "internal error"))
-			return
-		}
 
-		if tg.Blocks(query.ID, remote) {
-			req.Stream.Close()
-			return
-		}
+		// skip this check for self/master or in promisc mode (talk to everyone)
+		if !(g.Id.Equal(remote) || g.promisc) {
+			tg, err := g.GraphBuilder.Build()
+			if err != nil {
+				closeIfErr(errors.Wrap(err, "internal error"))
+				return
+			}
 
-		if !g.promisc { // if we are very liberal about who we gossip with
+			if tg.Blocks(query.ID, remote) {
+				req.Stream.Close()
+				return
+			}
+
 			// see if there is a path from the wanted feed
 			l, err := tg.MakeDijkstra(query.ID)
 			if err != nil {

@@ -290,9 +290,10 @@ func (ref FeedRef) Ref() string {
 }
 
 func (ref FeedRef) Equal(b *FeedRef) bool {
-	if ref.Algo != b.Algo {
-		return false
-	}
+	// TODO: invset time in shs1.1 to signal the format correctly
+	// if ref.Algo != b.Algo {
+	// 	return false
+	// }
 	return bytes.Equal(ref.ID, b.ID)
 }
 
