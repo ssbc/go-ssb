@@ -171,7 +171,7 @@ func (g *handler) HandleCall(
 
 			// to the remote requesting it
 			path, _ := l.Dist(remote)
-			if len(path) == 0 || len(path) > 3 {
+			if len(path) < 1 || len(path) > 4 {
 				req.Stream.Close()
 				return
 			}
