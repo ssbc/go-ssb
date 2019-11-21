@@ -7,11 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
-
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -92,25 +91,22 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	level.Debug(info).Log("msg", "fetch done", "hops", hops.Count())
 }
 
-func (g *handler) check(err error) {
-	if err != nil {
-		g.Info.Log("error", err)
-	}
-}
-
 func (g *handler) HandleCall(
 	ctx context.Context,
 	req *muxrpc.Request,
 	edp muxrpc.Endpoint,
 ) {
-
 	if req.Type == "" {
 		req.Type = "async"
 	}
 
+	hlog := log.With(g.Info, "method", req.Method.String())
+	errLog := level.Error(hlog)
+	dbgLog := level.Warn(hlog)
+
 	closeIfErr := func(err error) {
-		g.check(err)
 		if err != nil {
+			errLog.Log("event", "gossip call handler failed", "err", err)
 			req.Stream.CloseWithError(err)
 		} else {
 			req.Stream.Close()
@@ -145,7 +141,7 @@ func (g *handler) HandleCall(
 
 		remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 		if err != nil {
-			closeIfErr(errors.Wrap(err, "bad request"))
+			closeIfErr(errors.Wrap(err, "bad remote"))
 			return
 		}
 
@@ -158,6 +154,7 @@ func (g *handler) HandleCall(
 			}
 
 			if tg.Blocks(query.ID, remote) {
+				dbgLog.Log("event", "feed blocked")
 				req.Stream.Close()
 				return
 			}
@@ -165,26 +162,33 @@ func (g *handler) HandleCall(
 			// see if there is a path from the wanted feed
 			l, err := tg.MakeDijkstra(query.ID)
 			if err != nil {
+				errLog.Log("event", "graph dist lookup failed", "err", err)
 				req.Stream.Close()
 				return
 			}
 
 			// to the remote requesting it
-			path, _ := l.Dist(remote)
+			path, dist := l.Dist(remote)
 			if len(path) < 1 || len(path) > 4 {
+				errLog.Log("event", "requested feed doesnt know remote", "d", dist, "plen", len(path))
 				req.Stream.Close()
 				return
 			}
 
+			dbgLog.Log("event", "feeds in range", "d", dist, "plen", len(path))
 			// now we know that at least someone they know, knows the remote
+		} else {
+			dbgLog.Log("event", "feed access granted")
 		}
 
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
 		if err != nil {
-			req.Stream.CloseWithError(errors.Wrap(err, "createHistoryStream failed"))
+			err = errors.Wrap(err, "createHistoryStream failed")
+			closeIfErr(err)
 			return
 		}
 		// don't close stream (feedManager will pass it on to live processing or close it itself)
+		dbgLog.Log("event", "feed push done")
 
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)

@@ -249,11 +249,11 @@ func (m *FeedManager) CreateStreamHistory(
 	err = luigi.Pump(ctx, newSinkCounter(&sent, sink), src)
 	if m.sysCtr != nil {
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
-	} else {
-		if sent > 0 {
-			m.logger.Log("event", "gossiptx", "n", sent, "fr", arg.ID.Ref())
-		}
+	} //else {
+	if sent > 0 {
+		m.logger.Log("event", "gossiptx", "n", sent, "fr", arg.ID.Ref())
 	}
+	//}
 	if errors.Cause(err) == context.Canceled {
 		return sink.Close()
 	} else if err != nil {
