@@ -100,17 +100,17 @@ func (g *handler) HandleCall(
 		req.Type = "async"
 	}
 
-	hlog := log.With(g.Info, "method", req.Method.String())
+	hlog := log.With(g.Info, "event", "gossiptx")
 	errLog := level.Error(hlog)
-	dbgLog := level.Warn(hlog)
+	dbgLog := level.Debug(hlog)
 
 	closeIfErr := func(err error) {
 		if err != nil {
-			errLog.Log("event", "gossip call handler failed", "err", err)
+			errLog.Log("err", err)
 			req.Stream.CloseWithError(err)
-		} else {
-			req.Stream.Close()
+			return
 		}
+		req.Stream.Close()
 	}
 
 	switch req.Method.String() {
@@ -145,6 +145,9 @@ func (g *handler) HandleCall(
 			return
 		}
 
+		// hlog = log.With(hlog, "fr", query.ID.Ref()[1:5], "remote", remote.Ref()[1:5])
+		// dbgLog = level.Warn(hlog)
+
 		// skip this check for self/master or in promisc mode (talk to everyone)
 		if !(g.Id.Equal(remote) || g.promisc) {
 			tg, err := g.GraphBuilder.Build()
@@ -154,41 +157,46 @@ func (g *handler) HandleCall(
 			}
 
 			if tg.Blocks(query.ID, remote) {
-				dbgLog.Log("event", "feed blocked")
+				dbgLog.Log("msg", "feed blocked")
 				req.Stream.Close()
 				return
 			}
 
-			// see if there is a path from the wanted feed
-			l, err := tg.MakeDijkstra(query.ID)
-			if err != nil {
-				errLog.Log("event", "graph dist lookup failed", "err", err)
-				req.Stream.Close()
-				return
-			}
+			// TODO: write proper tests for this
+			// // see if there is a path from the wanted feed
+			// l, err := tg.MakeDijkstra(query.ID)
+			// if err != nil {
+			// 	if _, ok := errors.Cause(err).(graph.ErrNoSuchFrom); ok {
+			// 		dbgLog.Log("msg", "unknown remote")
+			// 		req.Stream.Close()
+			// 		return
+			// 	}
+			// 	closeIfErr(errors.Wrap(err, "graph dist lookup failed"))
+			// 	return
+			// }
 
-			// to the remote requesting it
-			path, dist := l.Dist(remote)
-			if len(path) < 1 || len(path) > 4 {
-				errLog.Log("event", "requested feed doesnt know remote", "d", dist, "plen", len(path))
-				req.Stream.Close()
-				return
-			}
-
-			dbgLog.Log("event", "feeds in range", "d", dist, "plen", len(path))
+			// // to the remote requesting it
+			// path, dist := l.Dist(remote)
+			// if len(path) < 1 || len(path) > 4 {
+			// 	dbgLog.Log("msg", "requested feed doesnt know remote", "d", dist, "plen", len(path))
+			// 	req.Stream.Close()
+			// 	return
+			// }
 			// now we know that at least someone they know, knows the remote
-		} else {
-			dbgLog.Log("event", "feed access granted")
+
+			// dbgLog.Log("msg", "feeds in range", "d", dist, "plen", len(path))
+			// } else {
+			// dbgLog.Log("msg", "feed access granted")
 		}
 
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
 		if err != nil {
 			err = errors.Wrap(err, "createHistoryStream failed")
-			closeIfErr(err)
+			level.Error(hlog).Log("err", err)
+			req.Stream.CloseWithError(err)
 			return
 		}
 		// don't close stream (feedManager will pass it on to live processing or close it itself)
-		dbgLog.Log("event", "feed push done")
 
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
@@ -200,6 +208,6 @@ func (g *handler) HandleCall(
 		// some versions of ssb-gossip don't like if the stream is closed without an error
 
 	default:
-		closeIfErr(errors.Errorf("unknown command: %s", req.Method))
+		closeIfErr(errors.Errorf("unknown command: %q", req.Method.String()))
 	}
 }

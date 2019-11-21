@@ -33,25 +33,6 @@ func (e ErrWrongSequence) Error() string {
 		e.Ref.Ref(), e.Stored, e.Indexed)
 }
 
-func (h *handler) fetchAllLib(
-	ctx context.Context,
-	e muxrpc.Endpoint,
-	lst []librarian.Addr,
-) error {
-	var refs = graph.NewFeedSet(len(lst))
-	for i, addr := range lst {
-		var sr ssb.StorageRef
-		err := sr.Unmarshal([]byte(addr))
-		if err != nil {
-			return errors.Wrapf(err, "fetchLib(%d) failed to parse (%q)", i, addr)
-		}
-		if err := refs.AddStored(&sr); err != nil {
-			return errors.Wrapf(err, "fetchLib(%d) set add failed", i)
-		}
-	}
-	return h.fetchAll(ctx, e, refs)
-}
-
 func (h *handler) fetchAll(
 	ctx context.Context,
 	e muxrpc.Endpoint,
@@ -170,7 +151,7 @@ func (g *handler) fetchFeed(
 	}
 
 	startSeq := latestSeq
-	info := log.With(g.Info, "fr", fr.Ref(), "latest", startSeq) //, "me", g.Id.Ref())
+	info := log.With(g.Info, "event", "gossiprx", "fr", fr.Ref()[1:5], "latest", startSeq) // , "me", g.Id.Ref()[1:5])
 
 	var q = message.CreateHistArgs{
 		ID:         fr,
@@ -188,9 +169,8 @@ func (g *handler) fetchFeed(
 			}
 			if g.sysCtr != nil {
 				g.sysCtr.With("event", "gossiprx").Add(float64(n))
-			} else {
-				level.Debug(info).Log("event", "gossiprx", "new", n, "took", time.Since(start))
 			}
+			level.Debug(info).Log("received", n, "took", time.Since(start))
 		}
 	}()
 

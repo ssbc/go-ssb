@@ -191,8 +191,7 @@ func WithUNIXSocket() Option {
 						return
 					}
 
-					logWithAddr := kitlog.With(s.info, "unix", conn.LocalAddr().String())
-					edp := muxrpc.HandleWithLogger(pkr, h, logWithAddr)
+					edp := muxrpc.HandleWithLogger(pkr, h, s.info)
 
 					ctx, cancel := context.WithCancel(s.rootCtx)
 					srv := edp.(muxrpc.Server)
