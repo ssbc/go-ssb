@@ -64,10 +64,10 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 	defer m.liveFeedsMut.Unlock()
 
 	if err != nil {
-		m.logger.Log("pourErr", err)
 		if luigi.IsEOS(err) {
 			return nil
 		}
+		level.Error(m.logger).Log("event", "pour failed", "err", err)
 		return err
 	}
 
