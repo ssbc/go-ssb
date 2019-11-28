@@ -52,7 +52,8 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		return
 	}
 
-	info := log.With(g.Info, "remote", remoteRef.Ref()[1:5])
+	info := log.With(g.Info, "remote", remoteRef.Ref()[1:5], "event", "gossiprx")
+	start := time.Now()
 
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
@@ -67,7 +68,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
-			info.Log("fetchFeed", "done callee")
+			info.Log("msg", "done fetching callee")
 		}
 	}
 
@@ -86,10 +87,10 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 		if err != nil {
-			level.Error(info).Log("fetching", "hops failed", "err", err)
+			level.Error(info).Log("msg", "hops failed", "err", err)
 		}
 	}
-	level.Debug(info).Log("msg", "fetch done", "hops", hops.Count())
+	level.Debug(info).Log("msg", "hops fetch done", "count", hops.Count(), "took", time.Since(start))
 }
 
 func (g *handler) HandleCall(

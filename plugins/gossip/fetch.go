@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -53,20 +54,46 @@ func (h *handler) fetchAll(
 	if err != nil {
 		return err
 	}
-	started := time.Now()
+
+	fetchGroup, ctx := errgroup.WithContext(ctx)
+	work := make(chan *ssb.FeedRef)
+
+	n := 1 + (len(lst) / 10)
+	const maxWorker = 50
+	if n > maxWorker { // n = max(n,maxWorker)
+		n = maxWorker
+	}
+	for i := n; i > 0; i-- {
+		fetchGroup.Go(h.makeWorker(work, ctx, e))
+	}
+
 	for _, r := range lst {
 		if tGraph.Blocks(h.Id, r) {
 			continue
 		}
-		err := h.fetchFeed(ctx, r, e, started)
-		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled || errors.Cause(err) == muxrpc.ErrSessionTerminated {
-			return err
-		} else if err != nil {
-			// just logging the error assuming forked feed for instance
-			level.Warn(h.Info).Log("event", "skipped updating of stored feed", "err", err, "fr", r.Ref()[1:5])
-		}
+		work <- r
 	}
-	return nil
+	close(work)
+	level.Debug(h.Info).Log("event", "feed fetch workers filled", "n", n)
+	err = fetchGroup.Wait()
+	level.Debug(h.Info).Log("event", "workers done", "err", err)
+	return err
+}
+
+func (h *handler) makeWorker(work <-chan *ssb.FeedRef, ctx context.Context, edp muxrpc.Endpoint) func() error {
+	started := time.Now()
+	return func() error {
+		for ref := range work {
+			err := h.fetchFeed(ctx, ref, edp, started)
+			if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled || errors.Cause(err) == muxrpc.ErrSessionTerminated {
+				return err
+			} else if err != nil {
+				// just logging the error assuming forked feed for instance
+				level.Warn(h.Info).Log("event", "skipped updating of stored feed", "err", err, "fr", ref.Ref()[1:5])
+			}
+		}
+		return nil
+	}
 }
 
 func isIn(list []librarian.Addr, a *ssb.FeedRef) bool {
