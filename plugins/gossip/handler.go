@@ -12,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
@@ -62,7 +63,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
 		if !hasCallee {
 			info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
-			if err := g.fetchFeed(ctx, remoteRef, e); err != nil {
+			if err := g.fetchFeed(ctx, remoteRef, e, time.Now()); err != nil {
 				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
@@ -191,6 +192,10 @@ func (g *handler) HandleCall(
 
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
 		if err != nil {
+			if luigi.IsEOS(err) {
+				req.Stream.Close()
+				return
+			}
 			err = errors.Wrap(err, "createHistoryStream failed")
 			level.Error(hlog).Log("err", err)
 			req.Stream.CloseWithError(err)
