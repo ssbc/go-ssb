@@ -166,7 +166,7 @@ func (ct *trackerLastWins) OnAccept(newConn net.Conn) bool {
 		case <-oldConn.done:
 			// cleaned up after itself
 		case <-time.After(10 * time.Second):
-          log.Println("[ConnTracker/lastWins] warning: not accepted, would ghost connection:", oldConn.c.RemoteAddr().String(), time.Since(oldConn.started))
+			log.Println("[ConnTracker/lastWins] warning: not accepted, would ghost connection:", oldConn.c.RemoteAddr().String(), time.Since(oldConn.started))
 			return false
 		}
 	}

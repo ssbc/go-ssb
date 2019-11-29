@@ -58,7 +58,6 @@ func TestTangles(t *testing.T) {
 	)
 	r.NoError(err)
 
-
 	// > create contacts
 	var tmsgs = []interface{}{
 		map[string]interface{}{

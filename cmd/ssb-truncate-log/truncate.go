@@ -41,8 +41,8 @@ func main() {
 	limit, err := strconv.Atoi(os.Args[3])
 	check(err)
 
-    repoFrom:=repo.New(fromPath)
-    repoTo:=repo.New(toPath)
+	repoFrom := repo.New(fromPath)
+	repoTo := repo.New(toPath)
 
 	from, err := repo.OpenLog(repoFrom)
 	check(err)

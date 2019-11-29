@@ -25,7 +25,7 @@ const IndexNamePrivates = "privates"
 // not strictly a multilog but allows multiple keys and gives us the good resumption
 func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 	return &Private{
-		logger: log,
+		logger:   log,
 		keyPairs: kps,
 	}
 }
@@ -35,7 +35,6 @@ type Private struct {
 
 	keyPairs []*ssb.KeyPair
 }
-
 
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
 func (pr Private) OpenRoaring(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
