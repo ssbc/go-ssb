@@ -113,7 +113,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		t.Logf("runniung connect %d", i)
 		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		bob.Network.GetConnTracker().CloseAll()
 
 		_, err := ali.PublishLog.Append(map[string]interface{}{
