@@ -254,7 +254,7 @@ func main() {
 	logging.SetCloseChan(c)
 
 	id := sbot.KeyPair.Id
-	uf, ok := sbot.GetMultiLog("userFeeds")
+	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
 		return

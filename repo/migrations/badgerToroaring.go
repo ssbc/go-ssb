@@ -1,11 +1,13 @@
 package migrations
 
 import (
+	"os"
+
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
-	"os"
 )
 
 func StillUsingBadger(log logging.Interface, r repo.Interface) (bool, error) {
@@ -23,7 +25,7 @@ func StillUsingBadger(log logging.Interface, r repo.Interface) (bool, error) {
 	// check the db and the state file
 	var hasDB, hasState bool
 
-	dbPath := r.GetPath(repo.PrefixMultiLog, "userFeeds", "db")
+	dbPath := r.GetPath(repo.PrefixMultiLog, multilogs.IndexNameFeeds, "db")
 	_, err := os.Stat(dbPath)
 	if err != nil && !os.IsNotExist(err) {
 		return false, errors.Wrap(err, "StillUsingBadger: failed to check old db path inside the repo")
@@ -32,7 +34,7 @@ func StillUsingBadger(log logging.Interface, r repo.Interface) (bool, error) {
 		hasDB = true
 	}
 
-	stateFilePath := r.GetPath(repo.PrefixMultiLog, "userFeeds", "state.json")
+	stateFilePath := r.GetPath(repo.PrefixMultiLog, multilogs.IndexNameFeeds, "state.json")
 	_, err = os.Stat(stateFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		return false, errors.Wrap(err, "StillUsingBadger: failed to check old state file path inside the repo")

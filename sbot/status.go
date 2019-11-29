@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/multiserver"
+	"go.cryptoscope.co/ssb/multilogs"
 )
 
 func (sbot *Sbot) Status() (*ssb.Status, error) {
@@ -143,7 +144,7 @@ func (s *Sbot) FSCK(idxlog multilog.MultiLog) {
 
 	if idxlog == nil {
 		var ok bool
-		idxlog, ok = s.GetMultiLog("userFeeds")
+		idxlog, ok = s.GetMultiLog(multilogs.IndexNameFeeds)
 		if !ok {
 			checkFatal(errors.Errorf("no multilog"))
 			return

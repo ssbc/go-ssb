@@ -24,7 +24,7 @@ import (
 func (s *Sbot) NullFeed(ref *ssb.FeedRef) error {
 	ctx := context.Background()
 
-	uf, ok := s.GetMultiLog("userFeeds")
+	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		return errors.Errorf("NullFeed: failed to open multilog")
 	}

@@ -100,15 +100,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	const userFeedsName = "userFeeds"
-	uf, ok := s.mlogIndicies[userFeedsName]
+	uf, ok := s.mlogIndicies[multilogs.IndexNameFeeds]
 	if !ok {
-		log.Log("warning", "loading default idx", "idx", userFeedsName)
-		err = MountMultiLog(userFeedsName, multilogs.OpenUserFeeds)(s)
+		log.Log("warning", "loading default idx", "idx", multilogs.IndexNameFeeds)
+		err = MountMultiLog(multilogs.IndexNameFeeds, multilogs.OpenUserFeeds)(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
 		}
-		uf, ok = s.mlogIndicies[userFeedsName]
+		uf, ok = s.mlogIndicies[multilogs.IndexNameFeeds]
 		if !ok {
 			return nil, errors.Errorf("sbot: failed get loaded default index")
 		}
@@ -163,7 +162,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
-	// if mt, ok := s.mlogIndicies["userFeeds"]; ok {
+	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
 	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.RootLog, s.PublishLog)
 	// 	s.public.Register(peerPlug)
 	// 	_, peerServ, err := peerPlug.OpenIndex(r)

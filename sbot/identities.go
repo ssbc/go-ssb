@@ -7,13 +7,14 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
 
 func (sbot *Sbot) PublishAs(nick string, val interface{}) (*ssb.MessageRef, error) {
 	r := repo.New(sbot.repoPath)
 
-	uf, ok := sbot.GetMultiLog("userFeeds")
+	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		return nil, errors.Errorf("requried idx not present: userFeeds")
 	}

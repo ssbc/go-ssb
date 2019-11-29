@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"log"
 
-	"go.cryptoscope.co/ssb/message/multimsg"
-
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/message/multimsg"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -26,7 +26,7 @@ func (s *Sbot) NullContent(fr *ssb.FeedRef, seq uint) error {
 		return ssb.ErrUnuspportedFormat
 	}
 
-	uf, ok := s.GetMultiLog("userFeeds")
+	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		return errors.Errorf("userFeeds mlog not present")
 	}
