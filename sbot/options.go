@@ -12,8 +12,6 @@ import (
 	"strings"
 
 	"github.com/cryptix/go/logging"
-	"golang.org/x/sync/errgroup"
-
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
@@ -21,6 +19,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
@@ -136,6 +135,13 @@ func WithDialer(dial netwrap.Dialer) Option {
 
 func WithUNIXSocket() Option {
 	return func(s *Sbot) error {
+		// this races because sbot might not be done with init yet
+		// TODO: refactor network peer code and make unixsock implement that (those will be inited late anyway)
+		if s.KeyPair == nil {
+			return errors.Errorf("sbot/unixsock: keypair is nil. please use unixSocket with LateOption")
+		}
+		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.ID)
+
 		r := repo.New(s.repoPath)
 		sockPath := r.GetPath("socket")
 
@@ -155,7 +161,6 @@ func WithUNIXSocket() Option {
 		s.closers.addCloser(uxLis)
 
 		go func() {
-			// time.Sleep(5 * time.Second)
 
 			for {
 				c, err := uxLis.Accept()
@@ -172,7 +177,6 @@ func WithUNIXSocket() Option {
 					continue
 				}
 
-				spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id)
 				wc, err := spoofWrapper(c)
 				if err != nil {
 					c.Close()

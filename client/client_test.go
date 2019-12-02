@@ -41,7 +41,7 @@ func TestUnixSock(t *testing.T) {
 		sbot.WithRepoPath(srvRepo),
 		// sbot.DisableNetworkNode(), skips muxrpc handler
 		sbot.WithListenAddr(":0"),
-		sbot.WithUNIXSocket(),
+		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -153,7 +153,7 @@ func TestLotsOfWhoami(t *testing.T) {
 		sbot.WithRepoPath(srvRepo),
 		// sbot.DisableNetworkNode(), skips muxrpc handler
 		sbot.WithListenAddr(":0"),
-		sbot.WithUNIXSocket(),
+		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -222,7 +222,7 @@ func TestStatusCalls(t *testing.T) {
 			sbot.WithRepoPath(srvRepo),
 			// sbot.DisableNetworkNode(), skips muxrpc handler
 			sbot.WithListenAddr(":0"),
-			sbot.WithUNIXSocket(),
+			sbot.LateOption(sbot.WithUNIXSocket()),
 		)
 		r.NoError(err, "sbot srv init failed")
 

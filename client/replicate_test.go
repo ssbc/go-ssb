@@ -33,7 +33,7 @@ func TestReplicateUpTo(t *testing.T) {
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
 		sbot.WithListenAddr(":0"),
-		sbot.WithUNIXSocket(),
+		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err, "sbot srv init failed")
 

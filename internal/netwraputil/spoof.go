@@ -1,23 +1,26 @@
 package netwraputil
 
 import (
+	"errors"
 	"net"
 
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb"
 )
 
 // SpoofRemoteAddress wraps the connection with the passed reference
 // as if it was a secret-handshake connection
 // warning: should only be used where auth is established otherwise,
 // like for testing or local client access over unixsock
-func SpoofRemoteAddress(remote *ssb.FeedRef) netwrap.ConnWrapper {
+func SpoofRemoteAddress(pubKey []byte) netwrap.ConnWrapper {
+	if len(pubKey) != 32 {
+		return func(_ net.Conn) (net.Conn, error) {
+			return nil, errors.New("invalid public key length")
+		}
+	}
+	var spoofedAddr secretstream.Addr
+	spoofedAddr.PubKey = pubKey
 	return func(c net.Conn) (net.Conn, error) {
-		var spoofedAddr secretstream.Addr
-		spoofedAddr.PubKey = make([]byte, 32)
-		copy(spoofedAddr.PubKey, remote.ID)
-
 		sc := SpoofedConn{
 			Conn:          c,
 			spoofedRemote: netwrap.WrapAddr(c.RemoteAddr(), spoofedAddr),

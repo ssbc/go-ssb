@@ -16,7 +16,7 @@ func TestSpoof(t *testing.T) {
 	kp, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
 
-	wrap := SpoofRemoteAddress(kp.Id)
+	wrap := SpoofRemoteAddress(kp.Id.PubKey())
 
 	wrapped, err := wrap(wc)
 	r.NoError(err)
