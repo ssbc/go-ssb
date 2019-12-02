@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -563,3 +564,124 @@ func TestBlobsWithHops(t *testing.T) {
 }
 
 // TODO: make extra test to make sure this doesn't turn into an echo chamber
+
+func TestBlobsTooBig(t *testing.T) {
+	defer leakcheck.Check(t)
+	r := require.New(t)
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	// <testSetup>
+	os.RemoveAll("testrun")
+
+	appKey := make([]byte, 32)
+	rand.Read(appKey)
+	hmacKey := make([]byte, 32)
+	rand.Read(hmacKey)
+
+	info := testutils.NewRelativeTimeLogger(nil)
+
+	srvGroup, ctx := errgroup.WithContext(ctx)
+	srvBot := func(bot *Sbot, name string) {
+		srvGroup.Go(func() error {
+			err := bot.Network.Serve(ctx)
+			if err != nil {
+				return errors.Wrapf(err, "bot %s serve exited", name)
+			}
+			return nil
+		})
+	}
+
+	aliLog := log.With(info, "peer", "ali")
+	ali, err := New(
+		WithAppKey(appKey),
+		WithHMACSigning(hmacKey),
+		WithContext(ctx),
+		WithInfo(aliLog),
+		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
+		// }),
+		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
+		WithListenAddr(":0"),
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
+	r.NoError(err)
+	srvBot(ali, "ali")
+
+	bobLog := log.With(info, "peer", "bob")
+	bob, err := New(
+		WithAppKey(appKey),
+		WithHMACSigning(hmacKey),
+		WithContext(ctx),
+		WithInfo(bobLog),
+		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapConn(bobLog, conn), nil
+		// }),
+		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
+		WithListenAddr(":0"),
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+	)
+	r.NoError(err)
+	srvBot(bob, "bob")
+
+	seq, err := ali.PublishLog.Append(ssb.Contact{
+		Type:      "contact",
+		Following: true,
+		Contact:   bob.KeyPair.Id,
+	})
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(0), seq)
+
+	seq, err = bob.PublishLog.Append(ssb.Contact{
+		Type:      "contact",
+		Following: true,
+		Contact:   ali.KeyPair.Id,
+	})
+	r.NoError(err)
+
+	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	r.NoError(err)
+	// </testSetup>
+
+	// A adds a very big blob
+	zerof, err := os.Open("/dev/zero")
+	r.NoError(err)
+	defer zerof.Close()
+
+	const smallEnough = blobstore.DefaultMaxSize - 10
+	smallRef, err := ali.BlobStore.Put(io.LimitReader(zerof, smallEnough))
+	r.NoError(err)
+	t.Log("added small", smallRef.Ref())
+
+	const veryLarge = blobstore.DefaultMaxSize + 10
+	ref, err := ali.BlobStore.Put(io.LimitReader(zerof, veryLarge))
+	r.NoError(err)
+	t.Log("added too big", ref.Ref())
+
+	sz, err := ali.BlobStore.Size(ref)
+	r.NoError(err)
+	r.EqualValues(veryLarge, sz)
+	time.Sleep(1 * time.Second)
+
+	err = bob.WantManager.Want(ref)
+	r.NoError(err)
+	err = bob.WantManager.Want(smallRef)
+	r.NoError(err)
+
+	time.Sleep(3 * time.Second)
+
+	_, err = bob.BlobStore.Get(smallRef)
+	r.NoError(err)
+
+	_, err = bob.BlobStore.Get(ref)
+	r.Error(err)
+	r.Equal(err, blobstore.ErrNoSuchBlob)
+
+	cancel()
+	ali.Shutdown()
+	bob.Shutdown()
+	r.NoError(srvGroup.Wait())
+
+	// cleanup
+	// r.NoError(ali.Close())
+	// r.NoError(bob.Close())
+}

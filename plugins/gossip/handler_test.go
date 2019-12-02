@@ -186,6 +186,7 @@ func (tc *testCase) runTest(t *testing.T) {
 	}
 
 	h1.Handler.(*handler).feedManager = NewFeedManager(
+		ctx,
 		h1.Handler.(*handler).RootLog,
 		h1.Handler.(*handler).UserFeeds,
 		h1.Handler.(*handler).Info,
@@ -193,6 +194,7 @@ func (tc *testCase) runTest(t *testing.T) {
 		h1.Handler.(*handler).sysCtr,
 	)
 	h2.Handler.(*handler).feedManager = NewFeedManager(
+		ctx,
 		h2.Handler.(*handler).RootLog,
 		h2.Handler.(*handler).UserFeeds,
 		h2.Handler.(*handler).Info,
@@ -254,6 +256,7 @@ func XTestReplicate(t *testing.T) {
 func BenchmarkReplicate(b *testing.B) {
 	r := require.New(b)
 	var wg sync.WaitGroup
+	ctx := context.TODO()
 
 	srcRepo := test.LoadTestDataPeer(b, "testdata/largeRepo")
 	bench := log.NewNopLogger()
@@ -278,7 +281,7 @@ func BenchmarkReplicate(b *testing.B) {
 	r.NoError(err)
 	wg.Add(1)
 	go func() {
-		err := srcGraphBuilderServe(context.TODO(), srcRootLog, true)
+		err := srcGraphBuilderServe(ctx, srcRootLog, true)
 		fatalOnError(errors.Wrap(err, "srcGraphBuilderServe error"))
 		wg.Done()
 	}()
@@ -294,7 +297,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 		wg.Add(1)
 		go func() {
-			err := dstMlogServe(context.TODO(), dstRootLog, true)
+			err := dstMlogServe(ctx, dstRootLog, true)
 			b.Log("dstMlogServe error:", err)
 			wg.Done()
 		}()
@@ -304,7 +307,7 @@ func BenchmarkReplicate(b *testing.B) {
 
 		wg.Add(1)
 		go func() {
-			err := dstGraphBuilderServe(context.TODO(), dstRootLog, true)
+			err := dstGraphBuilderServe(ctx, dstRootLog, true)
 			b.Log("dstGraphBuilderServe error:", err)
 			wg.Done()
 		}()
@@ -328,6 +331,7 @@ func BenchmarkReplicate(b *testing.B) {
 		}
 
 		h1.feedManager = NewFeedManager(
+			ctx,
 			h1.RootLog,
 			h1.UserFeeds,
 			h1.Info,
@@ -335,6 +339,7 @@ func BenchmarkReplicate(b *testing.B) {
 			h1.sysCtr,
 		)
 		h2.feedManager = NewFeedManager(
+			ctx,
 			h2.RootLog,
 			h2.UserFeeds,
 			h2.Info,

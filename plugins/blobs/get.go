@@ -4,7 +4,7 @@ package blobs
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"time"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/ssb/blobstore"
 
 	"go.cryptoscope.co/ssb"
 )
@@ -29,43 +30,53 @@ func (getHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	logger := log.With(h.log, "handler", "get")
 	errLog := level.Error(logger)
-	// dbg := level.Debug(logger)
-
-	// dbg.Log("event", "onCall", "method", req.Method)
-	// defer dbg.Log("event", "onCall", "handler", "get-return", "method", req.Method)
 
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "source"
 	}
 
-	args := req.Args()
-	if len(args) != 1 {
-		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args (%d)", len(args)))
-		return
+	var wantedRef *ssb.BlobRef
+	var maxSize uint = blobstore.DefaultMaxSize
+
+	var justTheRef []ssb.BlobRef
+	if err := json.Unmarshal(req.RawArgs, &justTheRef); err != nil {
+		var withSize []blobstore.GetWithSize
+		if err := json.Unmarshal(req.RawArgs, &withSize); err != nil {
+			req.Stream.CloseWithError(errors.Wrap(err, "bad request - invalid json"))
+			return
+		}
+		if len(withSize) != 1 {
+			req.Stream.CloseWithError(errors.New("bad request"))
+			return
+		}
+		wantedRef = withSize[0].Key
+		maxSize = withSize[0].Max
+	} else {
+		if len(justTheRef) != 1 {
+			req.Stream.CloseWithError(errors.New("bad request"))
+			return
+		}
+		wantedRef = &justTheRef[0]
 	}
 
-	var refStr string
-	switch arg := args[0].(type) {
-	case string:
-		refStr = arg
-	case map[string]interface{}:
-		refStr, _ = arg["key"].(string)
-	}
-
-	ref, err := ssb.ParseBlobRef(refStr)
+	sz, err := h.bs.Size(wantedRef)
 	if err != nil {
-		err = errors.Wrap(err, "error parsing blob reference")
-		req.Stream.CloseWithError(err)
-		checkAndLog(errLog, err)
+		req.Stream.CloseWithError(errors.New("do not have blob"))
+		checkAndLog(errLog, errors.Wrap(err, "error closing stream with error"))
 		return
 	}
 
-	logger = log.With(logger, "blob", ref.Ref())
+	if sz > 0 && uint(sz) > maxSize {
+		req.Stream.CloseWithError(errors.New("blob larger than you wanted"))
+		return
+	}
+
+	logger = log.With(logger, "blob", wantedRef.Ref())
 	info := level.Info(logger)
 	errLog = level.Error(logger)
 
-	r, err := h.bs.Get(ref)
+	r, err := h.bs.Get(wantedRef)
 	if err != nil {
 		err = req.Stream.CloseWithError(errors.New("do not have blob"))
 		checkAndLog(errLog, errors.Wrap(err, "error closing stream with error"))

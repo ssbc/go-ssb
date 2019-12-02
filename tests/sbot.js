@@ -37,12 +37,14 @@ function bufFromEnv(evname) {
 
 tape.createStream().pipe(process.stderr)
 tape(testName, function (t) {
-  t.timeoutAfter(15000) // doesn't exit the process
-  const tapeTimeout = setTimeout(() => {
-    t.comment('test timeout')
-    process.exit(1)
-  }, 17000)
+  let timeoutLength = 15000
+  var tapeTimeout = null
   function run() { // needs to be called by the before block when it's done
+    t.timeoutAfter(timeoutLength) // doesn't exit the process
+    tapeTimeout = setTimeout(() => {
+      t.comment('test timeout')
+      process.exit(1)
+    }, timeoutLength*1.25)
     const to = `net:${testAddr}~shs:${testBob.substr(1).replace('.ed25519', '')}`
     t.comment('dialing:' + to)
     sbot.connect(to, (err) => {

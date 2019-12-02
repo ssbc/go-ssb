@@ -20,6 +20,8 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
+const DefaultMaxSize = 5 * 1024 * 1024
+
 type MaxSize int
 
 var ErrBlobBlocked = errors.New("blobstore: unable to receive blob")
@@ -48,7 +50,7 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 	}
 
 	if wmgr.maxSize == 0 {
-		wmgr.maxSize = 5 * 1024 * 1024
+		wmgr.maxSize = DefaultMaxSize
 	}
 
 	wmgr.promGaugeSet("proc", 0)
@@ -338,8 +340,14 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 	return proc.out.Pour(ctx, newW)
 }
 
+type GetWithSize struct {
+	Key *ssb.BlobRef `json:"key"`
+	Max uint         `json:"max"`
+}
+
 func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
-	src, err := proc.edp.Source(ctx, &WantMsg{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
+	arg := GetWithSize{ref, proc.wmgr.maxSize}
+	src, err := proc.edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
 	if err != nil {
 		return errors.Wrap(err, "blob create source failed")
 	}
@@ -407,6 +415,10 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 			mOut[w.Ref.Ref()] = s
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
+				if uint(w.Dist) > proc.wmgr.maxSize {
+					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.Ref())
+					continue
+				}
 				dbg.Log("msg", "peer has blob we want", "ref", w.Ref.Ref())
 				// TODO: make chan with available endpoints and try one by one
 				go func(ref *ssb.BlobRef) {

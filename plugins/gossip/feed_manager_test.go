@@ -159,7 +159,7 @@ func TestCreateHistoryStream(t *testing.T) {
 			var sink countSink
 			sink.info = infoAlice
 
-			fm := NewFeedManager(rootLog, userFeeds, infoAlice, nil, nil)
+			fm := NewFeedManager(context.TODO(), rootLog, userFeeds, infoAlice, nil, nil)
 
 			err = fm.CreateStreamHistory(ctx, &sink, &test.Args)
 			r.NoError(err)
