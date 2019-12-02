@@ -254,13 +254,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		copy(k[:], s.signHMACsecret)
 		histOpts = append(histOpts, gossip.HMACSecret(&k))
 	}
-	s.public.Register(gossip.New(
+	s.public.Register(gossip.New(ctx,
 		kitlog.With(log, "plugin", "gossip"),
 		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
 		histOpts...))
 
 	// incoming createHistoryStream handler
-	hist := gossip.NewHist(
+	hist := gossip.NewHist(ctx,
 		kitlog.With(log, "plugin", "gossip/hist"),
 		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
 		histOpts...)

@@ -22,6 +22,7 @@ type HopCount int
 type Promisc bool
 
 func New(
+	ctx context.Context,
 	log logging.Interface,
 	id *ssb.FeedRef,
 	rootLog margaret.Log,
@@ -35,6 +36,7 @@ func New(
 		UserFeeds:    userFeeds,
 		GraphBuilder: graphBuilder,
 		Info:         log,
+		rootCtx:      ctx,
 	}
 
 	for i, o := range opts {
@@ -58,6 +60,7 @@ func New(
 	}
 
 	h.feedManager = NewFeedManager(
+		h.rootCtx,
 		h.RootLog,
 		h.UserFeeds,
 		h.Info,
@@ -69,6 +72,7 @@ func New(
 }
 
 func NewHist(
+	ctx context.Context,
 	log logging.Interface,
 	id *ssb.FeedRef,
 	rootLog margaret.Log,
@@ -82,6 +86,7 @@ func NewHist(
 		UserFeeds:    userFeeds,
 		GraphBuilder: graphBuilder,
 		Info:         log,
+		rootCtx:      ctx,
 	}
 
 	for i, o := range opts {
@@ -106,6 +111,7 @@ func NewHist(
 	}
 
 	h.feedManager = NewFeedManager(
+		h.rootCtx,
 		h.RootLog,
 		h.UserFeeds,
 		h.Info,

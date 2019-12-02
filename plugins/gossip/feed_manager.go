@@ -25,6 +25,8 @@ import (
 
 // FeedManager handles serving gossip about User Feeds.
 type FeedManager struct {
+	rootCtx context.Context
+
 	RootLog   margaret.Log
 	UserFeeds multilog.MultiLog
 	logger    logging.Interface
@@ -40,6 +42,7 @@ type FeedManager struct {
 // NewFeedManager returns a new FeedManager used for gossiping about User
 // Feeds.
 func NewFeedManager(
+	ctx context.Context,
 	rootLog margaret.Log,
 	userFeeds multilog.MultiLog,
 	info logging.Interface,
@@ -50,6 +53,7 @@ func NewFeedManager(
 		RootLog:   rootLog,
 		UserFeeds: userFeeds,
 		logger:    info,
+		rootCtx:   ctx,
 		sysCtr:    sysCtr,
 		sysGauge:  sysGauge,
 		liveFeeds: make(map[string]*multiSink),
@@ -95,9 +99,8 @@ func (m *FeedManager) serveLiveFeeds() {
 		panic(err)
 	}
 
-	ctx := context.TODO()
-	err = luigi.Pump(ctx, luigi.FuncSink(m.pour), src)
-	if err != nil {
+	err = luigi.Pump(m.rootCtx, luigi.FuncSink(m.pour), src)
+	if err != nil && err != ssb.ErrShuttingDown {
 		err = errors.Wrap(err, "error while serving live feed")
 		panic(err)
 	}

@@ -39,6 +39,8 @@ type handler struct {
 	sysCtr   metrics.Counter
 
 	feedManager *FeedManager
+
+	rootCtx context.Context
 }
 
 func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
