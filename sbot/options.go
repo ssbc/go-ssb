@@ -47,14 +47,14 @@ type Sbot struct {
 	promisc  bool
 	hopCount uint
 
-	// these should all be options that are applied on the network construction...
-	Network        ssb.Network
-	disableNetwork bool
-	appKey         []byte
-	listenAddr     net.Addr
-	dialer         netwrap.Dialer
-	edpWrapper     MuxrpcEndpointWrapper
-
+	// TODO: these should all be options that are applied on the network construction...
+	Network            ssb.Network
+	disableNetwork     bool
+	appKey             []byte
+	listenAddr         net.Addr
+	dialer             netwrap.Dialer
+	edpWrapper         MuxrpcEndpointWrapper
+	networkConnTracker ssb.ConnTracker
 	preSecureWrappers  []netwrap.ConnWrapper
 	postSecureWrappers []netwrap.ConnWrapper
 
@@ -129,6 +129,13 @@ func WithListenAddr(addr string) Option {
 func WithDialer(dial netwrap.Dialer) Option {
 	return func(s *Sbot) error {
 		s.dialer = dial
+		return nil
+	}
+}
+
+func WithNetworkConnTracker(ct ssb.ConnTracker) Option {
+	return func(s *Sbot) error {
+		s.networkConnTracker = ct
 		return nil
 	}
 }

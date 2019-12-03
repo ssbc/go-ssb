@@ -284,6 +284,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		KeyPair:             s.KeyPair,
 		AppKey:              s.appKey[:],
 		MakeHandler:         mkHandler,
+		ConnTracker:         s.networkConnTracker,
 		BefreCryptoWrappers: s.preSecureWrappers,
 		AfterSecureWrappers: s.postSecureWrappers,
 

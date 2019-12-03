@@ -40,6 +40,8 @@ type Options struct {
 	AppKey      []byte
 	MakeHandler func(net.Conn) (muxrpc.Handler, error)
 
+	ConnTracker ssb.ConnTracker
+
 	// PreSecureWrappers are applied before the shs+boxstream wrapping takes place
 	// usefull for accessing the sycall.Conn to apply control options on the socket
 	BefreCryptoWrappers []netwrap.ConnWrapper
@@ -80,15 +82,14 @@ type node struct {
 
 func New(opts Options) (ssb.Network, error) {
 	n := &node{
-		opts: opts,
-		// TODO: make this configurable
-		// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
-		connTracker: NewAcceptAllTracker(),
-		// So the annyance is that we can't have long-running client conns over TCP with this one even though it keeps the bot cleaner
-		// connTracker: NewLastWinsTracker(),
-
+		opts:    opts,
 		remotes: make(map[string]muxrpc.Endpoint),
 	}
+
+	if opts.ConnTracker == nil {
+		opts.ConnTracker = NewAcceptAllTracker()
+	}
+	n.connTracker = opts.ConnTracker
 
 	var err error
 
@@ -108,6 +109,7 @@ func New(opts Options) (ssb.Network, error) {
 		return nil, errors.Wrap(err, "error creating secretstream.Server")
 	}
 
+	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
 	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
 	if err != nil {
