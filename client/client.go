@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 
@@ -197,7 +198,8 @@ func (c Client) BlobsHas(ref *ssb.BlobRef) (bool, error) {
 }
 
 func (c Client) BlobsGet(ref *ssb.BlobRef) (io.Reader, error) {
-	v, err := c.Source(c.rootCtx, codec.Body{}, muxrpc.Method{"blobs", "get"}, ref.Ref())
+	args := blobstore.GetWithSize{Key: ref, Max: blobstore.DefaultMaxSize}
+	v, err := c.Source(c.rootCtx, codec.Body{}, muxrpc.Method{"blobs", "get"}, args)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: blobs.get failed")
 	}

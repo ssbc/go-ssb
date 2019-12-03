@@ -28,10 +28,12 @@ var ErrBlobBlocked = errors.New("blobstore: unable to receive blob")
 
 func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}) ssb.WantManager {
 	wmgr := &wantManager{
-		bs:      bs,
-		info:    log,
-		wants:   make(map[string]int64),
-		blocked: make(map[string]struct{}),
+		bs:        bs,
+		info:      log,
+		wants:     make(map[string]int64),
+		blocked:   make(map[string]struct{}),
+		procs:     make(map[string]*wantProc),
+		available: make(chan *hasBlob),
 	}
 
 	for i, o := range opts {
@@ -84,6 +86,41 @@ func NewWantManager(log logging.Interface, bs ssb.BlobStore, opts ...interface{}
 		return nil
 	}))
 
+	go func() {
+	workChan:
+		for has := range wmgr.available {
+			sz, _ := wmgr.bs.Size(has.Want.Ref)
+			if sz > 0 {
+				level.Debug(log).Log("msg", "skipping already stored blob")
+				continue
+			}
+
+			initialFrom := has.Proc.edp.Remote().String()
+
+			// trying the one we got it from first
+			err := wmgr.getBlob(has.Proc.rootCtx, has.Proc.edp, has.Want.Ref)
+			if err == nil {
+				continue
+			}
+
+			wmgr.l.Lock()
+			// iterate through other open procs and try them
+			for remote, proc := range wmgr.procs {
+				if remote == initialFrom {
+					continue
+				}
+
+				err := wmgr.getBlob(proc.rootCtx, proc.edp, has.Want.Ref)
+				if err == nil {
+					continue workChan
+				}
+			}
+			delete(wmgr.wants, has.Want.Ref.Ref())
+			level.Warn(wmgr.info).Log("event", "blob retreive failed", "n", len(wmgr.procs))
+			wmgr.l.Unlock()
+		}
+	}()
+
 	return wmgr
 }
 
@@ -94,16 +131,59 @@ type wantManager struct {
 
 	maxSize uint
 
+	// blob references that couldn't be fetched multiple times
 	blocked map[string]struct{}
 
+	// our own set of wants
 	wants    map[string]int64
 	wantSink luigi.Sink
+
+	// the set of peers we interact with
+	procs map[string]*wantProc
+
+	available chan *hasBlob
 
 	l sync.Mutex
 
 	info   logging.Interface
 	evtCtr metrics.Counter
 	gauge  metrics.Gauge
+}
+
+func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *ssb.BlobRef) error {
+	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.Ref(), "remote", edp.Remote().String())
+
+	arg := GetWithSize{ref, wmgr.maxSize}
+	src, err := edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
+	if err != nil {
+		err = errors.Wrap(err, "blob create source failed")
+		level.Warn(log).Log("err", err)
+		return err
+	}
+
+	r := muxrpc.NewSourceReader(src)
+	r = io.LimitReader(r, int64(wmgr.maxSize))
+	newBr, err := wmgr.bs.Put(r)
+	if err != nil {
+		err = errors.Wrap(err, "blob data piping failed")
+		level.Warn(log).Log("err", err)
+		return err
+	}
+
+	if !newBr.Equal(ref) {
+		// TODO: make this a type of error?
+		wmgr.bs.Delete(newBr)
+		level.Warn(log).Log("msg", "removed after missmatch", "want", ref.Ref())
+		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
+	}
+	sz, _ := wmgr.bs.Size(newBr)
+	level.Info(log).Log("msg", "stored", "ref", ref.Ref(), "sz", sz)
+	return nil
+}
+
+type hasBlob struct {
+	Want ssb.BlobWant
+	Proc *wantProc
 }
 
 func (wmgr *wantManager) promEvent(name string, n float64) {
@@ -201,28 +281,6 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 		remoteWants: make(map[string]int64),
 		edp:         edp,
 	}
-
-	proc.init()
-
-	return proc
-}
-
-type wantProc struct {
-	rootCtx context.Context
-
-	info log.Logger
-
-	bs   ssb.BlobStore
-	wmgr *wantManager
-	out  luigi.Sink
-	done func(func())
-	edp  muxrpc.Endpoint
-
-	l           sync.Mutex
-	remoteWants map[string]int64
-}
-
-func (proc *wantProc) init() {
 	var remote = "unknown"
 	if r, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
 		remote = r.Ref()[1:5]
@@ -246,15 +304,35 @@ func (proc *wantProc) init() {
 		if next != nil {
 			next()
 		}
+		proc.wmgr.l.Lock()
+		delete(proc.wmgr.procs, proc.edp.Remote().String())
+		proc.wmgr.l.Unlock()
 	}
 
 	proc.wmgr.l.Lock()
-
 	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
 	if err != nil {
 		level.Error(proc.info).Log("event", "wantProc.init/Pour", "err", err.Error())
 	}
+	wmgr.procs[edp.Remote().String()] = proc
 	proc.wmgr.l.Unlock()
+
+	return proc
+}
+
+type wantProc struct {
+	rootCtx context.Context
+
+	info log.Logger
+
+	bs   ssb.BlobStore
+	wmgr *wantManager
+	out  luigi.Sink
+	done func(func())
+	edp  muxrpc.Endpoint
+
+	l           sync.Mutex
+	remoteWants map[string]int64
 }
 
 // updateFromBlobStore listens for adds and if they are wanted notifies the remote via it's sink
@@ -345,31 +423,6 @@ type GetWithSize struct {
 	Max uint         `json:"max"`
 }
 
-func (proc *wantProc) getBlob(ctx context.Context, ref *ssb.BlobRef) error {
-	arg := GetWithSize{ref, proc.wmgr.maxSize}
-	src, err := proc.edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
-	if err != nil {
-		return errors.Wrap(err, "blob create source failed")
-	}
-
-	r := muxrpc.NewSourceReader(src)
-	r = io.LimitReader(r, int64(proc.wmgr.maxSize))
-	newBr, err := proc.bs.Put(r)
-	if err != nil {
-		return errors.Wrap(err, "blob data piping failed")
-	}
-
-	if newBr.Ref() != ref.Ref() {
-		// TODO: make this a type of error?
-		proc.bs.Delete(newBr)
-		level.Warn(proc.info).Log("blob", "removed after missmatch", "want", ref.Ref())
-		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
-	}
-	sz, _ := proc.bs.Size(newBr)
-	level.Info(proc.info).Log("blob", "stored", "ref", ref.Ref(), "sz", sz)
-	return nil
-}
-
 func (proc *wantProc) Close() error {
 	// TODO: unwant open wants
 	defer proc.done(nil)
@@ -416,22 +469,17 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
 				if uint(w.Dist) > proc.wmgr.maxSize {
-					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.Ref())
+					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.Ref(), "diff", proc.wmgr.maxSize-uint(w.Dist))
+					proc.wmgr.l.Lock()
+					delete(proc.wmgr.wants, w.Ref.Ref())
+					proc.wmgr.l.Unlock()
 					continue
 				}
-				dbg.Log("msg", "peer has blob we want", "ref", w.Ref.Ref())
-				// TODO: make chan with available endpoints and try one by one
-				go func(ref *ssb.BlobRef) {
-					// cryptix: feel like we might need to wrap rootCtx in, too?
-					if err := proc.getBlob(ctx, ref); err != nil {
-						level.Error(proc.info).Log("event", "blob fetch err", "ref", ref.Ref(), "err", err.Error())
-						proc.wmgr.l.Lock()
-						// TODO: only block after a certain number of attempts?!
-						delete(proc.wmgr.wants, ref.Ref())
-						proc.wmgr.blocked[ref.Ref()] = struct{}{}
-						proc.wmgr.l.Unlock()
-					}
-				}(w.Ref)
+
+				proc.wmgr.available <- &hasBlob{
+					Want: w,
+					Proc: proc,
+				}
 			}
 		}
 	}
