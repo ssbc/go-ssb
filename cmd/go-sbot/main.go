@@ -163,7 +163,7 @@ func main() {
 	}
 
 	if !flagDisableUNIXSock {
-		opts = append(opts, mksbot.WithUNIXSocket())
+		opts = append(opts, mksbot.LateOption(mksbot.WithUNIXSocket()))
 	}
 
 	if flagDecryptPrivate {
