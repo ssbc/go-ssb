@@ -117,7 +117,9 @@ func (cdr *dropContentTrigger) consume() {
 
 func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Index, repo.ServeFunc, error) {
 
-	dcr.check = make(chan *triggerEvent, 1)
+	// TODO: currently the locking of margaret/offset doesn't allow us to get previous messages while being in an index update
+	// this is realized as an luigi.Broadcast and the current bases of the index update mechanism
+	dcr.check = make(chan *triggerEvent, 10)
 
 	sinkIdx, serve, err := repo.OpenIndex(r, FolderNameDelete, dcr.idxupdate)
 	if err != nil {
