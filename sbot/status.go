@@ -5,6 +5,7 @@ package sbot
 import (
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"time"
 
@@ -19,13 +20,14 @@ import (
 	"go.cryptoscope.co/ssb/multilogs"
 )
 
-func (sbot *Sbot) Status() (*ssb.Status, error) {
+func (sbot *Sbot) Status() (ssb.Status, error) {
 	v, err := sbot.RootLog.Seq().Value()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get root log sequence")
+		return ssb.Status{}, errors.Wrap(err, "failed to get root log sequence")
 	}
 
 	s := ssb.Status{
+		PID:   os.Getpid(),
 		Root:  v.(margaret.Seq),
 		Blobs: sbot.WantManager.AllWants(),
 	}
@@ -43,7 +45,7 @@ func (sbot *Sbot) Status() (*ssb.Status, error) {
 			var gc getCurrent
 			err := qspec.QuerySpec()(&gc)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get index state of %s", name)
+				return ssb.Status{}, errors.Wrapf(err, "failed to get index state of %s", name)
 			}
 			s.Indexes.MultiLog[name] = gc.seq
 		} else {
@@ -65,7 +67,7 @@ func (sbot *Sbot) Status() (*ssb.Status, error) {
 			var gc getCurrent
 			err := qspec.QuerySpec()(&gc)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get index state of %s", name)
+				return ssb.Status{}, errors.Wrapf(err, "failed to get index state of %s", name)
 			}
 
 			s.Indexes.Simple[name] = gc.seq
@@ -73,7 +75,6 @@ func (sbot *Sbot) Status() (*ssb.Status, error) {
 			// fmt.Printf("DEBUG/simple(%s) type:%T\n", name, idx)
 			s.Indexes.Simple[name] = -2
 		}
-
 	}
 
 	edps := sbot.Network.GetAllEndpoints()
@@ -91,7 +92,7 @@ func (sbot *Sbot) Status() (*ssb.Status, error) {
 			Since: humanize.Time(time.Now().Add(-es.Since)),
 		})
 	}
-	return &s, nil
+	return s, nil
 }
 
 type byConnTime []ssb.EndpointStat

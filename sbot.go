@@ -35,7 +35,7 @@ type Indexer interface {
 }
 
 type Statuser interface {
-	Status() (*Status, error)
+	Status() (Status, error)
 }
 
 type PeerStatus struct {
@@ -43,6 +43,7 @@ type PeerStatus struct {
 	Since string
 }
 type Status struct {
+	PID     int // process id of the bot
 	Peers   []PeerStatus
 	Blobs   interface{}
 	Root    margaret.Seq
