@@ -332,13 +332,9 @@ func (b *builder) Follows(forRef *ssb.FeedRef) (*StrFeedSet, error) {
 // max == 2: max:1 + follows of their friends
 func (b *builder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 	max++
-	walked := NewFeedSet(1000)
-	err := walked.AddRef(from)
-	if err != nil {
-		b.log.Log("event", "error", "msg", "add failed", "err", err)
-		return nil
-	}
-	err = b.recurseHops(walked, from, max)
+	walked := NewFeedSet(0)
+	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)
+	err := b.recurseHops(walked, visited, from, max)
 	if err != nil {
 		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
 		return nil
@@ -346,9 +342,18 @@ func (b *builder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 	return walked
 }
 
-func (b *builder) recurseHops(walked *StrFeedSet, from *ssb.FeedRef, depth int) error {
+func (b *builder) recurseHops(walked *StrFeedSet, vis map[string]struct{}, from *ssb.FeedRef, depth int) error {
 	// b.log.Log("recursing", from.Ref(), "d", depth)
 	if depth == 0 {
+		return nil
+	}
+
+	if _, ok := vis[from.Ref()]; ok {
+		return nil
+	}
+
+	if err := walked.AddRef(from); err != nil {
+		b.log.Log("event", "error", "msg", "add failed", "err", err)
 		return nil
 	}
 
@@ -375,11 +380,14 @@ func (b *builder) recurseHops(walked *StrFeedSet, from *ssb.FeedRef, depth int) 
 
 		isF := dstFollows.Has(from)
 		if isF { // found a friend, recurse
-			if err := b.recurseHops(walked, followedByFrom, depth-1); err != nil {
+			if err := b.recurseHops(walked, vis, followedByFrom, depth-1); err != nil {
 				return err
 			}
 		}
 		// b.log.Log("depth", depth, "from", from.Ref()[1:5], "follows", followedByFrom.Ref()[1:5], "friend", isF, "cnt", dstFollows.Count())
 	}
+
+	vis[from.Ref()] = struct{}{}
+
 	return nil
 }
