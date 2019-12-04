@@ -244,15 +244,12 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 
 	defer func() {
 		durr := n.connTracker.OnClose(conn)
-		var err error
+		var edpTerm, connClose error
 		if edp != nil {
-			err = errors.Wrap(edp.Terminate(), "packer closing")
-		} else {
-			err = errors.Wrap(origConn.Close(), "direct conn closing")
+			edpTerm = errors.Wrap(edp.Terminate(), "packer closing")
 		}
-		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			n.log.Log("conn", "closing", "err", err, "durr", fmt.Sprintf("%v", durr))
-		}
+		connClose = errors.Wrap(origConn.Close(), "direct conn closing")
+		level.Debug(n.log).Log("event", "conn-closing", "edpTerm", edpTerm, "connClose", connClose, "durr", fmt.Sprintf("%v", durr))
 		cancel()
 	}()
 
