@@ -102,7 +102,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	uf, ok := s.mlogIndicies[multilogs.IndexNameFeeds]
 	if !ok {
-		log.Log("warning", "loading default idx", "idx", multilogs.IndexNameFeeds)
+		level.Warn(s.info).Log("event", "bot init", "msg", "loading default idx", "idx", multilogs.IndexNameFeeds)
 		err = MountMultiLog(multilogs.IndexNameFeeds, multilogs.OpenUserFeeds)(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
@@ -138,7 +138,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// LogBuilder doesn't fully work yet
 	if mt, ok := s.mlogIndicies["msgTypes"]; ok {
-		s.info.Log("warning", "using experimental bytype:contact graph implementation")
+		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
 		contactLog, err := mt.Get(librarian.Addr("contact"))
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
