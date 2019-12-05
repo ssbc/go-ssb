@@ -68,7 +68,7 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 	}
 
 	_, err = h.getSource(ctx, edp)
-	if err != nil {
+	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Warn(h.log).Log("method", "blobs.createWants", "handler", "onConnect", "getSourceErr", err)
 		return
 	}
@@ -82,6 +82,10 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 		return
 	}
 	snk := h.wm.CreateWants(ctx, req.Stream, edp)
+	if snk == nil {
+		return
+	}
+
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "err", err)

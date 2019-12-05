@@ -273,6 +273,16 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 }
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
+	wmgr.l.Lock()
+	defer wmgr.l.Unlock()
+	err := sink.Pour(ctx, wmgr.wants)
+	if err != nil {
+		if !muxrpc.IsSinkClosed(err) {
+			level.Error(wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
+		}
+		return nil
+	}
+
 	proc := &wantProc{
 		rootCtx:     ctx,
 		bs:          wmgr.bs,
@@ -281,6 +291,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 		remoteWants: make(map[string]int64),
 		edp:         edp,
 	}
+
 	var remote = "unknown"
 	if r, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
 		remote = r.Ref()[1:5]
@@ -309,13 +320,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 		proc.wmgr.l.Unlock()
 	}
 
-	proc.wmgr.l.Lock()
-	err := proc.out.Pour(proc.rootCtx, proc.wmgr.wants)
-	if err != nil {
-		level.Error(proc.info).Log("event", "wantProc.init/Pour", "err", err.Error())
-	}
 	wmgr.procs[edp.Remote().String()] = proc
-	proc.wmgr.l.Unlock()
 
 	return proc
 }
