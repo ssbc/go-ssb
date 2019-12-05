@@ -55,6 +55,7 @@ func (h *handler) fetchAll(
 		return err
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
 	fetchGroup, ctx := errgroup.WithContext(ctx)
 	work := make(chan *ssb.FeedRef)
 
@@ -71,7 +72,14 @@ func (h *handler) fetchAll(
 		if tGraph.Blocks(h.Id, r) {
 			continue
 		}
-		work <- r
+		select {
+		case <-ctx.Done():
+			close(work)
+			cancel()
+			fetchGroup.Wait()
+			return ctx.Err()
+		case work <- r:
+		}
 	}
 	close(work)
 	level.Debug(h.Info).Log("event", "feed fetch workers filled", "n", n)
