@@ -4,6 +4,7 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
@@ -51,21 +52,19 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
-	var qry message.CreateHistArgs
 
-	switch v := req.Args()[0].(type) {
-
-	case map[string]interface{}:
-		q, err := message.NewCreateHistArgsFromMap(v)
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "bad request"))
-			return
-		}
-		qry = *q
-	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
+	var args []message.CreateLogArgs
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		req.CloseWithError(errors.Wrap(err, "bad request data"))
 		return
 	}
+	if len(args) != 1 {
+		req.CloseWithError(errors.Wrap(err, "bad request"))
+		return
+	}
+
+	qry := args[0]
 
 	if qry.Live {
 		qry.Limit = -1
