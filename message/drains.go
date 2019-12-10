@@ -95,7 +95,8 @@ func (gv gabbyVerify) Verify(ctx context.Context, v interface{}) (msg ssb.Messag
 	if !tr.Verify(gv.hmacKey) {
 		return nil, errors.Errorf("gabbyVerify: transfer verify failed")
 	}
-	return &tr, nil
+	msg = &tr
+	return
 }
 
 type streamDrain struct {
