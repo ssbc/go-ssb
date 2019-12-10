@@ -42,6 +42,9 @@ func (s *Sbot) Close() error {
 	if s.Network != nil {
 		s.Network.GetConnTracker().CloseAll()
 		level.Debug(s.info).Log("event", "closing", "msg", "connections closed")
+		if err := s.Network.Close(); err != nil {
+			return errors.Wrap(err, "sbot.close: failed to close own network node")
+		}
 	}
 
 	if err := s.idxDone.Wait(); err != nil {
@@ -298,7 +301,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create network node")
 	}
-	s.closers.addCloser(s.Network)
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
