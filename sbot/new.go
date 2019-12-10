@@ -40,6 +40,7 @@ import (
 func (s *Sbot) Close() error {
 	// TODO: if already closed?
 	if s.Network != nil {
+		s.networkClosed = true
 		s.Network.GetConnTracker().CloseAll()
 		level.Debug(s.info).Log("event", "closing", "msg", "connections closed")
 		if err := s.Network.Close(); err != nil {
@@ -177,6 +178,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
+		if s.networkClosed {
+			conn.Close()
+			return nil, errors.New("sbot: network closed")
+		}
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")

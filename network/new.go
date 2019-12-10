@@ -228,6 +228,13 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 }
 
 func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
+	// TODO: overhaul events and logging levels
+	if n.closed {
+		origConn.Close()
+		level.Warn(n.log).Log("conn", "ignored", "msg", "netwrok closed")
+		return
+	}
+
 	conn, err := n.applyConnWrappers(origConn)
 	if err != nil {
 		origConn.Close()
