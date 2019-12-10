@@ -60,6 +60,9 @@ type node struct {
 
 	log log.Logger
 
+	closed  bool
+	doClose sync.Once
+
 	dialer        netwrap.Dialer
 	l             net.Listener
 	localDiscovRx *Discoverer
@@ -317,6 +320,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 		}()
 	}
 
+	defer level.Debug(n.log).Log("event", "network listen loop exited")
 	for {
 		select {
 		case <-ctx.Done():
@@ -351,6 +355,10 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
+	if n.closed {
+		return errors.New("network: node closed")
+	}
+
 	shsAddr := netwrap.GetAddr(addr, "shs-bs")
 	if shsAddr == nil {
 		return errors.New("node/connect: expected an address containing an shs-bs addr")
@@ -393,10 +401,15 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 }
 
 func (n *node) Close() error {
+	if n.localDiscovTx != nil {
+		n.localDiscovTx.Stop()
+	}
+
 	err := n.l.Close()
 	if err != nil {
 		return errors.Wrap(err, "ssb: network node failed to close it's listener")
 	}
+
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 	for addr, edp := range n.remotes {
@@ -409,5 +422,8 @@ func (n *node) Close() error {
 		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
 		n.connTracker.CloseAll()
 	}
+	n.doClose.Do(func() {
+		n.closed = true
+	})
 	return nil
 }
