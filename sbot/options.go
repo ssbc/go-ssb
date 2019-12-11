@@ -57,7 +57,6 @@ type Sbot struct {
 	networkConnTracker ssb.ConnTracker
 	preSecureWrappers  []netwrap.ConnWrapper
 	postSecureWrappers []netwrap.ConnWrapper
-	networkClosed      bool // TODO: properly fix network/badger to not accept connections once the network is closed (move MakeHandler around a bit maybe)
 
 	public ssb.PluginManager
 	master ssb.PluginManager

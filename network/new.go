@@ -60,8 +60,8 @@ type node struct {
 
 	log log.Logger
 
-	closed  bool
-	doClose sync.Once
+	closed   bool
+	closedMu sync.Mutex
 
 	dialer        netwrap.Dialer
 	l             net.Listener
@@ -229,7 +229,10 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 
 func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
 	// TODO: overhaul events and logging levels
-	if n.closed {
+	n.closedMu.Lock()
+	isClosed := n.closed
+	n.closedMu.Unlock()
+	if isClosed {
 		origConn.Close()
 		level.Warn(n.log).Log("conn", "ignored", "msg", "netwrok closed")
 		return
@@ -329,6 +332,12 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 
 	defer level.Debug(n.log).Log("event", "network listen loop exited")
 	for {
+		n.closedMu.Lock()
+		isClosed := n.closed
+		n.closedMu.Unlock()
+		if isClosed {
+			return nil
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -362,7 +371,10 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
-	if n.closed {
+	n.closedMu.Lock()
+	isClosed := n.closed
+	n.closedMu.Unlock()
+	if isClosed {
 		return errors.New("network: node closed")
 	}
 
@@ -407,7 +419,15 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	return conn, nil
 }
 
+func (n *node) Closed() bool {
+	n.closedMu.Lock()
+	isClosed := n.closed
+	n.closedMu.Unlock()
+	return isClosed
+}
+
 func (n *node) Close() error {
+	n.closedMu.Lock()
 	if n.localDiscovTx != nil {
 		n.localDiscovTx.Stop()
 	}
@@ -429,8 +449,7 @@ func (n *node) Close() error {
 		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
 		n.connTracker.CloseAll()
 	}
-	n.doClose.Do(func() {
-		n.closed = true
-	})
+	n.closed = true
+	n.closedMu.Unlock()
 	return nil
 }
