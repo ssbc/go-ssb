@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
@@ -43,6 +44,10 @@ type Sbot struct {
 	Shutdown context.CancelFunc
 	closers  multiCloser
 	idxDone  errgroup.Group
+
+	closed   bool
+	closedMu sync.Mutex
+	closeErr error
 
 	promisc  bool
 	hopCount uint

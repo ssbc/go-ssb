@@ -38,25 +38,34 @@ import (
 )
 
 func (s *Sbot) Close() error {
-	// TODO: if already closed?
+	s.closedMu.Lock()
+	defer s.closedMu.Unlock()
+
+	if s.closed {
+		return s.closeErr
+	}
+
 	closeEvt := kitlog.With(s.info, "event", "sbot closing")
+	s.closed = true
 
 	if s.Network != nil {
 		if err := s.Network.Close(); err != nil {
-			level.Warn(closeEvt).Log("msg", "failed to close own network node", "err", err)
-			return err
+			s.closeErr = errors.Wrap(err, "sbot: failed to close own network node")
+			return s.closeErr
 		}
 		s.Network.GetConnTracker().CloseAll()
 		level.Debug(closeEvt).Log("msg", "connections closed")
 	}
 
 	if err := s.idxDone.Wait(); err != nil {
-		return errors.Wrap(err, "sbot: index group failed")
+		s.closeErr = errors.Wrap(err, "sbot: index group shutdown failed")
+		return s.closeErr
 	}
 	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
 
 	if err := s.closers.Close(); err != nil {
-		return err
+		s.closeErr = err
+		return s.closeErr
 	}
 	level.Info(closeEvt).Log("msg", "closers closed")
 	return nil
@@ -180,6 +189,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
+		// bypassing badger-close bug to go through with an accept (or not) before closing the bot
+		s.closedMu.Lock()
+		defer s.closedMu.Unlock()
+
 		if s.Network.Closed() {
 			conn.Close()
 			return nil, errors.New("sbot: network closed")
