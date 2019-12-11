@@ -39,23 +39,26 @@ import (
 
 func (s *Sbot) Close() error {
 	// TODO: if already closed?
+	closeEvt := kitlog.With(s.info, "event", "sbot closing")
+
 	if s.Network != nil {
 		if err := s.Network.Close(); err != nil {
-			return errors.Wrap(err, "sbot.close: failed to close own network node")
+			level.Warn(closeEvt).Log("msg", "failed to close own network node", "err", err)
+			return err
 		}
 		s.Network.GetConnTracker().CloseAll()
-		level.Debug(s.info).Log("event", "closing", "msg", "connections closed")
+		level.Debug(closeEvt).Log("msg", "connections closed")
 	}
 
 	if err := s.idxDone.Wait(); err != nil {
 		return errors.Wrap(err, "sbot: index group failed")
 	}
-	level.Debug(s.info).Log("event", "closing", "msg", "waited for indexes to close")
+	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
 
 	if err := s.closers.Close(); err != nil {
 		return err
 	}
-	level.Info(s.info).Log("event", "closing", "msg", "closers closed")
+	level.Info(closeEvt).Log("msg", "closers closed")
 	return nil
 }
 
