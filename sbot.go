@@ -43,14 +43,10 @@ type PeerStatus struct {
 	Since string
 }
 type Status struct {
-	PID     int // process id of the bot
-	Peers   []PeerStatus
-	Blobs   interface{}
-	Root    margaret.Seq
-	Indexes struct {
-		Simple   map[string]int64
-		MultiLog map[string]int64
-	}
+	PID   int // process id of the bot
+	Peers []PeerStatus
+	Blobs interface{}
+	Root  margaret.Seq
 }
 
 type ContentNuller interface {

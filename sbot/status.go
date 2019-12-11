@@ -31,51 +31,6 @@ func (sbot *Sbot) Status() (ssb.Status, error) {
 		Root:  v.(margaret.Seq),
 		Blobs: sbot.WantManager.AllWants(),
 	}
-	mlogNames := sbot.GetIndexNamesMultiLog()
-	s.Indexes.MultiLog = make(map[string]int64, len(mlogNames))
-
-	for _, name := range mlogNames {
-
-		mlog, has := sbot.GetMultiLog(name)
-		if !has {
-			continue
-		}
-
-		if qspec, has := mlog.(interface{ QuerySpec() margaret.QuerySpec }); has {
-			var gc getCurrent
-			err := qspec.QuerySpec()(&gc)
-			if err != nil {
-				return ssb.Status{}, errors.Wrapf(err, "failed to get index state of %s", name)
-			}
-			s.Indexes.MultiLog[name] = gc.seq
-		} else {
-			// fmt.Printf("DEBUG/mlog(%s) type:%T\n", name, mlog)
-			s.Indexes.MultiLog[name] = -2
-		}
-	}
-
-	simpleNames := sbot.GetIndexNamesSimple()
-	s.Indexes.Simple = make(map[string]int64, len(simpleNames))
-	for _, name := range simpleNames {
-
-		idx, has := sbot.GetSimpleIndex(name)
-		if !has {
-			continue
-		}
-
-		if qspec, has := idx.(interface{ QuerySpec() margaret.QuerySpec }); has {
-			var gc getCurrent
-			err := qspec.QuerySpec()(&gc)
-			if err != nil {
-				return ssb.Status{}, errors.Wrapf(err, "failed to get index state of %s", name)
-			}
-
-			s.Indexes.Simple[name] = gc.seq
-		} else {
-			// fmt.Printf("DEBUG/simple(%s) type:%T\n", name, idx)
-			s.Indexes.Simple[name] = -2
-		}
-	}
 
 	edps := sbot.Network.GetAllEndpoints()
 
@@ -108,27 +63,6 @@ func (bct byConnTime) Less(i int, j int) bool {
 func (bct byConnTime) Swap(i int, j int) {
 	bct[i], bct[j] = bct[j], bct[i]
 }
-
-type getCurrent struct {
-	seq int64
-}
-
-func (qry *getCurrent) Gt(s margaret.Seq) error {
-	qry.seq = s.Seq()
-	return nil
-}
-
-func (qry *getCurrent) Gte(s margaret.Seq) error {
-	qry.seq = s.Seq() + 1
-	return nil
-}
-
-func (qry *getCurrent) Lt(s margaret.Seq) error  { return nil }
-func (qry *getCurrent) Lte(s margaret.Seq) error { return nil }
-func (qry *getCurrent) Limit(n int) error        { return nil }
-func (qry *getCurrent) Live(live bool) error     { return nil }
-func (qry *getCurrent) SeqWrap(wrap bool) error  { return nil }
-func (qry *getCurrent) Reverse(yes bool) error   { return nil }
 
 func (s *Sbot) FSCK(idxlog multilog.MultiLog) {
 
@@ -189,16 +123,5 @@ func (s *Sbot) FSCK(idxlog multilog.MultiLog) {
 			err = fmt.Errorf("light fsck failed: head of feed mismatch on %s: %d vs %d", authorRef.Ref(), msg.Seq(), userLogSeq.Seq()+1)
 			checkFatal(err)
 		}
-
-		// msgCount += uint(msg.Seq())
-
-		// f, err := gb.Follows(authorRef)
-		// checkFatal(err)
-
-		// if len(feeds) < 20 {
-		// 	h := gb.Hops(authorRef, 2)
-		// 	level.Info(s.info).Log("feed", authorRef.Ref(), "seq", msg.Seq(), "follows", f.Count(), "hops", h.Count())
-		// }
-		// followCnt += uint(f.Count())
 	}
 }
