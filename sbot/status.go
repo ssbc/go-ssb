@@ -32,7 +32,10 @@ func (sbot *Sbot) Status() (ssb.Status, error) {
 		Blobs: sbot.WantManager.AllWants(),
 	}
 
-	edps := sbot.Network.GetAllEndpoints()
+	var edps []ssb.EndpointStat
+	for _, n := range sbot.networks {
+		edps = append(edps, n.GetAllEndpoints()...)
+	}
 
 	sort.Sort(byConnTime(edps))
 

@@ -62,7 +62,8 @@ type Sbot struct {
 
 	appKey []byte
 
-	networks []ssb.Network
+	networks     []ssb.Network
+	muxservGroup errgroup.Group
 
 	// TODO: these should all be options that are applied on the network construction...
 	// listenAddr         net.Addr
@@ -118,6 +119,11 @@ func (s *Sbot) Close() error {
 		}
 		n.GetConnTracker().CloseAll()
 		level.Debug(closeEvt).Log("msg", "connections closed", "i", i)
+	}
+
+	if err := s.muxservGroup.Wait(); err != nil {
+		s.closeErr = errors.Wrap(err, "sbot: muxrpc serve group shutdown failed")
+		return s.closeErr
 	}
 
 	if err := s.idxDone.Wait(); err != nil {

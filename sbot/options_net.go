@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/ssb"
 	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb/internal/netwraputil"
@@ -17,6 +18,10 @@ import (
 
 func WithNetwork(opt network.Options) Option {
 	return func(s *Sbot) error {
+		if opt.MakeHandler == nil {
+			opt.MakeHandler = s.mkHandler()
+		}
+
 		nw, err := network.New(opt)
 		if err != nil {
 			return errors.Wrap(err, "sbot: network creation failed")
@@ -53,6 +58,18 @@ func WithDefaultNetwork() Option {
 		}
 		s.networks = append(s.networks, nw)
 		return nil
+	}
+}
+
+func (s *Sbot) ServeAll(ctx context.Context) {
+	for _, n := range s.networks {
+		s.muxservGroup.Go(servNetwork(n, ctx))
+	}
+}
+
+func servNetwork(nw ssb.Network, ctx context.Context) func() error {
+	return func() error {
+		return nw.Serve(ctx)
 	}
 }
 

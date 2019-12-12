@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/network"
 )
 
 const blobSize = 1024 * 512
@@ -51,19 +53,13 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-
-	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(aliErrc)
-	}()
+	ali.ServeAll(ctx)
 
 	bobLog := log.With(info, "peer", "bob")
 	bob, err := New(
@@ -75,19 +71,13 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-
-	var bobErrc = make(chan error, 1)
-	go func() {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
-		}
-		close(bobErrc)
-	}()
+	bob.ServeAll(ctx)
 
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
@@ -130,7 +120,7 @@ func TestBlobsPair(t *testing.T) {
 	}
 
 	// all on a single connection
-	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	err = bob.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
 	for _, tc := range tests {
 		t.Run("noop/"+tc.name, tc.tf)
@@ -204,11 +194,11 @@ func TestBlobsPair(t *testing.T) {
 	ali.Shutdown()
 	bob.Shutdown()
 
+	cancel()
+
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
-	cancel()
 }
 
 type session struct {
@@ -388,18 +378,13 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(aliErrc)
-	}()
+	ali.ServeAll(ctx)
 
 	bob, err := New(
 		WithAppKey(appKey),
@@ -412,18 +397,13 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var bobErrc = make(chan error, 1)
-	go func() {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
-		}
-		close(bobErrc)
-	}()
+	bob.ServeAll(ctx)
 
 	cle, err := New(
 		WithAppKey(appKey),
@@ -431,18 +411,13 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "cle")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "cle")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var cleErrc = make(chan error, 1)
-	go func() {
-		err := cle.Network.Serve(ctx)
-		if err != nil {
-			cleErrc <- errors.Wrap(err, "cle serve exited")
-		}
-		close(cleErrc)
-	}()
+	cle.ServeAll(ctx)
 
 	// ali <> bob
 	_, err = ali.PublishLog.Append(ssb.Contact{
