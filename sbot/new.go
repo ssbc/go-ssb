@@ -3,16 +3,20 @@
 package sbot
 
 import (
+	"context"
 	"io"
 	"net"
+	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log/level"
-
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -21,10 +25,9 @@ import (
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
-	"go.cryptoscope.co/ssb/plugins/control"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
@@ -37,6 +40,66 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+type Sbot struct {
+	info kitlog.Logger
+
+	// TODO: this thing is way to big right now
+	// because it's options and the resulting thing at once
+
+	lateInit []Option
+
+	rootCtx  context.Context
+	Shutdown context.CancelFunc
+	closers  multiCloser
+	idxDone  errgroup.Group
+
+	closed   bool
+	closedMu sync.Mutex
+	closeErr error
+
+	promisc  bool
+	hopCount uint
+
+	appKey []byte
+
+	networks []ssb.Network
+
+	// TODO: these should all be options that are applied on the network construction...
+	// listenAddr         net.Addr
+	// dialer             netwrap.Dialer
+	// edpWrapper         MuxrpcEndpointWrapper
+	// networkConnTracker ssb.ConnTracker
+	// preSecureWrappers  []netwrap.ConnWrapper
+	// postSecureWrappers []netwrap.ConnWrapper
+
+	public ssb.PluginManager
+	master ssb.PluginManager
+
+	enableAdverts   bool
+	enableDiscovery bool
+
+	repoPath         string
+	KeyPair          *ssb.KeyPair
+	RootLog          multimsg.AlterableLog
+	liveIndexUpdates bool
+
+	PublishLog     ssb.Publisher
+	signHMACsecret []byte
+
+	mlogIndicies map[string]multilog.MultiLog
+	simpleIndex  map[string]librarian.Index
+
+	GraphBuilder graph.Builder
+
+	BlobStore   ssb.BlobStore
+	WantManager ssb.WantManager
+
+	// TODO: wrap better
+	eventCounter metrics.Counter
+	systemGauge  metrics.Gauge
+	latency      metrics.Histogram
+}
+
 func (s *Sbot) Close() error {
 	s.closedMu.Lock()
 	defer s.closedMu.Unlock()
@@ -48,13 +111,13 @@ func (s *Sbot) Close() error {
 	closeEvt := kitlog.With(s.info, "event", "sbot closing")
 	s.closed = true
 
-	if s.Network != nil {
-		if err := s.Network.Close(); err != nil {
-			s.closeErr = errors.Wrap(err, "sbot: failed to close own network node")
+	for i, n := range s.networks {
+		if err := n.Close(); err != nil {
+			s.closeErr = errors.Wrapf(err, "sbot: failed to close network node #%d", i)
 			return s.closeErr
 		}
-		s.Network.GetConnTracker().CloseAll()
-		level.Debug(closeEvt).Log("msg", "connections closed")
+		n.GetConnTracker().CloseAll()
+		level.Debug(closeEvt).Log("msg", "connections closed", "i", i)
 	}
 
 	if err := s.idxDone.Wait(); err != nil {
@@ -171,9 +234,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.GraphBuilder = gb
 	}
 
-	if s.disableNetwork {
-		return s, nil
-	}
+	// for i, n := range s.networks {
+
+	// }
 
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
@@ -186,55 +249,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// 	}
 	// 	s.serveIndex(ctx, "contacts", peerServ)
 	// }
-
-	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
-	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
-		// bypassing badger-close bug to go through with an accept (or not) before closing the bot
-		s.closedMu.Lock()
-		defer s.closedMu.Unlock()
-
-		if s.Network.Closed() {
-			conn.Close()
-			return nil, errors.New("sbot: network closed")
-		}
-		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-		if err != nil {
-			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
-		}
-		if s.KeyPair.Id.Equal(remote) {
-			return s.master.MakeHandler(conn)
-		}
-
-		// if peerPlug != nil {
-		// 	if err := peerPlug.Authorize(remote); err == nil {
-		// 		return peerPlug.Handler(), nil
-		// 	}
-		// }
-
-		if s.promisc {
-			return s.public.MakeHandler(conn)
-		}
-		if s.latency != nil {
-			start := time.Now()
-			defer func() {
-				s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
-			}()
-		}
-		err = auth.Authorize(remote)
-		if err == nil {
-			return s.public.MakeHandler(conn)
-		}
-
-		// shit - don't see a way to pass being a different feedtype with shs1
-		// we also need to pass this up the stack...!
-		remote.Algo = ssb.RefAlgoFeedGabby
-		err = auth.Authorize(remote)
-		if err == nil {
-			level.Debug(log).Log("warn", "found gg feed, using that")
-			return s.public.MakeHandler(conn)
-		}
-		return nil, err
-	}
 
 	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
 
@@ -297,34 +311,57 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(replicate.NewPlug(uf))
 
-	// tcp+shs
-	opts := network.Options{
-		Logger:              s.info,
-		Dialer:              s.dialer,
-		ListenAddr:          s.listenAddr,
-		AdvertsSend:         s.enableAdverts,
-		AdvertsConnectTo:    s.enableDiscovery,
-		KeyPair:             s.KeyPair,
-		AppKey:              s.appKey[:],
-		MakeHandler:         mkHandler,
-		ConnTracker:         s.networkConnTracker,
-		BefreCryptoWrappers: s.preSecureWrappers,
-		AfterSecureWrappers: s.postSecureWrappers,
-
-		EventCounter:    s.eventCounter,
-		SystemGauge:     s.systemGauge,
-		EndpointWrapper: s.edpWrapper,
-		Latency:         s.latency,
-	}
-
-	s.Network, err = network.New(opts)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create network node")
-	}
-
-	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
+	// TODO: port to mountPlugin with network
+	// s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network))
 	s.master.Register(status.New(s))
 
 	return s, nil
+}
+
+type connToHandler func(conn net.Conn) (muxrpc.Handler, error)
+
+func (s *Sbot) mkHandler() connToHandler {
+	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
+	return func(conn net.Conn) (muxrpc.Handler, error) {
+		// bypassing badger-close bug to go through with an accept (or not) before closing the bot
+		s.closedMu.Lock()
+		defer s.closedMu.Unlock()
+
+		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
+		}
+		if s.KeyPair.Id.Equal(remote) {
+			return s.master.MakeHandler(conn)
+		}
+
+		// if peerPlug != nil {
+		// 	if err := peerPlug.Authorize(remote); err == nil {
+		// 		return peerPlug.Handler(), nil
+		// 	}
+		// }
+
+		if s.promisc {
+			return s.public.MakeHandler(conn)
+		}
+		if s.latency != nil {
+			start := time.Now()
+			defer func() {
+				s.latency.With("part", "graph_auth").Observe(time.Since(start).Seconds())
+			}()
+		}
+		err = auth.Authorize(remote)
+		if err == nil {
+			return s.public.MakeHandler(conn)
+		}
+
+		// shit - don't see a way to pass being a different feedtype with shs1
+		// we also need to pass this up the stack...!
+		remote.Algo = ssb.RefAlgoFeedGabby
+		err = auth.Authorize(remote)
+		if err == nil {
+			return s.public.MakeHandler(conn)
+		}
+		return nil, err
+	}
 }
