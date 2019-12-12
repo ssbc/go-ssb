@@ -29,15 +29,10 @@ func WithNetwork(opt network.Options) Option {
 func WithDefaultNetwork() Option {
 	return func(s *Sbot) error {
 
-		addr, err := net.ResolveTCPAddr("tcp", ":8008")
-		if err != nil {
-			return err
-		}
-
 		o := network.Options{
 			Logger: s.info,
 			// Dialer:              s.dialer,
-			ListenAddr:       addr,
+			ListenAddr:       &net.TCPAddr{Port: network.DefaultPort},
 			AdvertsSend:      s.enableAdverts,
 			AdvertsConnectTo: s.enableDiscovery,
 			KeyPair:          s.KeyPair,

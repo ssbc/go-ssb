@@ -121,7 +121,6 @@ func RebuildIndicies(path string) error {
 
 	// rebuilding indexes
 	sbot, err := New(
-		DisableNetworkNode(),
 		WithRepoPath(path),
 		DisableLiveIndexMode(),
 	)

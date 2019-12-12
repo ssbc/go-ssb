@@ -5,7 +5,6 @@ package sbot
 import (
 	"context"
 	"encoding/base64"
-	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -17,10 +16,8 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -178,14 +175,6 @@ func New(fopts ...Option) (*Sbot, error) {
 			return nil, errors.Wrap(err, "failed to decode default appkey")
 		}
 		s.appKey = ak
-	}
-
-	if s.dialer == nil {
-		s.dialer = netwrap.Dial
-	}
-
-	if s.listenAddr == nil {
-		s.listenAddr = &net.TCPAddr{Port: network.DefaultPort}
 	}
 
 	if s.info == nil {
