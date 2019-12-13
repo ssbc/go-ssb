@@ -32,6 +32,8 @@ type ConnToHandler func(conn net.Conn) (muxrpc.Handler, error)
 type Options struct {
 	Logger log.Logger
 
+	Scope ssb.NetworkScope
+
 	Dialer     netwrap.Dialer
 	ListenAddr net.Addr
 
@@ -58,8 +60,6 @@ type Options struct {
 }
 
 type node struct {
-	opts Options
-
 	log log.Logger
 
 	closed   bool
@@ -85,13 +85,20 @@ type node struct {
 	evtCtr     metrics.Counter
 	sysGauge   metrics.Gauge
 	latency    metrics.Histogram
+
+	makeHandler func() ConnToHandler
 }
 
 func New(opts Options) (ssb.Network, error) {
 	n := &node{
-		opts:    opts,
 		remotes: make(map[string]muxrpc.Endpoint),
+		scope:   opts.Scope,
 	}
+
+	if opts.MakeHandler == nil {
+		return nil, errors.Errorf("network: no muxrpc handler maker")
+	}
+	n.makeHandler = opts.MakeHandler
 
 	if opts.ConnTracker == nil {
 		opts.ConnTracker = NewAcceptAllTracker()
@@ -118,19 +125,19 @@ func New(opts Options) (ssb.Network, error) {
 
 	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
-	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
+	n.l, err = netwrap.Listen(opts.ListenAddr, lisWrap)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating listener")
 	}
 
-	if n.opts.AdvertsSend {
-		n.localDiscovTx, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
+	if opts.AdvertsSend {
+		n.localDiscovTx, err = NewAdvertiser(opts.ListenAddr, opts.KeyPair)
 		if err != nil {
 			return nil, errors.Wrap(err, "error creating Advertiser")
 		}
 	}
 
-	if n.opts.AdvertsConnectTo {
+	if opts.AdvertsConnectTo {
 		n.localDiscovRx, err = NewDiscoverer(opts.KeyPair)
 		if err != nil {
 			return nil, errors.Wrap(err, "error creating Advertiser")
@@ -277,7 +284,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		n.evtCtr.With("event", "connection").Add(1)
 	}
 
-	h, err := n.opts.MakeHandler()(conn)
+	h, err := n.makeHandler()(conn)
 	if err != nil {
 		// n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {

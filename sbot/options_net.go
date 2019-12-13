@@ -18,6 +18,7 @@ import (
 
 func WithNetwork(scope ssb.NetworkScope, opt network.Options) Option {
 	return func(s *Sbot) error {
+		opt.Scope = scope
 		if opt.MakeHandler == nil {
 			opt.MakeHandler = s.mkHandler
 		}
@@ -46,6 +47,7 @@ func WithDefaultTCPNetwork() Option {
 	return func(s *Sbot) error {
 
 		o := network.Options{
+			Scope:  ssb.NetworkScopePublic,
 			Logger: s.info,
 			// Dialer:              s.dialer,
 			ListenAddr: &net.TCPAddr{Port: network.DefaultPort},
