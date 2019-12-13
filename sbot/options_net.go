@@ -22,6 +22,14 @@ func WithNetwork(opt network.Options) Option {
 			opt.MakeHandler = s.mkHandler
 		}
 
+		if opt.KeyPair == nil {
+			opt.KeyPair = s.KeyPair
+		}
+
+		if opt.AppKey == nil {
+			opt.AppKey = s.appKey[:]
+		}
+
 		nw, err := network.New(opt)
 		if err != nil {
 			return errors.Wrap(err, "sbot: network creation failed")
