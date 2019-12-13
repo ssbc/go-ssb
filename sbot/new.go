@@ -27,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -72,12 +73,11 @@ type Sbot struct {
 	// networkConnTracker ssb.ConnTracker
 	// preSecureWrappers  []netwrap.ConnWrapper
 	// postSecureWrappers []netwrap.ConnWrapper
+	// enableAdverts   bool
+	// enableDiscovery bool
 
 	public ssb.PluginManager
 	master ssb.PluginManager
-
-	enableAdverts   bool
-	enableDiscovery bool
 
 	repoPath         string
 	KeyPair          *ssb.KeyPair
@@ -324,9 +324,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	return s, nil
 }
 
-type connToHandler func(conn net.Conn) (muxrpc.Handler, error)
-
-func (s *Sbot) mkHandler() connToHandler {
+func (s *Sbot) mkHandler() network.ConnToHandler {
 	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
 	return func(conn net.Conn) (muxrpc.Handler, error) {
 		// bypassing badger-close bug to go through with an accept (or not) before closing the bot

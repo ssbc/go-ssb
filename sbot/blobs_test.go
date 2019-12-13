@@ -51,9 +51,9 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -69,9 +69,9 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -376,9 +376,9 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -395,9 +395,9 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -409,9 +409,9 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "cle")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "cle")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -560,9 +560,9 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -578,9 +578,9 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithNetwork(network.Options{
+		LateOption(WithNetwork(network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)

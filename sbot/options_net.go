@@ -19,7 +19,7 @@ import (
 func WithNetwork(opt network.Options) Option {
 	return func(s *Sbot) error {
 		if opt.MakeHandler == nil {
-			opt.MakeHandler = s.mkHandler()
+			opt.MakeHandler = s.mkHandler
 		}
 
 		nw, err := network.New(opt)
@@ -37,12 +37,12 @@ func WithDefaultTCPNetwork() Option {
 		o := network.Options{
 			Logger: s.info,
 			// Dialer:              s.dialer,
-			ListenAddr:       &net.TCPAddr{Port: network.DefaultPort},
-			AdvertsSend:      s.enableAdverts,
-			AdvertsConnectTo: s.enableDiscovery,
-			KeyPair:          s.KeyPair,
-			AppKey:           s.appKey[:],
-			MakeHandler:      s.mkHandler(),
+			ListenAddr: &net.TCPAddr{Port: network.DefaultPort},
+			// AdvertsSend:      s.enableAdverts,
+			// AdvertsConnectTo: s.enableDiscovery,
+			KeyPair:     s.KeyPair,
+			AppKey:      s.appKey[:],
+			MakeHandler: s.mkHandler,
 			// ConnTracker:      nil,
 			// BefreCryptoWrappers: s.preSecureWrappers,
 			// AfterSecureWrappers: s.postSecureWrappers,
@@ -118,6 +118,23 @@ func WithPostSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 		return nil
 	}
 }
+
+// EnableAdvertismentBroadcasts controls local peer discovery through sending UDP broadcasts
+func EnableAdvertismentBroadcasts(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableAdverts = do
+		return nil
+	}
+}
+
+// EnableAdvertismentBroadcasts controls local peer discovery through listening for and connecting to UDP broadcasts
+func EnableAdvertismentDialing(do bool) Option {
+	return func(s *Sbot) error {
+		s.enableDiscovery = do
+		return nil
+	}
+}
+
 
 */
 
@@ -195,22 +212,6 @@ func WithUNIXSocket() Option {
 				}(wc)
 			}
 		}()
-		return nil
-	}
-}
-
-// EnableAdvertismentBroadcasts controls local peer discovery through sending UDP broadcasts
-func EnableAdvertismentBroadcasts(do bool) Option {
-	return func(s *Sbot) error {
-		s.enableAdverts = do
-		return nil
-	}
-}
-
-// EnableAdvertismentBroadcasts controls local peer discovery through listening for and connecting to UDP broadcasts
-func EnableAdvertismentDialing(do bool) Option {
-	return func(s *Sbot) error {
-		s.enableDiscovery = do
 		return nil
 	}
 }

@@ -27,6 +27,8 @@ import (
 // DefaultPort is the default listening port for ScuttleButt.
 const DefaultPort = 8008
 
+type ConnToHandler func(conn net.Conn) (muxrpc.Handler, error)
+
 type Options struct {
 	Logger log.Logger
 
@@ -38,7 +40,7 @@ type Options struct {
 
 	KeyPair     *ssb.KeyPair
 	AppKey      []byte
-	MakeHandler func(net.Conn) (muxrpc.Handler, error)
+	MakeHandler func() ConnToHandler
 
 	ConnTracker ssb.ConnTracker
 
@@ -269,7 +271,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		n.evtCtr.With("event", "connection").Add(1)
 	}
 
-	h, err := n.opts.MakeHandler(conn)
+	h, err := n.opts.MakeHandler()(conn)
 	if err != nil {
 		// n.log.Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
 		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
