@@ -16,7 +16,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func WithNetwork(opt network.Options) Option {
+func WithNetwork(scope ssb.NetworkScope, opt network.Options) Option {
 	return func(s *Sbot) error {
 		if opt.MakeHandler == nil {
 			opt.MakeHandler = s.mkHandler
@@ -34,7 +34,10 @@ func WithNetwork(opt network.Options) Option {
 		if err != nil {
 			return errors.Wrap(err, "sbot: network creation failed")
 		}
-		s.networks = append(s.networks, nw)
+		s.networks = append(s.networks, scopedNetwork{
+			Network: nw,
+			Scope:   scope,
+		})
 		return nil
 	}
 }
@@ -62,9 +65,12 @@ func WithDefaultTCPNetwork() Option {
 		}
 		nw, err := network.New(o)
 		if err != nil {
-			return errors.Wrap(err, "sbot: network creation failed")
+			return errors.Wrap(err, "sbot: default network creation failed")
 		}
-		s.networks = append(s.networks, nw)
+		s.networks = append(s.networks, scopedNetwork{
+			Network: nw,
+			Scope:   ssb.NetworkScopePublic,
+		})
 		return nil
 	}
 }

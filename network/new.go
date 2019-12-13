@@ -65,6 +65,8 @@ type node struct {
 	closed   bool
 	closedMu sync.RWMutex
 
+	scope ssb.NetworkScope
+
 	dialer        netwrap.Dialer
 	l             net.Listener
 	localDiscovRx *Discoverer
@@ -152,6 +154,10 @@ func New(opts Options) (ssb.Network, error) {
 	n.log = opts.Logger
 
 	return n, nil
+}
+
+func (n *node) HasScope(sc ssb.NetworkScope) bool {
+	return n.scope == sc
 }
 
 func (n *node) GetConnTracker() ssb.ConnTracker {

@@ -20,6 +20,8 @@ type EndpointStat struct {
 }
 
 type Network interface {
+	HasScope(NetworkScope) bool
+
 	Connect(ctx context.Context, addr net.Addr) error
 	Serve(context.Context, ...muxrpc.HandlerWrapper) error
 	GetListenAddr() net.Addr
@@ -40,3 +42,11 @@ type ConnTracker interface {
 	Count() uint
 	CloseAll()
 }
+
+type NetworkScope uint
+
+const (
+	NetworkScopeUnknown NetworkScope = iota
+	NetworkScopePrivate
+	NetworkScopePublic
+)

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -51,7 +52,7 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -69,7 +70,7 @@ func TestBlobsPair(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -118,7 +119,8 @@ func TestBlobsPair(t *testing.T) {
 	}
 
 	// all on a single connection
-	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
+	err = bob.Connect(ctx, ali.GetListenAddr(ssb.NetworkScopePublic))
+	fmt.Println("dialed!")
 	r.NoError(err)
 	for _, tc := range tests {
 		t.Run("noop/"+tc.name, tc.tf)
@@ -126,8 +128,8 @@ func TestBlobsPair(t *testing.T) {
 
 	info.Log("block1", "done")
 
-	aliCT := ali.GetConnTracker(network.Public)
-	bobCT := bob.GetConnTracker(network.Public)
+	aliCT := ali.GetConnTracker(ssb.NetworkScopePublic)
+	bobCT := bob.GetConnTracker(ssb.NetworkScopePublic)
 	aliCT.CloseAll()
 	bobCT.CloseAll()
 	i := 0
@@ -147,7 +149,7 @@ func TestBlobsPair(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
 		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
-		err := bob.Connect(ctx, ali.GetListenAddr(network.Public))
+		err := bob.Connect(ctx, ali.GetListenAddr(ssb.NetworkScopePublic))
 		r.NoError(err)
 		time.Sleep(2 * time.Second)
 		assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
@@ -376,7 +378,7 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -395,7 +397,7 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	addr := netwrap.GetAddr(conn.RemoteAddr(), "shs-bs")
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -409,7 +411,7 @@ func TestBlobsWithHops(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(log.With(mainLog, "peer", "cle")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "cle")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -446,9 +448,9 @@ func TestBlobsWithHops(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
+	err = bob.Connect(ctx, ali.GetListenAddr(ssb.NetworkScopePublic))
 	r.NoError(err)
-	err = bob.Connect(ctx, cle.GetListenAddr(network.Public))
+	err = bob.Connect(ctx, cle.GetListenAddr(ssb.NetworkScopePublic))
 	r.NoError(err)
 
 	time.Sleep(1 * time.Second)
@@ -560,7 +562,7 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -578,7 +580,7 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		LateOption(WithNetwork(network.Options{
+		LateOption(WithNetwork(ssb.NetworkScopePublic, network.Options{
 			ListenAddr: &net.TCPAddr{Port: 0},
 		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
@@ -601,7 +603,7 @@ func TestBlobsTooBig(t *testing.T) {
 	})
 	r.NoError(err)
 
-	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
+	err = bob.Connect(ctx, ali.GetListenAddr(ssb.NetworkScopePublic))
 	r.NoError(err)
 	// </testSetup>
 
