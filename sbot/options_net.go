@@ -47,23 +47,19 @@ func WithNetwork(opt network.Options) Option {
 func WithDefaultTCPNetwork() Option {
 	return func(s *Sbot) error {
 		o := network.Options{
-			Scope:  ssb.NetworkScopePublic,
-			Logger: s.info,
-			// Dialer:              s.dialer,
+			Scope:      ssb.NetworkScopePublic,
 			ListenAddr: &net.TCPAddr{Port: network.DefaultPort},
+
+			// options to port
+			// Dialer:              s.dialer,
 			// AdvertsSend:      s.enableAdverts,
 			// AdvertsConnectTo: s.enableDiscovery,
-			KeyPair:     s.KeyPair,
-			AppKey:      s.appKey[:],
-			MakeHandler: s.mkHandler,
-			// ConnTracker:      nil,
 			// BefreCryptoWrappers: s.preSecureWrappers,
 			// AfterSecureWrappers: s.postSecureWrappers,
 
 			EventCounter: s.eventCounter,
 			SystemGauge:  s.systemGauge,
-			// EndpointWrapper: s.edpWrapper,
-			Latency: s.latency,
+			Latency:      s.latency,
 		}
 		return WithNetwork(o)(s)
 	}
