@@ -7,17 +7,18 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/network"
 )
 
 func TestPublishUnicode(t *testing.T) {
@@ -35,19 +36,14 @@ func TestPublishUnicode(t *testing.T) {
 		WithHMACSigning(hk),
 		WithInfo(mainLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
+	ali.ServeAll(ctx)
 
-	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(aliErrc)
-	}()
 	txt, err := hex.DecodeString("426c65657020626c6f6f702061696ee28099740a0a4e6f2066756e0a0af09f98a9")
 	r.NoError(err)
 	type post struct {
@@ -81,5 +77,4 @@ func TestPublishUnicode(t *testing.T) {
 	ali.Shutdown()
 	cancel()
 	r.NoError(ali.Close())
-	r.NoError(<-aliErrc)
 }

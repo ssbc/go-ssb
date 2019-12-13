@@ -31,7 +31,7 @@ func WithNetwork(opt network.Options) Option {
 	}
 }
 
-func WithDefaultNetwork() Option {
+func WithDefaultTCPNetwork() Option {
 	return func(s *Sbot) error {
 
 		o := network.Options{

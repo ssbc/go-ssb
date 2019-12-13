@@ -14,11 +14,9 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
-	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -120,7 +118,7 @@ func TestBlobsPair(t *testing.T) {
 	}
 
 	// all on a single connection
-	err = bob.Connect(ctx, ali.Network.GetListenAddr())
+	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
 	r.NoError(err)
 	for _, tc := range tests {
 		t.Run("noop/"+tc.name, tc.tf)
@@ -128,8 +126,8 @@ func TestBlobsPair(t *testing.T) {
 
 	info.Log("block1", "done")
 
-	aliCT := ali.Network.GetConnTracker()
-	bobCT := bob.Network.GetConnTracker()
+	aliCT := ali.GetConnTracker(network.Public)
+	bobCT := bob.GetConnTracker(network.Public)
 	aliCT.CloseAll()
 	bobCT.CloseAll()
 	i := 0
@@ -149,7 +147,7 @@ func TestBlobsPair(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
 		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
-		err := bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+		err := bob.Connect(ctx, ali.GetListenAddr(network.Public))
 		r.NoError(err)
 		time.Sleep(2 * time.Second)
 		assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
@@ -448,9 +446,9 @@ func TestBlobsWithHops(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
 	r.NoError(err)
-	err = bob.Network.Connect(ctx, cle.Network.GetListenAddr())
+	err = bob.Connect(ctx, cle.GetListenAddr(network.Public))
 	r.NoError(err)
 
 	time.Sleep(1 * time.Second)
@@ -529,12 +527,10 @@ func TestBlobsWithHops(t *testing.T) {
 	// a.False(bob.WantManager.Wants(ref), "b still wants")
 	// a.False(cle.WantManager.Wants(ref), "c still wants")
 
+	cancel()
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 	r.NoError(cle.Close())
-
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc, cleErrc))
-	cancel()
 }
 
 // TODO: make extra test to make sure this doesn't turn into an echo chamber
@@ -554,17 +550,6 @@ func TestBlobsTooBig(t *testing.T) {
 
 	info := testutils.NewRelativeTimeLogger(nil)
 
-	srvGroup, ctx := errgroup.WithContext(ctx)
-	srvBot := func(bot *Sbot, name string) {
-		srvGroup.Go(func() error {
-			err := bot.Network.Serve(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "bot %s serve exited", name)
-			}
-			return nil
-		})
-	}
-
 	aliLog := log.With(info, "peer", "ali")
 	ali, err := New(
 		WithAppKey(appKey),
@@ -575,11 +560,13 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	srvBot(ali, "ali")
+	ali.ServeAll(ctx)
 
 	bobLog := log.With(info, "peer", "bob")
 	bob, err := New(
@@ -591,11 +578,13 @@ func TestBlobsTooBig(t *testing.T) {
 		// 	return debug.WrapConn(bobLog, conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"),
+		WithNetwork(network.Options{
+			ListenAddr: &net.TCPAddr{Port: 0},
+		}),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	srvBot(bob, "bob")
+	bob.ServeAll(ctx)
 
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
@@ -612,7 +601,7 @@ func TestBlobsTooBig(t *testing.T) {
 	})
 	r.NoError(err)
 
-	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	err = bob.Connect(ctx, ali.GetListenAddr(network.Public))
 	r.NoError(err)
 	// </testSetup>
 
@@ -653,9 +642,8 @@ func TestBlobsTooBig(t *testing.T) {
 	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
-	r.NoError(srvGroup.Wait())
 
 	// cleanup
-	// r.NoError(ali.Close())
-	// r.NoError(bob.Close())
+	r.NoError(ali.Close())
+	r.NoError(bob.Close())
 }

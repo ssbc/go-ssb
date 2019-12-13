@@ -157,9 +157,10 @@ func main() {
 		mksbot.WithInfo(log),
 		mksbot.WithAppKey(ak),
 		mksbot.WithRepoPath(repoDir),
-		mksbot.WithListenAddr(listenAddr),
-		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
-		mksbot.EnableAdvertismentDialing(flagEnDiscov),
+		// mksbot.WithListenAddr(listenAddr),
+		mksbot.WithDefaultTCPNetwork(),
+		// mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
+		// mksbot.EnableAdvertismentDialing(flagEnDiscov),
 	}
 
 	if !flagDisableUNIXSock {
