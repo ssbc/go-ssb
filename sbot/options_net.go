@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
@@ -28,6 +29,10 @@ func WithNetwork(opt network.Options) Option {
 
 		if opt.AppKey == nil {
 			opt.AppKey = s.appKey[:]
+		}
+
+		if opt.Logger == nil {
+			opt.Logger = kitlog.With(s.info, "module", "network")
 		}
 
 		nw, err := network.New(opt)
