@@ -63,7 +63,7 @@ type Sbot struct {
 
 	appKey []byte
 
-	networks     []scopedNetwork
+	networks     []ssb.Network
 	muxservGroup errgroup.Group
 
 	// TODO: these should all be options that are applied on the network construction...

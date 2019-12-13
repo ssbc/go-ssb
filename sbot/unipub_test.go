@@ -36,9 +36,10 @@ func TestPublishUnicode(t *testing.T) {
 		WithHMACSigning(hk),
 		WithInfo(mainLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
-		WithNetwork(ssb.NetworkScopePublic, network.Options{
+		LateOption(WithNetwork(network.Options{
+			Scope:      ssb.NetworkScopePublic,
 			ListenAddr: &net.TCPAddr{Port: 0},
-		}),
+		})),
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)

@@ -32,8 +32,3 @@ func (s *Sbot) GetListenAddr(sc ssb.NetworkScope) net.Addr {
 func (s *Sbot) GetConnTracker(scope ssb.NetworkScope) ssb.ConnTracker {
 	return nil
 }
-
-type scopedNetwork struct {
-	ssb.Network
-	Scope ssb.NetworkScope
-}
