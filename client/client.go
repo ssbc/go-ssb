@@ -35,44 +35,58 @@ type Client struct {
 	logger        log.Logger
 
 	closer io.Closer
+
+	appKeyBytes []byte
 }
 
-// options!!
-
-func FromEndpoint(edp muxrpc.Endpoint) *Client {
-	c := Client{
-		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
+func newClientWithOptions(opts []Option) (*Client, error) {
+	var c Client
+	for i, o := range opts {
+		err := o(&c)
+		if err != nil {
+			return nil, errors.Wrapf(err, "client: option #%d failed", i)
+		}
 	}
-	c.rootCtx, c.rootCtxCancel = context.WithCancel(context.TODO())
-	c.Endpoint = edp
-	return &c
-}
 
-func NewTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr) (*Client, error) {
-	shscap := "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
-	return newTCP(ctx, own, remote, shscap)
-}
-
-func NewTCPWithSHSCap(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*Client, error) {
-	return newTCP(ctx, own, remote, shscap)
-}
-
-func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap string) (*Client, error) {
-	c := Client{
-		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
+	// defaults
+	if c.logger == nil {
+		defLog := log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient")
+		c.logger = level.NewFilter(defLog, level.AllowInfo())
 	}
-	c.rootCtx, c.rootCtxCancel = context.WithCancel(ctx)
 
-	appKey, err := base64.StdEncoding.DecodeString(shscap)
+	if c.rootCtx == nil {
+		c.rootCtx = context.TODO()
+	}
+	c.rootCtx, c.rootCtxCancel = context.WithCancel(c.rootCtx)
+
+	if c.appKeyBytes == nil {
+		var err error
+		c.appKeyBytes, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
+		if err != nil {
+			return nil, errors.Wrapf(err, "client: failed to decode default app key")
+		}
+	}
+
+	return &c, nil
+}
+
+func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
+	c, err := newClientWithOptions(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: failed to decode (default) appKey")
+		return nil, err
 	}
 
-	if n := len(appKey); n != 32 {
-		return nil, errors.Errorf("ssbClient: invalid length for appKey: %d", n)
+	c.Endpoint = edp
+	return c, nil
+}
+
+func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
+	c, err := newClientWithOptions(opts)
+	if err != nil {
+		return nil, err
 	}
 
-	shsClient, err := secretstream.NewClient(own.Pair, appKey)
+	shsClient, err := secretstream.NewClient(own.Pair, c.appKeyBytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "ssbClient: error creating secretstream.Client")
 	}
@@ -115,14 +129,14 @@ func newTCP(ctx context.Context, own *ssb.KeyPair, remote net.Addr, shscap strin
 		conn.Close()
 	}()
 
-	return &c, nil
+	return c, nil
 }
 
-func NewUnix(ctx context.Context, path string) (*Client, error) {
-	c := Client{
-		logger: log.With(log.NewLogfmtLogger(os.Stderr), "unit", "ssbClient"),
+func NewUnix(path string, opts ...Option) (*Client, error) {
+	c, err := newClientWithOptions(opts)
+	if err != nil {
+		return nil, err
 	}
-	c.rootCtx, c.rootCtxCancel = context.WithCancel(ctx)
 
 	conn, err := net.Dial("unix", path)
 	if err != nil {
@@ -150,7 +164,7 @@ func NewUnix(ctx context.Context, path string) (*Client, error) {
 		conn.Close()
 	}()
 
-	return &c, nil
+	return c, nil
 }
 
 func (c Client) Close() error {

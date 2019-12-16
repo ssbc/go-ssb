@@ -54,7 +54,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 
 	srvAddr := srv.Network.GetListenAddr()
 
-	c, err := client.NewTCP(context.TODO(), testKP, srvAddr)
+	c, err := client.NewTCP(testKP, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 

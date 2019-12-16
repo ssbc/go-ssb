@@ -80,7 +80,7 @@ func TestReplicateUpTo(t *testing.T) {
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()
 
-	c, err := client.NewTCP(context.TODO(), kp, srvAddr)
+	c, err := client.NewTCP(kp, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 

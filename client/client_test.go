@@ -45,7 +45,7 @@ func TestUnixSock(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
-	c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
+	c, err := client.NewUnix(filepath.Join(srvRepo, "socket"))
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 
@@ -124,7 +124,7 @@ func TestWhoami(t *testing.T) {
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()
 
-	c, err := client.NewTCP(context.TODO(), kp, srvAddr)
+	c, err := client.NewTCP(kp, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 
@@ -157,7 +157,7 @@ func TestLotsOfWhoami(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
-	c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
+	c, err := client.NewUnix(filepath.Join(srvRepo, "socket"))
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 
@@ -202,7 +202,7 @@ func TestStatusCalls(t *testing.T) {
 		r.NoError(err, "failed to load servers keypair")
 		srvAddr := srv.Network.GetListenAddr()
 		return srv, func(ctx context.Context) (*client.Client, error) {
-			c, err := client.NewTCP(ctx, kp, srvAddr)
+			c, err := client.NewTCP(kp, srvAddr, client.WithContext(ctx))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to make TCP client connection")
 			}
@@ -227,7 +227,7 @@ func TestStatusCalls(t *testing.T) {
 		r.NoError(err, "sbot srv init failed")
 
 		return srv, func(ctx context.Context) (*client.Client, error) {
-			c, err := client.NewUnix(ctx, filepath.Join(srvRepo, "socket"))
+			c, err := client.NewUnix(filepath.Join(srvRepo, "socket"), client.WithContext(ctx))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to make unix client connection")
 			}
@@ -362,7 +362,7 @@ func TestPublish(t *testing.T) {
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()
 
-	c, err := client.NewTCP(context.TODO(), kp, srvAddr)
+	c, err := client.NewTCP(kp, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 
@@ -445,7 +445,7 @@ func TestTangles(t *testing.T) {
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()
 
-	c, err := client.NewTCP(context.TODO(), kp, srvAddr)
+	c, err := client.NewTCP(kp, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
 

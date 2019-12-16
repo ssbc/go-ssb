@@ -123,7 +123,7 @@ func initClient(ctx *cli.Context) error {
 		return initClientTCP(ctx)
 	}
 	var err error
-	client, err = ssbClient.NewUnix(longctx, sockPath)
+	client, err = ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
 	return errors.Wrap(err, "unix-path based client init failed")
 }
 
@@ -151,7 +151,9 @@ func initClientTCP(ctx *cli.Context) error {
 
 	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{remotPubKey[:]})
 
-	client, err = ssbClient.NewTCPWithSHSCap(longctx, localKey, shsAddr, ctx.String("shscap"))
+	client, err = ssbClient.NewTCP(localKey, shsAddr,
+		ssbClient.WithSHSAppKey(ctx.String("shscap")),
+		ssbClient.WithContext(longctx))
 	if err != nil {
 		return errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
 	}
