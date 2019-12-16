@@ -61,7 +61,10 @@ func SaveKeyPair(kp *KeyPair, path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return errors.Errorf("ssb.SaveKeyPair: key already exists:%q", path)
 	}
-	os.MkdirAll(filepath.Dir(path), 0700)
+	err := os.MkdirAll(filepath.Dir(path), 0700)
+	if err != nil && !os.IsExist(err) {
+		return errors.Wrap(err, "failed to create folder for keypair")
+	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms)
 	if err != nil {
 		return errors.Wrap(err, "ssb.SaveKeyPair: failed to create file")
