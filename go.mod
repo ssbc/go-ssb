@@ -36,6 +36,7 @@ require (
 	golang.org/x/text v0.3.2
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
+	modernc.org/fileutil v1.0.1-0.20191218210630-be89d16144d3 // indirect
 	modernc.org/kv v1.0.0
 )
 
