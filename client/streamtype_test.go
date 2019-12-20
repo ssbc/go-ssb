@@ -46,6 +46,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()
+	r.NotNil(srvAddr, "listener not ready")
 
 	c, err := client.NewTCP(kp, srvAddr)
 	r.NoError(err, "failed to make client connection")

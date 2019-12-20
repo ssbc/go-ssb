@@ -131,13 +131,13 @@ func TestFeedsOneByOne(t *testing.T) {
 	ali.FSCK(auf)
 	bob.FSCK(uf)
 
+	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
 
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	cancel()
 	r.NoError(botgroup.Wait())
 }
 

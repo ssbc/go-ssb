@@ -74,6 +74,8 @@ type node struct {
 	beforeCryptoConnWrappers []netwrap.ConnWrapper
 	afterSecureConnWrappers  []netwrap.ConnWrapper
 
+	listening chan struct{}
+
 	remotesLock sync.Mutex
 	remotes     map[string]muxrpc.Endpoint
 
@@ -112,13 +114,6 @@ func New(opts Options) (ssb.Network, error) {
 		return nil, errors.Wrap(err, "error creating secretstream.Server")
 	}
 
-	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
-	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
-	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating listener")
-	}
-
 	if n.opts.AdvertsSend {
 		n.localDiscovTx, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
 		if err != nil {
@@ -135,6 +130,8 @@ func New(opts Options) (ssb.Network, error) {
 
 	n.beforeCryptoConnWrappers = opts.BefreCryptoWrappers
 	n.afterSecureConnWrappers = opts.AfterSecureWrappers
+
+	n.listening = make(chan struct{})
 
 	n.edpWrapper = opts.EndpointWrapper
 	n.evtCtr = opts.EventCounter
@@ -299,10 +296,24 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	n.removeRemote(edp)
 }
 
+// Serve starts the network listener and configured resources like local discovery.
+// Canceling the passed context makes the function return. Defers take care of stopping these resources.
 func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
+	evtLog := log.With(n.log, "event", "network.Serve")
+	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
+	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(n.opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
+	var err error
+	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
+	if err != nil {
+		return errors.Wrap(err, "error creating listener")
+	}
+	defer func() {
+		defer n.l.Close()
+		n.listening = make(chan struct{})
+	}()
+	close(n.listening)
+
 	if n.localDiscovTx != nil {
-		// should also be called when ctx canceled?
-		// or pass ctx to adv start?
 		n.localDiscovTx.Start()
 
 		defer n.localDiscovTx.Stop()
@@ -321,51 +332,65 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				if err == nil {
 					continue
 				}
-				if _, ok := errors.Cause(err).(secrethandshake.ErrProtocol); !ok {
-					level.Debug(n.log).Log("event", "discovery dialback", "err", err, "addr", a.String())
+				switch cause := errors.Cause(err).(type) {
+				case secrethandshake.ErrProtocol:
+					// ignore
+				default:
+					if cause != io.EOF { // handshake ended early
+						level.Debug(evtLog).Log("msg", "discovery dialback", "err", err, "addr", a.String())
+					}
 				}
-
 			}
 		}()
 	}
 
+	// accept in a goroutine so that we can react to context cancel and close the listener
+	newConn := make(chan net.Conn)
+	go func() {
+		defer close(newConn)
+		for {
+			conn, err := n.l.Accept()
+			if err != nil {
+				if strings.Contains(err.Error(), "use of closed network connection") {
+					// yikes way of handling this
+					// but means this needs to be restarted anyway
+					return
+				}
+
+				switch cause := errors.Cause(err).(type) {
+
+				case secrethandshake.ErrProtocol:
+					// ignore
+				default:
+					if cause != io.EOF { // handshake ended early
+						level.Warn(evtLog).Log("msg", "failed to accept connection", "err", err,
+							"cause", cause, "causeT", fmt.Sprintf("%T", cause))
+					}
+				}
+				continue
+			}
+			n.closedMu.RLock()
+			isClosed := n.closed
+			n.closedMu.RUnlock()
+			if isClosed {
+				// TODO: cancel context?!
+				return
+			}
+			newConn <- conn
+		}
+	}()
+
 	defer level.Debug(n.log).Log("event", "network listen loop exited")
 	for {
-		n.closedMu.RLock()
-		isClosed := n.closed
-		n.closedMu.RUnlock()
-		if isClosed {
-			return nil
-		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-		}
-		conn, err := n.l.Accept()
-		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				// yikes way of handling this
-				// but means this needs to be restarted anyway
+		case conn := <-newConn:
+			if conn == nil {
 				return nil
 			}
-
-			switch cause := errors.Cause(err).(type) {
-
-			case secrethandshake.ErrProtocol:
-				// ignore
-			default:
-				if cause != io.EOF { // handshake ended early
-					n.log.Log("msg", "node/Serve: failed to accept connection", "err", err,
-						"cause", cause, "causeT", fmt.Sprintf("%T", cause))
-				}
-			}
-			continue
+			go n.handleConnection(ctx, conn, wrappers...)
 		}
-
-		go func(c net.Conn) {
-			n.handleConnection(ctx, c, wrappers...)
-		}(conn)
 	}
 }
 
@@ -402,8 +427,14 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	return nil
 }
 
+// GetListenAddr waits for Serve() to be called!
 func (n *node) GetListenAddr() net.Addr {
-	return n.l.Addr()
+	_, ok := <-n.listening
+	if !ok {
+		return n.l.Addr()
+	}
+	level.Error(n.log).Log("msg", "listener not ready")
+	return nil
 }
 
 func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
@@ -431,9 +462,11 @@ func (n *node) Close() error {
 		n.localDiscovTx.Stop()
 	}
 
-	err := n.l.Close()
-	if err != nil {
-		return errors.Wrap(err, "ssb: network node failed to close it's listener")
+	if n.l != nil {
+		err := n.l.Close()
+		if err != nil && !strings.Contains(errors.Cause(err).Error(), "use of closed network connection") {
+			return errors.Wrap(err, "ssb: network node failed to close it's listener")
+		}
 	}
 
 	n.remotesLock.Lock()
