@@ -39,7 +39,7 @@ func TestAboutNames(t *testing.T) {
 		sbot.WithHMACSigning(hk),
 		sbot.WithInfo(testutils.NewRelativeTimeLogger(nil)),
 		sbot.WithRepoPath(repoPath),
-		sbot.WithUNIXSocket(),
+		sbot.LateOption(sbot.WithUNIXSocket()),
 		sbot.LateOption(sbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
@@ -79,7 +79,7 @@ func TestAboutNames(t *testing.T) {
 	}
 	r.Equal(i, 1)
 
-	c, err := client.NewUnix(context.TODO(), filepath.Join(repoPath, "socket"))
+	c, err := client.NewUnix(filepath.Join(repoPath, "socket"))
 	r.NoError(err)
 
 	all, err := c.NamesGet()

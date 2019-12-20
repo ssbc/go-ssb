@@ -49,13 +49,13 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
-			sbot.WithUNIXSocket(),
+			sbot.LateOption(sbot.WithUNIXSocket()),
 			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		)
 
 		r.NoError(err, "sbot srv init failed")
 
-		c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
+		c, err := client.NewUnix(filepath.Join(srvRepo, "socket"))
 		r.NoError(err, "failed to make client connection")
 
 		type msg struct {

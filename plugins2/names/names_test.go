@@ -3,7 +3,6 @@
 package names
 
 import (
-	"context"
 	"crypto/rand"
 	"os"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
@@ -60,7 +58,7 @@ func XTestNames(t *testing.T) {
 		sbot.WithHMACSigning(hk),
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.MountPlugin(&Plugin{}, plugins2.AuthMaster)),
-		sbot.WithUNIXSocket(),
+		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err)
 
@@ -91,7 +89,7 @@ func XTestNames(t *testing.T) {
 
 	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
 
-	c, err := client.NewUnix(context.TODO(), filepath.Join(tRepoPath, "socket"))
+	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)
 
 	all, err := c.NamesGet()
