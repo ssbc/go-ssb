@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -16,7 +15,7 @@ import (
 // but alice starts blocking claire
 // clair should not get new messages from alice's feed anymore
 func TestBlocking(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
 

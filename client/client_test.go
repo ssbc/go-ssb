@@ -25,7 +25,6 @@ import (
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 
-	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
@@ -141,7 +140,7 @@ func TestWhoami(t *testing.T) {
 }
 
 func TestLotsOfWhoami(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
@@ -175,7 +174,7 @@ func TestLotsOfWhoami(t *testing.T) {
 }
 
 func TestStatusCalls(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 
 	mkTCP := func(t *testing.T) (*sbot.Sbot, mkClient) {
 		r := require.New(t)
@@ -335,7 +334,7 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")
@@ -417,7 +416,7 @@ func TestPublish(t *testing.T) {
 }
 
 func TestTangles(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
 	srvRepo := filepath.Join("testrun", t.Name(), "serv")

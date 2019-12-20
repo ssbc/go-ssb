@@ -21,7 +21,7 @@ import (
 )
 
 func XTestNames(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	hk := make([]byte, 32)

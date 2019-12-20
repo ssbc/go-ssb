@@ -13,7 +13,6 @@ import (
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
@@ -21,7 +20,7 @@ import (
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
@@ -144,7 +143,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 }
 
 func TestPrivMsgsFromJS(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)

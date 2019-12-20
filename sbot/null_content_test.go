@@ -29,7 +29,7 @@ import (
 )
 
 func TestNullContentRequest(t *testing.T) {
-	// defer leakcheck.Check(t)
+	// // defer leakcheck.Check(t)
 	// ctx := context.Background()
 
 	r := require.New(t)
@@ -219,7 +219,7 @@ func TestNullContentRequest(t *testing.T) {
 }
 
 func TestNullContentAndSync(t *testing.T) {
-	// defer leakcheck.Check(t)
+	// // defer leakcheck.Check(t)
 	r := require.New(t)
 	// a := assert.New(t)
 
