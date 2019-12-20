@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -225,31 +224,7 @@ func (ts *testSession) wait() {
 		close(closeErrc)
 	}()
 
-	for err := range mergeErrorChans(append(ts.backgroundErrs, closeErrc)...) {
+	for err := range testutils.MergeErrorChans(append(ts.backgroundErrs, closeErrc)...) {
 		require.NoError(ts.t, err)
 	}
-}
-
-// utils
-func mergeErrorChans(cs ...<-chan error) <-chan error {
-	var wg sync.WaitGroup
-	out := make(chan error, 1)
-
-	output := func(c <-chan error) {
-		for a := range c {
-			out <- a
-		}
-		wg.Done()
-	}
-
-	wg.Add(len(cs))
-	for _, c := range cs {
-		go output(c)
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
 }

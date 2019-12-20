@@ -207,7 +207,7 @@ func TestBlobsPair(t *testing.T) {
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
+	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc))
 	cancel()
 }
 
@@ -558,7 +558,7 @@ func TestBlobsWithHops(t *testing.T) {
 	r.NoError(bob.Close())
 	r.NoError(cle.Close())
 
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc, cleErrc))
+	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc, cleErrc))
 	cancel()
 }
 

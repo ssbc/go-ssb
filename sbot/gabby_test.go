@@ -157,5 +157,5 @@ func TestFeedsGabbySync(t *testing.T) {
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	r.NoError(<-mergeErrorChans(aliErrc, bobErrc))
+	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc))
 }
