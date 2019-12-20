@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -151,6 +152,9 @@ func TestWantManager(t *testing.T) {
 					return (*luigi.SliceSource)(&[]interface{}{
 						[]byte(data),
 					}), nil
+				},
+				RemoteStub: func() net.Addr {
+					return &net.TCPAddr{Port: 666}
 				},
 			}
 			proc := wmgr.CreateWants(ctx, out, edp)
