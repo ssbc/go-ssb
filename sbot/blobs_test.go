@@ -393,13 +393,15 @@ func TestBlobsWithHops(t *testing.T) {
 	)
 	r.NoError(err)
 	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
+
+	var serv = func(name string, bot *Sbot, errc chan error) {
+		err := bot.Network.Serve(ctx)
+		if err != nil && err != context.Canceled {
+			errc <- errors.Wrapf(err, "%s serve exited", name)
 		}
-		close(aliErrc)
-	}()
+		close(errc)
+	}
+	go serv("ali", ali, aliErrc)
 
 	bob, err := New(
 		WithAppKey(appKey),
@@ -417,13 +419,7 @@ func TestBlobsWithHops(t *testing.T) {
 	)
 	r.NoError(err)
 	var bobErrc = make(chan error, 1)
-	go func() {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
-		}
-		close(bobErrc)
-	}()
+	go serv("bob", bob, bobErrc)
 
 	cle, err := New(
 		WithAppKey(appKey),
@@ -436,13 +432,7 @@ func TestBlobsWithHops(t *testing.T) {
 	)
 	r.NoError(err)
 	var cleErrc = make(chan error, 1)
-	go func() {
-		err := cle.Network.Serve(ctx)
-		if err != nil {
-			cleErrc <- errors.Wrap(err, "cle serve exited")
-		}
-		close(cleErrc)
-	}()
+	go serv("cle", cle, cleErrc)
 
 	// ali <> bob
 	_, err = ali.PublishLog.Append(ssb.Contact{
@@ -545,6 +535,7 @@ func TestBlobsWithHops(t *testing.T) {
 	_, err = cle.BlobStore.Size(junkBlob)
 	a.True(err == blobstore.ErrNoSuchBlob, "err T: %T %s", err, err)
 
+	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
 	cle.Shutdown()
@@ -559,7 +550,6 @@ func TestBlobsWithHops(t *testing.T) {
 	r.NoError(cle.Close())
 
 	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc, cleErrc))
-	cancel()
 }
 
 // TODO: make extra test to make sure this doesn't turn into an echo chamber

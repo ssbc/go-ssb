@@ -58,6 +58,9 @@ func TestFeedsOneByOne(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
 		}
+		if err == context.Canceled {
+			return nil
+		}
 		return err
 	})
 
@@ -79,6 +82,9 @@ func TestFeedsOneByOne(t *testing.T) {
 		err := bob.Network.Serve(ctx)
 		if err != nil {
 			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
+		}
+		if err == context.Canceled {
+			return nil
 		}
 		return err
 	})
