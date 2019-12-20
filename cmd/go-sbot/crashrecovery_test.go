@@ -81,7 +81,7 @@ func TestRecoverFromCrash(t *testing.T) {
 		for i = 10; i > 0; i-- {
 			time.Sleep(250 * time.Millisecond)
 
-			c, err := client.NewUnix(ctx, filepath.Join(testPath, "socket"))
+			c, err := client.NewUnix(filepath.Join(testPath, "socket"), client.WithContext(ctx))
 			if err != nil && i > 0 {
 				t.Logf("%d: unable to make client", try)
 				continue
