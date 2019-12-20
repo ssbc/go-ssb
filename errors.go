@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/margaret"
 )
 
 var ErrShuttingDown = errors.Errorf("ssb: shutting down now") // this is fine
@@ -56,3 +57,17 @@ func (ewt ErrWrongType) Error() string {
 }
 
 var ErrUnuspportedFormat = errors.Errorf("ssb: unsupported format")
+
+// ErrWrongSequence is returned if there is a glitch on the current
+// sequence number of the feed between the offsetlog and the index
+type ErrWrongSequence struct {
+	Ref             *FeedRef
+	Indexed, Offset margaret.Seq
+}
+
+func (e ErrWrongSequence) Error() string {
+	return fmt.Sprintf("consistency error: message sequence missmatch for feed %s. Offset:%d Index:%d",
+		e.Ref.Ref(),
+		e.Offset.Seq(),
+		e.Indexed.Seq())
+}

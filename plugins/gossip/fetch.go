@@ -6,8 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"golang.org/x/sync/errgroup"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -19,20 +17,12 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
+	"golang.org/x/sync/errgroup"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/message"
 )
-
-type ErrWrongSequence struct {
-	Ref             *ssb.FeedRef
-	Indexed, Stored margaret.Seq
-}
-
-func (e ErrWrongSequence) Error() string {
-	return fmt.Sprintf("consistency error: wrong stored message sequence for feed %s. stored:%d indexed:%d",
-		e.Ref.Ref(), e.Stored, e.Indexed)
-}
 
 func (h *handler) fetchAll(
 	ctx context.Context,
@@ -182,7 +172,7 @@ func (g *handler) fetchFeed(
 
 			// make sure our house is in order
 			if hasSeq := latestMsg.Seq(); hasSeq != latestSeq.Seq() {
-				return ErrWrongSequence{Stored: latestMsg, Indexed: latestSeq, Ref: fr}
+				return ssb.ErrWrongSequence{Ref: fr, Offset: latestMsg, Indexed: latestSeq}
 			}
 		}
 	}
