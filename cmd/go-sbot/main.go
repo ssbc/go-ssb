@@ -135,13 +135,12 @@ func initFlags() {
 	log = logging.Logger("sbot")
 }
 
-func main() {
+func runSbot() error {
 	initFlags()
 
 	if flagPrintVersion {
 		log.Log("version", Version, "build", Build)
-		os.Exit(0)
-		return
+		return nil
 	}
 
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
@@ -153,7 +152,9 @@ func main() {
 	}()
 
 	ak, err := base64.StdEncoding.DecodeString(appKey)
-	checkFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "application key")
+	}
 
 	startDebug()
 	opts := []mksbot.Option{
@@ -175,7 +176,9 @@ func main() {
 		// TODO: refactor into plugins2
 		r := repo.New(repoDir)
 		kpsByPath, err := repo.AllKeyPairs(r)
-		checkFatal(errors.Wrap(err, "sbot: failed to open all keypairs in repo"))
+		if err != nil {
+			return errors.Wrap(err, "sbot: failed to open all keypairs in repo")
+		}
 
 		var kps []*ssb.KeyPair
 		for _, v := range kpsByPath {
@@ -183,7 +186,9 @@ func main() {
 		}
 
 		defKP, err := repo.DefaultKeyPair(r)
-		checkFatal(errors.Wrap(err, "sbot: failed to open default keypair"))
+		if err != nil {
+			return errors.Wrap(err, "sbot: failed to open default keypair")
+		}
 		kps = append(kps, defKP)
 
 		mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
@@ -228,7 +233,9 @@ func main() {
 
 	if hmacSec != "" {
 		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
-		checkFatal(err)
+		if err != nil {
+			return errors.Wrap(err, "HMAC")
+		}
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
@@ -239,7 +246,9 @@ func main() {
 	}
 
 	sbot, err := mksbot.New(opts...)
-	checkFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "scuttlebot")
+	}
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -262,7 +271,7 @@ func main() {
 	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
-		return
+		return nil
 	}
 
 	var fsckMode = mksbot.FSCKModeLength
@@ -274,49 +283,53 @@ func main() {
 		case "length":
 			fsckMode = mksbot.FSCKModeLength
 		default:
-			checkFatal(fmt.Errorf("unknown fsck mode: %q", flagFSCK))
+			return fmt.Errorf("unknown fsck mode: %q", flagFSCK)
 		}
 		exitAfterFSCK = true
 	}
 
 	err = sbot.FSCK(mksbot.FSCKWithFeedIndex(uf), mksbot.FSCKWithMode(fsckMode))
-	if flagRepair {
-		if err != nil {
-			if report, ok := err.(mksbot.ErrConsistencyProblems); ok {
-				err = sbot.HealRepo(report)
-				if err != nil {
-					level.Error(log).Log("fsck", "heal failed", "err", err)
-				} else {
-					level.Info(log).Log("fsck", "healed", "msgs", report.Sequences.GetCardinality(), "feeds", len(report.Errors))
-				}
-			} else {
-				level.Error(log).Log("fsck", "wrong report type", "T", fmt.Sprintf("%T", err))
-
-			}
-
-			sbot.Shutdown()
-			err := sbot.Close()
-			checkAndLog(err)
-			return
+	if err != nil {
+		if !flagRepair {
+			return err
 		}
-	} else {
-		checkFatal(err)
+
+		if report, ok := err.(mksbot.ErrConsistencyProblems); ok {
+			err = sbot.HealRepo(report)
+			if err != nil {
+				level.Error(log).Log("fsck", "heal failed", "err", err)
+			} else {
+				level.Info(log).Log("fsck", "healed", "msgs", report.Sequences.GetCardinality(), "feeds", len(report.Errors))
+			}
+		} else {
+			level.Error(log).Log("fsck", "wrong report type", "T", fmt.Sprintf("%T", err))
+
+		}
+
+		sbot.Shutdown()
+		err := sbot.Close()
+		checkAndLog(err)
+		return nil
 	}
 	if exitAfterFSCK {
 		level.Info(log).Log("fsck", "completed", "mode", fsckMode)
 		sbot.Shutdown()
 		err := sbot.Close()
 		checkAndLog(err)
-		return
+		return nil
 	}
 
 	SystemEvents.With("event", "openedRepo").Add(1)
 	feeds, err := uf.List()
-	checkFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "user feed")
+	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
 	rseq, err := sbot.RootLog.Seq().Value()
-	checkFatal(err)
+	if err != nil {
+		return errors.Wrap(err, "could not get root log sequence number")
+	}
 	msgCount := rseq.(margaret.Seq)
 	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq()))
 
@@ -325,11 +338,13 @@ func main() {
 	if flagReindex {
 		level.Warn(log).Log("mode", "reindexing")
 		err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
-		checkFatal(err)
+		if err != nil {
+			return err
+		}
 		level.Warn(log).Log("mode", "fsck done")
 		err = sbot.Close()
 		checkAndLog(err)
-		return
+		return nil
 	}
 
 	// removes blocked feeds
@@ -342,9 +357,13 @@ func main() {
 		for blocked := range tg.BlockedList(botRef) {
 			var sr ssb.StorageRef
 			err = sr.Unmarshal([]byte(blocked))
-			checkAndLog(err)
+			if err != nil {
+				return errors.Wrap(err, "blocked user reference")
+			}
 			blockedRef, err := sr.FeedRef()
-			checkAndLog(err)
+			if err != nil {
+				return errors.Wrap(err, "blocked user reference")
+			}
 
 			blocks := tg.Blocks(botRef, blockedRef)
 			if !blocks {
@@ -354,7 +373,9 @@ func main() {
 			}
 
 			isStored, err := multilog.Has(uf, blocked)
-			checkAndLog(err)
+			if err != nil {
+				return errors.Wrap(err, "blocked lookup in multilog")
+			}
 			if isStored {
 				level.Info(log).Log("event", "nulled feed", "ref", blockedRef.Ref())
 				err = sbot.NullFeed(blockedRef)
@@ -363,9 +384,7 @@ func main() {
 		}
 
 		sbot.Shutdown()
-		err = sbot.Close()
-		checkAndLog(err)
-		return
+		return sbot.Close()
 	}
 
 	level.Info(log).Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
@@ -379,8 +398,15 @@ func main() {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
-			os.Exit(0)
+			return nil
 		default:
 		}
+	}
+}
+
+func main() {
+	if err := runSbot(); err != nil {
+		fmt.Fprintf(os.Stderr, "go-sbot: %s\n", err)
+		os.Exit(1)
 	}
 }
