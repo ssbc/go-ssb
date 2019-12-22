@@ -321,7 +321,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 
 	if n.localDiscovRx != nil {
 		ch, done := n.localDiscovRx.Notify()
-		defer done() // might trigger close of closed panic
+		defer done()
 		go func() {
 			for a := range ch {
 				if is, _ := n.connTracker.Active(a); is {

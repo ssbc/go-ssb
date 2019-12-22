@@ -166,5 +166,7 @@ func (b *Advertiser) Start() {
 }
 
 func (b *Advertiser) Stop() {
-	b.ticker.Stop()
+	if b.ticker != nil {
+		b.ticker.Stop()
+	}
 }
