@@ -24,8 +24,16 @@ func (s Sbot) Get(ref ssb.MessageRef) (ssb.Message, error) {
 		return nil, errors.Wrap(err, "sbot/get: failed to get current value from obs")
 	}
 
-	seq, ok := v.(margaret.Seq)
-	if !ok {
+	var seq margaret.Seq
+	switch tv := v.(type) {
+	case margaret.Seq:
+		seq = tv
+	case int64:
+		if tv < 0 {
+			return nil, errors.Errorf("invalid sequence stored in index")
+		}
+		seq = margaret.BaseSeq(tv)
+	default:
 		return nil, errors.Errorf("sbot/get: wrong sequence type in index: %T", v)
 	}
 
