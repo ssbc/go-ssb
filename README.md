@@ -9,7 +9,7 @@ forward-secure secret-key cryptography (a little like Signal's double-ratchet).
 
 ## Anatomy
 
-After boxing, a complete box2 message look like this:
+After boxing, a complete box2 message looks like this:
 
 ```
  +---------------------------------------+
@@ -69,11 +69,11 @@ Being able to decrypt this is required for being able to unbox the rest of the m
              2           1              13 
 ```
 
-- `HMAC` - 16 bytes which allows authentication of the integrity of header* 
-- `header*` - the header encrypted with `hdr_key`, nonce ?? (derived from `msg_key`)
-- `offset` - 2 bytes which desribe the offset of the body_box from the start of the message in bytes
-- `flags` - 1 byte where each bit describes which extensions are active (if any)
-- `header_extensions` - 13 bytes for configuration of header_extensions
+- `HMAC` - 16 bytes which allows authentication of the integrity of `header*`
+- `header*` - the **header** encrypted with `hdr_key`, nonce ?? (derived from `msg_key`)
+- `offset` - 2 bytes which desribe the offset of the start of [body_box][bb] in bytes
+- `flags` - 1 byte where each bit describes which [extensions][e] are active (if any)
+- `header_extensions` - 13 bytes for configuration of [extensions][e]
    
 ### key_slot_n
 
@@ -88,18 +88,18 @@ msg_key XOR recipient_key
 A recipient_key could be:
 - a private key for a group (symmetric key)
 - a double-ratchet derived key for an individual
-  - this option requires more info in the header_extensions + extensions
+  - this option requires more info in the `header_extensions` + [extensions][e]
 
 Note these slots have no HMAC. This is because if you successfully extract `msg_key` from one of
-these slots you can immediately confirm if you can decrypt the `header_box`, which has an HMAC,
+these slots you can immediately confirm if you can decrypt the [header_box][hb], which has an HMAC,
 which will confirm whether you have the correct key
 
 ### extensions
 
 ...WIP
 
-This is where things like keys for double-ratchet like communication will go for features.
-
+This is where things like keys for double-ratchet-like communication will go.
+This section might also contain padding.
 
 ### body_box
 
@@ -121,39 +121,40 @@ The section which contains the plaintext which we've boxed.
  │       HMAC      │               │
  ├─────────────────┘               │
  │                                 │
- │               body*             │
+ │             body*               │
  │                                 │
  │                         ┌───────┘
  └─────────────────────────┘
 ```
    
 - `HMAC` - 16 bytes which allows authentication of the integrity of `body*`
-- `body*` - the body encrypted with `box` and `box_nonce` (derived from `msg_key`) 
+- `body*` - the **body** encrypted with `box` and `box_nonce` (derived from `msg_key`) 
 
 ## Unboxing algorithm
 
 When you receive a box2 message, the only things you know are:
 - the length of the whole box (doesn't tell you much, as there may be padding)
-- where the key-slots start (because the header_box is exactly 32 bytes)
+- where the key-slots start (because the [header_box][hb] is exactly 32 bytes)
 
-So starting after the the header_box (32 bytes in), we lift out successive chunks of 32 bytes
-(the size of a key_slot) chunks and try and decrypt them.
+So starting after the [header_box][hb] (32 bytes in), we lift out successive chunks of 32 bytes
+(the size of a [key_slot][ks]) chunks and try and decrypt them.
 
-_The way we know if a key_slot has yielded us a valid key for the message is by trying to see
-if the "key" we've derived from a slot helps us decrypt the header_box. This works because
-the header_box has an HMAC, which is an authentication code which allows us know know if our 
-decryption is valid._
+> The way we know if a [key_slot][ks] has yielded us a valid key for the message is by trying to see
+> if the "key" we've derived from a slot helps us decrypt the [header_box][hb]. This works because
+> the [header_box][hb] has an HMAC, which is an authentication code which allows us know know if our 
+> decryption is valid.
 
-_If the first slot doesn't yield a valid key, we move to the second slot (starting 32 + 32 bytes
-into the box), and check the next slot. We either try incrementing through the whole box till 
-we succeed (or reach the end), OR we set a "max depth" we want to try (e.g. if we think there
-will not be more than 10 slots, we can quit after (32 + 10 * 32 bytes)._
+> If the first slot doesn't yield a valid key, we move to the second slot (starting 32 + 32 bytes
+> into the box), and check the next slot. We either try incrementing through the whole box till 
+> we succeed (or reach the end), OR we set a "max depth" we want to try (e.g. if we think there
+> will not be more than 10 slots, we can quit after (32 + 10 * 32 bytes).
 
-Once we have the `msg_key`, we can decrypt the header_box. This reveals `offset` - the position
-of the start of the body_box in bytes. This allows us to proceed to decrypt the body of the original message.
+Once we have the `msg_key`, we can decrypt the [header_box][hb]. This reveals `offset` - the position
+of the start of the [body_box][bb] in bytes. This allows us to proceed to decrypt the body of the original message.
 
 Futher detail:
-- different keys + nonces are used to decrypt header_box, extensions, body_box, but they are all derived
+- different keys + nonces are used to decrypt [header_box][hb], **extensions**, [body_box][bb], 
+but they are all derived
 deterministically from `msg_key`
 
 ## Design
@@ -167,4 +168,11 @@ deterministically from `msg_key`
 
 - https://github.com/cryptoscope/ssb/tree/private-groups/private/box2 (status: WIP)
 - https://github.com/ssbc/private-box2 (status: WIP)
+
+
+
+[hb]: #header_box
+[ks]: #key_slot_n
+[e]: #extensions
+[bb]: #body_box
 
