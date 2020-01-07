@@ -4,7 +4,6 @@ package multimsg
 
 import (
 	"bytes"
-	"log"
 	"time"
 
 	"github.com/pkg/errors"
@@ -60,7 +59,7 @@ func (mm MultiMessage) MarshalBinary() ([]byte, error) {
 		if !ok {
 			return nil, errors.Errorf("multiMessage: wrong type of message: %T", mm.Message)
 		}
-		meta.Transfer = gabby
+		meta.Transfer = *gabby
 		err = enc.Encode(meta)
 	default:
 		return nil, errors.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
@@ -111,24 +110,20 @@ func (mm MultiMessage) AsLegacy() (*legacy.StoredMessage, bool) {
 	}
 	legacy, ok := mm.Message.(*legacy.StoredMessage)
 	if !ok {
-		err := errors.Errorf("multiMessage: wrong type of message: %T", mm.Message)
-		log.Println("AsLegacy", err)
 		return nil, false
 	}
 	return legacy, true
 }
 
-func (mm MultiMessage) AsGabby() (gabbygrove.Transfer, bool) {
+func (mm MultiMessage) AsGabby() (*gabbygrove.Transfer, bool) {
 	if mm.tipe != Gabby {
-		return gabbygrove.Transfer{}, false
+		return nil, false
 	}
 	gabby, ok := mm.Message.(*gabbygrove.Transfer)
 	if !ok {
-		err := errors.Errorf("multiMessage: wrong type of message: %T", mm.Message)
-		log.Println("AsGabby", err)
-		return gabbygrove.Transfer{}, false
+		return nil, false
 	}
-	return *gabby, true
+	return gabby, true
 }
 
 func NewMultiMessageFromLegacy(msg *legacy.StoredMessage) *MultiMessage {

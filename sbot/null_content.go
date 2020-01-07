@@ -3,7 +3,6 @@ package sbot
 import (
 	"context"
 	"encoding/json"
-	"log"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -92,26 +91,27 @@ type triggerEvent struct {
 }
 
 func (cdr *dropContentTrigger) consume() {
+	evtLog := kitlog.With(cdr.logger, "event", "null content trigger")
 	for evt := range cdr.check {
 
 		feed, err := cdr.feeds.Get(evt.author.StoredAddr())
 		if err != nil {
-			level.Warn(cdr.logger).Log("err", err)
+			level.Warn(evtLog).Log("msg", "no such feed?", "err", err)
 			continue
 		}
 
 		if !evt.dcr.Valid(mutil.Indirect(cdr.root, feed)) {
-			level.Warn(cdr.logger).Log("event", "invalid drop-content-request")
+			level.Warn(evtLog).Log("msg", "invalid request")
 			continue
 		}
 
 		err = cdr.nuller.NullContent(evt.author, evt.dcr.Sequence)
 		if err != nil {
-			level.Error(cdr.logger).Log("err", err)
+			level.Error(evtLog).Log("err", err)
 			continue
 		}
 
-		log.Println("content nulled from dcr msg!", evt.author.Ref(), evt.dcr.Sequence)
+		level.Info(evtLog).Log("msg", "nulled successfully", "author", evt.author.Ref()[1:5], "seq", evt.dcr.Sequence)
 	}
 }
 

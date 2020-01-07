@@ -29,8 +29,7 @@ import (
 )
 
 func TestNullContentRequest(t *testing.T) {
-	// // defer leakcheck.Check(t)
-	// ctx := context.Background()
+	// defer leakcheck.Check(t)
 
 	r := require.New(t)
 	a := assert.New(t)
@@ -181,19 +180,25 @@ func TestNullContentRequest(t *testing.T) {
 
 	msg, err = mainbot.Get(*msg.Key())
 	r.NoError(err)
-	a.NotNil(msg.ContentBytes())
+	origContent := msg.ContentBytes()
+	a.NotNil(origContent)
 
 	del, err := mainbot.PublishAs("bert", dropContent)
 	r.NoError(err)
 	r.NotNil(del)
-	t.Log("dcr request:", del.Ref())
+	t.Log("first, valid dcr request:", del.Ref())
+	logger.Log("msg", "req published")
 
 	time.Sleep(1 * time.Second)
+	logger.Log("msg", "waited")
 
 	// aaand it's gone
 	msg, err = mainbot.Get(*msg.Key())
 	r.NoError(err)
-	a.Nil(msg.ContentBytes())
+	nulledContent := msg.ContentBytes()
+	a.Nil(nulledContent, "content not nil")
+	a.NotEqual(origContent, nulledContent, "content still the same!")
+	logger.Log("msg", "checked")
 	a.NotNil(msg.Author(), "author is still there")
 	a.NotNil(msg.Seq(), "sequence is still there")
 
