@@ -153,16 +153,56 @@ Once we have the `msg_key`, we can decrypt the [header_box][hb]. This reveals `o
 of the start of the [body_box][bb] in bytes. This allows us to proceed to decrypt the body of the original message.
 
 Futher detail:
-- different keys + nonces are used to decrypt [header_box][hb], **extensions**, [body_box][bb], 
-but they are all derived
-deterministically from `msg_key`
+- different keys + nonces are used to decrypt [header_box][hb], [extensions][e], [body_box][bb], 
+but they are all [derived deterministically from `msg_key`](#key-derivation)
 
 ## Design
 
 [Original notes](./original_notes.md) from a week long design session Dominic + Keks did.
 (scuttlebutt: `%39f9I0e4bEln+yy6850joHRTqmEQfUyxssv54UANNuk=.sha256`)
 
+## Key derivation
 
+Keys (and some nonces) are derived from `msg_key` as follows 
+
+```
+msg_key
+ |
+ +---> msg_read_cap = Derive(msg_key, "read_cap", 256)
+ |      |
+ |      +---> hdr_key = Derive(msg_read_cap, "header", 256)
+ |      |
+ |      +---> body_key = Derive(msg_read_cap, "body", 256)
+ |             |
+ |             +---> ??? = Derive(body_key, "box", 256)
+ |             |
+ |             +---> ??? = Derive(body_key, "box_nonce", 192)
+ |
+ +---> Derive(msg_key, "ext", 256)
+        |
+        +---> TODO
+```
+
+`Derive` is a function which ....
+
+:warning: needs specification :warning:
+_question - is this a good example of hkdf-expand in js: https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer ?_
+
+```
+Derive(Secret, Label, Length) = HKDF-Expand(
+  Secret, 
+  {
+    "purpose": "box2",
+    "label": Label,
+    TODO more context?
+  },
+  Length
+)
+```
+
+`msg_key` is the symmetric key that is encrypted to each recipient or group.
+When entrusting the message, instead of sharing the `msg_key` instead the `msg_read_cap` is shared.
+this gives access to header metadata and body but not ephemeral keys.
 
 ## Implementations
 
