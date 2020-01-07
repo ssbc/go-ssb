@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"golang.org/x/sync/errgroup"
@@ -22,10 +21,11 @@ import (
 )
 
 func TestNullFeed(t *testing.T) {
-	// // defer leakcheck.Check(t)
-	// ctx := context.Background()
+	// defer leakcheck.Check(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
+	logger := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, logger)
 
 	r := require.New(t)
 
@@ -54,7 +54,6 @@ func TestNullFeed(t *testing.T) {
 	r.Len(kps, 2)
 
 	// make the bot
-	logger := testutils.NewRelativeTimeLogger(nil)
 	mainbot, err := New(
 		WithInfo(kitlog.With(logger, "bot", "main")),
 		WithRepoPath(filepath.Join(tRepoPath, "main")),
@@ -64,14 +63,7 @@ func TestNullFeed(t *testing.T) {
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
-
-	botgroup.Go(func() error {
-		err := mainbot.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(logger).Log("event", "bob serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(mainbot))
 
 	// create some messages
 	intros := []struct {
@@ -137,13 +129,7 @@ func TestNullFeed(t *testing.T) {
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
-	botgroup.Go(func() error {
-		err := bertBot.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(logger).Log("event", "bob serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(bertBot))
 
 	// make main want it
 	_, err = mainbot.PublishLog.Publish(ssb.NewContactFollow(kpBert.Id))
@@ -160,16 +146,16 @@ func TestNullFeed(t *testing.T) {
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
 
-	time.Sleep(8 * time.Second)
+	time.Sleep(5 * time.Second)
 	checkUserLogSeq(mainbot, "bert", 1000)
 
 	bertBot.Shutdown()
 	mainbot.Shutdown()
 
+	cancel()
 	r.NoError(bertBot.Close())
 	r.NoError(mainbot.Close())
 
-	cancel()
 	r.NoError(botgroup.Wait())
 }
 
@@ -187,8 +173,8 @@ func TestNullFetched(t *testing.T) {
 	rand.Read(hmacKey)
 
 	botgroup, ctx := errgroup.WithContext(ctx)
-
 	mainLog := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, mainLog)
 
 	ali, err := New(
 		WithAppKey(appKey),
@@ -204,13 +190,7 @@ func TestNullFetched(t *testing.T) {
 	)
 	r.NoError(err)
 
-	botgroup.Go(func() error {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(ali))
 
 	bob, err := New(
 		WithAppKey(appKey),
@@ -226,13 +206,7 @@ func TestNullFetched(t *testing.T) {
 	)
 	r.NoError(err)
 
-	botgroup.Go(func() error {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(bob))
 
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
@@ -291,10 +265,10 @@ func TestNullFetched(t *testing.T) {
 
 	ali.Shutdown()
 	bob.Shutdown()
+	cancel()
 
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	cancel()
 	r.NoError(botgroup.Wait())
 }

@@ -30,6 +30,10 @@ func TestBlobsPair(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
+	botgroup, ctx := errgroup.WithContext(ctx)
+
+	info := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, info)
 
 	os.RemoveAll("testrun")
 
@@ -37,8 +41,6 @@ func TestBlobsPair(t *testing.T) {
 	rand.Read(appKey)
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
-
-	info := testutils.NewRelativeTimeLogger(nil)
 
 	aliLog := log.With(info, "peer", "ali")
 	ali, err := New(
@@ -55,14 +57,7 @@ func TestBlobsPair(t *testing.T) {
 	)
 	r.NoError(err)
 
-	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(aliErrc)
-	}()
+	botgroup.Go(bs.Serve(ali))
 
 	bobLog := log.With(info, "peer", "bob")
 	bob, err := New(
@@ -78,15 +73,7 @@ func TestBlobsPair(t *testing.T) {
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-
-	var bobErrc = make(chan error, 1)
-	go func() {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
-		}
-		close(bobErrc)
-	}()
+	botgroup.Go(bs.Serve(bob))
 
 	seq, err := ali.PublishLog.Append(ssb.Contact{
 		Type:      "contact",
@@ -202,12 +189,11 @@ func TestBlobsPair(t *testing.T) {
 
 	ali.Shutdown()
 	bob.Shutdown()
+	cancel()
 
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
-
-	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc))
-	cancel()
+	r.NoError(botgroup.Wait())
 }
 
 type session struct {
@@ -356,7 +342,7 @@ func (s *session) eachOnBothWant(t *testing.T) {
 
 	s.redial(t)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -369,7 +355,6 @@ func TestBlobsWithHops(t *testing.T) {
 	// // defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
-	ctx, cancel := context.WithCancel(context.TODO())
 
 	os.RemoveAll("testrun")
 
@@ -378,7 +363,11 @@ func TestBlobsWithHops(t *testing.T) {
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	botgroup, ctx := errgroup.WithContext(ctx)
+
 	mainLog := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, mainLog)
 
 	// make three bots (ali, bob and cle)
 	ali, err := New(
@@ -391,16 +380,7 @@ func TestBlobsWithHops(t *testing.T) {
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var aliErrc = make(chan error, 1)
-
-	var serv = func(name string, bot *Sbot, errc chan error) {
-		err := bot.Network.Serve(ctx)
-		if err != nil && err != context.Canceled {
-			errc <- errors.Wrapf(err, "%s serve exited", name)
-		}
-		close(errc)
-	}
-	go serv("ali", ali, aliErrc)
+	botgroup.Go(bs.Serve(ali))
 
 	bob, err := New(
 		WithAppKey(appKey),
@@ -417,8 +397,7 @@ func TestBlobsWithHops(t *testing.T) {
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var bobErrc = make(chan error, 1)
-	go serv("bob", bob, bobErrc)
+	botgroup.Go(bs.Serve(bob))
 
 	cle, err := New(
 		WithAppKey(appKey),
@@ -430,8 +409,7 @@ func TestBlobsWithHops(t *testing.T) {
 		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-	var cleErrc = make(chan error, 1)
-	go serv("cle", cle, cleErrc)
+	botgroup.Go(bs.Serve(cle))
 
 	// ali <> bob
 	_, err = ali.PublishLog.Append(ssb.Contact{
@@ -495,45 +473,6 @@ func TestBlobsWithHops(t *testing.T) {
 	a.NoError(err)
 	a.EqualValues(n, sz)
 
-	// too-big check
-
-	f, err := os.Open("/dev/zero")
-	r.NoError(err)
-	defer f.Close()
-
-	junkSz := int64(7 * 1024 * 1024)
-	junkBlob, err := ali.BlobStore.Put(io.LimitReader(f, junkSz))
-	r.NoError(err)
-	sz, err = ali.BlobStore.Size(junkBlob)
-	r.NoError(err)
-	r.Equal(junkSz, sz)
-
-	err = cle.WantManager.Want(junkBlob)
-	r.NoError(err)
-
-	time.Sleep(1 * time.Second)
-
-	for i := 0; bob.WantManager.Wants(junkBlob); i++ {
-		time.Sleep(1 * time.Second)
-		t.Log("polling want for junkBlob...", i)
-		if i > 15 {
-			t.Error("timeout")
-			break
-		}
-	}
-
-	a.False(bob.WantManager.Wants(junkBlob))
-
-	_, err = bob.BlobStore.Size(junkBlob)
-	a.True(err == blobstore.ErrNoSuchBlob, "err T: %T %s", err, err)
-
-	err = bob.WantManager.Want(junkBlob)
-	a.Equal(err, blobstore.ErrBlobBlocked)
-
-	a.True(cle.WantManager.Wants(junkBlob))
-	_, err = cle.BlobStore.Size(junkBlob)
-	a.True(err == blobstore.ErrNoSuchBlob, "err T: %T %s", err, err)
-
 	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
@@ -547,8 +486,7 @@ func TestBlobsWithHops(t *testing.T) {
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 	r.NoError(cle.Close())
-
-	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc, cleErrc))
+	r.NoError(botgroup.Wait())
 }
 
 // TODO: make extra test to make sure this doesn't turn into an echo chamber
@@ -572,7 +510,7 @@ func TestBlobsTooBig(t *testing.T) {
 	srvBot := func(bot *Sbot, name string) {
 		srvGroup.Go(func() error {
 			err := bot.Network.Serve(ctx)
-			if err != nil {
+			if err != nil && err != context.Canceled {
 				return errors.Wrapf(err, "bot %s serve exited", name)
 			}
 			return nil
@@ -667,9 +605,11 @@ func TestBlobsTooBig(t *testing.T) {
 	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
-	r.NoError(srvGroup.Wait())
+	if err := srvGroup.Wait(); err != nil {
+		t.Log(err)
+	}
 
 	// cleanup
-	// r.NoError(ali.Close())
-	// r.NoError(bob.Close())
+	r.NoError(ali.Close())
+	r.NoError(bob.Close())
 }

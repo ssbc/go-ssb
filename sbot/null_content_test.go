@@ -17,7 +17,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -236,8 +235,12 @@ func TestNullContentAndSync(t *testing.T) {
 	tRepoPath := filepath.Join("testrun", t.Name(), "botOne")
 	tRepo := repo.New(tRepoPath)
 
+	logger := testutils.NewRelativeTimeLogger(nil)
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
+
+	bs := newBotServer(ctx, logger)
 
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
@@ -298,7 +301,7 @@ func TestNullContentAndSync(t *testing.T) {
 	}
 
 	// make the first bot
-	logger := testutils.NewRelativeTimeLogger(nil)
+
 	mainbot, err := New(
 		WithInfo(log.With(logger, "bot", "1")),
 		WithRepoPath(tRepoPath),
@@ -307,13 +310,7 @@ func TestNullContentAndSync(t *testing.T) {
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
-	botgroup.Go(func() error {
-		err := mainbot.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(logger).Log("event", "mainbot serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(mainbot))
 
 	// create some messages
 	intros := []struct {
@@ -366,13 +363,7 @@ func TestNullContentAndSync(t *testing.T) {
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
-	botgroup.Go(func() error {
-		err := otherBot.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(logger).Log("event", "otherBot serve exited", "err", err)
-		}
-		return err
-	})
+	botgroup.Go(bs.Serve(otherBot))
 
 	// conect, should still get the full feeds
 	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpArny.Id))
@@ -411,9 +402,9 @@ func TestNullContentAndSync(t *testing.T) {
 	mainbot.Shutdown()
 	otherBot.Shutdown()
 
+	cancel()
 	r.NoError(mainbot.Close())
 	r.NoError(otherBot.Close())
 
-	cancel()
 	r.NoError(botgroup.Wait())
 }
