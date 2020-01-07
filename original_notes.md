@@ -6,8 +6,6 @@ For a long time people wanted different sorts of private groups and we are now t
 
 We have explored a number of designs, which have different strengths and weaknesses. To make the best decision we try to describe accurately what the properties of each approach are. Because there are many ways people want to communicate, we'll probably end up needing more than one method.
 
-## Table of Contents
-
 [TOC]
 
 ## Key Store
@@ -216,8 +214,8 @@ Groups that make sense:
 
 |            | public | symmetric group | pairwise double ratchet |
 |------------|--------|-----------------|-------------------------|
-| community  |    âœ“   |       âœ“         |                         |
-| team       |    âœ“   |                 |            âœ“            |
+| community  |    ✓   |       ✓         |                         |
+| team       |    ✓   |                 |            ✓            |
 
 &nbsp;
 
@@ -335,13 +333,13 @@ box2:
 +---------------------------------+
 |           header_box            |
 +---------------------------------+
-|      msg_key xor user_key_0     |
+|      msg_key xor recp_key_0     |
 +---------------------------------+
-|      msg_key xor user_key_1     |
+|      msg_key xor recp_key_1     |
 +---------------------------------+
 |               ...               |
 +---------------------------------+
-|      msg_key xor user_key_n     |
+|      msg_key xor recp_key_n     |
 +---------------------------------+
 |         [ extensions ]          |
 +---------------------------------+
@@ -482,3 +480,15 @@ msg_key
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
 When entrusting the message, instead of sharing the `msg_key` instead the `msg_read_cap` is shared.
 this gives access to header metadata and body but not ephemeral keys.
+
+---
+
+clarifications on format
+* padding should come after ephemerals
+* ephemerals will be left out entirely if header[3] = 0
+* FHasEphemerals = 1
+* if(header[3] & FHasEphemerals) then n_eph = header[4] (first byte in hdr_ext)
+* all numbers are little endian
+* does the header have a nonce?
+* the bitfield in the eph_header is /8 ... so 64 bits. that means format can do double ratchet with up to 64 other devices max.
+* box and box_nonce is derived from body_key... this is unnecessary step.
