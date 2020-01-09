@@ -7,6 +7,9 @@ Initially it will support communication for large groups which share a public ke
 (secret key cryptography / symmetric keys), but it has also been designed to support
 forward-secure secret-key cryptography (a little like Signal's double-ratchet).
 
+box2 assumes each message is part of append-only chain, with message that have a
+unique id. Having a unique id for the "previous" message in a chain is important.
+
 ## Anatomy
 
 After boxing, a complete box2 message looks like this:
@@ -70,7 +73,7 @@ Being able to decrypt this is required for being able to unbox the rest of the m
 ```
 
 - `HMAC` - 16 bytes which allows authentication of the integrity of `header*`
-- `header*` - the **header** encrypted with `hdr_key`, nonce ?? (derived from `msg_key`)
+- `header*` - the **header** encrypted with `header_key`, nonce ?? (derived from `msg_key`)
 - `offset` - 2 bytes which desribe the offset of the start of [body_box][bb] in bytes
 - `flags` - 1 byte where each bit describes which [extensions][e] are active (if any)
 - `header_extensions` - 13 bytes for configuration of [extensions][e]
@@ -82,13 +85,20 @@ Each of these slots is like a 'safety deposit box' which contains a copy of the 
 
 The slots contents are defined by
 ```
-msg_key XOR recipient_key
+slot_content = msg_key XOR hmac(recipient_key, "key_slot;prev=" + external_nonce)
 ```
 
-A recipient_key could be:
+A `recipient_key` could be:
 - a private key for a group (symmetric key)
 - a double-ratchet derived key for an individual
   - this option requires more info in the `header_extensions` + [extensions][e]
+
+`external_nonce` is defined by inspecting the append only chain this message is extending (a.k.a. feed),
+and combining the id of the message prior to this one, along with the id for the feed:
+
+```
+external_nonce = hmac(previous_msg_id, feed_id) 
+```
 
 Note these slots have no HMAC. This is because if you successfully extract `msg_key` from one of
 these slots you can immediately confirm if you can decrypt the [header_box][hb], which has an HMAC,
@@ -163,22 +173,18 @@ but they are all [derived deterministically from `msg_key`](#key-derivation)
 
 ## Key derivation
 
-Keys (and some nonces) are derived from `msg_key` as follows 
+Keys are derived from `msg_key` as follows 
 
 ```
 msg_key
  |
- +---> msg_read_cap = Derive(msg_key, "read_cap", 256)
+ +---> read_key = Derive(msg_key, "key_type:read_key", 32)
  |      |
- |      +---> hdr_key = Derive(msg_read_cap, "header", 256)
+ |      +---> header_key = Derive(read_key, "key_type:header_key", 32)
  |      |
- |      +---> body_key = Derive(msg_read_cap, "body", 256)
- |             |
- |             +---> ??? = Derive(body_key, "box", 256)
- |             |
- |             +---> ??? = Derive(body_key, "box_nonce", 192)
+ |      +---> body_key = Derive(read_key, "key_type:body_key", 32)
  |
- +---> Derive(msg_key, "ext", 256)
+ +---> extensions = Derive(msg_key, "key_type:extentions", 32)
         |
         +---> TODO
 ```
@@ -191,17 +197,13 @@ _question - is this a good example of hkdf-expand in js: https://www.npmjs.com/p
 ```
 Derive(Secret, Label, Length) = HKDF-Expand(
   Secret, 
-  {
-    "purpose": "box2",
-    "label": Label,
-    TODO more context?
-  },
+  Label,
   Length
 )
 ```
 
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
-When entrusting the message, instead of sharing the `msg_key` instead the `msg_read_cap` is shared.
+When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
 this gives access to header metadata and body but not ephemeral keys.
 
 ## Implementations

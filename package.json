@@ -1,0 +1,23 @@
+{
+  "name": "box2-spec",
+  "version": "0.0.1",
+  "description": "specification for box2 encryption",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ssbc/box2-spec.git"
+  },
+  "keywords": [
+    "box2",
+    "scuttlebutt",
+    "cryptography"
+  ],
+  "author": "mixmix",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/ssbc/box2-spec/issues"
+  },
+  "homepage": "https://github.com/ssbc/box2-spec#readme"
+}
