@@ -73,7 +73,7 @@ Being able to decrypt this is required for being able to unbox the rest of the m
 ```
 
 - `HMAC` - 16 bytes which allows authentication of the integrity of `header*`
-- `header*` - the **header** encrypted with `header_key`, nonce ?? (derived from `msg_key`)
+- `header*` - the **header** encrypted with `header_key`, `extenal_nonce` (same as that described in [key_slot_n](#ks) section)
 - `offset` - 2 bytes which desribe the offset of the start of [body_box][bb] in bytes
 - `flags` - 1 byte where each bit describes which [extensions][e] are active (if any)
 - `header_extensions` - 13 bytes for configuration of [extensions][e]
@@ -85,13 +85,17 @@ Each of these slots is like a 'safety deposit box' which contains a copy of the 
 
 The slots contents are defined by
 ```
-slot_content = msg_key XOR hmac(recipient_key, "key_slot;prev=" + external_nonce)
+slot_content = xor(
+  msg_key,
+  Derive(recipient_key, "key_slot;prev=" + external_nonce, 32)
+)
 ```
 
-A `recipient_key` could be:
-- a private key for a group (symmetric key)
-- a double-ratchet derived key for an individual
-  - this option requires more info in the `header_extensions` + [extensions][e]
+Where 
+- `Derive` is the same derivation function described in the [key derivation][kd] section
+- `recipient_key` could be:
+  - a private key for a group (symmetric key)
+  - a double-ratchet derived key for an individual (this option requires more info in the `header_extensions` + [extensions][e])
 
 `external_nonce` is defined by inspecting the append only chain this message is extending (a.k.a. feed),
 and combining the id of the message prior to this one, along with the id for the feed:
@@ -138,7 +142,7 @@ The section which contains the plaintext which we've boxed.
 ```
    
 - `HMAC` - 16 bytes which allows authentication of the integrity of `body*`
-- `body*` - the **body** encrypted with `box` and `box_nonce` (derived from `msg_key`) 
+- `body*` - the **body** encrypted with `body_key` and `external_nonce`
 
 ## Unboxing algorithm
 
@@ -202,6 +206,8 @@ Derive(Secret, Label, Length) = HKDF-Expand(
 )
 ```
 
+Where HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
+
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
 When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
 this gives access to header metadata and body but not ephemeral keys.
@@ -217,4 +223,5 @@ this gives access to header metadata and body but not ephemeral keys.
 [ks]: #key_slot_n
 [e]: #extensions
 [bb]: #body_box
+[kd]: #key-derivation
 

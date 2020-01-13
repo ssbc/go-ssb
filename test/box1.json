@@ -1,0 +1,17 @@
+{
+  "type": "box",
+  "description": "box for 2 recipients",
+  "input": {
+    "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io",
+    "external_nonce": "I5oBHrESFVoq6Zsyhe+05Rd45CpSMMy/",
+    "msg_key": "bRn7I4OylJ7EsE3Nr7ZX5YYL9vHk65zlq4BUy9GbnL8=",
+    "recp_keys": [
+      "Lx/4auAn9pPOfR6h9K6KSIt53mgYA8X3cGoQBknTkY0=",
+      "PdjbE/8WjY2KTh0u8GyN8L66Q4BDWiLrImgzYBAPd6A="
+    ]
+  },
+  "output": {
+    "cyphertext": "jBmhig+spdoFxeuK4JlmtKduGRnuQ+ZtqL2aWQOjkKiv2rabzoRvBM4bRbF0pkNYhtVX2ytQZynof4nO/TD41toG7QVx1nk+
+  }
+}
+
