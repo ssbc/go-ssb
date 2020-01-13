@@ -132,8 +132,8 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	auf, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
-	ali.FSCK(auf)
-	bob.FSCK(uf)
+	ali.FSCK(auf, FSCKModeLength)
+	bob.FSCK(uf, FSCKModeLength)
 
 	cancel()
 	ali.Shutdown()

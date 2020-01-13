@@ -172,7 +172,7 @@ func (g *handler) fetchFeed(
 
 			// make sure our house is in order
 			if hasSeq := latestMsg.Seq(); hasSeq != latestSeq.Seq() {
-				return ssb.ErrWrongSequence{Ref: fr, Offset: latestMsg, Indexed: latestSeq}
+				return ssb.ErrWrongSequence{Ref: fr, Stored: latestMsg, Logical: latestSeq}
 			}
 		}
 	}

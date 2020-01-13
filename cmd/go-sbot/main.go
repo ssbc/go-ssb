@@ -43,6 +43,7 @@ var (
 	// flags
 	flagCleanup  bool
 	flagReindex  bool
+	flagFSCK     string
 	flagFatBot   bool
 	flagHops     uint
 	flagEnAdv    bool
@@ -108,6 +109,8 @@ func initFlags() {
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
+
+	flag.StringVar(&flagFSCK, "fsck", "", "run a filesystem check on the repo (possible values: length, sequence)")
 
 	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
 
@@ -260,13 +263,35 @@ func main() {
 		return
 	}
 
-	feeds, err := uf.List()
+	var fsckMode = mksbot.FSCKModeSequences
+	var exitAfterFSCK = false
+	if flagFSCK != "" {
+		switch flagFSCK {
+		case "sequences":
+			fsckMode = mksbot.FSCKModeSequences
+		case "length":
+			fsckMode = mksbot.FSCKModeLength
+		default:
+			checkFatal(fmt.Errorf("unknown fsck mode: %q", flagFSCK))
+		}
+		exitAfterFSCK = true
+
+	}
+
+	err = sbot.FSCK(uf, fsckMode)
 	checkFatal(err)
+	if exitAfterFSCK {
+		level.Info(log).Log("fsck", "completed", "mode", fsckMode)
+		sbot.Shutdown()
+		err := sbot.Close()
+		checkAndLog(err)
+		return
+	}
 
 	SystemEvents.With("event", "openedRepo").Add(1)
+	feeds, err := uf.List()
+	checkFatal(err)
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
-
-	sbot.FSCK(uf)
 
 	rseq, err := sbot.RootLog.Seq().Value()
 	checkFatal(err)
@@ -277,6 +302,9 @@ func main() {
 
 	if flagReindex {
 		level.Warn(log).Log("mode", "reindexing")
+		err = sbot.FSCK(uf, mksbot.FSCKModeSequences)
+		checkFatal(err)
+		level.Warn(log).Log("mode", "fsck done")
 		err = sbot.Close()
 		checkAndLog(err)
 		return

@@ -59,15 +59,29 @@ func (ewt ErrWrongType) Error() string {
 var ErrUnuspportedFormat = errors.Errorf("ssb: unsupported format")
 
 // ErrWrongSequence is returned if there is a glitch on the current
-// sequence number of the feed between the offsetlog and the index
+// sequence number on the feed between in the offsetlog and the logical entry on the feed
 type ErrWrongSequence struct {
 	Ref             *FeedRef
-	Indexed, Offset margaret.Seq
+	Logical, Stored margaret.Seq
 }
 
 func (e ErrWrongSequence) Error() string {
-	return fmt.Sprintf("consistency error: message sequence missmatch for feed %s. Offset:%d Index:%d",
+	return fmt.Sprintf("ssb/consistency error: message sequence missmatch for feed %s Stored:%d Logical:%d",
 		e.Ref.Ref(),
-		e.Offset.Seq(),
-		e.Indexed.Seq())
+		e.Stored.Seq(),
+		e.Logical.Seq())
+}
+
+type ErrConsistencyProblems []ErrWrongSequence
+
+func (e ErrConsistencyProblems) Error() string {
+	if len(e) == 1 {
+		return e[0].Error()
+	}
+	errStr := fmt.Sprintf("ssb: multiple consistency problems (%d)", len(e))
+	for i, err := range e {
+		errStr += fmt.Sprintf("\n%02d: %s", i, err.Error())
+	}
+	errStr += "\n"
+	return errStr
 }

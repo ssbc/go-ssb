@@ -49,8 +49,6 @@ func main() {
 	from, err := repo.OpenLog(repoFrom)
 	check(err)
 
-	// fmt.Println("element count in source log:", seq)
-	// start := time.Now()
 	src, err := from.Query(margaret.Gt(startSeq), margaret.Limit(limit), margaret.SeqWrap(true))
 	check(err)
 	err = src.(luigi.PushSource).Push(context.TODO(), luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
