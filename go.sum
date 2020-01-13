@@ -170,6 +170,8 @@ github.com/prometheus/procfs v0.0.3 h1:CTwfnzjQ+8dS6MhHHu4YswVAD99sL2wjPqP+VkURm
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237 h1:HQagqIiBmr8YXawX/le3+O26N+vPPC1PtjaF3mwnook=
 github.com/remyoudompheng/bigfft v0.0.0-20190728182440-6a916e37a237/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
+github.com/rotisserie/eris v0.1.1 h1:C0wEdnJ6+3jYx2r8RS4xBM+ZW+mVrXGocIaFbTdRYCA=
+github.com/rotisserie/eris v0.1.1/go.mod h1:2ik3CyJrzlOjGyDGrKfqZivSfmkhCS3ktE+T1mNzzLk=
 github.com/sclevine/spec v1.2.0 h1:1Jwdf9jSfDl9NVmt8ndHqbTZ7XCCPbh1jI3hkDBHVYA=
 github.com/sclevine/spec v1.2.0/go.mod h1:W4J29eT/Kzv7/b9IWLB055Z+qvVC9vt0Arko24q7p+U=
 github.com/sergi/go-diff v1.0.0 h1:Kpca3qRNrduNnOQeazBd0ysaKrUJiIuISHxogkT9RPQ=
@@ -262,6 +264,8 @@ go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98 h1:1y+91wL15
 go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98/go.mod h1:MldHqeBpxV83+geayFgHgsHc1/oF7yIIkpMJqo3M1rQ=
 go.cryptoscope.co/secretstream v1.2.1 h1:bi3gBUauQjut3NCAtLZ2G4h7Rt2/aLm7df/IVDwGbCs=
 go.cryptoscope.co/secretstream v1.2.1/go.mod h1:OrzoIJxipkvakI1QT/lPVUDMUDUU3IGMRjQGjHNYlH4=
+go.cryptoscope.co/secretstream v1.2.2-0.20200113122031-363c9610d8de h1:lkefo34tJOzQzIbiTDrOBWBuA5F4SojdKE3LchdSRN4=
+go.cryptoscope.co/secretstream v1.2.2-0.20200113122031-363c9610d8de/go.mod h1:DSDzjJtgZUjkCFJRYSlFC/I0xxn/phzGi0WMpIz6az4=
 go.cryptoscope.co/ssb v0.0.0-20190912121701-f368dd6b09da/go.mod h1:gpgPuN7P0HxY5prZunnKbl278nlMCqUekGsJaaiwxnk=
 go.mindeco.de/ssb-gabbygrove v0.1.5 h1:4javC43Z/1mC2Ve8+lVrrsOTusWi7iakDGWtPfb/Pt0=
 go.mindeco.de/ssb-gabbygrove v0.1.5/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=

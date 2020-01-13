@@ -29,7 +29,7 @@ require (
 	go.cryptoscope.co/margaret v0.1.1-0.20191128192726-25be9c098bc9
 	go.cryptoscope.co/muxrpc v1.5.4-0.20191205134222-b1563255bffa
 	go.cryptoscope.co/netwrap v0.1.1
-	go.cryptoscope.co/secretstream v1.2.1
+	go.cryptoscope.co/secretstream v1.2.2-0.20200113122031-363c9610d8de
 	go.mindeco.de/ssb-gabbygrove v0.1.6
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e

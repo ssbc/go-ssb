@@ -42,7 +42,7 @@ func TestPublishUnicode(t *testing.T) {
 	var aliErrc = make(chan error, 1)
 	go func() {
 		err := ali.Network.Serve(ctx)
-		if err != nil {
+		if err != nil && err != context.Canceled {
 			aliErrc <- errors.Wrap(err, "ali serve exited")
 		}
 		close(aliErrc)

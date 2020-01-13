@@ -52,6 +52,9 @@ func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 
 		vSeq, ok := v.(margaret.Seq)
 		if !ok {
+			// if errv, ok := v.(error); ok && margaret.IsErrNulled(errv) {
+			// 	continue
+			// }
 			return nil, errors.New("indirect requires values to be pair with their sequence")
 		}
 

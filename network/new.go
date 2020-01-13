@@ -230,7 +230,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	defer n.closedMu.RUnlock()
 	if n.closed {
 		origConn.Close()
-		level.Warn(n.log).Log("conn", "ignored", "msg", "netwrok closed")
+		level.Warn(n.log).Log("conn", "ignored", "msg", "network closed")
 		return
 	}
 
@@ -258,7 +258,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 			edpTerm = errors.Wrap(edp.Terminate(), "packer closing")
 		}
 		connClose = errors.Wrap(origConn.Close(), "direct conn closing")
-		level.Debug(n.log).Log("event", "conn-closing", "edpTerm", edpTerm, "connClose", connClose, "durr", fmt.Sprintf("%v", durr))
+		level.Debug(n.log).Log("event", "conn-closing", "edpTerm", edpTerm, "connClose", connClose, "durr", durr)
 		cancel()
 	}()
 
@@ -291,7 +291,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	srv := edp.(muxrpc.Server)
 
 	if err := srv.Serve(ctx); err != nil {
-		level.Debug(n.log).Log("conn", "serve", "err", err, "peer", conn.RemoteAddr())
+		level.Debug(n.log).Log("conn", "serve", "err", err)
 	}
 	n.removeRemote(edp)
 }

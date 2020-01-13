@@ -72,7 +72,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
-	logger = log.With(logger, "blob", wantedRef.Ref())
+	logger = log.With(logger, "blob", wantedRef.Ref()[1:5])
 	info := level.Info(logger)
 	errLog = level.Error(logger)
 
