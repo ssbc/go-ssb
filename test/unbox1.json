@@ -1,0 +1,12 @@
+{
+  "type": "unbox",
+  "description": "unbox successfully",
+  "input": {
+    "ciphertext": "xDBTknFtSuZFScR+PVFEh3mZXI8nYGeb+qZ0aNRkzS/9/Af8CPRjZtg7ixHX/vP74ls/lQmMxEADu3z41LTgBBcbZIaKeCgQ9x6BFrc5e34WXj8SK0+z5KqOaGBahJbmoe/Ji1N77iHftecizsJq/M2jc962qPYn6vknWbM2ZtodqGB9cmL5zw==",
+    "external_nonce": "AtJkMBnorTOvTuz7bAUy2RVxvPRLML7M",
+    "recipient_key": "8HY76REngdbAgPbl/M4AvUs25dChQKAaCTjfHVzHP7k="
+  },
+  "output": {
+    "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io"
+  }
+}
