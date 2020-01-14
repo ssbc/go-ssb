@@ -1,0 +1,12 @@
+{
+  "type": "unbox",
+  "description": "unbox fails with incorrect key, return false",
+  "input": {
+    "ciphertext": "olV2WbRv2Ce970CBJSfPkBGuYauQ1OowhXB9eax4YtFpVCV8WcpyQR7K/xafM1EUldp3zWk17Wcm4VFqFf+rTdglcexfcTGRRGmPqJYTePiUKhikfSIq7axguf6kvQIqt5QY0o80psiPkD0W+eep2dal858yacglFB+wleb1pknyMyspv/YG1w==",
+    "external_nonce": "NZZpAcbWl+lVtUEc2wJWAZNsRiKKlOCv",
+    "recipient_key": "opPYgp0qjQePs1e7FQQaeuL6NbVlJBphNNotBcUti9s="
+  },
+  "output": {
+    "plain_text": null
+  }
+}
