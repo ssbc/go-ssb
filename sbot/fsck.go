@@ -125,12 +125,16 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 	currentOffsetSeq := currentSeqV.(margaret.Seq).Seq()
 	start := time.Now()
 
-	src, err := receiveLog.Query()
+	src, err := receiveLog.Query(margaret.SeqWrap(true))
 	if err != nil {
 		return err
 	}
 
-	var consistencyErrors ssb.ErrConsistencyProblems
+	// which feeds have problems
+	var consistencyErrors []ssb.ErrWrongSequence
+
+	// all the sequences of broken messages
+	var brokenSequences []int64
 
 	for {
 		v, err := src.Next(ctx)
@@ -141,7 +145,12 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 			return err
 		}
 
-		msg, ok := v.(ssb.Message)
+		sw, ok := v.(margaret.SeqWrapper)
+		if !ok {
+			return fmt.Errorf("fsck: unexpected message type: %T", v)
+		}
+		rxLogSeq := sw.Seq().Seq()
+		msg, ok := sw.Value().(ssb.Message)
 		if !ok {
 			if errv, ok := v.(error); ok && margaret.IsErrNulled(errv) {
 				continue
@@ -163,6 +172,7 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 				}
 				consistencyErrors = append(consistencyErrors, seqErr)
 				lastSequence[authorRef] = -1
+				brokenSequences = append(brokenSequences, rxLogSeq)
 				continue
 			}
 			lastSequence[authorRef] = 1
@@ -170,6 +180,7 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		}
 
 		if currSeq < 0 { // feed broken, skipping
+			brokenSequences = append(brokenSequences, rxLogSeq)
 			continue
 		}
 
@@ -181,6 +192,7 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 			}
 			consistencyErrors = append(consistencyErrors, seqErr)
 			lastSequence[authorRef] = -1
+			brokenSequences = append(brokenSequences, rxLogSeq)
 			continue
 		}
 		lastSequence[authorRef] = currSeq + 1
@@ -193,5 +205,9 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		}
 	}
 
-	return consistencyErrors
+	// error report
+	return ssb.ErrConsistencyProblems{
+		Errors:    consistencyErrors,
+		Sequences: brokenSequences,
+	}
 }

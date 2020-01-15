@@ -100,8 +100,8 @@ func testFSCKsimple(t *testing.T) {
 	r.Error(err)
 	constErrs, ok := err.(ssb.ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
-	r.Len(constErrs, 1)
-	r.Contains(constErrs[0].Error(), "consistency error: message sequence missmatch")
+	r.Len(constErrs.Errors, 1)
+	r.Contains(constErrs.Errors[0].Error(), "consistency error: message sequence missmatch")
 	t.Log(err)
 
 	theBot.Shutdown()
@@ -170,7 +170,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	r.Error(err)
 	constErrs, ok := err.(ssb.ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
-	r.Len(constErrs, 2)
+	r.Len(constErrs.Errors, 2)
 
 	// cleanup
 	theBot.Shutdown()
