@@ -149,10 +149,12 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		if !ok {
 			return fmt.Errorf("fsck: unexpected message type: %T", v)
 		}
+
 		rxLogSeq := sw.Seq().Seq()
-		msg, ok := sw.Value().(ssb.Message)
+		val := sw.Value()
+		msg, ok := val.(ssb.Message)
 		if !ok {
-			if errv, ok := v.(error); ok && margaret.IsErrNulled(errv) {
+			if errv, ok := val.(error); ok && margaret.IsErrNulled(errv) {
 				continue
 			}
 			return fmt.Errorf("fsck: unexpected message type: %T", v)
