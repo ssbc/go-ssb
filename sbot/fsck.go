@@ -2,12 +2,13 @@ package sbot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
+	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 
@@ -169,7 +170,7 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 			if msgSeq != 1 {
 				seqErr := ssb.ErrWrongSequence{
 					Ref:     msg.Author(),
-					Stored:  margaret.SeqEmpty,
+					Stored:  sw.Seq(),
 					Logical: msg,
 				}
 				consistencyErrors = append(consistencyErrors, seqErr)
@@ -216,4 +217,35 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		Errors:    consistencyErrors,
 		Sequences: brokenSequences,
 	}
+}
+
+// HealRepo just nulls the messages and is a very naive repair but the only one that is feasably implemented right now
+func (s *Sbot) HealRepo(report ssb.ErrConsistencyProblems) error {
+	funcLog := kitlog.With(s.info, "event", "heal repo")
+	brokenCount := len(report.Errors)
+	if brokenCount == 0 {
+		level.Warn(funcLog).Log("msg", "no errors to repair, run FSCK first.")
+		return nil
+	}
+
+	level.Info(funcLog).Log("msg", "trying to null all broken feeds", "feeds", brokenCount, "messages", len(report.Sequences))
+
+	for _, seq := range report.Sequences {
+		err := s.RootLog.Null(margaret.BaseSeq(seq))
+		if err != nil {
+			return errors.Wrapf(err, "failed to null message (%d) in receive log", seq)
+		}
+		level.Debug(funcLog).Log("msg", seq)
+	}
+
+	// now remove feed metadata from the indexes
+	for i, constErr := range report.Errors {
+		err := s.NullFeed(constErr.Ref)
+		if err != nil {
+			return errors.Wrapf(err, "heal(%d): failed to null broken feed", i)
+		}
+		level.Debug(funcLog).Log("feed", constErr.Ref.Ref())
+	}
+
+	return nil
 }

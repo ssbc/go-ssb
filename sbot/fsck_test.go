@@ -52,7 +52,7 @@ func makeTestBot(t *testing.T, ctx context.Context) *Sbot {
 
 func TestFSCK(t *testing.T) {
 	t.Run("correct", testFSCKcorrect)
-	t.Run("duplicate", testFSCKduplicate)
+	t.Run("double", testFSCKdouble)
 	t.Run("multipleFeeds", testFSCKmultipleFeeds)
 }
 
@@ -79,18 +79,19 @@ func testFSCKcorrect(t *testing.T) {
 	r.NoError(theBot.Close())
 }
 
-func testFSCKduplicate(t *testing.T) {
+func testFSCKdouble(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	theBot := makeTestBot(t, ctx)
 
+	// more valid messages
 	const n = 32
 	for i := n; i > 0; i-- {
 		_, err := theBot.PublishLog.Publish(i)
 		r.NoError(err)
 	}
 
-	// now do some nasty magic, duplicate the log by appending it to itself again
+	// now do some nasty magic, double the log by appending it to itself again
 	// TODO: refactor to only have Add() on the bot, not the internal rootlog
 	// Add() should do the append logic
 	src, err := theBot.RootLog.Query(margaret.Limit(n))
@@ -107,15 +108,22 @@ func testFSCKduplicate(t *testing.T) {
 
 		seq, err := theBot.RootLog.Append(v)
 		r.NoError(err)
-		t.Log("duplicated:", seq.Seq())
+		t.Log("doubled:", seq.Seq())
 	}
 
+	// check duplication
 	seqv, err := theBot.RootLog.Seq().Value()
 	r.NoError(err)
-
 	seq := seqv.(margaret.Seq)
 	r.EqualValues(seq.Seq()+1, n*2)
 
+	// more valid messages
+	for i := 64; i > 32; i-- {
+		_, err := theBot.PublishLog.Publish(i)
+		r.NoError(err)
+	}
+
+	// check we get the expected errors
 	err = theBot.FSCK(nil, FSCKModeLength)
 	r.Error(err)
 	t.Log(err)
@@ -127,6 +135,17 @@ func testFSCKduplicate(t *testing.T) {
 	r.Len(constErrs.Errors, 1)
 	r.Contains(constErrs.Errors[0].Error(), "consistency error: message sequence missmatch")
 	t.Log(err)
+
+	// try to repair it
+	err = theBot.HealRepo(constErrs)
+	r.NoError(err)
+
+	// errors are gone
+	err = theBot.FSCK(nil, FSCKModeLength)
+	r.NoError(err, "after heal (len)")
+
+	err = theBot.FSCK(nil, FSCKModeSequences)
+	r.NoError(err, "after heal (seq)")
 
 	// cleanup
 	theBot.Shutdown()
@@ -184,7 +203,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 		seq, err := theBot.RootLog.Append(v)
 		r.NoError(err)
-		t.Log("duplicated:", msg.Author().Ref()[1:5], seq.Seq())
+		t.Log("doubled:", msg.Author().Ref()[1:5], seq.Seq())
 	}
 
 	err = theBot.FSCK(nil, FSCKModeLength)
@@ -196,6 +215,17 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	constErrs, ok := err.(ssb.ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
 	r.Len(constErrs.Errors, 2)
+
+	// try to repair it
+	err = theBot.HealRepo(constErrs)
+	r.NoError(err)
+
+	// errors are gone
+	err = theBot.FSCK(nil, FSCKModeLength)
+	r.NoError(err, "after heal (len)")
+
+	err = theBot.FSCK(nil, FSCKModeSequences)
+	r.NoError(err, "after heal (seq)")
 
 	// cleanup
 	theBot.Shutdown()
