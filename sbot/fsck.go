@@ -147,17 +147,17 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 
 		sw, ok := v.(margaret.SeqWrapper)
 		if !ok {
-			return fmt.Errorf("fsck: unexpected message type: %T", v)
+			if errv, ok := v.(error); ok && margaret.IsErrNulled(errv) {
+				continue
+			}
+			return fmt.Errorf("fsck/sw: unexpected message type: %T (wanted %T)", v, sw)
 		}
 
 		rxLogSeq := sw.Seq().Seq()
 		val := sw.Value()
 		msg, ok := val.(ssb.Message)
 		if !ok {
-			if errv, ok := val.(error); ok && margaret.IsErrNulled(errv) {
-				continue
-			}
-			return fmt.Errorf("fsck: unexpected message type: %T", v)
+			return fmt.Errorf("fsck/value: unexpected message type: %T (wanted %T)", val, msg)
 		}
 
 		msgSeq := msg.Seq()
@@ -189,7 +189,7 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		if currSeq+1 != msgSeq {
 			seqErr := ssb.ErrWrongSequence{
 				Ref:     msg.Author(),
-				Stored:  margaret.BaseSeq(currSeq),
+				Stored:  margaret.BaseSeq(currSeq + 1),
 				Logical: msg,
 			}
 			consistencyErrors = append(consistencyErrors, seqErr)
@@ -205,6 +205,10 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 			fmt.Println("fsck/sequence: messages left to process:", currentOffsetSeq)
 			start = time.Now()
 		}
+	}
+
+	if len(consistencyErrors) == 0 && len(brokenSequences) == 0 {
+		return nil
 	}
 
 	// error report
