@@ -51,11 +51,35 @@ func makeTestBot(t *testing.T, ctx context.Context) *Sbot {
 }
 
 func TestFSCK(t *testing.T) {
-	t.Run("simple", testFSCKsimple)
+	t.Run("correct", testFSCKcorrect)
+	t.Run("duplicate", testFSCKduplicate)
 	t.Run("multipleFeeds", testFSCKmultipleFeeds)
 }
 
-func testFSCKsimple(t *testing.T) {
+func testFSCKcorrect(t *testing.T) {
+	r := require.New(t)
+	ctx, cancel := context.WithCancel(context.TODO())
+	theBot := makeTestBot(t, ctx)
+
+	const n = 32
+	for i := n; i > 0; i-- {
+		_, err := theBot.PublishLog.Publish(i)
+		r.NoError(err)
+	}
+
+	err := theBot.FSCK(nil, FSCKModeLength)
+	r.NoError(err)
+
+	err = theBot.FSCK(nil, FSCKModeSequences)
+	r.NoError(err)
+
+	// cleanup
+	theBot.Shutdown()
+	cancel()
+	r.NoError(theBot.Close())
+}
+
+func testFSCKduplicate(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	theBot := makeTestBot(t, ctx)
@@ -104,6 +128,7 @@ func testFSCKsimple(t *testing.T) {
 	r.Contains(constErrs.Errors[0].Error(), "consistency error: message sequence missmatch")
 	t.Log(err)
 
+	// cleanup
 	theBot.Shutdown()
 	cancel()
 	r.NoError(theBot.Close())
