@@ -1,0 +1,8 @@
+{
+  "derive_secret_labels": {
+    "description": "labels used for the DeriveSecret function",
+    "read_key": "key_type:read_key",
+    "header_key": "key_type:header_key",
+    "body_key": "key_type:body_key"
+  }
+}
