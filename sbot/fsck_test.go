@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -17,11 +18,10 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func makeTestBot(t *testing.T, ctx context.Context) *Sbot {
+func makeTestBot(t *testing.T) (*Sbot, []Option) {
 	r := require.New(t)
 
 	testPath := filepath.Join("testrun", t.Name())
-	os.RemoveAll(testPath)
 
 	appKey := make([]byte, 32)
 	rand.Read(appKey)
@@ -40,26 +40,28 @@ func makeTestBot(t *testing.T, ctx context.Context) *Sbot {
 	botOptions := []Option{
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
-		WithContext(ctx),
 		WithInfo(log.With(mainLog, "unit", "theBot")),
 		WithRepoPath(testPath),
 		DisableNetworkNode(),
 	}
 	theBot, err := New(botOptions...)
 	r.NoError(err)
-	return theBot
+	return theBot, botOptions
 }
 
 func TestFSCK(t *testing.T) {
+	testPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(testPath)
+
 	t.Run("correct", testFSCKcorrect)
 	t.Run("double", testFSCKdouble)
 	t.Run("multipleFeeds", testFSCKmultipleFeeds)
+	// t.Run("rerpo", testFSCKrerpo)
 }
 
 func testFSCKcorrect(t *testing.T) {
 	r := require.New(t)
-	ctx, cancel := context.WithCancel(context.TODO())
-	theBot := makeTestBot(t, ctx)
+	theBot, _ := makeTestBot(t)
 
 	const n = 32
 	for i := n; i > 0; i-- {
@@ -75,14 +77,13 @@ func testFSCKcorrect(t *testing.T) {
 
 	// cleanup
 	theBot.Shutdown()
-	cancel()
 	r.NoError(theBot.Close())
 }
 
 func testFSCKdouble(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
-	theBot := makeTestBot(t, ctx)
+	theBot, _ := makeTestBot(t)
 
 	// more valid messages
 	const n = 32
@@ -130,7 +131,7 @@ func testFSCKdouble(t *testing.T) {
 
 	err = theBot.FSCK(nil, FSCKModeSequences)
 	r.Error(err)
-	constErrs, ok := err.(ssb.ErrConsistencyProblems)
+	constErrs, ok := err.(ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
 	r.Len(constErrs.Errors, 1)
 	r.Contains(constErrs.Errors[0].Error(), "consistency error: message sequence missmatch")
@@ -158,7 +159,7 @@ func testFSCKdouble(t *testing.T) {
 func testFSCKmultipleFeeds(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
-	theBot := makeTestBot(t, ctx)
+	theBot, _ := makeTestBot(t)
 
 	// some "correct" messages
 	const n = 32
@@ -212,7 +213,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 	err = theBot.FSCK(nil, FSCKModeSequences)
 	r.Error(err)
-	constErrs, ok := err.(ssb.ErrConsistencyProblems)
+	constErrs, ok := err.(ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
 	r.Len(constErrs.Errors, 2)
 
@@ -230,5 +231,41 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	// cleanup
 	theBot.Shutdown()
 	cancel()
+	r.NoError(theBot.Close())
+}
+
+func testFSCKrepro(t *testing.T) {
+	r := require.New(t)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+	t.Log(tRepoPath)
+	os.MkdirAll("testrun/TestFSCK", 0700)
+	// tRepo := repo.New(tRepoPath)
+
+	out, err := exec.Command("cp", "-v", "-r", "testdata/example-repo-with-a-bug", tRepoPath).CombinedOutput()
+	r.NoError(err, "got: %s", string(out))
+
+	theBot, _ := makeTestBot(t)
+
+	seqV, err := theBot.RootLog.Seq().Value()
+	r.NoError(err)
+	latestSeq := seqV.(margaret.Seq)
+	r.EqualValues(latestSeq.Seq(), 6699)
+
+	err = theBot.FSCK(nil, FSCKModeSequences)
+	r.Error(err)
+	constErrs, ok := err.(ErrConsistencyProblems)
+	r.True(ok, "wrong error type. got %T", err)
+
+	// repair it
+	err = theBot.HealRepo(constErrs)
+	r.NoError(err)
+
+	// error is gone
+	err = theBot.FSCK(nil, FSCKModeSequences)
+	r.NoError(err)
+
+	// cleanup
+	theBot.Shutdown()
 	r.NoError(theBot.Close())
 }

@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/RoaringBitmap/roaring v0.4.21-0.20190925020156-96f2302555b6
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/catherinejones/testdiff v0.0.0-20180525195050-ae148f75f077

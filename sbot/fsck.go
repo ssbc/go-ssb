@@ -3,7 +3,10 @@ package sbot
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
+
+	"github.com/RoaringBitmap/roaring"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -29,6 +32,23 @@ const (
 	// FSCKModeVerify does a full signature and hash verification
 	// FSCKModeVerify
 )
+
+type ErrConsistencyProblems struct {
+	Errors    []ssb.ErrWrongSequence
+	Sequences *roaring.Bitmap
+}
+
+func (e ErrConsistencyProblems) Error() string {
+	if len(e.Errors) == 1 {
+		return e.Errors[0].Error()
+	}
+	errStr := fmt.Sprintf("ssb: multiple consistency problems (%d) over %d messages", len(e.Errors), e.Sequences.GetCardinality())
+	for i, err := range e.Errors {
+		errStr += fmt.Sprintf("\n%02d: %s", i, err.Error())
+	}
+	errStr += "\n"
+	return errStr
+}
 
 // FSCK checks the consistency of the received messages and the indexes
 func (s *Sbot) FSCK(feedsMlog multilog.MultiLog, mode FSCKMode) error {
@@ -116,15 +136,20 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 // and checks tha the sequence of a feed is correctly increasing by one each message
 func sequenceFSCK(receiveLog margaret.Log) error {
 	ctx := context.Background()
+	start := time.Now()
 
+	// the last sequence number we saw of that author
 	lastSequence := make(map[string]int64)
+
+	// we need to keep track of _all_ the messages per feed
+	// since we dont know in advance which ones we have to null
+	allSeqsPerAuthor := make(map[string]*roaring.Bitmap)
 
 	currentSeqV, err := receiveLog.Seq().Value()
 	if err != nil {
 		return err
 	}
 	currentOffsetSeq := currentSeqV.(margaret.Seq).Seq()
-	start := time.Now()
 
 	src, err := receiveLog.Query(margaret.SeqWrap(true))
 	if err != nil {
@@ -133,9 +158,6 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 
 	// which feeds have problems
 	var consistencyErrors []ssb.ErrWrongSequence
-
-	// all the sequences of broken messages
-	var brokenSequences []int64
 
 	for {
 		v, err := src.Next(ctx)
@@ -163,11 +185,18 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 
 		msgSeq := msg.Seq()
 		authorRef := msg.Author().Ref()
+
+		seqMap, ok := allSeqsPerAuthor[authorRef]
+		if !ok {
+			seqMap = roaring.New()
+			allSeqsPerAuthor[authorRef] = seqMap
+		}
+		seqMap.Add(uint32(rxLogSeq))
+
 		currSeq, has := lastSequence[authorRef]
 
-		// TODO: unify these checks
 		if !has {
-			if msgSeq != 1 {
+			if msgSeq != 1 { // not seen yet, so has to be the first
 				seqErr := ssb.ErrWrongSequence{
 					Ref:     msg.Author(),
 					Stored:  sw.Seq(),
@@ -175,7 +204,6 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 				}
 				consistencyErrors = append(consistencyErrors, seqErr)
 				lastSequence[authorRef] = -1
-				brokenSequences = append(brokenSequences, rxLogSeq)
 				continue
 			}
 			lastSequence[authorRef] = 1
@@ -183,11 +211,10 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		}
 
 		if currSeq < 0 { // feed broken, skipping
-			brokenSequences = append(brokenSequences, rxLogSeq)
 			continue
 		}
 
-		if currSeq+1 != msgSeq {
+		if currSeq+1 != msgSeq { // correct next value?
 			seqErr := ssb.ErrWrongSequence{
 				Ref:     msg.Author(),
 				Stored:  margaret.BaseSeq(currSeq + 1),
@@ -195,7 +222,6 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 			}
 			consistencyErrors = append(consistencyErrors, seqErr)
 			lastSequence[authorRef] = -1
-			brokenSequences = append(brokenSequences, rxLogSeq)
 			continue
 		}
 		lastSequence[authorRef] = currSeq + 1
@@ -203,24 +229,31 @@ func sequenceFSCK(receiveLog margaret.Log) error {
 		// bench stats
 		currentOffsetSeq--
 		if time.Since(start) > time.Second {
-			fmt.Println("fsck/sequence: messages left to process:", currentOffsetSeq)
+			log.Println("fsck/sequence: messages left to process:", currentOffsetSeq)
 			start = time.Now()
 		}
 	}
 
-	if len(consistencyErrors) == 0 && len(brokenSequences) == 0 {
+	if len(consistencyErrors) == 0 {
 		return nil
 	}
 
+	nullMap := roaring.New()
+	for _, author := range consistencyErrors {
+		if bmap, has := allSeqsPerAuthor[author.Ref.Ref()]; has {
+			nullMap.Or(bmap)
+		}
+	}
+
 	// error report
-	return ssb.ErrConsistencyProblems{
+	return ErrConsistencyProblems{
 		Errors:    consistencyErrors,
-		Sequences: brokenSequences,
+		Sequences: nullMap,
 	}
 }
 
 // HealRepo just nulls the messages and is a very naive repair but the only one that is feasably implemented right now
-func (s *Sbot) HealRepo(report ssb.ErrConsistencyProblems) error {
+func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 	funcLog := kitlog.With(s.info, "event", "heal repo")
 	brokenCount := len(report.Errors)
 	if brokenCount == 0 {
@@ -228,9 +261,14 @@ func (s *Sbot) HealRepo(report ssb.ErrConsistencyProblems) error {
 		return nil
 	}
 
-	level.Info(funcLog).Log("msg", "trying to null all broken feeds", "feeds", brokenCount, "messages", len(report.Sequences))
+	level.Info(funcLog).Log("msg", "trying to null all broken feeds",
+		"feeds", brokenCount,
+		"messages", report.Sequences.GetCardinality(),
+	)
 
-	for _, seq := range report.Sequences {
+	it := report.Sequences.Iterator()
+	for it.HasNext() {
+		seq := it.Next()
 		err := s.RootLog.Null(margaret.BaseSeq(seq))
 		if err != nil {
 			return errors.Wrapf(err, "failed to null message (%d) in receive log", seq)

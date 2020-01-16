@@ -71,20 +71,3 @@ func (e ErrWrongSequence) Error() string {
 		e.Stored.Seq(),
 		e.Logical.Seq())
 }
-
-type ErrConsistencyProblems struct {
-	Errors    []ErrWrongSequence
-	Sequences []int64
-}
-
-func (e ErrConsistencyProblems) Error() string {
-	if len(e.Errors) == 1 {
-		return e.Errors[0].Error()
-	}
-	errStr := fmt.Sprintf("ssb: multiple consistency problems (%d) over %d messages", len(e.Errors), len(e.Sequences))
-	for i, err := range e.Errors {
-		errStr += fmt.Sprintf("\n%02d: %s", i, err.Error())
-	}
-	errStr += "\n"
-	return errStr
-}
