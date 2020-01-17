@@ -57,9 +57,27 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 	}
 
 	return mfr.SourceMap(src, func(ctx context.Context, iv interface{}) (interface{}, error) {
-		val, err := il.root.Get(iv.(margaret.Seq))
+		var rootSeq margaret.Seq
+		var wrappedSeq margaret.Seq
+		switch tv := iv.(type) {
+		case margaret.Seq:
+			rootSeq = tv
+		case margaret.SeqWrapper:
+			wrappedSeq = tv.Seq()
+
+			wrappedVal := tv.Value()
+			seq, ok := wrappedVal.(margaret.Seq)
+			if !ok {
+				errors.Errorf("expected sequence type: %T", wrappedVal)
+			}
+			rootSeq = seq
+		default:
+			return nil, errors.Errorf("expected sequence type: %T", iv)
+		}
+
+		val, err := il.root.Get(rootSeq)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unboxLog: error getting v(%v) from seqlog log", iv)
+			return nil, errors.Wrapf(err, "unboxLog: error getting v(%d) from seqlog log", rootSeq.Seq())
 		}
 
 		amsg, ok := val.(ssb.Message)
@@ -107,6 +125,11 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 		msg.Value.Hash = "go-ssb-unboxed"
 		msg.Value.Content = clearContent
 		msg.Value.Signature = "go-ssb-unboxed"
+
+		if wrappedSeq != nil {
+			return margaret.WrapWithSeq(msg, wrappedSeq), nil
+		}
+
 		return msg, nil
 	}), nil
 }

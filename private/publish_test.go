@@ -14,10 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -53,6 +55,15 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		)
 
+		const n = 32
+		for i := n; i > 0; i-- {
+			_, err := srv.PublishLog.Publish(struct {
+				Text string
+				I    int
+			}{"clear text!", i})
+			r.NoError(err)
+		}
+
 		r.NoError(err, "sbot srv init failed")
 
 		c, err := client.NewUnix(filepath.Join(srvRepo, "socket"))
@@ -74,6 +85,32 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 
 		savedMsg, ok := v.(ssb.Message)
 		r.True(ok, "wrong type: %T", v)
+		r.Equal(savedMsg.Key().Ref(), ref.Ref())
+
+		v, err = src.Next(context.TODO())
+		r.Error(err)
+		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
+
+		// try with seqwrapped query
+		pl, ok := srv.GetMultiLog("privLogs")
+		r.True(ok)
+
+		userPrivs, err := pl.Get(srv.KeyPair.Id.StoredAddr())
+		r.NoError(err)
+
+		unboxlog := private.NewUnboxerLog(srv.RootLog, userPrivs, srv.KeyPair)
+
+		src, err = unboxlog.Query(margaret.SeqWrap(true))
+		r.NoError(err)
+
+		v, err = src.Next(context.TODO())
+		r.NoError(err, "failed to get msg")
+
+		sw, ok := v.(margaret.SeqWrapper)
+		r.True(ok, "wrong type: %T", v)
+		wrappedVal := sw.Value()
+		savedMsg, ok = wrappedVal.(ssb.Message)
+		r.True(ok, "wrong type: %T", wrappedVal)
 		r.Equal(savedMsg.Key().Ref(), ref.Ref())
 
 		v, err = src.Next(context.TODO())
