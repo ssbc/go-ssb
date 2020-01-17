@@ -15,15 +15,18 @@ All test vectors follow the format:
 
 ```
 {
-  type: String,        // machine readable
-  description: String, // human readable
+  type: String,               // machine readable
+  description: String,        // human readable
   input: {
-    ...                // base64 encoded properties
+    ...                       // base64 encoded properties
   },
   output: {
-    ...                // base64 encoded properties
-  }
+    ...                       // base64 encoded properties
+  },
+  error_code: (null|String)
 }
 ```
 
-where `input` and `output` format will depend on the `type`.
+Notes:
+- where `input` / `output` format will depend on the `type`.
+- if `error_code` is a `String` all attributes in `output` with be `null`

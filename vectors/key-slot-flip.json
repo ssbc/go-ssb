@@ -2,10 +2,10 @@
   "type": "key_slot_flip",
   "description": "in each key-slot, we xor the msg_key with a unique value - the key-slot-flip. this vector tests you made it correctly!",
   "input": {
-    "external_nonce": "yrr3H7FEailabr9Jrm5H0yb3W2QihUjA",
-    "recipient_key": "V2yCjuUtTMttLnBecUZviEYlmK+9RWGrrX0jzcYU1/E="
+    "external_nonce": "1jIBxtUehy5Q9DZi8pCc4M0Ni8EgfXvp",
+    "recipient_key": "37W7EEAsZnf0AobwQ4Q2+I2C2laUdPqHzTnvTWM+k04="
   },
   "output": {
-    "key_slot_flip": "vipk8F8xW4XSi8OcnqfU/Fh6ApfygerG5cWOc3iGE5Y="
+    "key_slot_flip": "jWixGs+tOHAZrKQDkSphdWYSiceYnYNUPW5f6Ug5/kA="
   }
 }

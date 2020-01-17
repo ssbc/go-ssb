@@ -1,13 +1,13 @@
 {
   "type": "unbox",
-  "description": "unbox fails with incorrect key, return false",
+  "description": "missing external nonce",
   "input": {
-    "ciphertext": "lpfWEiVD03/HLw2fDTRFvPm6+dSUrEDGwYr51k3de0QESQNo0JjwmWreTS82Z3b8mUQXRkCAapkbVvpMR5QYfLd24X761AGfUADxNptbgKOrzU1zD9tIiLLbOj768kBOqhJEnUibHu/dUSmcg/SXoXu1NphquJJGiEqeY0NpGrnZDHqWKhjtoA==",
-    "external_nonce": "WOwDEF2EBPbed5H6a2V1p/DdXmcyimq8",
-    "recipient_key": "g7TUhAf0sTi4MqK1qCL+FfrOkxLG6v3kOgjh2FJ7sq8="
+    "ciphertext": "+g0rNrEmKcFuxhd9/yY0LcWPGcVPX0IUd1DPCUfLE9Mzd2nSZNFTLOP+AyBBBs4CBbHpeJHOQZITN6bgd8fuCUP3OFDkUYv6pxTXQdRely+Ohf+pCEerxfVQAd7FyB9swFF32npDiDMac+0aMhwWt2M1ROi6fOagYkuZjejACJ++yLMKrcT7og==",
+    "external_nonce": null,
+    "recipient_key": "n4BryOqy6rfa+gQep5MQmegmBQo2ylU33LLf1p2qnmA="
   },
   "output": {
     "plain_text": null
-  }
+  },
+  "error_code": "unboxEmptyExternalNonce"
 }
-

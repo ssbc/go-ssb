@@ -3,14 +3,15 @@
   "description": "box for 2 recipients",
   "input": {
     "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io",
-    "external_nonce": "WOwDEF2EBPbed5H6a2V1p/DdXmcyimq8",
-    "msg_key": "aqbY9SC+Hu0md+OR+kd6PBYc8vw+8eNVUgNrVY5EuZk=",
+    "external_nonce": "u0Lot2EDv+w/ytx9OotUDUnc1ms63nXI",
+    "msg_key": "kUvgJwfyvohEhHxKsnH4m0oreded3ck6DOPTzNAUaP8=",
     "recp_keys": [
-      "SJ3bRlPjYjhGCjkWyYGhfg8B9AzBbxoPWsSsEN1nxzs=",
-      "SB/tOpRvB4B+Q3B2ax91CDZv2hJy79m6D7kY3GaWheE="
+      "MhPL1f73/ROhH7cFsvK/+WjTDbzBv+esElAiRqRLAsE=",
+      "ywPe+xNdxOgg6Et6Sjwzun14FsqLrDx4YbTboYCCE+w="
     ]
   },
   "output": {
-    "ciphertext": "lpfWEiVD03/HLw2fDTRFvPm6+dSUrEDGwYr51k3de0QESQNo0JjwmWreTS82Z3b8mUQXRkCAapkbVvpMR5QYfLd24X761AGfUADxNptbgKOrzU1zD9tIiLLbOj768kBOqhJEnUibHu/dUSmcg/SXoXu1NphquJJGiEqeY0NpGrnZDHqWKhjtoA=="
-  }
+    "ciphertext": "JUKiHN0OCJhwQ8CyJoddeKNHmiLcOxqcvjs2Mm9IxMgjABb0E0hNp2uogqEQJ2L7A+GFDZ1a/L31O09ayZkU113+/zaaDqiFEj0p44WSgORvINyb7zpTVXRm4SJYb5h0mAUGcW1IEUL6xXslQBdC0mZjQXJJP18CI5U1QGGNro6e0Lw9Gti7rQ=="
+  },
+  "error_code": null
 }
