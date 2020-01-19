@@ -318,9 +318,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		histOpts...)
 	s.public.Register(hist)
 
-	s.master.Register(get.New(s))
+	s.master.Register(get.New(s, s.RootLog))
 
 	// raw log plugins
+	s.master.Register(rawread.NewSequenceStream(s.RootLog))
 	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
 	s.master.Register(hist)                        // createHistoryStream
 

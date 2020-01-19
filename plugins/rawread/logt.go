@@ -5,7 +5,6 @@ package rawread
 import (
 	"context"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -77,7 +76,6 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 	}
 
 	if len(req.Args()) == 2 {
-		spew.Dump(req.Args)
 		mv, ok := req.Args()[1].(map[string]interface{})
 		if !ok {
 			req.CloseWithError(errors.Errorf("bad request"))
@@ -97,7 +95,6 @@ func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		// only return message keys
 		qry.Values = true
 	}
-
 	tipeLog, err := g.types.Get(tipe)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: no multilog for tipe?"))

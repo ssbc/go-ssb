@@ -7,8 +7,11 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/shurcooL/go-goon"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	// "go.mindeco.de/encodedTime"
 )
 
 type plugin struct {
@@ -27,14 +30,15 @@ func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
 
-func New(g ssb.Getter) ssb.Plugin {
+func New(g ssb.Getter, rl margaret.Log) ssb.Plugin {
 	return plugin{
-		h: handler{g: g},
+		h: handler{g: g, rl: rl},
 	}
 }
 
 type handler struct {
-	g ssb.Getter
+	g  ssb.Getter
+	rl margaret.Log
 }
 
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
@@ -52,9 +56,30 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	case string:
 		ref, err = ssb.ParseMessageRef(v)
 	case map[string]interface{}:
+		goon.Dump(v)
 		refV, ok := v["key"]
 		if !ok {
-			req.CloseWithError(errors.Errorf("invalid argument - missing 'key' in map"))
+			seqV, ok := v["id"]
+			if !ok {
+				req.CloseWithError(errors.Errorf("invalid argument - missing 'id' in map"))
+				return
+			}
+			seq, ok := seqV.(float64)
+			if !ok {
+				req.CloseWithError(errors.Errorf("invalid argument - missing 'id' in map"))
+				return
+			}
+			sv, err := h.rl.Get(margaret.BaseSeq(seq))
+			if err != nil {
+				req.CloseWithError(errors.Wrap(err, "failed to get msg"))
+				return
+			}
+			msg := sv.(ssb.Message)
+			var kv ssb.KeyValueRaw
+			kv.Key_ = msg.Key()
+			kv.Value = *msg.ValueContent()
+			// kv.Timestamp = encodedTime.Millisecs(time.Now())
+			req.Return(ctx, kv)
 			return
 		}
 		ref, err = ssb.ParseMessageRef(refV.(string))

@@ -82,6 +82,11 @@ type CommonArgs struct {
 	Values bool `json:"values,omitempty"`
 	Live   bool `json:"live,omitempty"`
 
+	// Raw ???
+	Raw   bool `json:"raw"`
+	Seqs  bool `json:"seqs"`
+	Cache bool `json:"cache"`
+
 	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
 	// for instance, it could be json.RawMessage or a map or a struct
 	// TODO: find a nice way to have a default here
@@ -90,6 +95,8 @@ type CommonArgs struct {
 
 type StreamArgs struct {
 	Limit int64 `json:"limit,omitempty"`
+
+	Gt int64 `json:"gt"`
 
 	Reverse bool `json:"reverse,omitempty"`
 }

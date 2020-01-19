@@ -11,11 +11,14 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/message/multimsg"
 
 	"go.cryptoscope.co/ssb"
 )
 
-func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
+// NewKeyValueWrapper turns a value into a key-value message.
+// If keyWrap is true, it returns the JSON of a ssb.KeyValueRaw value.
+func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
 
 	noNulled := mfr.FilterFunc(func(ctx context.Context, v interface{}) (bool, error) {
 		if err, ok := v.(error); ok {
@@ -26,22 +29,40 @@ func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
 		}
 		return true, nil
 	})
-	toJSON := mfr.SinkMap(snk, func(ctx context.Context, v interface{}) (interface{}, error) {
-		abs, ok := v.(ssb.Message)
-		if !ok {
-			seqWrap, ok := v.(margaret.SeqWrapper)
-			if !ok {
-				return nil, errors.Errorf("kvwrap: also not a seqWrapper - got %T", v)
-			}
 
-			sv := seqWrap.Value()
+	mapToKV := mfr.SinkMap(output, func(ctx context.Context, v interface{}) (interface{}, error) {
+		var seqWrap margaret.SeqWrapper
+
+		var abs ssb.Message
+		switch tv := v.(type) {
+		case ssb.Message:
+			abs = tv
+		case margaret.SeqWrapper:
+			seqWrap = tv
+
+			sv := tv.Value()
+			var ok bool
 			abs, ok = sv.(ssb.Message)
 			if !ok {
 				return nil, errors.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
 			}
 		}
 
-		if !wrap {
+		if !keyWrap {
+			// skip re-encoding in some cases
+			if mm, ok := abs.(*multimsg.MultiMessage); ok {
+				leg, ok := mm.AsLegacy()
+				if ok {
+					return json.RawMessage(leg.Raw_), nil
+				}
+			}
+			if mm, ok := abs.(multimsg.MultiMessage); ok {
+				leg, ok := mm.AsLegacy()
+				if ok {
+					return json.RawMessage(leg.Raw_), nil
+				}
+			}
+
 			return json.RawMessage(abs.ValueContentJSON()), nil
 		}
 
@@ -49,13 +70,30 @@ func NewKeyValueWrapper(snk luigi.Sink, wrap bool) luigi.Sink {
 		kv.Key_ = abs.Key()
 		kv.Value = *abs.ValueContent()
 		kv.Timestamp = encodedTime.Millisecs(abs.Received())
-		kvMsg, err := json.Marshal(kv)
+
+		if seqWrap == nil {
+			kvMsg, err := json.Marshal(kv)
+			if err != nil {
+				return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
+			}
+			return json.RawMessage(kvMsg), nil
+		}
+
+		type sewWrapped struct {
+			Value interface{} `json:"value"`
+			Seq   int64       `json:"seq"`
+		}
+
+		sw := sewWrapped{
+			Value: kv,
+			Seq:   seqWrap.Seq().Seq(),
+		}
+		kvMsg, err := json.Marshal(sw)
 		if err != nil {
 			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
 		}
-
 		return json.RawMessage(kvMsg), nil
 	})
 
-	return mfr.SinkFilter(toJSON, noNulled)
+	return mfr.SinkFilter(mapToKV, noNulled)
 }
