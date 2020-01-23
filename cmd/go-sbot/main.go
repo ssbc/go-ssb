@@ -263,7 +263,7 @@ func main() {
 		return
 	}
 
-	var fsckMode = mksbot.FSCKModeSequences
+	var fsckMode = mksbot.FSCKModeLength
 	var exitAfterFSCK = false
 	if flagFSCK != "" {
 		switch flagFSCK {
