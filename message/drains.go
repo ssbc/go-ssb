@@ -40,14 +40,14 @@ func NewVerifySink(who *ssb.FeedRef, start margaret.Seq, abs ssb.Message, snk lu
 }
 
 type verifier interface {
-	Verify(ctx context.Context, v interface{}) (ssb.Message, error)
+	Verify(v interface{}) (ssb.Message, error)
 }
 
 type legacyVerify struct {
 	hmacKey *[32]byte
 }
 
-func (lv legacyVerify) Verify(ctx context.Context, v interface{}) (ssb.Message, error) {
+func (lv legacyVerify) Verify(v interface{}) (ssb.Message, error) {
 	rmsg, ok := v.(json.RawMessage)
 	if !ok {
 		return nil, errors.Errorf("legacyVerify: expected %T - got %T", rmsg, v)
@@ -71,7 +71,7 @@ type gabbyVerify struct {
 	hmacKey *[32]byte
 }
 
-func (gv gabbyVerify) Verify(ctx context.Context, v interface{}) (msg ssb.Message, err error) {
+func (gv gabbyVerify) Verify(v interface{}) (msg ssb.Message, err error) {
 	trBytes, ok := v.([]uint8)
 	if !ok {
 		err = errors.Errorf("gabbyVerify: expected %T - got %T", trBytes, v)
@@ -113,7 +113,7 @@ type streamDrain struct {
 }
 
 func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
-	next, err := ld.verify.Verify(ctx, v)
+	next, err := ld.verify.Verify(v)
 	if err != nil {
 		return errors.Wrapf(err, "muxDrain(%s:%d)", ld.who.Ref(), ld.latestSeq.Seq())
 	}
