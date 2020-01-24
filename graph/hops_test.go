@@ -23,7 +23,7 @@ var hopsScenarios = []PeopleTestCase{
 			PeopleOpFollow{"alice", "claire"},
 		},
 		asserts: []PeopleAssertMaker{
-			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
+			PeopleAssertHops("alice", 0, "bob", "claire"),
 		},
 	},
 
@@ -53,8 +53,8 @@ var hopsScenarios = []PeopleTestCase{
 			PeopleOpFollow{"claire", "off2"},
 		},
 		asserts: []PeopleAssertMaker{
-			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
-			PeopleAssertHops("alice", 1, "alice", "bob", "claire", "bobf1", "bobf2"),
+			PeopleAssertHops("alice", 0, "bob", "claire"),
+			PeopleAssertHops("alice", 1, "bob", "claire", "bobf1", "bobf2"),
 		},
 	},
 
@@ -88,9 +88,9 @@ var hopsScenarios = []PeopleTestCase{
 			PeopleOpFollow{"bobf1", "bob"},
 		},
 		asserts: []PeopleAssertMaker{
-			PeopleAssertHops("alice", 0, "alice", "bob", "claire"),
-			PeopleAssertHops("alice", 1, "alice", "bob", "claire", "bobf1", "bobf2"),
-			PeopleAssertHops("alice", 2, "alice", "bob", "claire", "bobf1", "bobf2", "bobfam1", "bobfam2", "bobfam3"),
+			PeopleAssertHops("alice", 0, "bob", "claire"),
+			PeopleAssertHops("alice", 1, "bob", "claire", "bobf1", "bobf2"),
+			PeopleAssertHops("alice", 2, "bob", "claire", "bobf1", "bobf2", "bobfam1", "bobfam2", "bobfam3"),
 		},
 	},
 }

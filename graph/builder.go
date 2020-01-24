@@ -339,6 +339,7 @@ func (b *builder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
 		return nil
 	}
+	walked.Delete(from)
 	return walked
 }
 
@@ -352,10 +353,6 @@ func (b *builder) recurseHops(walked *StrFeedSet, vis map[string]struct{}, from 
 		return nil
 	}
 
-	if err := walked.AddRef(from); err != nil {
-		b.log.Log("event", "error", "msg", "add failed", "err", err)
-		return nil
-	}
 
 	fromFollows, err := b.Follows(from)
 	if err != nil {

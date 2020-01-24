@@ -43,6 +43,13 @@ func (fs *StrFeedSet) AddRef(ref *ssb.FeedRef) error {
 	return nil
 }
 
+func (fs *StrFeedSet) Delete(ref *ssb.FeedRef) error {
+	fs.Lock()
+	defer fs.Unlock()
+	delete(fs.set, ref.StoredAddr())
+	return nil
+}
+
 func (fs *StrFeedSet) Count() int {
 	fs.Lock()
 	defer fs.Unlock()
