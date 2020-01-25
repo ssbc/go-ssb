@@ -69,7 +69,7 @@ func TestLiveResumerSimple(t *testing.T) {
 }
 
 func TestLiveResumerMultiple(t *testing.T) {
-	f, err := ioutil.TempFile(".", "TestLiveResumer.simple")
+	f, err := ioutil.TempFile(".", "TestLiveResumer.multiple")
 	require.NoError(t, err, "create temp file")
 
 	defer func() {

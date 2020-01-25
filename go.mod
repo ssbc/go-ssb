@@ -10,18 +10,16 @@ require (
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
-	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
+	github.com/keks/persist v0.0.0-20181029214439-3af502dad70b
 	github.com/keks/testops v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0
 	github.com/sergi/go-diff v1.0.0 // indirect
@@ -44,3 +42,5 @@ require (
 )
 
 replace github.com/keks/persist => github.com/cryptix/keks_persist v0.0.0-20190924155924-a51e5e7eb3e6
+
+replace go.cryptoscope.co/margaret => ../margaret
