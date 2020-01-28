@@ -44,6 +44,7 @@ var (
 	flagCleanup  bool
 	flagReindex  bool
 	flagFSCK     string
+	flagRepair   bool
 	flagFatBot   bool
 	flagHops     uint
 	flagEnAdv    bool
@@ -110,7 +111,8 @@ func initFlags() {
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
 
-	flag.StringVar(&flagFSCK, "fsck", "", "run a filesystem check on the repo (possible values: length, sequence)")
+	flag.StringVar(&flagFSCK, "fsck", "", "run a filesystem check on the repo (possible values: length, sequences)")
+	flag.BoolVar(&flagRepair, "repair", false, "run repo healing if fsck fails")
 
 	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
 
@@ -275,11 +277,31 @@ func main() {
 			checkFatal(fmt.Errorf("unknown fsck mode: %q", flagFSCK))
 		}
 		exitAfterFSCK = true
-
 	}
 
 	err = sbot.FSCK(uf, fsckMode)
-	checkFatal(err)
+	if flagRepair {
+		if err != nil {
+			if report, ok := err.(mksbot.ErrConsistencyProblems); ok {
+				err = sbot.HealRepo(report)
+				if err != nil {
+					level.Error(log).Log("fsck", "heal failed", "err", err)
+				} else {
+					level.Info(log).Log("fsck", "healed", "msgs", report.Sequences.GetCardinality(), "feeds", len(report.Errors))
+				}
+			} else {
+				level.Error(log).Log("fsck", "wrong report type", "T", fmt.Sprintf("%T", err))
+
+			}
+
+			sbot.Shutdown()
+			err := sbot.Close()
+			checkAndLog(err)
+			return
+		}
+	} else {
+		checkFatal(err)
+	}
 	if exitAfterFSCK {
 		level.Info(log).Log("fsck", "completed", "mode", fsckMode)
 		sbot.Shutdown()
