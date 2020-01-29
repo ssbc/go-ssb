@@ -78,9 +78,9 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 }
 
 type CommonArgs struct {
-	Keys   bool `json:"keys"`
-	Values bool `json:"values"`
-	Live   bool `json:"live"`
+	Keys   bool `json:"keys"` // can't omit this falsy value, the JS-stack stack assumes true if it's not there
+	Values bool `json:"values,omitempty"`
+	Live   bool `json:"live,omitempty"`
 
 	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
 	// for instance, it could be json.RawMessage or a map or a struct
@@ -89,9 +89,9 @@ type CommonArgs struct {
 }
 
 type StreamArgs struct {
-	Limit int64 `json:"limit"`
+	Limit int64 `json:"limit,omitempty"`
 
-	Reverse bool `json:"reverse"`
+	Reverse bool `json:"reverse,omitempty"`
 }
 
 // CreateHistArgs defines the query parameters for the createHistoryStream rpc call
@@ -102,7 +102,7 @@ type CreateHistArgs struct {
 	ID  *ssb.FeedRef `json:"id,omitempty"`
 	Seq int64        `json:"seq,omitempty"`
 
-	AsJSON bool `json:"asJSON"`
+	AsJSON bool `json:"asJSON,omitempty"`
 }
 
 // CreateLogArgs defines the query parameters for the createLogStream rpc call
