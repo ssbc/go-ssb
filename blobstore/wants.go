@@ -213,6 +213,13 @@ func (wmgr *wantManager) promGaugeSet(name string, n int) {
 	}
 }
 
+func (wmgr *wantManager) Close() error {
+	wmgr.l.Lock()
+	defer wmgr.l.Unlock()
+	close(wmgr.available)
+	return nil
+}
+
 func (wmgr *wantManager) AllWants() []ssb.BlobWant {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()

@@ -107,6 +107,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// wantsLog := kitlog.NewNopLogger()
 	wm := blobstore.NewWantManager(wantsLog, s.BlobStore, s.eventCounter, s.systemGauge)
 	s.WantManager = wm
+	s.closers.addCloser(wm)
 
 	for _, opt := range s.lateInit {
 		err := opt(s)
