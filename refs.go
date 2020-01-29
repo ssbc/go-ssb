@@ -267,10 +267,6 @@ func (ref FeedRef) PubKey() ed25519.PublicKey {
 }
 
 // StoredAddr returns the key under which this ref is stored in the multilog system
-// librarian uses a string but we used the bytes of the public key until now (32 vs 53 bytes per feed)
-// but this looses different types of keys at that layer.
-// TODO: could actually be a compact representation of the pubkey bytes
-// with an additonal type byte but this _should_ make it work for now
 func (ref FeedRef) StoredAddr() librarian.Addr {
 	sr, err := NewStorageRef(ref)
 	if err != nil {
@@ -280,8 +276,6 @@ func (ref FeedRef) StoredAddr() librarian.Addr {
 	if err != nil {
 		panic(errors.Wrap(err, "error while marshalling addr"))
 	}
-	// fmt.Printf("DEBUG/stored:")
-	// spew.Dump(b)
 	return librarian.Addr(b)
 }
 

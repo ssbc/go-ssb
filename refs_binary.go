@@ -25,7 +25,7 @@ const (
 type StorageRef struct {
 	fr *FeedRef
 	mr *MessageRef
-	br *BlobRef // payload/content ref
+	br *BlobRef
 }
 
 var _ Ref = (*StorageRef)(nil)
@@ -188,7 +188,6 @@ func bytestr(r Ref) []byte {
 }
 
 func (ref *StorageRef) UnmarshalJSON(data []byte) error {
-	// spew.Dump(ref)
 	return errors.Errorf("TODO:json")
 }
 
