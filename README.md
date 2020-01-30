@@ -7,8 +7,9 @@ Initially it will support communication for large groups which share a public ke
 (secret key cryptography / symmetric keys), but it has also been designed to support
 forward-secure secret-key cryptography (a little like Signal's double-ratchet).
 
-box2 assumes each message is part of append-only chain, with message that have a
-unique id. Having a unique id for the "previous" message in a chain is important.
+box2 assumes each message is part of append-only chain (with a unique `feed_id`), 
+made up of backlinked messages such that each message has a unique previous message with 
+a unique id (`prev_msg_id`)
 
 ## Anatomy
 
@@ -195,13 +196,14 @@ var Derive = MakeDeriver(feed_id, prev_msg_id)
 
 function MakeDeriver (feed_id, prev_msg_id) {
   return function (key, label, length) {
-    var data = [feed_id, previous_msg_id, label]
+    var data = [feed_id, prev_msg_id, label]
     return HKDF.Expand(key, encode(data), length)
   }
 }
 ```
 
 and further:
+- `feed_id` and `prev_msg_id` are encoded in standard binary format (TODO)
 - `encode` is a shallow lenth-prefixed (SLP) encoding of an ordered list
 - `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
   - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
