@@ -73,7 +73,7 @@ Being able to decrypt this is required for being able to unbox the rest of the m
 ```
 
 - `HMAC` - 16 bytes which allows authentication of the integrity of `header*`
-- `header*` - the **header** encrypted with `header_key`, `extenal_nonce` (same as that described in [key_slot_n](#ks) section)
+- `header*` - the **header** encrypted with `header_key` + zerod nonce
 - `offset` - 2 bytes which desribe the offset of the start of [body_box][bb] in bytes
 - `flags` - 1 byte where each bit describes which [extensions][e] are active (if any)
 - `header_extensions` - 13 bytes for configuration of [extensions][e]
@@ -87,7 +87,7 @@ The slots contents are defined by
 ```
 slot_content = xor(
   msg_key,
-  Derive(recipient_key, "key_slot;prev=" + external_nonce, 32)
+  Derive(recipient_key, "key_type:key_slot", 32)
 )
 ```
 
@@ -96,13 +96,6 @@ Where
 - `recipient_key` could be:
   - a private key for a group (symmetric key)
   - a double-ratchet derived key for an individual (this option requires more info in the `header_extensions` + [extensions][e])
-
-`external_nonce` is defined by inspecting the append only chain this message is extending (a.k.a. feed),
-and combining the id of the message prior to this one, along with the id for the feed:
-
-```
-external_nonce = hmac(previous_msg_id, feed_id) 
-```
 
 Note these slots have no HMAC. This is because if you successfully extract `msg_key` from one of
 these slots you can immediately confirm if you can decrypt the [header_box][hb], which has an HMAC,
@@ -142,7 +135,7 @@ The section which contains the plaintext which we've boxed.
 ```
    
 - `HMAC` - 16 bytes which allows authentication of the integrity of `body*`
-- `body*` - the **body** encrypted with `body_key` and `external_nonce`
+- `body*` - the **body** encrypted with `body_key` and a zerod nonce
 
 ## Unboxing algorithm
 
@@ -167,8 +160,10 @@ Once we have the `msg_key`, we can decrypt the [header_box][hb]. This reveals `o
 of the start of the [body_box][bb] in bytes. This allows us to proceed to decrypt the body of the original message.
 
 Futher detail:
-- different keys + nonces are used to decrypt [header_box][hb], [extensions][e], [body_box][bb], 
+- different keys are used to decrypt [header_box][hb], [extensions][e], [body_box][bb], 
 but they are all [derived deterministically from `msg_key`](#key-derivation)
+- they are all encrypted with "zerod nonces", as the keys used for each are absolutely specific
+to the context (context = `feed_id`, `prev_msg_id` and `msg_key`)
 
 ## Design
 
@@ -193,20 +188,25 @@ msg_key
         +---> TODO
 ```
 
-`Derive` is a function which ....
+Where Derive is a function defined:
 
-:warning: needs specification :warning:
-_question - is this a good example of hkdf-expand in js: https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer ?_
+```js
+var Derive = MakeDeriver(feed_id, prev_msg_id)
 
+function MakeDeriver (feed_id, prev_msg_id) {
+  return function (key, label, length) {
+    var data = [feed_id, previous_msg_id, label]
+    return HKDF.Expand(key, encode(data), length)
+  }
+}
 ```
-Derive(Secret, Label, Length) = HKDF-Expand(
-  Secret, 
-  Label,
-  Length
-)
-```
 
-Where HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
+and further:
+- `encode` is a shallow lenth-prefixed (SLP) encoding of an ordered list
+- `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
+  - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
+  - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
+
 
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
 When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
