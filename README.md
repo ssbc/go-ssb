@@ -196,15 +196,15 @@ var Derive = MakeDeriver(feed_id, prev_msg_id)
 
 function MakeDeriver (feed_id, prev_msg_id) {
   return function (key, label, length) {
-    var data = [feed_id, prev_msg_id, label]
-    return HKDF.Expand(key, encode(data), length)
+    var info = [feed_id, prev_msg_id, label]
+    return HKDF.Expand(key, encode(info), length)
   }
 }
 ```
 
 and further:
 - `feed_id` and `prev_msg_id` are encoded in standard binary format (TODO)
-- `encode` is a shallow lenth-prefixed (SLP) encoding of an ordered list
+- `encode` is a [shallow lenth-prefixed (SLP) encoding](./slp-encoding.md) of an ordered list
 - `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
   - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
   - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
