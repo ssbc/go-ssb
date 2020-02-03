@@ -1,0 +1,18 @@
+{
+  "type": "box",
+  "description": "box without external_nonce throws error",
+  "input": {
+    "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io",
+    "external_nonce": null,
+    "msg_key": "5fOdCfHNDZJand8nDb1p6qrMz01PX4orQm08Gi6IH+4=",
+    "recp_keys": [
+      "Mk84iLr6MosgHFpOY3c29wVnGq7MMLsr2MMbfU4iwBk=",
+      "uKFt4RrFs8NeoUvLclr6THC8eyQANstejTIJVA+PfcY=",
+      "+2p1jZAY7aPhdo+7yPw4fNjvTBDuGMM/Z05dCwGYS5k="
+    ]
+  },
+  "output": {
+    "ciphertext": null
+  },
+  "error_code": "boxEmptyExternalNonce"
+}

@@ -1,0 +1,16 @@
+{
+  "derive_secret_labels": {
+    "description": "labels used for the DeriveSecret function",
+    "read_key": "key_type:read_key",
+    "header_key": "key_type:header_key",
+    "body_key": "key_type:body_key",
+    "slot_key": "key_type:slot_key"
+  },
+  "error_codes": {
+    "boxEmptyPlainText": "box requires a non-empty plain_text",
+    "boxEmptyExternalNonce": "box requires non-empty external_nonce",
+    "boxZerodExternalNonce": "box received an external_nonce that was all zeros",
+    "boxZerodMsgKey": "box received a msg_key that was all zeros",
+    "unboxEmptyExternalNonce": "unbox requires a non-empty external_nonce"
+  }
+}

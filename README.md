@@ -7,6 +7,10 @@ Initially it will support communication for large groups which share a public ke
 (secret key cryptography / symmetric keys), but it has also been designed to support
 forward-secure secret-key cryptography (a little like Signal's double-ratchet).
 
+box2 assumes each message is part of append-only chain (with a unique `feed_id`), 
+made up of backlinked messages such that each message has a unique previous message with 
+a unique id (`prev_msg_id`)
+
 ## Anatomy
 
 After boxing, a complete box2 message looks like this:
@@ -70,7 +74,7 @@ Being able to decrypt this is required for being able to unbox the rest of the m
 ```
 
 - `HMAC` - 16 bytes which allows authentication of the integrity of `header*`
-- `header*` - the **header** encrypted with `hdr_key`, nonce ?? (derived from `msg_key`)
+- `header*` - the **header** encrypted with `header_key` + zerod nonce
 - `offset` - 2 bytes which desribe the offset of the start of [body_box][bb] in bytes
 - `flags` - 1 byte where each bit describes which [extensions][e] are active (if any)
 - `header_extensions` - 13 bytes for configuration of [extensions][e]
@@ -82,13 +86,17 @@ Each of these slots is like a 'safety deposit box' which contains a copy of the 
 
 The slots contents are defined by
 ```
-msg_key XOR recipient_key
+slot_content = xor(
+  msg_key,
+  Derive(recipient_key, "key_type:key_slot", 32)
+)
 ```
 
-A recipient_key could be:
-- a private key for a group (symmetric key)
-- a double-ratchet derived key for an individual
-  - this option requires more info in the `header_extensions` + [extensions][e]
+Where 
+- `Derive` is the same derivation function described in the [key derivation][kd] section
+- `recipient_key` could be:
+  - a private key for a group (symmetric key)
+  - a double-ratchet derived key for an individual (this option requires more info in the `header_extensions` + [extensions][e])
 
 Note these slots have no HMAC. This is because if you successfully extract `msg_key` from one of
 these slots you can immediately confirm if you can decrypt the [header_box][hb], which has an HMAC,
@@ -128,7 +136,7 @@ The section which contains the plaintext which we've boxed.
 ```
    
 - `HMAC` - 16 bytes which allows authentication of the integrity of `body*`
-- `body*` - the **body** encrypted with `box` and `box_nonce` (derived from `msg_key`) 
+- `body*` - the **body** encrypted with `body_key` and a zerod nonce
 
 ## Unboxing algorithm
 
@@ -153,8 +161,10 @@ Once we have the `msg_key`, we can decrypt the [header_box][hb]. This reveals `o
 of the start of the [body_box][bb] in bytes. This allows us to proceed to decrypt the body of the original message.
 
 Futher detail:
-- different keys + nonces are used to decrypt [header_box][hb], [extensions][e], [body_box][bb], 
+- different keys are used to decrypt [header_box][hb], [extensions][e], [body_box][bb], 
 but they are all [derived deterministically from `msg_key`](#key-derivation)
+- they are all encrypted with "zerod nonces", as the keys used for each are absolutely specific
+to the context (context = `feed_id`, `prev_msg_id` and `msg_key`)
 
 ## Design
 
@@ -163,45 +173,45 @@ but they are all [derived deterministically from `msg_key`](#key-derivation)
 
 ## Key derivation
 
-Keys (and some nonces) are derived from `msg_key` as follows 
+Keys are derived from `msg_key` as follows 
 
 ```
 msg_key
  |
- +---> msg_read_cap = Derive(msg_key, "read_cap", 256)
+ +---> read_key = Derive(msg_key, "key_type:read_key", 32)
  |      |
- |      +---> hdr_key = Derive(msg_read_cap, "header", 256)
+ |      +---> header_key = Derive(read_key, "key_type:header_key", 32)
  |      |
- |      +---> body_key = Derive(msg_read_cap, "body", 256)
- |             |
- |             +---> ??? = Derive(body_key, "box", 256)
- |             |
- |             +---> ??? = Derive(body_key, "box_nonce", 192)
+ |      +---> body_key = Derive(read_key, "key_type:body_key", 32)
  |
- +---> Derive(msg_key, "ext", 256)
+ +---> extensions = Derive(msg_key, "key_type:extentions", 32)
         |
         +---> TODO
 ```
 
-`Derive` is a function which ....
+Where Derive is a function defined:
 
-:warning: needs specification :warning:
-_question - is this a good example of hkdf-expand in js: https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer ?_
+```js
+var Derive = MakeDeriver(feed_id, prev_msg_id)
 
+function MakeDeriver (feed_id, prev_msg_id) {
+  return function (key, label, length) {
+    var info = [feed_id, prev_msg_id, label]
+    return HKDF.Expand(key, encode(info), length)
+  }
+}
 ```
-Derive(Secret, Label, Length) = HKDF-Expand(
-  Secret, 
-  {
-    "purpose": "box2",
-    "label": Label,
-    TODO more context?
-  },
-  Length
-)
-```
+
+and further:
+- `feed_id` and `prev_msg_id` are encoded in standard binary format (TODO)
+- `encode` is a [shallow lenth-prefixed (SLP) encoding](./slp-encoding.md) of an ordered list
+- `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
+  - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
+  - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
+
 
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
-When entrusting the message, instead of sharing the `msg_key` instead the `msg_read_cap` is shared.
+When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
 this gives access to header metadata and body but not ephemeral keys.
 
 ## Implementations
@@ -215,4 +225,5 @@ this gives access to header metadata and body but not ephemeral keys.
 [ks]: #key_slot_n
 [e]: #extensions
 [bb]: #body_box
+[kd]: #key-derivation
 
