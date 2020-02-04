@@ -6,11 +6,11 @@ The binary encoding of ids is defined as the concatenation of:
 
 ## Codes
 
- code | id type
-:----:|:---------:
- 0    | 'ed25519'
- 1    | 'sha256'
- 2    | .... some future type
+ code | format       | type |
+:----:|:------------:|:----:|
+ 0    | ed25519      | key  |
+ 1    | sha256       | feed |
+ 2    | sha256.gabby | feed |
 
 ## Examples
 
@@ -19,11 +19,11 @@ In scuttlebutt message ids are encoded like:
 ```
   %R8heq/tQoxEIPkWf0Kxn1nCm/CsxG2CDpUYnAvdbXY8=.sha256
   |└─────────────────────┬────────────────────┘ └─┬──┘
- sigil         base64 encoded value              type
+ sigil         base64 encoded value            feed format
 ```
 
 - `sigil` here is used to encode the context this is used in (`%` = this is a message)
-- `type` here is the hashing algorithm used to derive this message id
+- `feed format` here is the hashing algorithm used to derive this message id
 
 Here we would encode this in a Buffer as:
 
