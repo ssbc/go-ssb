@@ -1,10 +1,12 @@
-# Encoding for `feed_id` and `prev_msg_id`
+# Cipherlink type-prefixed encoding
+
+Used for encoding message and feed ids
 
 The binary encoding of ids is defined as the concatenation of:
 - the `code` for the type of id, as a UInt8
 - the `value` of the id
 
-## Codes
+## Scuttlebutt Codes
 
  code | format       | type |
 :----:|:------------:|:----:|
@@ -14,7 +16,7 @@ The binary encoding of ids is defined as the concatenation of:
 
 ## Examples
 
-In scuttlebutt message ids are encoded like:
+In scuttlebutt classic message ids are encoded :
 
 ```
   %R8heq/tQoxEIPkWf0Kxn1nCm/CsxG2CDpUYnAvdbXY8=.sha256
