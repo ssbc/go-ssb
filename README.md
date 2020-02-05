@@ -203,7 +203,7 @@ function MakeDeriver (feed_id, prev_msg_id) {
 ```
 
 and further:
-- `feed_id` and `prev_msg_id` are encoded in with [standard binary format](./id_encoding.md)
+- `feed_id` and `prev_msg_id` are encoded in with [standard binary format](./ctp_encoding.md)
 - `encode` is a [shallow lenth-prefixed (SLP) encoding](./slp_encoding.md) of an ordered list
 - `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
   - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
