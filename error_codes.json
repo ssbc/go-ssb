@@ -1,3 +1,4 @@
 {
-  "boxEmptyPlainText": "box requires a non-empty plain_text"
+  "boxEmptyPlainText": "box requires a non-empty plain_text",
+  "boxZerodMsgKey": "box requires a non-empty msg_key"
 }

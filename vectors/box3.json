@@ -1,18 +1,19 @@
 {
   "type": "box",
-  "description": "box without external_nonce throws error",
+  "description": "box with empty (zero filled) msg_key throws error",
   "input": {
     "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io",
-    "external_nonce": null,
-    "msg_key": "5fOdCfHNDZJand8nDb1p6qrMz01PX4orQm08Gi6IH+4=",
+    "feed_id": "AHs5xZNpBCDGrKOhD7Lz+SBq7zuAEjUoJ7cKCZAEc4Uq",
+    "prev_msg_id": "ATfy4aBEmg4hrEpNaRnGuVLaUi4Iysqh7Qq0Lt21iD5z",
+    "msg_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "recp_keys": [
-      "Mk84iLr6MosgHFpOY3c29wVnGq7MMLsr2MMbfU4iwBk=",
-      "uKFt4RrFs8NeoUvLclr6THC8eyQANstejTIJVA+PfcY=",
-      "+2p1jZAY7aPhdo+7yPw4fNjvTBDuGMM/Z05dCwGYS5k="
+      "xT1Wm2JYhb6+VcTymZq6yKncEKZ2312jnXKgZ99ikAA=",
+      "//d3vBRiOB0F4dF+AN3jqbwthCii4XGnfjIZx3+ToOc=",
+      "auosQLsq58XIa+WoRYoThKBdYAlHJb71c3y7JGaYKHs="
     ]
   },
   "output": {
     "ciphertext": null
   },
-  "error_code": "boxEmptyExternalNonce"
+  "error_code": "boxZerodMsgKey"
 }
