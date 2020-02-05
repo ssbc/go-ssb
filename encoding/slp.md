@@ -1,4 +1,6 @@
-# Encoding of the `info` Field in Derivations
+# Shallow Length-prefixed encoding
+
+Used for encoding of the `info` field in secret key derivations (see `DeriveSecret` function)
 
 The key derivation should include all information of the context of the derivation. This includes information that is valid only for this particular message, as well as the intended use of the key.
 

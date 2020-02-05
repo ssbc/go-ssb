@@ -93,7 +93,7 @@ slot_content = xor(
 ```
 
 Where 
-- `Derive` is the same derivation function described in the [key derivation][kd] section
+- `Derive` is the same derivation function defined [here](./derive_secret/README.md)
 - `recipient_key` could be:
   - a private key for a group (symmetric key)
   - a double-ratchet derived key for an individual (this option requires more info in the `header_extensions` + [extensions][e])
@@ -189,26 +189,7 @@ msg_key
         +---> TODO
 ```
 
-Where Derive is a function defined:
-
-```js
-var Derive = MakeDeriver(feed_id, prev_msg_id)
-
-function MakeDeriver (feed_id, prev_msg_id) {
-  return function (key, label, length) {
-    var info = [feed_id, prev_msg_id, label]
-    return HKDF.Expand(key, encode(info), length)
-  }
-}
-```
-
-and further:
-- `feed_id` and `prev_msg_id` are encoded in with [standard binary format](./ctp_encoding.md)
-- `encode` is a [shallow lenth-prefixed (SLP) encoding](./slp_encoding.md) of an ordered list
-- `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
-  - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
-  - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
-
+Where [the Derive function is defined here](./derive_secret/README.md)
 
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
 When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
