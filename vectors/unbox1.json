@@ -2,9 +2,10 @@
   "type": "unbox",
   "description": "unbox successfully",
   "input": {
-    "ciphertext": "ehMvfwqG7v6cxVYP5JhmQdGDf3Nex3qQvkY+qX7F539cQb6Wmfk+R0zWUlUR/K7FyafFFYUAs9ZaI+/xohYWMO5SKOc9D1tvfD9Bot/vL4v9bn7MFWnpT0wmogA/Xa/4CUTOlJqk4MBxKo0zUEtP2vqZgwe1TOn07lTTGdWUc2eeCzv9eAr3Ig==",
-    "external_nonce": "r9Jv8Hb1eznNjddkfJSwwQJ62Foc/wQ4",
-    "recipient_key": "00CrcTE1Xq2iFpzRat3Abjzlf5EsPNXu8LkivHmEP6Y="
+    "ciphertext": "M0C/VDFmI/9CPnt3O6FBSZ1jN0KG5CBED64Mik4YoXTj6exIzFQFjh+lnvvFqootpQnxI72LM7yFf5srsrrnFtvUj98CBR0GlFZpPZftKeMLyQwCzhdgDmUrFHjYTFVXBFO42hX5Hq/mb3CisPjwsVoNTa9UIMPfwEad9c0SnBC0maj6Z9r1FQ==",
+    "feed_id": "ALnkuKELOMuoV81WD5lJ9hZCuppofBL9oNrzgaeB8kHp",
+    "prev_msg_id": "AdpmFnm/hd6jHkhrnGcfm1QtGiyC9IudVTndeebssZxj",
+    "recipient_key": "CK9+tCMeOcT5TMerj4hsyizGw3VhS+9bFdSDpQOvexk="
   },
   "output": {
     "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io"

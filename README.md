@@ -88,12 +88,12 @@ The slots contents are defined by
 ```
 slot_content = xor(
   msg_key,
-  Derive(recipient_key, "key_type:key_slot", 32)
+  Derive(recipient_key, "slot_key", 32)
 )
 ```
 
 Where 
-- `Derive` is the same derivation function described in the [key derivation][kd] section
+- `Derive` is the same derivation function defined [here](./derive_secret/README.md)
 - `recipient_key` could be:
   - a private key for a group (symmetric key)
   - a double-ratchet derived key for an individual (this option requires more info in the `header_extensions` + [extensions][e])
@@ -143,6 +143,9 @@ The section which contains the plaintext which we've boxed.
 When you receive a box2 message, the only things you know are:
 - the length of the whole box (doesn't tell you much, as there may be padding)
 - where the key-slots start (because the [header_box][hb] is exactly 32 bytes)
+- where this message was posted (we call this it's "context", and the boxing is bound to this)
+  - which `feed_id` posted it
+  - what the `prev_msg_id` was (i.e. what was the message before it in this `feed_id`s chain?)
 
 So starting after the [header_box][hb] (32 bytes in), we lift out successive chunks of 32 bytes
 (the size of a [key_slot][ks]) chunks and try and decrypt them.
@@ -173,42 +176,23 @@ to the context (context = `feed_id`, `prev_msg_id` and `msg_key`)
 
 ## Key derivation
 
-Keys are derived from `msg_key` as follows 
+Keys are derived from `msg_key` as follows
 
 ```
 msg_key
- |
- +---> read_key = Derive(msg_key, "key_type:read_key", 32)
- |      |
- |      +---> header_key = Derive(read_key, "key_type:header_key", 32)
- |      |
- |      +---> body_key = Derive(read_key, "key_type:body_key", 32)
- |
- +---> extensions = Derive(msg_key, "key_type:extentions", 32)
-        |
-        +---> TODO
+  │
+  ├──> read_key = Derive(msg_key, "read_key", 32)
+  │      │
+  │      ├──> header_key = Derive(read_key, "header_key", 32)
+  │      │
+  │      └──> body_key = Derive(read_key, "body_key", 32)
+  │
+  └──> extensions = Derive(msg_key, "extentions", 32)
+         │
+         └──> TODO
 ```
 
-Where Derive is a function defined:
-
-```js
-var Derive = MakeDeriver(feed_id, prev_msg_id)
-
-function MakeDeriver (feed_id, prev_msg_id) {
-  return function (key, label, length) {
-    var info = [feed_id, prev_msg_id, label]
-    return HKDF.Expand(key, encode(info), length)
-  }
-}
-```
-
-and further:
-- `feed_id` and `prev_msg_id` are encoded in standard binary format (TODO)
-- `encode` is a [shallow lenth-prefixed (SLP) encoding](./slp-encoding.md) of an ordered list
-- `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
-  - HKDF-Expand uses `sha256` for hashing, a hash-length of 32 bytes, and the final Derived-Secret length is also 32 bytes.
-  - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
-
+Where [the Derive function is defined here](./derive_secret/README.md)
 
 `msg_key` is the symmetric key that is encrypted to each recipient or group.
 When entrusting the message, instead of sharing the `msg_key` instead the message `read_key` is shared.
@@ -216,8 +200,8 @@ this gives access to header metadata and body but not ephemeral keys.
 
 ## Implementations
 
-- https://github.com/cryptoscope/ssb/tree/private-groups/private/box2 (status: WIP)
-- https://github.com/ssbc/private-box2 (status: WIP)
+- Go: https://github.com/cryptoscope/ssb/tree/private-groups/private/box2
+- Node.js: https://github.com/ssbc/private-box2
 
 
 
