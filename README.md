@@ -88,7 +88,7 @@ The slots contents are defined by
 ```
 slot_content = xor(
   msg_key,
-  Derive(recipient_key, "key_type:key_slot", 32)
+  Derive(recipient_key, "slot_key", 32)
 )
 ```
 
@@ -143,6 +143,9 @@ The section which contains the plaintext which we've boxed.
 When you receive a box2 message, the only things you know are:
 - the length of the whole box (doesn't tell you much, as there may be padding)
 - where the key-slots start (because the [header_box][hb] is exactly 32 bytes)
+- where this message was posted (we call this it's "context", and the boxing is bound to this)
+  - which `feed_id` posted it
+  - what the `prev_msg_id` was (i.e. what was the message before it in this `feed_id`s chain?)
 
 So starting after the [header_box][hb] (32 bytes in), we lift out successive chunks of 32 bytes
 (the size of a [key_slot][ks]) chunks and try and decrypt them.
@@ -178,13 +181,13 @@ Keys are derived from `msg_key` as follows
 ```
 msg_key
  |
- +---> read_key = Derive(msg_key, "key_type:read_key", 32)
+ +---> read_key = Derive(msg_key, "read_key", 32)
  |      |
- |      +---> header_key = Derive(read_key, "key_type:header_key", 32)
+ |      +---> header_key = Derive(read_key, "header_key", 32)
  |      |
- |      +---> body_key = Derive(read_key, "key_type:body_key", 32)
+ |      +---> body_key = Derive(read_key, "body_key", 32)
  |
- +---> extensions = Derive(msg_key, "key_type:extentions", 32)
+ +---> extensions = Derive(msg_key, "extentions", 32)
         |
         +---> TODO
 ```

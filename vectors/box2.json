@@ -3,13 +3,13 @@
   "description": "cannot box an empty plain_text buffer / string",
   "input": {
     "plain_text": "",
-    "feed_id": "ABusa5t9UyD5iggvA9y+04nwqTn2sSIXG63Sl0btDdZ2",
-    "prev_msg_id": "AX0Cbx0GA5EeHouNjhu6esCxdnbsqv6Byei6A6s5Atkv",
-    "msg_key": "qZRtAMNjPZw89yjeeeVjqCjDE4q7oec4gtqK6iYzFFs=",
+    "feed_id": "AKCsREBElcS10XX/iYEuwq3cETdlk6WIaEzbVXpQk9pG",
+    "prev_msg_id": "AT/BZN70BDGfbNKgk4TL2qa2AfKpdcgXRvijF3c0GP0f",
+    "msg_key": "eINDgbJcqj2kXZY9PzxX//r4UM4Frvlr6l1RtSdtNpo=",
     "recp_keys": [
-      "52DwN5mjZKdBoxdT/2DXmIPkedjFTHddQuYdqr6QUeo=",
-      "ildAiVMTRfW3GmIooQt5cI+XyS9oUxhajCMr3QfC9dQ=",
-      "lm1CRTwkM7kNN87+JmayVDCbjMa3SxugymtSaCaADqY="
+      "omn6Q7EOxbmvevvhf4g9qYx89eiZ6c+kI9dRyU6bgk4=",
+      "XDVWf3PalJhPLC+tQYUgHyHpIyQ+cBZkiQW3pXGtbiU=",
+      "v4G7Hrw6ORiHUjgTmMJbp7IMAOLMPh67/6jKEQDyvxw="
     ]
   },
   "output": {

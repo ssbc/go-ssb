@@ -1,4 +1,4 @@
-# Cipherlink type-prefixed encoding
+# type-format-key encoding
 
 Used for encoding message and feed ids
 

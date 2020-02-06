@@ -4,13 +4,16 @@ Aa function for deriving new secrets from an initial secret.
 It's defined as:
 
 ```js
-function Derive (key, label, length) {
-  var info = [feed_id, prev_msg_id, label]
+function Derive (key, labels, length) {
+  var info = ['box2', feed_id, prev_msg_id].concat(labels)
+
   return HKDF.Expand(key, encode(info), length)
 }
 ```
 
-- `feed_id` and `prev_msg_id` are encoded in with [standard binary format](../encoding/ctp.md)
+- `key` is a cryptographic key you're deriving from
+- `labels` is an Array of strings
+- `feed_id` and `prev_msg_id` are encoded in with the binary [type-format-key (TFK) encoding](../encoding/tfk.md)
 - `HKDF.Expand` is a hmac-like function which is specifically designed to generate random buffers of a given length.
   - we specify `sha256` for hashing in HKDF-Expand 
   - example of a node.js implementation : [futoin-hkdf](https://www.npmjs.com/package/futoin-hkdf#hkdfexpandhash-hash_len-prk-length-info-%E2%87%92-buffer)
