@@ -176,20 +176,20 @@ to the context (context = `feed_id`, `prev_msg_id` and `msg_key`)
 
 ## Key derivation
 
-Keys are derived from `msg_key` as follows 
+Keys are derived from `msg_key` as follows
 
 ```
 msg_key
- |
- +---> read_key = Derive(msg_key, "read_key", 32)
- |      |
- |      +---> header_key = Derive(read_key, "header_key", 32)
- |      |
- |      +---> body_key = Derive(read_key, "body_key", 32)
- |
- +---> extensions = Derive(msg_key, "extentions", 32)
-        |
-        +---> TODO
+  │
+  ├──> read_key = Derive(msg_key, "read_key", 32)
+  │      │
+  │      ├──> header_key = Derive(read_key, "header_key", 32)
+  │      │
+  │      └──> body_key = Derive(read_key, "body_key", 32)
+  │
+  └──> extensions = Derive(msg_key, "extentions", 32)
+         │
+         └──> TODO
 ```
 
 Where [the Derive function is defined here](./derive_secret/README.md)
@@ -200,8 +200,8 @@ this gives access to header metadata and body but not ephemeral keys.
 
 ## Implementations
 
-- https://github.com/cryptoscope/ssb/tree/private-groups/private/box2 (status: WIP)
-- https://github.com/ssbc/private-box2 (status: WIP)
+- Go: https://github.com/cryptoscope/ssb/tree/private-groups/private/box2
+- Node.js: https://github.com/ssbc/private-box2
 
 
 
