@@ -1,0 +1,7 @@
+{
+  "description": "labels used for the Derive Secret function",
+  "read_key": "read_key",
+  "header_key": "header_key",
+  "body_key": "body_key",
+  "slot_key": "slot_key"
+}

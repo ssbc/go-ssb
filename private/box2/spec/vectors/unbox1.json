@@ -1,0 +1,14 @@
+{
+  "type": "unbox",
+  "description": "unbox successfully",
+  "input": {
+    "ciphertext": "M0C/VDFmI/9CPnt3O6FBSZ1jN0KG5CBED64Mik4YoXTj6exIzFQFjh+lnvvFqootpQnxI72LM7yFf5srsrrnFtvUj98CBR0GlFZpPZftKeMLyQwCzhdgDmUrFHjYTFVXBFO42hX5Hq/mb3CisPjwsVoNTa9UIMPfwEad9c0SnBC0maj6Z9r1FQ==",
+    "feed_id": "ALnkuKELOMuoV81WD5lJ9hZCuppofBL9oNrzgaeB8kHp",
+    "prev_msg_id": "AdpmFnm/hd6jHkhrnGcfm1QtGiyC9IudVTndeebssZxj",
+    "recipient_key": "CK9+tCMeOcT5TMerj4hsyizGw3VhS+9bFdSDpQOvexk="
+  },
+  "output": {
+    "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io"
+  },
+  "error_code": null
+}

@@ -1,0 +1,19 @@
+{
+  "type": "box",
+  "description": "box with empty (zero filled) msg_key throws error",
+  "input": {
+    "plain_text": "c3F1ZWFtaXNoIG9zc2lmcmFnZSDwn5io",
+    "feed_id": "AMYrDbKa0JBC6J1x/be+nB7MSE2dVG8sAlOYqdoePjP5",
+    "prev_msg_id": "AQQYBONDHWZRqgc2RVm1BIg01G8Ejtj8Q0CNBWaB0H4T",
+    "msg_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "recp_keys": [
+      "daXUM7XNjyRBkTlqgzyW4EfYGZbEaXpUDANPd7sJqDc=",
+      "uc015gxf015nPsnb243ouBsZUl/8s8ckCkRSp+8M4sI=",
+      "zA6SyRNcZwx6K9jD05A/1QET7vEjBl6I8pJbB7EWmog="
+    ]
+  },
+  "output": {
+    "ciphertext": null
+  },
+  "error_code": "boxZerodMsgKey"
+}

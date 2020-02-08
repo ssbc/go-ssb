@@ -1,0 +1,17 @@
+{
+  "name": "box2-spec",
+  "version": "0.0.1",
+  "description": "specification for box2 encryption",
+  "homepage": "https://github.com/ssbc/box2-spec#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ssbc/box2-spec.git"
+  },
+  "keywords": [
+    "box2",
+    "scuttlebutt",
+    "cryptography"
+  ],
+  "author": "mixmix",
+  "license": "AGPL-3.0"
+}

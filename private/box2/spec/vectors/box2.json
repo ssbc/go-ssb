@@ -1,0 +1,19 @@
+{
+  "type": "box",
+  "description": "cannot box an empty plain_text buffer / string",
+  "input": {
+    "plain_text": "",
+    "feed_id": "AKCsREBElcS10XX/iYEuwq3cETdlk6WIaEzbVXpQk9pG",
+    "prev_msg_id": "AT/BZN70BDGfbNKgk4TL2qa2AfKpdcgXRvijF3c0GP0f",
+    "msg_key": "eINDgbJcqj2kXZY9PzxX//r4UM4Frvlr6l1RtSdtNpo=",
+    "recp_keys": [
+      "omn6Q7EOxbmvevvhf4g9qYx89eiZ6c+kI9dRyU6bgk4=",
+      "XDVWf3PalJhPLC+tQYUgHyHpIyQ+cBZkiQW3pXGtbiU=",
+      "v4G7Hrw6ORiHUjgTmMJbp7IMAOLMPh67/6jKEQDyvxw="
+    ]
+  },
+  "output": {
+    "ciphertext": null
+  },
+  "error_code": "boxEmptyPlainText"
+}
