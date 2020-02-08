@@ -6,13 +6,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/keys"
 )
+
+func seq(start, end int) []byte {
+	out := make([]byte, end-start)
+	for i := range out {
+		out[i] = byte(i + start)
+	}
+	return out
+}
 
 func TestBoxer(t *testing.T) {
 	bxr := &Boxer{rand: rand.New(rand.NewSource(161))}
 
-	buf := make([]byte, 4096)
 	key := make(keys.Key, KeySize)
 	key2 := make(keys.Key, KeySize)
 
@@ -20,18 +28,24 @@ func TestBoxer(t *testing.T) {
 	bxr.rand.Read(key2)
 
 	phrase := "squeamish ossifrage"
+	author := &ssb.FeedRef{
+		ID:   seq(0, 32),
+		Algo: "ed25519",
+	}
 
-	msg, err := bxr.Encrypt(buf, []byte(phrase), nil, keys.Keys{key, key2})
+	prev := &ssb.MessageRef{
+		Hash: seq(32, 64),
+		Algo: "sha256",
+	}
+
+	ctxt, err := bxr.Encrypt(nil, []byte(phrase), author, prev, keys.Keys{key, key2})
 	require.NoError(t, err, "encrypt")
 
-	ctxt := make([]byte, len(msg.Raw))
-	copy(ctxt, msg.Raw)
-
-	plain, err := bxr.Decrypt(buf, ctxt, nil, keys.Keys{key})
+	plain, err := bxr.Decrypt(nil, ctxt, author, prev, keys.Keys{key})
 	require.NoError(t, err, "decrypt")
 	require.Equal(t, phrase, string(plain), "wrong words")
 
-	plain, err = bxr.Decrypt(buf, ctxt, nil, keys.Keys{key2})
+	plain, err = bxr.Decrypt(nil, ctxt, author, prev, keys.Keys{key2})
 	require.NoError(t, err, "decrypt")
 	require.Equal(t, phrase, string(plain), "wrong words")
 }
