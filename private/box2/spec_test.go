@@ -8,11 +8,55 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/keys"
 )
+
+func TestSpec(t *testing.T) {
+	dir, err := os.Open(filepath.Join("spec", "vectors"))
+	require.NoError(t, err, "open vectors dir")
+
+	ls, err := dir.Readdir(0)
+	require.NoError(t, err, "list vectors dir")
+
+	for _, fi := range ls {
+		if !strings.HasSuffix(fi.Name(), ".json") {
+			continue
+		}
+
+		f, err := os.Open(filepath.Join("spec", "vectors", fi.Name()))
+		require.NoError(t, err, "open vector json file")
+
+		t.Log(f.Name())
+
+		var spec genericSpecTest
+		err = json.NewDecoder(f).Decode(&spec)
+		require.NoError(t, err, "json parse error")
+
+		f.Seek(0, 0)
+
+		switch spec.Type {
+		case "box":
+			var spec boxSpecTest
+			err = json.NewDecoder(f).Decode(&spec)
+			require.NoError(t, err, "json parse error")
+			t.Run(spec.Description, spec.Test)
+		case "unbox":
+			var spec unboxSpecTest
+			err = json.NewDecoder(f).Decode(&spec)
+			require.NoError(t, err, "json parse error")
+			t.Run(spec.Description, spec.Test)
+		case "derive_secret":
+			var spec deriveSecretSpecTest
+			err = json.NewDecoder(f).Decode(&spec)
+			require.NoError(t, err, "json parse error")
+			t.Run(spec.Description, spec.Test)
+		default:
+			t.Logf("no test code for type %q, skipping: %s", spec.Type, spec.Description)
+		}
+	}
+}
 
 type specTestHeader struct {
 	Type        string `json:"type"`
@@ -35,21 +79,19 @@ type boxSpecTest struct {
 }
 
 type boxSpecTestInput struct {
-	PlainText     []byte          `json:"plain_text"`
-	ExternalNonce []byte          `json:"external_nonce"`
-	FeedID        *ssb.FeedRef    `json:"feed_id"`
-	PrevMsgID     *ssb.MessageRef `json:"prev_msg_id"`
-	MsgKey        []byte          `json:"msg_key"`
-	RecpKeys      [][]byte        `json:"recp_keys"`
+	PlainText []byte          `json:"plain_text"`
+	FeedID    *ssb.FeedRef    `json:"feed_id"`
+	PrevMsgID *ssb.MessageRef `json:"prev_msg_id"`
+	MsgKey    []byte          `json:"msg_key"`
+	RecpKeys  [][]byte        `json:"recp_keys"`
 }
 
 type boxSpecTestOutput struct {
 	Ciphertext []byte `json:"ciphertext"`
-	ErrorCode  string
 }
 
 func (bt boxSpecTest) Test(t *testing.T) {
-	spew.Dump(bt)
+	//spew.Dump(bt)
 	rand := bytes.NewBuffer([]byte(bt.Input.MsgKey))
 	bxr := NewBoxer(rand)
 
@@ -70,65 +112,68 @@ func (bt boxSpecTest) Test(t *testing.T) {
 	require.Equal(t, bt.Output.Ciphertext, out)
 }
 
-/*
+type unboxSpecTest struct {
+	genericSpecTest
 
-type testable interface {
-	Test(t *testing.T)
+	Input  unboxSpecTestInput  `json:"input"`
+	Output unboxSpecTestOutput `json:"output"`
 }
 
-type parseTestFunc func(genericSpecTest) (testable, error)
-
-func boxTestParse(st genericSpecTest) (testable, error) {
-	var bt = boxSpecTest{
-		genericSpecTest: st,
-	}
-
-	err := json.Unmarshal(st.Input, &bt.Input)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(st.Output, &bt.Output)
-	if err != nil {
-		return nil, err
-	}
-
-	return bt, nil
+type unboxSpecTestInput struct {
+	Ciphertext []byte          `json:"ciphertext"`
+	FeedID     *ssb.FeedRef    `json:"feed_id"`
+	PrevMsgID  *ssb.MessageRef `json:"prev_msg_id"`
+	RecpKey    []byte          `json:"recipient_key"`
 }
 
+type unboxSpecTestOutput struct {
+	Plaintext []byte `json:"plain_text"`
+}
 
-*/
+func (ut unboxSpecTest) Test(t *testing.T) {
+	//spew.Dump(bt)
+	bxr := NewBoxer(nil)
 
-func TestSpec(t *testing.T) {
-	dir, err := os.Open(filepath.Join("spec", "vectors"))
-	require.NoError(t, err, "open vectors dir")
+	out, _ := bxr.Decrypt(
+		nil,
+		ut.Input.Ciphertext,
+		ut.Input.FeedID,
+		ut.Input.PrevMsgID,
+		keys.Keys{ut.Input.RecpKey},
+	)
 
-	ls, err := dir.Readdir(0)
-	require.NoError(t, err, "list vectors dir")
+	require.Equal(t, ut.Output.Plaintext, out)
+}
 
-	for _, fi := range ls {
-		if !strings.HasSuffix(fi.Name(), ".json") {
-			continue
-		}
+type deriveSecretSpecTest struct {
+	genericSpecTest
 
-		if !strings.HasPrefix(fi.Name(), "box") {
-			continue
-		}
+	Input  deriveSecretSpecTestInput  `json:"input"`
+	Output deriveSecretSpecTestOutput `json:"output"`
+}
 
-		var spec boxSpecTest
+type deriveSecretSpecTestInput struct {
+	FeedID    *ssb.FeedRef    `json:"feed_id"`
+	PrevMsgID *ssb.MessageRef `json:"prev_msg_id"`
+	MsgKey    []byte          `json:"msg_key"`
+}
 
-		f, err := os.Open(filepath.Join("spec", "vectors", fi.Name()))
-		require.NoError(t, err, "open vector json file")
+type deriveSecretSpecTestOutput struct {
+	ReadKey   []byte `json:"read_key"`
+	HeaderKey []byte `json:"header_key"`
+	BodyKey   []byte `json:"body_key"`
+}
 
-		t.Log(f.Name())
+func (dt deriveSecretSpecTest) Test(t *testing.T) {
+	info := makeInfo(dt.Input.FeedID, dt.Input.PrevMsgID)
 
-		err = json.NewDecoder(f).Decode(&spec)
-		require.NoError(t, err, "json parse error")
+	var readKey, headerKey, bodyKey [32]byte
 
-		if spec.Type != "box" {
-			continue
-		}
+	deriveTo(readKey[:], dt.Input.MsgKey, info([]byte("read_key"))...)
+	deriveTo(headerKey[:], readKey[:], info([]byte("read_key"))...)
+	deriveTo(bodyKey[:], readKey[:], info([]byte("read_key"))...)
 
-		t.Run(spec.Description, spec.Test)
-	}
+	require.Equal(t, dt.Output.ReadKey, readKey)
+	require.Equal(t, dt.Output.HeaderKey, headerKey)
+	require.Equal(t, dt.Output.BodyKey, bodyKey)
 }
