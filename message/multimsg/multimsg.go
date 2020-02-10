@@ -83,6 +83,7 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		if err != nil {
 			return errors.Wrap(err, "multiMessage: legacy decoding failed")
 		}
+		mm.received = msg.Timestamp_
 		mm.Message = &msg
 		mm.key = msg.Key_
 	case Gabby:

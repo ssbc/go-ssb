@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"io"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
@@ -23,21 +22,6 @@ type DeserializedMessage struct {
 	Timestamp float64          `json:"timestamp"`
 	Hash      string           `json:"hash"`
 	Content   json.RawMessage  `json:"content"`
-}
-
-func (dm DeserializedMessage) AsMessage() ssb.Message {
-	raw, err := json.Marshal(dm)
-	if err != nil {
-		panic(err)
-	}
-
-	return StoredMessage{
-		Previous_:  dm.Previous,
-		Author_:    &dm.Author,
-		Sequence_:  dm.Sequence,
-		Timestamp_: time.Unix(int64(dm.Timestamp/1000.0), 0),
-		Raw_:       raw,
-	}
 }
 
 type LegacyMessage struct {

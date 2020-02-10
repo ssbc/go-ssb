@@ -21,10 +21,18 @@ type AlterableLog interface {
 }
 
 func NewWrappedLog(in AlterableLog) *WrappedLog {
-	return &WrappedLog{AlterableLog: in}
+	return &WrappedLog{
+		AlterableLog: in,
+		receivedNow:  time.Now,
+	}
 }
 
-type WrappedLog struct{ AlterableLog }
+type WrappedLog struct {
+	AlterableLog
+
+	// overwriteable for testing
+	receivedNow func() time.Time
+}
 
 func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 	if mm, ok := val.(*MultiMessage); ok {
@@ -52,14 +60,16 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 	}
 
 	mm.key = abs.Key()
-	mm.received = time.Now()
+
 	switch tv := val.(type) {
 	case *legacy.StoredMessage:
 		mm.tipe = Legacy
 		mm.Message = tv
+		tv.Timestamp_ = wl.receivedNow()
 	case *gabbygrove.Transfer:
 		mm.tipe = Gabby
 		mm.Message = tv
+		mm.received = wl.receivedNow()
 	default:
 		return margaret.SeqEmpty, errors.Errorf("wrappedLog: unsupported message type: %T", val)
 	}

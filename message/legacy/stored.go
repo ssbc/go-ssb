@@ -41,6 +41,8 @@ type StoredMessage struct {
 	Sequence_  margaret.BaseSeq
 	Timestamp_ time.Time
 	Raw_       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
+
+	// TODO: consider lazy decoding approach from gabbygrove to reduce storage overhead
 }
 
 // could use this to unexport fields, would require lots of constructors though
@@ -120,9 +122,4 @@ func (sm StoredMessage) ValueContent() *ssb.Value {
 
 func (sm StoredMessage) ValueContentJSON() json.RawMessage {
 	return sm.Raw_
-	// jsonB, err := json.Marshal(sm.ValueContent())
-	// if err != nil {
-	// 	panic(err.Error())
-	// }
-	// return jsonB
 }
