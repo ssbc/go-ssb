@@ -329,6 +329,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
 
+	mh := namedPlugin{
+		h:    manifestHandler(manifestBlob),
+		name: "manifest"}
+	s.master.Register(mh)
+
 	// tcp+shs
 	opts := network.Options{
 		Logger:              s.info,
