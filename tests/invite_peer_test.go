@@ -28,11 +28,11 @@ import (
 // first js creates an invite
 // go will play introducer node
 // second js peer will try to use/redeem the invite
-func XTestInviteJSCreate(t *testing.T) {
+func XTestPeerInviteJSCreate(t *testing.T) {
 
 	r := require.New(t)
 
-	os.Remove("invite.json")
+	os.Remove("peer_invite.txt")
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
@@ -71,7 +71,7 @@ func XTestInviteJSCreate(t *testing.T) {
 				t.error(err)
 				
 				var fs = require('fs')
-				fs.writeFile('invite.txt', invite, (err) => {  
+				fs.writeFile('peer_invite.txt', invite, (err) => {  
 					t.error(err)
 					
 					t.comment('ssb-js: invite saved!');
@@ -98,7 +98,7 @@ func XTestInviteJSCreate(t *testing.T) {
 
 	// prelim check of invite
 
-	invite, err := ioutil.ReadFile("invite.txt")
+	invite, err := ioutil.ReadFile("peer_invite.txt")
 	r.NoError(err)
 	r.True(bytes.HasPrefix(invite, []byte("inv:")))
 	t.Log(string(invite))

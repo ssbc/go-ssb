@@ -16,6 +16,7 @@ const createSbot = require('ssb-server')
   .use(require('ssb-device-address'))
   .use(require('ssb-identities'))
   .use(require('ssb-peer-invites'))
+  .use(require('ssb-invite'))
 
 const testName = process.env.TEST_NAME
 const testBob = process.env.TEST_BOB
@@ -64,6 +65,7 @@ tape(testName, function (t) {
   const tempRepo = Path.join('testrun', testName)
   const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const opts = {
+    allowPrivate: true,
     path: tempRepo,
     keys: keys
   }
