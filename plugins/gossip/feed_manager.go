@@ -251,7 +251,7 @@ func (m *FeedManager) CreateStreamHistory(
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
 		if sent > 0 {
-			level.Debug(m.logger).Log("event", "gossiptx", "n", sent, "fr", arg.ID.Ref()[1:5])
+			level.Debug(m.logger).Log("event", "gossiptx", "n", sent, "fr", arg.ID.ShortRef())
 		}
 	}
 	if errors.Cause(err) == context.Canceled {

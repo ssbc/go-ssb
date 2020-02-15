@@ -104,7 +104,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
 		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-		// 	return debug.WrapConn(log.With(info, "remote", fr.Ref()[1:5]), conn), err
+		// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
 		// }),
 	}, sbotOpts...)
 

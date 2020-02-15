@@ -115,7 +115,7 @@ type streamDrain struct {
 func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 	next, err := ld.verify.Verify(v)
 	if err != nil {
-		return errors.Wrapf(err, "muxDrain(%s:%d)", ld.who.Ref(), ld.latestSeq.Seq())
+		return errors.Wrapf(err, "muxDrain(%s:%d) verify failed", ld.who.ShortRef(), ld.latestSeq.Seq())
 	}
 
 	err = ValidateNext(ld.latestMsg, next)
@@ -125,7 +125,7 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 
 	err = ld.storage.Pour(ctx, next)
 	if err != nil {
-		return errors.Wrapf(err, "muxDrain(%s): failed to append message(%s:%d)", ld.who.Ref(), next.Key().Ref(), next.Seq())
+		return errors.Wrapf(err, "muxDrain(%s): failed to append message(%s:%d)", ld.who.ShortRef(), next.Key().Ref(), next.Seq())
 	}
 
 	ld.latestSeq = margaret.BaseSeq(next.Seq())
@@ -143,7 +143,7 @@ func ValidateNext(current, next ssb.Message) error {
 		author := current.Author()
 
 		if !author.Equal(next.Author()) {
-			return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.Ref(), current.Seq(), next.Author().Ref())
+			return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
 		}
 
 		if bytes.Compare(current.Key().Hash, next.Previous().Hash) != 0 {
@@ -155,12 +155,13 @@ func ValidateNext(current, next ssb.Message) error {
 			)
 		}
 		if current.Seq()+1 != next.Seq() {
-			return errors.Errorf("ValidateNext(%s:%d): next.seq != curr.seq+1", author.Ref(), current.Seq())
+			return errors.Errorf("ValidateNext(%s:%d): next.seq != curr.seq+1", author.ShortRef(), current.Seq())
 		}
 
 	} else { // first message
-		if next.Seq() != 1 {
-			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1", next.Author().Ref(), next.Seq())
+		nextSeq := next.Seq()
+		if nextSeq != 1 {
+			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1", next.Author().ShortRef(), nextSeq)
 		}
 	}
 

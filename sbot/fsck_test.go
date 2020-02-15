@@ -204,7 +204,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 		seq, err := theBot.RootLog.Append(v)
 		r.NoError(err)
-		t.Log("doubled:", msg.Author().Ref()[1:5], seq.Seq())
+		t.Log("doubled:", msg.Author().ShortRef(), seq.Seq())
 	}
 
 	err = theBot.FSCK(nil, FSCKModeLength)

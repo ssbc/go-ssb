@@ -151,7 +151,7 @@ type wantManager struct {
 }
 
 func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *ssb.BlobRef) error {
-	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.Ref(), "remote", edp.Remote().String())
+	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
 	src, err := edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
@@ -173,11 +173,11 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	if !newBr.Equal(ref) {
 		// TODO: make this a type of error?
 		wmgr.bs.Delete(newBr)
-		level.Warn(log).Log("msg", "removed after missmatch", "want", ref.Ref())
-		return errors.Errorf("blob inconsitency(or size limit) - actualRef(%s) expectedRef(%s)", newBr.Ref(), ref.Ref())
+		level.Warn(log).Log("msg", "removed after missmatch", "want", ref.ShortRef())
+		return errors.New("blobs: inconsitency(or size limit)")
 	}
 	sz, _ := wmgr.bs.Size(newBr)
-	level.Info(log).Log("msg", "stored", "ref", ref.Ref(), "sz", sz)
+	level.Info(log).Log("msg", "stored", "ref", ref.ShortRef(), "sz", sz)
 	return nil
 }
 
@@ -250,7 +250,7 @@ func (wmgr *wantManager) Want(ref *ssb.BlobRef) error {
 }
 
 func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
-	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.Ref(), "dist", dist)
+	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.ShortRef(), "dist", dist)
 	dbg = level.Debug(dbg)
 	_, err := wmgr.bs.Size(ref)
 	if err == nil {
@@ -301,7 +301,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 
 	var remote = "unknown"
 	if r, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
-		remote = r.Ref()[1:5]
+		remote = r.ShortRef()
 	}
 	proc.info = log.With(proc.wmgr.info, "remote", remote)
 
@@ -368,7 +368,7 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 		level.Error(proc.info).Log("warning", "invalid type", "err", err)
 		return err
 	}
-	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.Ref())
+	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
@@ -406,7 +406,7 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 		err := errors.Errorf("wrong type: %T", v)
 		return err
 	}
-	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.Ref()[1:6], "dist", w.Dist)
+	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortRef(), "dist", w.Dist)
 
 	if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
 		return nil
@@ -481,7 +481,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
 				if uint(w.Dist) > proc.wmgr.maxSize {
-					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.Ref(), "diff", uint(w.Dist)-proc.wmgr.maxSize)
+					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.ShortRef(), "diff", uint(w.Dist)-proc.wmgr.maxSize)
 					proc.wmgr.l.Lock()
 					delete(proc.wmgr.wants, w.Ref.Ref())
 					proc.wmgr.l.Unlock()

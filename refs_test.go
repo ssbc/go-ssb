@@ -71,6 +71,7 @@ func TestParseRef(t *testing.T) {
 			if !input || !want {
 				goon.Dump(r)
 			}
+			t.Log(i, r.ShortRef())
 		} else {
 			a.EqualError(errors.Cause(err), tc.err.Error(), "%d wrong error", i)
 		}
