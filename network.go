@@ -30,7 +30,6 @@ type Network interface {
 	GetConnTracker() ConnTracker
 
 	io.Closer
-	Closed() bool
 }
 
 type ConnTracker interface {

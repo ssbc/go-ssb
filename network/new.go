@@ -60,8 +60,6 @@ type node struct {
 
 	log log.Logger
 
-	closed   bool
-	closedMu sync.RWMutex
 	lisClose sync.Once
 
 	dialer        netwrap.Dialer
@@ -227,14 +225,6 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 
 func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
 	// TODO: overhaul events and logging levels
-	n.closedMu.RLock()
-	defer n.closedMu.RUnlock()
-	if n.closed {
-		origConn.Close()
-		level.Warn(n.log).Log("conn", "ignored", "msg", "network closed")
-		return
-	}
-
 	conn, err := n.applyConnWrappers(origConn)
 	if err != nil {
 		origConn.Close()
@@ -303,15 +293,14 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(n.opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
 	var err error
-	n.closedMu.Lock()
+
 	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
 	if err != nil {
-		n.closedMu.Unlock()
+
 		return errors.Wrap(err, "error creating listener")
 	}
 	n.lisClose = sync.Once{} // reset once
 	close(n.listening)
-	n.closedMu.Unlock()
 
 	defer func() {
 		n.lisClose.Do(func() {
@@ -376,13 +365,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				}
 				continue
 			}
-			n.closedMu.RLock()
-			isClosed := n.closed
-			n.closedMu.RUnlock()
-			if isClosed {
-				// TODO: cancel context?!
-				return
-			}
+
 			newConn <- conn
 		}
 	}()
@@ -402,12 +385,11 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 }
 
 func (n *node) Connect(ctx context.Context, addr net.Addr) error {
-	n.closedMu.RLock()
-	defer n.closedMu.RUnlock()
-	if n.closed {
-		return errors.New("network: node closed")
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
-
 	shsAddr := netwrap.GetAddr(addr, "shs-bs")
 	if shsAddr == nil {
 		return errors.New("node/connect: expected an address containing an shs-bs addr")
@@ -455,16 +437,7 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	return conn, nil
 }
 
-func (n *node) Closed() bool {
-	n.closedMu.RLock()
-	isClosed := n.closed
-	n.closedMu.RUnlock()
-	return isClosed
-}
-
 func (n *node) Close() error {
-	n.closedMu.Lock()
-	defer n.closedMu.Unlock()
 	if n.localDiscovTx != nil {
 		n.localDiscovTx.Stop()
 	}
@@ -491,7 +464,6 @@ func (n *node) Close() error {
 		n.log.Log("event", "warning", "msg", "still open connections", "count", cnt)
 		n.connTracker.CloseAll()
 	}
-	n.closed = true
 
 	return nil
 }

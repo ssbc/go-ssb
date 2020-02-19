@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -26,9 +26,15 @@ func TestFeedsGabbySync(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 	// a := assert.New(t)
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.TODO())
 
-	os.RemoveAll("testrun")
+	botgroup, ctx := errgroup.WithContext(ctx)
+
+	info := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, info)
+
+	tPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tPath)
 
 	appKey := make([]byte, 32)
 	rand.Read(appKey)
@@ -46,14 +52,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	)
 	r.NoError(err)
 
-	var aliErrc = make(chan error, 1)
-	go func() {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
-		}
-		close(aliErrc)
-	}()
+	botgroup.Go(bs.Serve(ali))
 
 	// bob is the one with the other feed format
 	bobsKey, err := ssb.NewKeyPair(nil)
@@ -71,14 +70,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	)
 	r.NoError(err)
 
-	var bobErrc = make(chan error, 1)
-	go func() {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			bobErrc <- errors.Wrap(err, "bob serve exited")
-		}
-		close(bobErrc)
-	}()
+	botgroup.Go(bs.Serve(bob))
 
 	// be friends
 	seq, err := ali.PublishLog.Append(ssb.Contact{
@@ -150,11 +142,13 @@ func TestFeedsGabbySync(t *testing.T) {
 		// a.True(msg.Author.ProtoChain)
 		// a.NotEmpty(msg.ProtoChain)
 	}
+	cancel()
 
 	ali.Shutdown()
 	bob.Shutdown()
+	time.Sleep(1 * time.Second)
 	r.NoError(ali.Close())
 	r.NoError(bob.Close())
 
-	r.NoError(<-testutils.MergeErrorChans(aliErrc, bobErrc))
+	r.NoError(botgroup.Wait())
 }

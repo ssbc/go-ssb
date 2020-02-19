@@ -194,10 +194,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.closedMu.Lock()
 		defer s.closedMu.Unlock()
 
-		if s.Network.Closed() {
-			conn.Close()
-			return nil, errors.New("sbot: network closed")
-		}
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
