@@ -59,9 +59,12 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 
 	switch req.Method.String() {
 
+	case "ctrl.disconnect":
+		h.node.GetConnTracker().CloseAll()
+		h.check(req.Return(ctx, "disconnected"))
+
 	case "ctrl.connect":
 		if len(req.Args()) != 1 {
-			// TODO: use secretstream
 			h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
 			checkAndClose(errors.New("usage: ctrl.connect host:port:key"))
 			return
