@@ -21,7 +21,6 @@ import (
 	"go.cryptoscope.co/secretstream/secrethandshake"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
 )
 
 // DefaultPort is the default listening port for ScuttleButt.
@@ -232,7 +231,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		return
 	}
 
-	ok := n.connTracker.OnAccept(conn)
+	ok, ctx := n.connTracker.OnAccept(ctx, conn)
 	if !ok {
 		err := conn.Close()
 		// err := origConn.Close()
@@ -240,15 +239,11 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		return
 	}
 
-	ctx, cancel := ctxutils.WithError(ctx, fmt.Errorf("handle conn returned"))
 
 	defer func() {
 		n.connTracker.OnClose(conn)
 		conn.Close()
 		origConn.Close()
-		// connClose = errors.Wrap(, "direct conn closing")
-		// level.Debug(n.log).Log("event", "conn-closing", "edpTerm", edpTerm, "connClose", connClose, "durr", durr)
-		cancel()
 	}()
 
 	if n.evtCtr != nil {
