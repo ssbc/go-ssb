@@ -57,6 +57,21 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	info := log.With(g.Info, "remote", remoteRef.Ref()[1:5], "event", "gossiprx")
 	start := time.Now()
 
+	hasSelf, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
+	if err != nil {
+		info.Log("handleConnect", "multilog.Has(callee)", "err", err)
+		return
+	}
+
+	if !hasSelf {
+		info.Log("handleConnect", "oops - dont have my own feed. requesting...")
+		if err := g.fetchFeed(ctx, g.Id, e, time.Now()); err != nil {
+			info.Log("handleConnect", "fetchFeed self failed", "err", err)
+			return
+		}
+		info.Log("msg", "done fetching self")
+	}
+
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
 		if err != nil {
