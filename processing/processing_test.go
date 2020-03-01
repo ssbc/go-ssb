@@ -47,8 +47,8 @@ func TestContentProcessor(t *testing.T) {
 
 					// cp is the ContentProcessor that uses the mocked multilog
 					cp = ContentProcessor{
-						f: tc.f,
-						mlog: mockMultilog{
+						F: tc.f,
+						MLog: mockMultilog{
 							getFunc: func(addr librarian.Addr) (margaret.Log, error) {
 								return mkMockLog(addr), nil
 							},

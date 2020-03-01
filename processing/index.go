@@ -7,10 +7,13 @@ import (
 	"go.cryptoscope.co/ssb"
 )
 
+// Index is a luigi Sink that consumes margaret.SeqWrapper values that contain ssb.Messages, and
+// passes these into each MessageProcessor in Procs.
 type Index struct {
-	procs []MessageProcessor
+	Procs []MessageProcessor
 }
 
+// Pour feeds a seqwrapped message into all message processors.
 func (idx Index) Pour(ctx context.Context, v interface{}) error {
 	var (
 		sw  = v.(margaret.SeqWrapper)
@@ -20,7 +23,7 @@ func (idx Index) Pour(ctx context.Context, v interface{}) error {
 		err error
 	)
 
-	for _, proc := range idx.procs {
+	for _, proc := range idx.Procs {
 		err = proc.ProcessMessage(ctx, msg, seq)
 		if err != nil {
 			return err
@@ -30,8 +33,9 @@ func (idx Index) Pour(ctx context.Context, v interface{}) error {
 	return nil
 }
 
+// Close closes all attached MessageProcessors.
 func (idx Index) Close() error {
-	for _, proc := range idx.procs {
+	for _, proc := range idx.Procs {
 		err := proc.Close(context.TODO())
 		if err != nil {
 			return err

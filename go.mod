@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/client_golang v1.1.0
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go/codec v1.1.7
 	go.cryptoscope.co/librarian v0.2.0
 	go.cryptoscope.co/luigi v0.3.5-0.20190924074117-8ca146aad481

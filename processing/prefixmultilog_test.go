@@ -25,14 +25,14 @@ func TestPrefixLogGet(t *testing.T) {
 					output librarian.Addr
 					called bool
 					mlog   = PrefixMultilog{
-						mlog: mockMultilog{
+						MLog: mockMultilog{
 							getFunc: func(addr librarian.Addr) (margaret.Log, error) {
 								called = true
 								output = addr
 								return nil, nil
 							},
 						},
-						prefix: tc.prefix,
+						Prefix: tc.prefix,
 					}
 				)
 
@@ -78,12 +78,12 @@ func TestPrefixLogList(t *testing.T) {
 				var (
 					output []librarian.Addr
 					mlog   = PrefixMultilog{
-						mlog: mockMultilog{
+						MLog: mockMultilog{
 							listFunc: func() ([]librarian.Addr, error) {
 								return tc.addrs, nil
 							},
 						},
-						prefix: tc.prefix,
+						Prefix: tc.prefix,
 					}
 				)
 

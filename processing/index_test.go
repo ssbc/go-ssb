@@ -58,7 +58,7 @@ func TestIndex(t *testing.T) {
 				}
 
 				idx := &Index{
-					procs: procs,
+					Procs: procs,
 				}
 
 				for i, in := range tc.ins {
