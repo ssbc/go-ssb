@@ -1,5 +1,27 @@
 package processing
 
+/* Some thoughts on this:
+
+Firstly, I think it should be renamed to NamespacedMultilog or so,
+because the prefixing is a technique to achieve namespacing, and in fact
+we do more than just dumb prefixing to make it work properly.
+
+Secondly, this should probably live somewhere in
+"go.cryptoscope.co/margaret/multilog" or so.
+
+Thirdly, we need to look at the tradeoffs this brings, and what the benefits
+of doing it this way are. Without having benchmarked, my hunch is that
+> combining multiple multilogs into a single namespaced one reduces
+> memory consumption, because per-multilog overhead is avoided
+
+however, this probably comes at a cost, because
+> having several multilogs be backed by a single one that needs locking
+>means that there only can be one writer at a time.
+
+Figuring out which approach is best needs to be done through benchmarks,
+but for now we'll just use seperate ones.
+*/
+
 /*
 
 import (
