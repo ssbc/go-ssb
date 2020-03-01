@@ -202,6 +202,8 @@ go.cryptoscope.co/secretstream v1.1.4-0.20190911135450-b2c157275a98/go.mod h1:Ml
 go.cryptoscope.co/secretstream v1.2.2-0.20200113122031-363c9610d8de h1:lkefo34tJOzQzIbiTDrOBWBuA5F4SojdKE3LchdSRN4=
 go.cryptoscope.co/secretstream v1.2.2-0.20200113122031-363c9610d8de/go.mod h1:DSDzjJtgZUjkCFJRYSlFC/I0xxn/phzGi0WMpIz6az4=
 go.cryptoscope.co/ssb v0.0.0-20190912121701-f368dd6b09da/go.mod h1:gpgPuN7P0HxY5prZunnKbl278nlMCqUekGsJaaiwxnk=
+go.cryptoscope.co/vartuple v0.0.0-20200229104910-3a2c5379cd0a h1:ABUI8gtRfHIIclrtZNg2NRwmKTJaALsmDjTKvrWDvgo=
+go.cryptoscope.co/vartuple v0.0.0-20200229104910-3a2c5379cd0a/go.mod h1:NnuM2+g6IqUfy2p5OxujqUkRLZPOJ5YbfMW2uAAk+Ns=
 go.mindeco.de/ssb-gabbygrove v0.1.5/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=
 go.mindeco.de/ssb-gabbygrove v0.1.6 h1:JNktjdiGVaHVH3Gtoit+9MHgH5RSqiubL7aFg/53aR0=
 go.mindeco.de/ssb-gabbygrove v0.1.6/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=

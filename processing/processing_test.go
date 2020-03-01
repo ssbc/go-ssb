@@ -2,13 +2,21 @@ package processing
 
 import (
 	"context"
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/vartuple"
 )
+
+var enc vartuple.Encoding
+
+func init() {
+	enc.Binary = binary.BigEndian
+}
 
 func TestContentProcessor(t *testing.T) {
 	type testcase struct {
@@ -98,7 +106,7 @@ func TestContentProcessor(t *testing.T) {
 
 					for k, v := range content {
 						if str, ok := v.(string); ok {
-							outs = append(outs, string(encodeStrings(nil, k, str)))
+							outs = append(outs, string(enc.Encode(nil, []byte(k), []byte(str))))
 						}
 					}
 
@@ -110,8 +118,8 @@ func TestContentProcessor(t *testing.T) {
 					msgFromContentString(`{"foo": "bar", "bar": "baz"}`),
 				},
 				out: map[librarian.Addr][]margaret.Seq{
-					librarian.Addr(encodeStrings(nil, "foo", "bar")): seqsFromInts(0, 2),
-					librarian.Addr(encodeStrings(nil, "bar", "baz")): seqsFromInts(1, 2),
+					librarian.Addr(enc.Encode(nil, []byte("foo"), []byte("bar"))): seqsFromInts(0, 2),
+					librarian.Addr(enc.Encode(nil, []byte("bar"), []byte("baz"))): seqsFromInts(1, 2),
 				},
 			},
 		}
