@@ -1,5 +1,7 @@
 package processing
 
+/*
+
 import (
 	"testing"
 
@@ -119,4 +121,62 @@ func TestPrefixLogList(t *testing.T) {
 	}
 }
 
+func TestPrefixLogGetThenList(t *testing.T) {
+	type testcase struct {
+		name   string
+		prefix string
+		addrs  []librarian.Addr
+	}
+
+	var (
+		mkTest = func(tc testcase) func(*testing.T) {
+			return func(t *testing.T) {
+				t.Parallel()
+
+				var (
+					addrs = make(map[librarian.Addr]struct{})
+					mlog  = PrefixMultilog{
+						MLog: mockMultilog{
+							getFunc: func(addr librarian.Addr) (margaret.Log, error) {
+								addrs[addr] = struct{}{}
+								return nil, nil
+							},
+							listFunc: func() ([]librarian.Addr, error) {
+								addrList := make([]librarian.Addr, 0, len(addrs))
+								for addr := range addrs {
+									addrList = append(addrList, addr)
+								}
+								return addrList, nil
+							},
+						},
+						Prefix: tc.prefix,
+					}
+				)
+
+				for _, addr := range tc.addrs {
+					_, err := mlog.Get(addr)
+					require.NoError(t, err, "get")
+				}
+
+				output, err := mlog.List()
+				require.NoError(t, err, "list")
+				require.Equal(t, tc.addrs, output)
+			}
+		}
+
+		tcs = []testcase{
+			{
+				name:   "simple",
+				prefix: "testprefix",
+				addrs:  []librarian.Addr{"testAddr1", "testAddr2"},
+			},
+		}
+	)
+
+	for _, tc := range tcs {
+		t.Run(tc.name, mkTest(tc))
+	}
+}
+
 // TODO: Test PrefixMultilog.Delete (like .Get) and .Close (trivial)
+*/

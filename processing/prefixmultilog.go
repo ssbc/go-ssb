@@ -1,5 +1,7 @@
 package processing
 
+/*
+
 import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
@@ -42,3 +44,4 @@ func (mlog PrefixMultilog) Delete(addr librarian.Addr) error {
 func (mlog PrefixMultilog) Close() error {
 	return mlog.MLog.Close()
 }
+*/
