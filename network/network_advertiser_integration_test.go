@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
+	multiserver "go.mindeco.de/ssb-multiserver"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/multiserver"
 )
 
 // To ensure this works, add this to the SUDO file, where USER is your username.
@@ -214,8 +214,8 @@ func TestAdvertisementReceived(t *testing.T) {
 	udpAddr, ok := addrV.(*net.TCPAddr)
 	require.True(t, ok)
 
-	require.True(t, udpAddr.IP.Equal(wantAddr.Host), "ips not equal. %s vs %s", udpAddr, wantAddr.Host)
-	require.Equal(t, udpAddr.Port, wantAddr.Port)
+	require.True(t, udpAddr.IP.Equal(wantAddr.Addr.IP), "ips not equal. %s vs %s", udpAddr, wantAddr.Addr.IP)
+	require.Equal(t, udpAddr.Port, wantAddr.Addr.Port)
 
 	addrRef, err := ssb.GetFeedRefFromAddr(addr)
 	require.NoError(t, err)
