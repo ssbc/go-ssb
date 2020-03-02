@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,7 +94,6 @@ func TestInternalV8String(t *testing.T) {
 		r.NoError(err)
 		p := fmt.Sprintf("%x", got)
 
-		testdiff.StringIs(t, v.want, p)
 		if d := diff.Diff(v.want, p); len(d) != 0 {
 			t.Logf("\n%s", d)
 		}

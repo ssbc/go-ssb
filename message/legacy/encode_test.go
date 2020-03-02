@@ -10,7 +10,6 @@ import (
 	"log"
 	"testing"
 
-	"github.com/catherinejones/testdiff"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
@@ -129,7 +128,7 @@ func TestComparePreserve(t *testing.T) {
 		w := string(testMessages[i].Input)
 		pBytes := tPresve(t, i)
 		p := string(pBytes)
-		testdiff.StringIs(t, w, p)
+
 		if d := diff.Diff(w, p); len(d) != 0 && t.Failed() {
 			t.Logf("Seq:%d\n%s", i, d)
 		}

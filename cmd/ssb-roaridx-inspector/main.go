@@ -8,7 +8,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret/multilog"
-	mlroaring "go.cryptoscope.co/margaret/multilog/roaringfiles"
+	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
 	"go.cryptoscope.co/ssb"
 )
 
@@ -24,7 +24,7 @@ func main() {
 
 	dir := os.Args[1]
 
-	mlog, err := mlroaring.NewMKV(dir)
+	mlog, err := multimkv.NewMultiLog(dir)
 	check(err)
 
 	/*
@@ -51,7 +51,7 @@ func main() {
 		has, err := multilog.Has(mlog, ref.StoredAddr())
 		log.Log("mlog", "has", "addr", ref.Ref(), "has?", has, "hasErr", err)
 
-		bmap, err := mlog.LoadBitmap(ref.StoredAddr())
+		bmap, err := mlog.LoadInternalBitmap(ref.StoredAddr())
 		check(err)
 		fmt.Println(bmap.GetCardinality())
 		fmt.Println(bmap.String())
