@@ -26,7 +26,7 @@ import (
 func TestAboutNames(t *testing.T) {
 	// defer leakcheck.Check(t) TODO: add closer to plugin so that they can free their resources properly
 	r := require.New(t)
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	hk := make([]byte, 32)
 	n, err := rand.Read(hk)
@@ -47,7 +47,7 @@ func TestAboutNames(t *testing.T) {
 	var aliErrc = make(chan error, 1)
 	go func() {
 		err := ali.Network.Serve(ctx)
-		if err != nil {
+		if err != nil && err != context.Canceled {
 			aliErrc <- errors.Wrap(err, "ali serve exited")
 		}
 		close(aliErrc)
@@ -95,6 +95,7 @@ func TestAboutNames(t *testing.T) {
 
 	r.NoError(c.Close())
 
+	cancel()
 	ali.Shutdown()
 	r.NoError(ali.Close())
 	r.NoError(<-aliErrc)
