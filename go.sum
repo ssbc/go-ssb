@@ -222,6 +222,8 @@ go.cryptoscope.co/secretstream v1.2.2-0.20200303122155-07a1400b63b0 h1:T8SIK2qJF
 go.cryptoscope.co/secretstream v1.2.2-0.20200303122155-07a1400b63b0/go.mod h1:pTHFccDq8RcVFNck1Damjf+WjYNUrIJazzSSaMP9KYs=
 go.cryptoscope.co/secretstream v1.2.2-0.20200303145826-5818c9b8ca91 h1:cV89O5GoRnS1zOR6IEpeRy0OY519zzY0wpSGDGUHvxI=
 go.cryptoscope.co/secretstream v1.2.2-0.20200303145826-5818c9b8ca91/go.mod h1:l4l7/Ql9WEMmD1x1TjbfVVyHzPTSdVImoXPYi7A1i1I=
+go.cryptoscope.co/secretstream v1.2.2-0.20200303151838-85cf020cfee6 h1:z02UYPKp2YpunYMD29wSdMLoAgY863sf2ssRIZ3PJG4=
+go.cryptoscope.co/secretstream v1.2.2-0.20200303151838-85cf020cfee6/go.mod h1:BFKqF3sseh9dR2MTWICW7YkWxZb3OVwmxkty+GKBF64=
 go.cryptoscope.co/ssb v0.0.0-20190912121701-f368dd6b09da/go.mod h1:gpgPuN7P0HxY5prZunnKbl278nlMCqUekGsJaaiwxnk=
 go.mindeco.de/ssb-gabbygrove v0.1.5/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=
 go.mindeco.de/ssb-gabbygrove v0.1.6 h1:JNktjdiGVaHVH3Gtoit+9MHgH5RSqiubL7aFg/53aR0=
