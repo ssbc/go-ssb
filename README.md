@@ -264,6 +264,23 @@ $ go test -v
 
 See our [issue tracker](https://github.com/cryptoscope/ssb/issues) for a complete list.
 
+
+### Forked version of x/crypto
+
+We currently depend on [this patch](https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards) on x/crypto to support the key-material conversion between ed25519 and curve25519.  See https://github.com/cryptoscope/ssb/issues/44 for all the details.
+
+```
+package golang.org/x/crypto/ed25519/edwards25519: cannot find package "golang.org/x/crypto/ed25519/edwards25519" in any of:
+	/home/cryptix/go.root/src/golang.org/x/crypto/ed25519/edwards25519 (from $GOROOT)
+	/home/cryptix/go-fooooo/src/golang.org/x/crypto/ed25519/edwards25519 (from $GOPATH)
+```
+
+If you see the above error, make sure your project has the following replace directive in place:
+
+```
+replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
+```
+
 ### compilation error regarding Badger
 
 This should only happen if you are not using _Go modules_ way of building and the `vendor/` folder isn't used to build the SSB code. Badger pushed an API change to master. We still depend on v1.5.4 as there is only a candidate release version of the new API yet.
