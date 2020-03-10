@@ -12,7 +12,7 @@ If you encounter a bug, please refer to our [public issue tracker](https://githu
 * [x] [Blobs](https://ssbc.github.io/scuttlebutt-protocol-guide/#blobs) store and replication
 * [x] _Legacy_ gossip [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream) ([ebt](https://github.com/dominictarr/epidemic-broadcast-trees) not implementation yet)
 * [x] Publishing new messages to the log
-* [ ] Invite mechanics (might wait for direct-user-invites to stabilize)
+* [x] Invite mechanics ([peer-invites](https://github.com/ssbc/ssb-peer-invites) partially done, too. See [Issue 45](https://github.com/cryptoscope/ssb/issues/45)for more.)
 
 ## Installation
 
@@ -27,7 +27,7 @@ go install ./cmd/sbotcli
 
 Requirements:
 
-  - [Golang](https://www.golang.org) version 1.11 or higher
+  - [Golang](https://www.golang.org) version 1.13 or higher
 
 ## Running go-sbot
 
