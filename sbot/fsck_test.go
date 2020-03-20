@@ -69,10 +69,10 @@ func testFSCKcorrect(t *testing.T) {
 		r.NoError(err)
 	}
 
-	err := theBot.FSCK(nil, FSCKModeLength)
+	err := theBot.FSCK()
 	r.NoError(err)
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.NoError(err)
 
 	// cleanup
@@ -125,27 +125,25 @@ func testFSCKdouble(t *testing.T) {
 	}
 
 	// check we get the expected errors
-	err = theBot.FSCK(nil, FSCKModeLength)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeLength))
 	r.Error(err)
-	t.Log(err)
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.Error(err)
 	constErrs, ok := err.(ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
 	r.Len(constErrs.Errors, 1)
 	r.Contains(constErrs.Errors[0].Error(), "consistency error: message sequence missmatch")
-	t.Log(err)
 
 	// try to repair it
 	err = theBot.HealRepo(constErrs)
 	r.NoError(err)
 
 	// errors are gone
-	err = theBot.FSCK(nil, FSCKModeLength)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeLength))
 	r.NoError(err, "after heal (len)")
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.NoError(err, "after heal (seq)")
 
 	// cleanup
@@ -207,11 +205,10 @@ func testFSCKmultipleFeeds(t *testing.T) {
 		t.Log("doubled:", msg.Author().ShortRef(), seq.Seq())
 	}
 
-	err = theBot.FSCK(nil, FSCKModeLength)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeLength))
 	r.Error(err)
-	t.Log(err)
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.Error(err)
 	constErrs, ok := err.(ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
@@ -222,10 +219,10 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	r.NoError(err)
 
 	// errors are gone
-	err = theBot.FSCK(nil, FSCKModeLength)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeLength))
 	r.NoError(err, "after heal (len)")
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.NoError(err, "after heal (seq)")
 
 	// cleanup
@@ -252,7 +249,7 @@ func testFSCKrepro(t *testing.T) {
 	latestSeq := seqV.(margaret.Seq)
 	r.EqualValues(latestSeq.Seq(), 6699)
 
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.Error(err)
 	constErrs, ok := err.(ErrConsistencyProblems)
 	r.True(ok, "wrong error type. got %T", err)
@@ -262,7 +259,7 @@ func testFSCKrepro(t *testing.T) {
 	r.NoError(err)
 
 	// error is gone
-	err = theBot.FSCK(nil, FSCKModeSequences)
+	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.NoError(err)
 
 	// cleanup

@@ -130,10 +130,8 @@ func TestFeedsOneByOne(t *testing.T) {
 		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
 	}
 
-	auf, ok := ali.GetMultiLog("userFeeds")
-	r.True(ok)
-	ali.FSCK(auf, FSCKModeLength)
-	bob.FSCK(uf, FSCKModeLength)
+	r.NoError(ali.FSCK())
+	r.NoError(bob.FSCK())
 
 	cancel()
 	ali.Shutdown()

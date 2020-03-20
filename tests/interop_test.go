@@ -214,7 +214,7 @@ func (ts *testSession) wait() {
 		case <-ts.doneJS:
 
 		case <-ts.doneGo:
-			closeErrc <- ts.gobot.FSCK(nil, sbot.FSCKModeSequences)
+			closeErrc <- ts.gobot.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 
 		case <-tick.C:
 			ts.t.Log("timeout")

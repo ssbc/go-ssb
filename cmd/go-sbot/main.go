@@ -279,7 +279,7 @@ func main() {
 		exitAfterFSCK = true
 	}
 
-	err = sbot.FSCK(uf, fsckMode)
+	err = sbot.FSCK(mksbot.FSCKWithFeedIndex(uf), mksbot.FSCKWithMode(fsckMode))
 	if flagRepair {
 		if err != nil {
 			if report, ok := err.(mksbot.ErrConsistencyProblems); ok {
@@ -324,7 +324,7 @@ func main() {
 
 	if flagReindex {
 		level.Warn(log).Log("mode", "reindexing")
-		err = sbot.FSCK(uf, mksbot.FSCKModeSequences)
+		err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
 		checkFatal(err)
 		level.Warn(log).Log("mode", "fsck done")
 		err = sbot.Close()

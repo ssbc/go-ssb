@@ -260,7 +260,7 @@ func TestFeedFromGo(t *testing.T) {
 	t.Log("restarting for integrity check")
 	ts.startGoBot()
 	s = ts.gobot
-	err = s.FSCK(uf, sbot.FSCKModeSequences)
+	err = s.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 	r.NoError(err)
 
 	ml, ok := s.GetMultiLog("userFeeds")
@@ -289,7 +289,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(storedMsg.Seq(), 4)
 
-	err = s.FSCK(nil, sbot.FSCKModeSequences)
+	err = s.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 	r.NoError(err)
 
 	ts.wait()
