@@ -51,6 +51,8 @@ github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaB
 github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
+github.com/fxamacker/cbor/v2 v2.2.0 h1:6eXqdDDe588rSYAi1HfZKbx6YYQO4mxQ9eC6xYpU/JQ=
+github.com/fxamacker/cbor/v2 v2.2.0/go.mod h1:TA1xS00nchWmaBnEIxPSE5oHLuJBAVvqrtAnWBwBCVo=
 github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 h1:Ujru1hufTHVb++eG6OuNDKMxZnGIvF6o/u8q/8h2+I4=
 github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
 github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 h1:gclg6gY70GLy3PbkQ1AERPfmLMMagS60DKF78eWwLn8=
@@ -192,6 +194,8 @@ github.com/ugorji/go/codec v1.1.7 h1:2SvQaVZ1ouYrrKKwoSk2pzd4A9evlKJb9oTL+OaLUSs
 github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLYF3GoBXY=
 github.com/willf/bitset v1.1.10 h1:NotGKqX0KwQ72NUzqrjZq5ipPNDQex9lo3WpaS8L2sc=
 github.com/willf/bitset v1.1.10/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
+github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
+github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 go.cryptoscope.co/librarian v0.1.0/go.mod h1:dbua5pc7Vq/M0W5CJa/AJYdwlDRlgo2FKrB5tEm2NLc=
 go.cryptoscope.co/librarian v0.1.1/go.mod h1:cL2xGx4N+lZe6nbBS7vKPyy/rGn0uY2+hP/TwQf6+IM=
 go.cryptoscope.co/librarian v0.1.2/go.mod h1:U15yqN7eap9RDGqd/wlFUWoGWplXWn3VI3MGStrI3tA=
@@ -231,6 +235,8 @@ go.cryptoscope.co/ssb v0.0.0-20200302095059-b4d663e8b635/go.mod h1:yS5rZfApf+Twb
 go.mindeco.de/ssb-gabbygrove v0.1.5/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=
 go.mindeco.de/ssb-gabbygrove v0.1.6 h1:JNktjdiGVaHVH3Gtoit+9MHgH5RSqiubL7aFg/53aR0=
 go.mindeco.de/ssb-gabbygrove v0.1.6/go.mod h1:sBNu1GoyNkLuWcQ2H+pHuBDrXyelbitt5MKHhoWEkAI=
+go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200325193012-64d987886899 h1:XugnhGsbJhfoUzlmaNVo1EKgExC1/04yAoTA4MUSgGA=
+go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200325193012-64d987886899/go.mod h1:k99wD9YVb8NMD1bOh9DCjZHstCJ+uDgHZU9zPgB/H4c=
 go.mindeco.de/ssb-multiserver v0.0.0-20200302144839-6902de33e194 h1:ZsYJvnZlyfr0bXbxvVqKUsGkiATN6cCH24IPNHjcgmI=
 go.mindeco.de/ssb-multiserver v0.0.0-20200302144839-6902de33e194/go.mod h1:zFIXdyS5SRuVWv+AUDL+bo+NP1+ufiZfpw5jkM+wa4s=
 golang.org/x/exp v0.0.0-20180321215751-8460e604b9de/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=

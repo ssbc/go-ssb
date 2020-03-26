@@ -26,7 +26,7 @@ func gabbyStreamSink(stream luigi.Sink) luigi.Sink {
 			return errors.Errorf("wrong mm type")
 		}
 
-		trdata, err := tr.MarshalCBOR()
+		trdata, err := tr.Marshal()
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal transfer")
 		}

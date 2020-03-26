@@ -78,7 +78,7 @@ func (gv gabbyVerify) Verify(v interface{}) (msg ssb.Message, err error) {
 		return
 	}
 	var tr gabbygrove.Transfer
-	if uErr := tr.UnmarshalCBOR(trBytes); uErr != nil {
+	if uErr := tr.Unmarshal(trBytes); uErr != nil {
 		err = errors.Wrapf(uErr, "gabbyVerify: transfer unmarshal failed")
 		return
 	}
