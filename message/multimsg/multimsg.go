@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
-	"github.com/ugorji/go/codec"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 
 	"go.cryptoscope.co/ssb"
@@ -34,15 +34,14 @@ type MultiMessage struct {
 }
 
 type ggWithMetadata struct {
+	_ struct{} `cbor:",toarray"`
 	gabbygrove.Transfer
 	ReceivedTime time.Time
 }
 
 func (mm MultiMessage) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
-	var mh codec.CborHandle
-	mh.StructToArray = true
-	enc := codec.NewEncoder(&buf, &mh)
+	enc := cbor.NewEncoder(&buf)
 	buf.WriteByte(byte(mm.tipe))
 	var err error
 	switch mm.tipe {
@@ -71,10 +70,7 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 	if len(data) < 1 {
 		return errors.Errorf("multiMessage: data to short")
 	}
-	var mh codec.CborHandle
-	mh.StructToArray = true
-	dec := codec.NewDecoderBytes(data[1:], &mh)
-
+	dec := cbor.NewDecoder(bytes.NewReader(data[1:]))
 	mm.tipe = MessageType(data[0])
 	switch mm.tipe {
 	case Legacy:

@@ -35,6 +35,7 @@ func (sm OldStoredMessage) String() string {
 // really dislike the underlines but they are there to implement the message interface more easily
 
 type StoredMessage struct {
+	_          struct{}        `cbor:",toarray"`
 	Author_    *ssb.FeedRef    // @... pubkey
 	Previous_  *ssb.MessageRef // %... message hashsha
 	Key_       *ssb.MessageRef // %... message hashsha

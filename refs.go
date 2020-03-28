@@ -133,6 +133,7 @@ type Ref interface {
 
 // MessageRef defines the content addressed version of a ssb message, identified it's hash.
 type MessageRef struct {
+	_    struct{} `cbor:",toarray"`
 	Hash []byte
 	Algo string
 }
@@ -266,6 +267,7 @@ func (mr *MessageRefs) UnmarshalJSON(text []byte) error {
 
 // FeedRef defines a publickey as ID with a specific algorithm (currently only ed25519)
 type FeedRef struct {
+	_    struct{} `cbor:",toarray"`
 	ID   []byte
 	Algo string
 }

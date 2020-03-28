@@ -44,6 +44,7 @@ func TestStaticRepos(t *testing.T) {
 		r.NoError(err)
 	}
 
+	t.Log("unpacking testdata")
 	untar := exec.Command("tar", "xf", "testdata.tar.zst")
 	out, err = untar.CombinedOutput()
 	if err != nil {
@@ -170,7 +171,11 @@ func TestStaticRepos(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	for tidx, tc := range cases {
+		if tidx > 1 && testing.Short() {
+			break
+		}
+
 		tr := repo.New(filepath.Join("testdata", tc.Name))
 
 		testLog, err := repo.OpenLog(tr)
@@ -193,7 +198,7 @@ func TestStaticRepos(t *testing.T) {
 		compare := func(ml multilog.MultiLog) {
 			addrs, err := ml.List()
 			r.NoError(err)
-			a.Equal(len(tc.HeadCount), len(addrs))
+			a.Equal(len(tc.HeadCount), len(addrs), "list count is off..!")
 
 			for i, addr := range addrs {
 				var sr ssb.StorageRef

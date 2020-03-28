@@ -3,7 +3,6 @@
 package multimsg
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 
@@ -41,7 +40,7 @@ func (enc encoder) Encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(enc.w, bytes.NewReader(bin))
+	_, err = enc.w.Write(bin)
 	return err
 }
 

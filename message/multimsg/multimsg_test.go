@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
-	"go.mindeco.de/ssb-gabbygrove"
+	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -74,7 +74,7 @@ func TestMultiMsgGabby(t *testing.T) {
 		},
 	}
 
-	evtBytes, err := evt.MarshalCBOR()
+	evtBytes, err := evt.Marshal()
 	r.NoError(err)
 
 	testContent := []byte("someContent")

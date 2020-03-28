@@ -80,7 +80,7 @@ func TestReceivedSet(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(ref)
 
-	//fn.next = time.Unix(42, 0)
+	fn.next = time.Unix(42, 0)
 	ggSeq, err := wl.Append(tr)
 	r.NoError(err)
 	r.NotNil(ggSeq)
