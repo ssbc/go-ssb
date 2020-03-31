@@ -17,7 +17,6 @@ import (
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -94,7 +93,7 @@ func TestReplicateUpTo(t *testing.T) {
 		}
 		r.NoError(err, "i:%d", i)
 
-		upToResp, ok := streamV.(replicate.UpToResponse)
+		upToResp, ok := streamV.(ssb.ReplicateUpToResponse)
 		r.True(ok, "type: %T", streamV)
 
 		ref := upToResp.ID.Ref()

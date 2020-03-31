@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
@@ -176,22 +177,28 @@ func TestLotsOfWhoami(t *testing.T) {
 func TestStatusCalls(t *testing.T) {
 	// defer leakcheck.Check(t)
 
-	mkTCP := func(t *testing.T) (*sbot.Sbot, mkClient) {
+	mkTCP := func(t *testing.T, opts ...sbot.Option) (*sbot.Sbot, mkClient) {
 		r := require.New(t)
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
 		srvLog := testutils.NewRelativeTimeLogger(nil)
 
-		srv, err := sbot.New(
+		defOpts := []sbot.Option{
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
-		)
-		r.NoError(err, "sbot srv init failed")
+		}
 
+		srv, err := sbot.New(append(defOpts, opts...)...)
+		r.NoError(err, "sbot srv init failed")
+		ctx, cancel := context.WithCancel(context.TODO())
+		t.Cleanup(func() {
+			cancel()
+		})
 		go func() {
-			err := srv.Network.Serve(context.TODO())
+			err := srv.Network.Serve(ctx)
+			t.Log("tcp bot serve exited", err)
 			if err != nil {
 				panic(err)
 			}
@@ -209,20 +216,22 @@ func TestStatusCalls(t *testing.T) {
 		}
 	}
 
-	mkUnix := func(t *testing.T) (*sbot.Sbot, mkClient) {
+	mkUnix := func(t *testing.T, opts ...sbot.Option) (*sbot.Sbot, mkClient) {
 		r := require.New(t)
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
 		srvLog := testutils.NewRelativeTimeLogger(nil)
 
-		srv, err := sbot.New(
+		defOpts := []sbot.Option{
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			// sbot.DisableNetworkNode(), skips muxrpc handler
 			sbot.WithListenAddr(":0"),
 			sbot.LateOption(sbot.WithUNIXSocket()),
-		)
+		}
+
+		srv, err := sbot.New(append(defOpts, opts...)...)
 		r.NoError(err, "sbot srv init failed")
 
 		return srv, func(ctx context.Context) (*client.Client, error) {
@@ -239,14 +248,18 @@ func TestStatusCalls(t *testing.T) {
 }
 
 type mkClient func(context.Context) (*client.Client, error)
-type mkPair func(t *testing.T) (*sbot.Sbot, mkClient)
+type mkPair func(t *testing.T, opts ...sbot.Option) (*sbot.Sbot, mkClient)
 
 func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 	return func(t *testing.T) {
 		r, a := require.New(t), assert.New(t)
 
-		srv, mkClient := newPair(t)
+		srv, mkClient := newPair(t,
+			// this test needs multiple stable client connections
+			// the default, LastWinsTracker disconnects the previous connection
+			sbot.WithNetworkConnTracker(network.NewAcceptAllTracker()),
+		)
 		r.NotNil(srv, "no server from init func")
 
 		ctx, done := context.WithCancel(context.Background())
@@ -276,7 +289,8 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 					_, err = c.Async(ctx, map[string]interface{}{}, muxrpc.Method{"status"})
 					if err != nil {
-						if errors.Cause(err) == context.Canceled {
+						causeErr := errors.Cause(err)
+						if causeErr == context.Canceled || causeErr == muxrpc.ErrSessionTerminated {
 							return nil
 						}
 						return errors.Wrapf(err, "tick%p failed", tick)
