@@ -33,7 +33,7 @@ func TestBlobToJS(t *testing.T) {
 	ts.startGoBot()
 	s := ts.gobot
 
-	ts.startJSBot(`run()`,
+	alice := ts.startJSBot(`run()`,
 		`setTimeout(() => {
 			sbot.blobs.want("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256",function(err, has) {
 				t.true(has, "got blob")
@@ -41,6 +41,7 @@ func TestBlobToJS(t *testing.T) {
 				exit()
 			})
 		}, 1000)`)
+	s.Replicate(alice)
 
 	ref, err := s.BlobStore.Put(strings.NewReader("bl0000p123123"))
 	r.NoError(err)
@@ -66,7 +67,7 @@ func TestBlobFromJS(t *testing.T) {
 	ts.startGoBot()
 	s := ts.gobot
 
-	ts.startJSBot(
+	alice := ts.startJSBot(
 		`
 /* pinned to 1.1.14
 		pull(sbot.blobs.changes(), pull.drain(function(v) {
@@ -92,6 +93,7 @@ func TestBlobFromJS(t *testing.T) {
 				setTimeout(exit, 1500)
 			})`,
 	)
+	s.Replicate(alice)
 
 	got := make(chan struct{})
 	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
@@ -153,33 +155,34 @@ func TestBlobWithHop(t *testing.T) {
 	// be done when the other party is done
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 `, ``)
+	bob.Replicate(alice)
 
 	aliceDone := ts.doneJS
-	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   alice.Ref(),
-		"following": true,
-	})
-	r.NoError(err, "failed to publish contact message")
-	r.NotNil(newSeq)
-
-	time.Sleep(2 * time.Second)
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
 	aliceLog, err := uf.Get(alice.StoredAddr())
 	r.NoError(err)
-	seq, err := aliceLog.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+
+	gotMessage := make(chan struct{})
+	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		seq, has := v.(margaret.Seq)
+		if !has {
+			return fmt.Errorf("unexpected type:%T", v)
+		}
+		if seq.Seq() == 0 {
+			close(gotMessage)
+		}
+		return err
+	})
+	done := aliceLog.Seq().Register(updateSink)
+
+	<-gotMessage
+	done()
 
 	var wantBlob *ssb.BlobRef
 
-	seqMsg, err := aliceLog.Get(margaret.BaseSeq(0))
-	r.NoError(err)
-	r.Equal(seqMsg, margaret.BaseSeq(1))
-
-	msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := mutil.Indirect(bob.RootLog, aliceLog).Get(margaret.BaseSeq(0))
 	r.NoError(err)
 	storedMsg, ok := msg.(ssb.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -223,13 +226,7 @@ run()
 	claire := ts.startJSBot(before, "")
 
 	t.Logf("started claire: %s", claire.Ref())
-	newSeq, err = bob.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   claire.Ref(),
-		"following": true,
-	})
-	r.NoError(err, "failed to publish 2nd contact message")
-	r.NotNil(newSeq)
+	bob.Replicate(claire)
 
 	ts.wait()
 	<-aliceDone
@@ -322,7 +319,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 		})
 	)
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))`, ``)
-	s.PublishLog.Publish(ssb.NewContactFollow(jsBot))
+	s.Replicate(jsBot)
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)

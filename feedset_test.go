@@ -1,22 +1,31 @@
 // SPDX-License-Identifier: MIT
 
-package graph
+package ssb
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb"
 )
+
+func TestFeedSetEmpty(t *testing.T) {
+	r := require.New(t)
+
+	fs := NewFeedSet(0)
+
+	newkey, err := NewKeyPair(nil)
+	r.NoError(err)
+	r.False(fs.Has(newkey.Id))
+}
 
 func TestFeedSetCount(t *testing.T) {
 	r := require.New(t)
-	kps := make([]*ssb.KeyPair, 50)
+	kps := make([]*KeyPair, 50)
 
 	fs := NewFeedSet(50)
 	for i := 0; i < 50; i++ {
 		var err error
-		kps[i], err = ssb.NewKeyPair(nil)
+		kps[i], err = NewKeyPair(nil)
 		r.NoError(err)
 		err = fs.AddRef(kps[i].Id)
 		r.NoError(err)

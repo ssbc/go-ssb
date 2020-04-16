@@ -5,6 +5,7 @@ package gossip
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/metrics"
@@ -12,7 +13,6 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/graph"
 )
 
 type HMACSecret *[32]byte
@@ -27,16 +27,19 @@ func New(
 	id *ssb.FeedRef,
 	rootLog margaret.Log,
 	userFeeds multilog.MultiLog,
-	graphBuilder graph.Builder,
+	wantList ssb.ReplicationLister,
 	opts ...interface{},
 ) *plugin {
 	h := &handler{
-		Id:           id,
-		RootLog:      rootLog,
-		UserFeeds:    userFeeds,
-		GraphBuilder: graphBuilder,
-		Info:         log,
-		rootCtx:      ctx,
+		Id:        id,
+		RootLog:   rootLog,
+		UserFeeds: userFeeds,
+		WantList:  wantList,
+		Info:      log,
+		rootCtx:   ctx,
+
+		activeLock:  &sync.Mutex{},
+		activeFetch: make(map[string]struct{}),
 	}
 
 	for i, o := range opts {
@@ -77,16 +80,20 @@ func NewHist(
 	id *ssb.FeedRef,
 	rootLog margaret.Log,
 	userFeeds multilog.MultiLog,
-	graphBuilder graph.Builder,
+	wantList ssb.ReplicationLister,
 	opts ...interface{},
 ) histPlugin {
 	h := &handler{
-		Id:           id,
-		RootLog:      rootLog,
-		UserFeeds:    userFeeds,
-		GraphBuilder: graphBuilder,
-		Info:         log,
-		rootCtx:      ctx,
+		Id:        id,
+		RootLog:   rootLog,
+		UserFeeds: userFeeds,
+		WantList:  wantList,
+		Info:      log,
+		rootCtx:   ctx,
+
+		// not using fetch here
+		activeLock:  nil,
+		activeFetch: nil,
 	}
 
 	for i, o := range opts {

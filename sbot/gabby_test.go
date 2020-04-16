@@ -73,27 +73,15 @@ func TestFeedsGabbySync(t *testing.T) {
 	botgroup.Go(bs.Serve(bob))
 
 	// be friends
-	seq, err := ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
-
-	seq, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	for i := 0; i < 9; i++ {
 		seq, err := bob.PublishLog.Append(map[string]interface{}{
 			"test": i,
 		})
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(i+1), seq)
+		r.Equal(margaret.BaseSeq(i), seq)
 	}
 
 	// sanity, check bob has his shit together
@@ -104,7 +92,7 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	seqv, err := bobsOwnLog.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(9), seqv, "bob doesn't have his own log!")
+	r.Equal(margaret.BaseSeq(8), seqv, "bob doesn't have his own log!")
 
 	// dial
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -123,7 +111,7 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	seqv, err = bosLogAtAli.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(9), seqv)
+	r.Equal(margaret.BaseSeq(8), seqv)
 
 	src, err := mutil.Indirect(ali.RootLog, bosLogAtAli).Query()
 	r.NoError(err)
