@@ -3,6 +3,7 @@ package sbot
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"golang.org/x/sync/errgroup"
 
@@ -95,7 +97,7 @@ func TestNullFeed(t *testing.T) {
 		r.EqualValues(seq, v.(margaret.Seq).Seq())
 	}
 
-	checkUserLogSeq := func(bot *Sbot, name string, seq int) {
+	getUserLog := func(bot *Sbot, name string) margaret.Log {
 		kp, has := n2kp[name]
 		r.True(has, "%s not in map", name)
 
@@ -104,6 +106,12 @@ func TestNullFeed(t *testing.T) {
 
 		l, err := uf.Get(kp.Id.StoredAddr())
 		r.NoError(err)
+
+		return l
+	}
+
+	checkUserLogSeq := func(bot *Sbot, name string, seq int) {
+		l := getUserLog(bot, name)
 
 		checkLogSeq(l, seq)
 	}
@@ -138,7 +146,11 @@ func TestNullFeed(t *testing.T) {
 	_, err = bertBot.PublishLog.Publish(ssb.NewContactFollow(mainbot.KeyPair.Id))
 	r.NoError(err)
 
-	for i := 1000; i > 0; i-- {
+	mainbot.Replicate(bertBot.KeyPair.Id)
+	bertBot.Replicate(mainbot.KeyPair.Id)
+
+	const testMsgCount = 1000
+	for i := testMsgCount; i > 0; i-- {
 		_, err = bertBot.PublishLog.Publish(i)
 		r.NoError(err)
 	}
@@ -146,8 +158,29 @@ func TestNullFeed(t *testing.T) {
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
 
-	time.Sleep(5 * time.Second)
-	checkUserLogSeq(mainbot, "bert", 1000)
+	gotMessage := make(chan struct{})
+	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		seq, ok := v.(margaret.Seq)
+		if !ok {
+			return fmt.Errorf("unexpected type:%T", v)
+		}
+		s := seq.Seq()
+		if s == testMsgCount-1 { // 0 indexed
+			close(gotMessage)
+		}
+		return err
+	})
+	betsLog := getUserLog(mainbot, "bert")
+	done := betsLog.Seq().Register(updateSink)
+
+	select {
+	case <-time.After(25 * time.Second):
+		t.Error("sync timeout")
+
+	case <-gotMessage:
+		t.Log("re-synced feed")
+	}
+	done()
 
 	bertBot.Shutdown()
 	mainbot.Shutdown()
@@ -208,20 +241,8 @@ func TestNullFetched(t *testing.T) {
 
 	botgroup.Go(bs.Serve(bob))
 
-	seq, err := ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
-
-	seq, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	for i := 1000; i > 0; i-- {
 		_, err = bob.PublishLog.Publish(i)
@@ -230,7 +251,6 @@ func TestNullFetched(t *testing.T) {
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
-	time.Sleep(3 * time.Second)
 
 	aliUF, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
@@ -239,9 +259,30 @@ func TestNullFetched(t *testing.T) {
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
-	bobsSeqV, err := alisVersionOfBobsLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(1000, bobsSeqV.(margaret.Seq).Seq())
+
+	gotMessage := make(chan struct{})
+	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		seq, ok := v.(margaret.Seq)
+		if !ok {
+			return fmt.Errorf("unexpected type:%T", v)
+		}
+		s := seq.Seq()
+		if s == 999 {
+			close(gotMessage)
+		}
+		return err
+	})
+
+	done := alisVersionOfBobsLog.Seq().Register(updateSink)
+
+	select {
+	case <-time.After(25 * time.Second):
+		t.Error("sync timeout (1)")
+
+	case <-gotMessage:
+		t.Log("synced feed")
+	}
+	done()
 
 	err = ali.NullFeed(bob.KeyPair.Id)
 	r.NoError(err)
@@ -250,18 +291,33 @@ func TestNullFetched(t *testing.T) {
 	alisVersionOfBobsLog, err = aliUF.Get(bob.KeyPair.Id.StoredAddr())
 	r.NoError(err)
 
-	bobsSeqV, err = alisVersionOfBobsLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(margaret.SeqEmpty, bobsSeqV.(margaret.Seq).Seq())
-
 	mainLog.Log("msg", "sync should give us the messages again")
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
-	time.Sleep(3 * time.Second)
 
-	bobsSeqV, err = alisVersionOfBobsLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(1000, bobsSeqV.(margaret.Seq).Seq())
+	// start := time.Now()
+	gotMessage = make(chan struct{})
+	updateSink = luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		seq, ok := v.(margaret.Seq)
+		if !ok {
+			return fmt.Errorf("unexpected type:%T", v)
+		}
+		s := seq.Seq()
+		if s == 999 {
+			close(gotMessage)
+		}
+		return err
+	})
+
+	done = alisVersionOfBobsLog.Seq().Register(updateSink)
+	select {
+	case <-time.After(25 * time.Second):
+		t.Error("sync timeout (2)")
+
+	case <-gotMessage:
+		t.Log("re-synced feed")
+	}
+	done()
 
 	ali.Shutdown()
 	bob.Shutdown()

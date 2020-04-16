@@ -16,10 +16,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -30,6 +28,9 @@ const blobSize = 1024 * 512
 func TestBlobsPair(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
 
@@ -76,25 +77,8 @@ func TestBlobsPair(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
 
-	seq, err := ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
-
-	seq, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
-
-	g, err := bob.GraphBuilder.Build()
-	r.NoError(err)
-	time.Sleep(250 * time.Millisecond)
-	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	sess := &session{
 		ctx:   ctx,
@@ -413,31 +397,12 @@ func TestBlobsWithHops(t *testing.T) {
 	botgroup.Go(bs.Serve(cle))
 
 	// ali <> bob
-	_, err = ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	_, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
+
 	// bob <> cle
-	_, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   cle.KeyPair.Id,
-	})
-	r.NoError(err)
-	_, err = cle.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
+	bob.Replicate(cle.KeyPair.Id)
+	cle.Replicate(bob.KeyPair.Id)
 
 	time.Sleep(1 * time.Second)
 
@@ -550,20 +515,8 @@ func TestBlobsTooBig(t *testing.T) {
 	r.NoError(err)
 	srvBot(bob, "bob")
 
-	seq, err := ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
-
-	seq, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)

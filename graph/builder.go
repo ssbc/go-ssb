@@ -35,9 +35,9 @@ type Builder interface {
 	State(from, to *ssb.FeedRef) int
 
 	// Follows returns a set of all people ref follows
-	Follows(*ssb.FeedRef) (*StrFeedSet, error)
+	Follows(*ssb.FeedRef) (*ssb.StrFeedSet, error)
 
-	Hops(*ssb.FeedRef, int) *StrFeedSet
+	Hops(*ssb.FeedRef, int) *ssb.StrFeedSet
 
 	Authorizer(from *ssb.FeedRef, maxHops int) ssb.Authorizer
 
@@ -288,11 +288,11 @@ func (l Lookup) Dist(to *ssb.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (b *builder) Follows(forRef *ssb.FeedRef) (*StrFeedSet, error) {
+func (b *builder) Follows(forRef *ssb.FeedRef) (*ssb.StrFeedSet, error) {
 	if forRef == nil {
 		panic("nil feed ref")
 	}
-	fs := NewFeedSet(50)
+	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
@@ -330,9 +330,9 @@ func (b *builder) Follows(forRef *ssb.FeedRef) (*StrFeedSet, error) {
 // max == 0: only direct follows of from
 // max == 1: max:0 + follows of friends of from
 // max == 2: max:1 + follows of their friends
-func (b *builder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
+func (b *builder) Hops(from *ssb.FeedRef, max int) *ssb.StrFeedSet {
 	max++
-	walked := NewFeedSet(0)
+	walked := ssb.NewFeedSet(0)
 	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)
 	err := b.recurseHops(walked, visited, from, max)
 	if err != nil {
@@ -343,8 +343,7 @@ func (b *builder) Hops(from *ssb.FeedRef, max int) *StrFeedSet {
 	return walked
 }
 
-func (b *builder) recurseHops(walked *StrFeedSet, vis map[string]struct{}, from *ssb.FeedRef, depth int) error {
-	// b.log.Log("recursing", from.Ref(), "d", depth)
+func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from *ssb.FeedRef, depth int) error {
 	if depth == 0 {
 		return nil
 	}

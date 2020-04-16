@@ -13,11 +13,12 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestFeedFromJS(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
 
@@ -53,13 +54,7 @@ func TestFeedFromJS(t *testing.T) {
 	})
 `, claire.Ref()), ``)
 
-	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   alice.Ref(),
-		"following": true,
-	})
-	r.NoError(err, "failed to publish contact message")
-	r.NotNil(newSeq)
+	bob.Replicate(alice)
 
 	<-ts.doneJS
 
@@ -69,16 +64,11 @@ func TestFeedFromJS(t *testing.T) {
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(n), seq) // +1 for the context message
+	r.Equal(margaret.BaseSeq(n), seq)
 
 	var lastMsg string
 	for i := 0; i < n; i++ { // don't check the contact:following message from A to C
-		// only one feed in log - directly the rootlog sequences
-		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
-		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(i+1))
-
-		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := mutil.Indirect(bob.RootLog, aliceLog).Get(margaret.BaseSeq(i))
 		r.NoError(err)
 		storedMsg, ok := msg.(ssb.Message)
 		r.True(ok, "wrong type of message: %T", msg)
@@ -148,19 +138,13 @@ pull(
 	claire = ts.startJSBotWithName("claire", before, "")
 
 	t.Logf("started claire: %s", claire.Ref())
-	newSeq, err = bob.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   claire.Ref(),
-		"following": true,
-	})
-	r.NoError(err, "failed to publish 2nd contact message")
-	r.NotNil(newSeq)
+	bob.Replicate(claire)
 
 	ts.wait()
 }
 
 func TestFeedFromGo(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
@@ -174,14 +158,14 @@ func TestFeedFromGo(t *testing.T) {
 		rpc.on('closed', () => {
 			t.comment('now should have feed:' + fromKey)
 			pull(
-				sbot.createUserStream({id:fromKey, reverse:true, limit: 4}),
+				sbot.createUserStream({id:fromKey, reverse:true, limit: 3}),
 				pull.collect(function(err, msgs) {
 					t.error(err, 'query worked')
-					t.equal(msgs.length, 4, 'got all the messages')
+					t.equal(msgs.length, 3, 'got all the messages')
 					// t.comment(JSON.stringify(msgs[0]))
-					t.equal(msgs[0].value.sequence, 4, 'sequence:0')
-					t.equal(msgs[1].value.sequence, 3, 'sequence:1')
-					t.equal(msgs[2].value.sequence, 2, 'sequence:2')
+					t.equal(msgs[0].value.sequence, 3, 'sequence:0')
+					t.equal(msgs[1].value.sequence, 2, 'sequence:1')
+					t.equal(msgs[2].value.sequence, 1, 'sequence:2')
 					exit()
 				})
 			)
@@ -203,7 +187,7 @@ func TestFeedFromGo(t *testing.T) {
 					t.equal(0, vals.length)
 					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, function(err, msg) {
 						t.error(err, 'about:' + msg.key)
-						setTimeout(run, 3000) // give go bot a moment to publish
+						setTimeout(run, 1000)
 					})
 				})
 			)
@@ -213,17 +197,12 @@ func TestFeedFromGo(t *testing.T) {
 }) // publish`
 
 	alice := ts.startJSBot(before, "")
-
+	s.Replicate(alice)
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
 			"about": s.KeyPair.Id.Ref(),
 			"name":  "test user",
-		},
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   alice.Ref(),
-			"following": true,
 		},
 		map[string]interface{}{
 			"type": "text",
@@ -256,7 +235,9 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(storedMsg.Seq(), 2)
 
+	s.Network.GetConnTracker().CloseAll()
 	ts.wait()
+
 	t.Log("restarting for integrity check")
 	ts.startGoBot()
 	s = ts.gobot
@@ -287,7 +268,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.NoError(err)
 	storedMsg, ok = msg.(ssb.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.EqualValues(storedMsg.Seq(), 4)
+	r.EqualValues(storedMsg.Seq(), 3)
 
 	err = s.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 	r.NoError(err)

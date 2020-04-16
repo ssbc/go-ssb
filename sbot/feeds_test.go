@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
@@ -88,25 +87,11 @@ func TestFeedsOneByOne(t *testing.T) {
 		return err
 	})
 
-	seq, err := ali.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   bob.KeyPair.Id,
-	})
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
-	seq, err = bob.PublishLog.Append(ssb.Contact{
-		Type:      "contact",
-		Following: true,
-		Contact:   ali.KeyPair.Id,
-	})
-	r.NoError(err)
-
-	g, err := bob.GraphBuilder.Build()
-	r.NoError(err)
-	time.Sleep(250 * time.Millisecond)
-	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
+	ali.PublishLog.Publish("hello, world")
+	bob.PublishLog.Publish("hello, world")
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)

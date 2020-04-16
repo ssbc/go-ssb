@@ -156,8 +156,9 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 			}
 
 			set := g.BlockedList(pFrom.key.Id)
-			if len(set) != len(who) {
-				return errors.Errorf("BlockedList() wrong length: %d", len(set))
+			got := set.Count()
+			if got != len(who) {
+				return errors.Errorf("BlockedList() wrong length: %d", got)
 			}
 
 			var wants = make(map[librarian.Addr]struct{}, len(who))
