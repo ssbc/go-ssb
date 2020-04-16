@@ -65,6 +65,13 @@ func main() {
 			return errors.Wrap(err, "push failed")
 		}
 
+		if err, ok := v.(error); ok {
+			if margaret.IsErrNulled(err) {
+				return nil
+			}
+			return err
+		}
+
 		seq, err := to.Append(v)
 		fmt.Print("\r", seq)
 		return err
