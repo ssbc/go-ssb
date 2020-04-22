@@ -4,7 +4,9 @@ package rawread
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -52,6 +54,8 @@ func (g logThandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
 func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+	fmt.Println("byTypeCall:", req.Method.String())
+	spew.Dump(req.Args())
 	if len(req.Args()) < 1 {
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return

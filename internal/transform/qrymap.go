@@ -21,12 +21,24 @@ import (
 func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
 
 	noNulled := mfr.FilterFunc(func(ctx context.Context, v interface{}) (bool, error) {
-		if err, ok := v.(error); ok {
+		switch tv := v.(type) {
+		case error:
+			if margaret.IsErrNulled(tv) {
+				return false, nil
+			}
+		case margaret.SeqWrapper:
+
+			sv := tv.Value()
+
+			err, ok := sv.(error)
+			if !ok {
+				return true, nil
+			}
 			if margaret.IsErrNulled(err) {
 				return false, nil
 			}
-			return false, err
 		}
+
 		return true, nil
 	})
 

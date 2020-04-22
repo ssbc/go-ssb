@@ -55,6 +55,8 @@ const manifestBlob = `
 	"messagesByType": "source",
 	"createHistoryStream": "source",
 
+	"tangles": "source",
+
 	"publish": "async",
 	"whoami": "sync",
 	"status": "sync",

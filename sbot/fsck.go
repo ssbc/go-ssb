@@ -72,6 +72,7 @@ func FSCKWithMode(m FSCKMode) FSCKOption {
 		if m != FSCKModeLength && m != FSCKModeSequences {
 			return fmt.Errorf("invalid fsck mode: %d", m)
 		}
+
 		o.mode = m
 		return nil
 	}

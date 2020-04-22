@@ -55,7 +55,15 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	}
 
 	switch v := req.Args()[0].(type) {
-
+	case string:
+		var err error
+		qry.Root, err = ssb.ParseMessageRef(v)
+		if err != nil {
+			req.CloseWithError(errors.Wrap(err, "bad request - invalid root"))
+			return
+		}
+		qry.Limit = -1
+		qry.Keys = true
 	case map[string]interface{}:
 		q, err := message.NewCreateHistArgsFromMap(v)
 		if err != nil {

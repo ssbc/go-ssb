@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/shurcooL/go-goon"
@@ -52,27 +53,21 @@ func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
 func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
-	if len(req.Args()) < 1 {
-		req.CloseWithError(errors.Errorf("invalid arguments"))
-		return
-	}
+	var qry message.CreateLogArgs
+	if len(req.Args()) == 1 {
+		var args []message.CreateLogArgs
+		err := json.Unmarshal(req.RawArgs, &args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
+			req.CloseWithError(errors.Wrap(err, "bad request data"))
+			return
+		}
+		if len(args) == 1 {
+			qry = args[0]
 
-	var args []message.CreateLogArgs
-	err := json.Unmarshal(req.RawArgs, &args)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-		req.CloseWithError(errors.Wrap(err, "bad request data"))
-		return
-	}
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "createLogStream args len:", string(req.RawArgs))
-		req.CloseWithError(errors.Wrap(err, "bad request"))
-		return
-	}
-
-	qry := args[0]
-
-	if qry.Live {
+		}
+	} else {
+		qry.Keys = true
 		qry.Limit = -1
 	}
 
@@ -94,8 +89,9 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 	}
 
 	goon.Dump(qry)
+	start := time.Now()
 	src, err := g.root.Query(
-		margaret.SeqWrap(true),
+		margaret.SeqWrap(false),
 		margaret.Gte(margaret.BaseSeq(qry.Seq)),
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live),
@@ -114,5 +110,5 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		return
 	}
 	req.Stream.Close()
-	fmt.Fprintln(os.Stderr, "createLogStream closed:", err)
+	fmt.Fprintln(os.Stderr, "createLogStream closed:", err, "after:", time.Since(start))
 }

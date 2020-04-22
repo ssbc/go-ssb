@@ -231,15 +231,18 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	r.NoError(theBot.Close())
 }
 
+// to use this, put the repo in
 func testFSCKrepro(t *testing.T) {
 	r := require.New(t)
+	r.EqualValues(t.Name,"foo")
 
+	const buggedRepo = "testdata/example-repo-with-a-bug"
 	tRepoPath := filepath.Join("testrun", t.Name())
 	t.Log(tRepoPath)
 	os.MkdirAll("testrun/TestFSCK", 0700)
-	// tRepo := repo.New(tRepoPath)
+	//tRepo := repo.New(tRepoPath)
 
-	out, err := exec.Command("cp", "-v", "-r", "testdata/example-repo-with-a-bug", tRepoPath).CombinedOutput()
+	out, err := exec.Command("cp", "-v", "-r",buggedRepo, tRepoPath).CombinedOutput()
 	r.NoError(err, "got: %s", string(out))
 
 	theBot, _ := makeTestBot(t)

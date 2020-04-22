@@ -10,8 +10,6 @@ import (
 	"log"
 	"strings"
 
-	"go.cryptoscope.co/ssb/client"
-
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -19,6 +17,7 @@ import (
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -200,8 +199,8 @@ const FolderNameAbout = "about"
 func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
 	f := func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 		aboutIdx := libbadger.NewIndex(db, 0)
-
-		return aboutIdx, librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
+		snk := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
+		return aboutIdx, snk
 	}
 
 	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)

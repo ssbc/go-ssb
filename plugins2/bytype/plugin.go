@@ -4,7 +4,9 @@ package bytype
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -49,10 +51,7 @@ func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		req.CloseWithError(errors.Errorf("invalid arguments"))
 		return
 	}
-	var qry struct {
-		message.CreateHistArgs
-		Type string
-	}
+	var qry message.MessagesByTypeArgs
 
 	switch v := args[0].(type) {
 
@@ -62,7 +61,8 @@ func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			req.CloseWithError(errors.Wrap(err, "bad request"))
 			return
 		}
-		qry.CreateHistArgs = *q
+		qry.CommonArgs = q.CommonArgs
+		qry.StreamArgs = q.StreamArgs
 
 		var ok bool
 		qry.Type, ok = v["type"].(string)
@@ -74,29 +74,48 @@ func (g handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	case string:
 		qry.Limit = -1
 		qry.Type = v
+		qry.Keys = true
 
 	default:
 		req.CloseWithError(errors.Errorf("invalid argument type %T", args[0]))
 		return
 	}
-
-	threadLog, err := g.types.Get(librarian.Addr(qry.Type))
+	spew.Dump(qry)
+	typed, err := g.types.Get(librarian.Addr(qry.Type))
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "failed to load thread"))
+		req.CloseWithError(errors.Wrap(err, "failed to load typed log"))
 		return
 	}
 
-	src, err := mutil.Indirect(g.root, threadLog).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
+	src, err := mutil.Indirect(g.root, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: failed to qry tipe"))
 		return
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	snk := transform.NewKeyValueWrapper(req.Stream, qry.Keys)
+
+	var cnt int
+
+	err = luigi.Pump(ctx, newSinkCounter(&cnt, snk), src)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
 		return
 	}
 
+	fmt.Println("bytype", qry.Type, cnt)
+
 	req.Stream.Close()
+}
+
+func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
+	return func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			fmt.Println("weird", err)
+			return err
+		}
+
+		*counter++
+		return sink.Pour(ctx, v)
+	}
 }

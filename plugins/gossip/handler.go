@@ -88,6 +88,10 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			info.Log("msg", "done fetching callee")
 		}
 	}
+	if err := g.fetchFeed(ctx, g.Id, e, time.Now()); err != nil {
+		info.Log("handleConnect", "fetchFeed self failed", "err", err)
+		return
+	}
 
 	feeds := g.WantList.ReplicationList()
 	if feeds != nil {

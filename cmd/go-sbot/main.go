@@ -30,6 +30,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/bytype"
@@ -130,9 +131,10 @@ func initFlags() {
 		}
 		logging.SetupLogging(logFile)
 	} else {
-		logging.SetupLogging(os.Stderr)
+		//logging.SetupLogging(os.Stderr)
 	}
-	log = logging.Logger("sbot")
+	//log = logging.Logger("sbot")
+	log = testutils.NewRelativeTimeLogger(nil)
 }
 
 func runSbot() error {
@@ -333,7 +335,6 @@ func runSbot() error {
 		checkAndLog(err)
 		return nil
 	}
-
 	SystemEvents.With("event", "openedRepo").Add(1)
 	// establish message anf feed numbers in the repo
 

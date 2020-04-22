@@ -123,6 +123,7 @@ type CreateLogArgs struct {
 // MessagesByTypeArgs defines the query parameters for the messagesByType rpc call
 type MessagesByTypeArgs struct {
 	CommonArgs
+	StreamArgs
 	Type string `json:"type"`
 }
 

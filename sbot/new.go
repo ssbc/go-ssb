@@ -134,17 +134,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
-		var dcrTrigger dropContentTrigger
-		dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
-		dcrTrigger.root = s.RootLog
-		dcrTrigger.feeds = uf
-		dcrTrigger.nuller = s
-		err = MountSimpleIndex("content-delete-requests", dcrTrigger.MakeSimpleIndex)(s)
-		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to open load default DCR index")
+	/*
+		if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
+			var dcrTrigger dropContentTrigger
+			dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
+			dcrTrigger.root = s.RootLog
+			dcrTrigger.feeds = uf
+			dcrTrigger.nuller = s
+			err = MountSimpleIndex("content-delete-requests", dcrTrigger.MakeSimpleIndex)(s)
+			if err != nil {
+				return nil, errors.Wrap(err, "sbot: failed to open load default DCR index")
+			}
 		}
-	}
+	*/
 
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
@@ -158,7 +160,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// LogBuilder doesn't fully work yet
-	if mt, ok := s.mlogIndicies["msgTypes"]; ok {
+	if mt, _ := s.mlogIndicies["msgTypes"]; false {
 		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
 		contactLog, err := mt.Get(librarian.Addr("contact"))
 		if err != nil {
