@@ -28,6 +28,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	ssbClient "go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/message"
+	"golang.org/x/crypto/ed25519"
 	cli "gopkg.in/urfave/cli.v2"
 )
 
@@ -133,7 +134,8 @@ func initClientTCP(ctx *cli.Context) error {
 		return err
 	}
 
-	var remotPubKey = localKey.Pair.Public
+	var remotePubKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
+	copy(remotePubKey, localKey.Pair.Public)
 	if rk := ctx.String("remoteKey"); rk != "" {
 		rk = strings.TrimSuffix(rk, ".ed25519")
 		rk = strings.TrimPrefix(rk, "@")
@@ -141,7 +143,7 @@ func initClientTCP(ctx *cli.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
 		}
-		copy(remotPubKey[:], rpk)
+		copy(remotePubKey, rpk)
 	}
 
 	plainAddr, err := net.ResolveTCPAddr("tcp", ctx.String("addr"))
@@ -149,8 +151,7 @@ func initClientTCP(ctx *cli.Context) error {
 		return errors.Wrapf(err, "int: failed to resolve TCP address")
 	}
 
-	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{remotPubKey[:]})
-
+	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{PubKey: remotePubKey})
 	client, err = ssbClient.NewTCP(localKey, shsAddr,
 		ssbClient.WithSHSAppKey(ctx.String("shscap")),
 		ssbClient.WithContext(longctx))
