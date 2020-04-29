@@ -109,7 +109,9 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	if err != nil {
 		// yuk..
 		if !isLockFileExistsErr(err) {
-			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
+			// delete it if we cant recover it
+			os.Remove(mkvPath)
+			return nil, nil, errors.Wrapf(err, "not a lockfile problem - deleting index %s", name)
 		}
 		if err := cleanupLockFiles(dbPath); err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
