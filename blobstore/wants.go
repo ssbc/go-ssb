@@ -274,8 +274,8 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
-	defer wmgr.l.Unlock()
 	err := sink.Pour(ctx, wmgr.wants)
+	wmgr.l.Unlock()
 	if err != nil {
 		if !muxrpc.IsSinkClosed(err) {
 			level.Error(wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
