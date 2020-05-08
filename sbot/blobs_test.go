@@ -91,10 +91,12 @@ func TestBlobsPair(t *testing.T) {
 	})
 	r.NoError(err)
 
+	time.Sleep(30 * time.Second)
+
 	g, err := bob.GraphBuilder.Build()
 	r.NoError(err)
 	time.Sleep(250 * time.Millisecond)
-	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
+	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id), "B is not following A")
 
 	sess := &session{
 		ctx:   ctx,
@@ -439,7 +441,7 @@ func TestBlobsWithHops(t *testing.T) {
 	})
 	r.NoError(err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
@@ -564,6 +566,8 @@ func TestBlobsTooBig(t *testing.T) {
 		Contact:   ali.KeyPair.Id,
 	})
 	r.NoError(err)
+
+	time.Sleep(30 * time.Second)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)

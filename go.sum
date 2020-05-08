@@ -74,6 +74,8 @@ github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102/go.mod h1:SqUrOPUn
 github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 h1:tdlZCpZ/P9DhczCTSixgIKmwPv6+wP5DGjqLYw5SUiA=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
+github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 h1:fAjc9m62+UWV/WAFKLNi6ZS0675eEUC9y3AlwSbQu1Y=
+github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -216,6 +218,7 @@ github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaO
 github.com/mattn/go-isatty v0.0.3/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
+github.com/mattn/go-sqlite3 v1.11.0 h1:LDdKkqtYlom37fkvqs8rMPFKAMe8+SgjbwZ6ex1/A/Q=
 github.com/mattn/go-sqlite3 v1.11.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
@@ -342,8 +345,6 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.5.1 h1:nOGnQDM7FYENwehXlg/kFVnos3rEvtKTjRvOWSzb6H4=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
-github.com/teivah/onecontext v0.0.0-20190805212053-7a1893e577e7 h1:Q5bz+jSz4DA2oJlnmxNR6KXR1BzcEmTHCwO+hGWdkFM=
-github.com/teivah/onecontext v0.0.0-20190805212053-7a1893e577e7/go.mod h1:XUZ4x3oGhWfiOnUvTslnKKs39AWUct3g3yJvXTQSJOQ=
 github.com/tinylib/msgp v1.1.0 h1:9fQd+ICuRIu/ue4vxJZu6/LzxN0HwMds2nq/0cFvxHU=
 github.com/tinylib/msgp v1.1.0/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
@@ -367,6 +368,8 @@ go.cryptoscope.co/librarian v0.1.2/go.mod h1:U15yqN7eap9RDGqd/wlFUWoGWplXWn3VI3M
 go.cryptoscope.co/librarian v0.1.4-0.20190912103814-57505baa5ec9/go.mod h1:Yx+LiTOwrO/S25ZugBl6QPTtHi83xwPyVxc65W+R7x0=
 go.cryptoscope.co/librarian v0.2.0 h1:HmtNjpIbJMC92WGP3klMqybHyEx1+CyezLfLOFFkAmg=
 go.cryptoscope.co/librarian v0.2.0/go.mod h1:uFope0IyQiNu+ultHuG9cDtrh94WAZeGhLpU8JTz1gc=
+go.cryptoscope.co/librarian v0.2.1-0.20200519132401-80c3b8105d40 h1:BsKsVgEY87i5BUQNxtYIuTFCaQWjJgSwgBK6fsjbTgo=
+go.cryptoscope.co/librarian v0.2.1-0.20200519132401-80c3b8105d40/go.mod h1:P8YuIifKwAnrQzkHdBe06jMUoICJYv7tCJc+ONG34yY=
 go.cryptoscope.co/luigi v0.0.1/go.mod h1:bdU2SNXp28+MnejXrdgtWyLBd10ODLY5ZHzWSjewS04=
 go.cryptoscope.co/luigi v0.3.0/go.mod h1:RFlNZMl3Ckc4jIPrLBn3WGwSgpzb0lGDIoGsmBSqEDY=
 go.cryptoscope.co/luigi v0.3.2/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLUnvks=
@@ -374,16 +377,19 @@ go.cryptoscope.co/luigi v0.3.3/go.mod h1:sKanbHitI0dybhcgijJzqQmKbIT1zu6uwzeobLU
 go.cryptoscope.co/luigi v0.3.4/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/luigi v0.3.5 h1:6rrNciUqbuwphT7hIjFd8eVRP3IatDX6HxdHs/Qo+Zw=
 go.cryptoscope.co/luigi v0.3.5/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
+go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS9btSWTpD+vJk6VJyoW8gV0kWzcc=
+go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/margaret v0.0.2/go.mod h1:YyxmwJ16ip+JnH4/M1ANyr8khrC9OnaDH3eOpR14o0M=
 go.cryptoscope.co/margaret v0.0.5/go.mod h1:W+Q6lvzHIrF8+Yt3dItHHsx2R9/Xvj/NkJGM8QLM2l4=
 go.cryptoscope.co/margaret v0.0.8/go.mod h1:VbP0bqavqW5osTmdNvgukrqtmqvZC5sXyPSBUW5rzv8=
 go.cryptoscope.co/margaret v0.0.12-0.20190912103626-34323ad497f4/go.mod h1:3rt+RmZTFZEgfvFxz0ZPDBIWtLJOouWtzV6YbBl6sek=
 go.cryptoscope.co/margaret v0.1.4/go.mod h1:9anofnVTwgMMNY1zENRRZHSpjiEDEBZg40CIaX4raPY=
-go.cryptoscope.co/margaret v0.1.6 h1:jxg0luTLMescgKjm2xWQclTJ57e5u9DzsF/hRQ6N7kA=
-go.cryptoscope.co/margaret v0.1.6/go.mod h1:9anofnVTwgMMNY1zENRRZHSpjiEDEBZg40CIaX4raPY=
+go.cryptoscope.co/margaret v0.1.7-0.20200519144842-7c553c9d3bce h1:3pQpEljWEPcTnfrwsQuHQpb2omGMxt/0rS2zgsNEkQY=
+go.cryptoscope.co/margaret v0.1.7-0.20200519144842-7c553c9d3bce/go.mod h1:9anofnVTwgMMNY1zENRRZHSpjiEDEBZg40CIaX4raPY=
 go.cryptoscope.co/muxrpc v1.4.1-0.20190910185819-a3119150878e/go.mod h1:dV/i300s3OxZKI0YPlY/hG7w2y9TFgu3oQkNDXBoMQY=
-go.cryptoscope.co/muxrpc v1.5.4-0.20191205134222-b1563255bffa h1:wwBK13xg2akKHUP3oBa4COx1NMCxUPZpqlCz4EPx29A=
 go.cryptoscope.co/muxrpc v1.5.4-0.20191205134222-b1563255bffa/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
+go.cryptoscope.co/muxrpc v1.5.4-0.20200422174348-fc975b161059 h1:IbSxAkxcoDWdpzbiM9hLq6HSggSFc28bIHFXOoH1SkM=
+go.cryptoscope.co/muxrpc v1.5.4-0.20200422174348-fc975b161059/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
 go.cryptoscope.co/netwrap v0.0.0-20180427130219-dae5b5bc35c3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.0.3/go.mod h1:arPOz1SB/sunS41F1iBgMgkx4fRhKkG221uUMjzkAqc=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=

@@ -138,6 +138,8 @@ func TestNullFeed(t *testing.T) {
 	_, err = bertBot.PublishLog.Publish(ssb.NewContactFollow(mainbot.KeyPair.Id))
 	r.NoError(err)
 
+	time.Sleep(30 * time.Second)
+
 	for i := 1000; i > 0; i-- {
 		_, err = bertBot.PublishLog.Publish(i)
 		r.NoError(err)
@@ -222,6 +224,8 @@ func TestNullFetched(t *testing.T) {
 		Contact:   ali.KeyPair.Id,
 	})
 	r.NoError(err)
+
+	time.Sleep(30 * time.Second)
 
 	for i := 1000; i > 0; i-- {
 		_, err = bob.PublishLog.Publish(i)

@@ -10,19 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"go.cryptoscope.co/luigi"
-	"golang.org/x/sync/errgroup"
-
-	"go.cryptoscope.co/ssb/internal/mutil"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -216,8 +214,6 @@ func TestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 	a.NotNil(msg.ContentBytes())
 
-	time.Sleep(2 * time.Second)
-
 	mainbot.Shutdown()
 	r.NoError(mainbot.Close())
 }
@@ -368,6 +364,9 @@ func TestNullContentAndSync(t *testing.T) {
 	// conect, should still get the full feeds
 	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpArny.Id))
 	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpBert.Id))
+	// TODO: indexing delay
+	time.Sleep(30 * time.Second)
+
 	err = mainbot.Network.Connect(ctx, otherBot.Network.GetListenAddr())
 	r.NoError(err)
 

@@ -29,6 +29,8 @@ type ssbSecret struct {
 	Public  string   `json:"public"`
 }
 
+// IsValidFeedFormat checks if the passed FeedRef is for one of the two supported formats,
+// legacy/crapp or GabbyGrove.
 func IsValidFeedFormat(r *FeedRef) error {
 	if r.Algo != RefAlgoFeedSSB1 && r.Algo != RefAlgoFeedGabby {
 		return errors.Errorf("ssb: unsupported feed format:%s", r.Algo)
@@ -36,6 +38,8 @@ func IsValidFeedFormat(r *FeedRef) error {
 	return nil
 }
 
+// NewKeyPair generates a fresh KeyPair using the passed io.Reader as a seed.
+// Passing nil is fine and will use crypto/rand.
 func NewKeyPair(r io.Reader) (*KeyPair, error) {
 
 	// generate new keypair
@@ -51,6 +55,8 @@ func NewKeyPair(r io.Reader) (*KeyPair, error) {
 	return &keyPair, nil
 }
 
+// SaveKeyPair serializes the passed KeyPair to path.
+// It errors if path already exists.
 func SaveKeyPair(kp *KeyPair, path string) error {
 	if err := IsValidFeedFormat(kp.Id); err != nil {
 		return err
@@ -74,6 +80,7 @@ func SaveKeyPair(kp *KeyPair, path string) error {
 	return errors.Wrap(f.Close(), "ssb.SaveKeyPair: failed to close file")
 }
 
+// EncodeKeyPairAsJSON serializes the passed Keypair into the writer w
 func EncodeKeyPairAsJSON(kp *KeyPair, w io.Writer) error {
 	var sec = ssbSecret{
 		Curve:   "ed25519",

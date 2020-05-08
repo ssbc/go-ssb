@@ -239,12 +239,6 @@ func runSbot() error {
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
-	if flagReindex {
-		opts = append(opts,
-			mksbot.DisableNetworkNode(),
-			mksbot.DisableLiveIndexMode())
-	}
-
 	sbot, err := mksbot.New(opts...)
 	if err != nil {
 		return errors.Wrap(err, "scuttlebot")
@@ -273,6 +267,9 @@ func runSbot() error {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
 		return nil
 	}
+
+	level.Info(log).Log("event", "waiting for indexes to catch up")
+	sbot.WaitUntilIndexesAreSynced()
 
 	var fsckMode = mksbot.FSCKModeLength
 	var exitAfterFSCK = false
@@ -320,6 +317,8 @@ func runSbot() error {
 	}
 
 	SystemEvents.With("event", "openedRepo").Add(1)
+	// establish message anf feed numbers in the repo
+
 	feeds, err := uf.List()
 	if err != nil {
 		return errors.Wrap(err, "user feed")
@@ -337,9 +336,11 @@ func runSbot() error {
 
 	if flagReindex {
 		level.Warn(log).Log("mode", "reindexing")
-		err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
-		if err != nil {
-			return err
+		if fsckMode != mksbot.FSCKModeSequences {
+			err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
+			if err != nil {
+				return err
+			}
 		}
 		level.Warn(log).Log("mode", "fsck done")
 		err = sbot.Close()
