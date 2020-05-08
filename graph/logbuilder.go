@@ -45,6 +45,8 @@ func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (*logBuilder, er
 	return &lb, errors.Wrap(err, "failed to build graph")
 }
 
+func (b *logBuilder) Close() error { return nil }
+
 func (b *logBuilder) startQuery(ctx context.Context) {
 	src, err := b.contactsLog.Query(margaret.Live(true))
 	if err != nil {

@@ -14,7 +14,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
+func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
 	mlog, serve, err := repo.OpenMultiLog(r, plug.Name(), IndexUpdate)
 	plug.h.types = mlog
 	return mlog, serve, err

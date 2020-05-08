@@ -45,10 +45,18 @@ type PeerStatus struct {
 	Since string
 }
 type Status struct {
-	PID   int // process id of the bot
-	Peers []PeerStatus
-	Blobs []BlobWant
-	Root  margaret.BaseSeq
+	PID      int // process id of the bot
+	Peers    []PeerStatus
+	Blobs    []BlobWant
+	Root     margaret.BaseSeq
+	Indicies IndexStates
+}
+
+type IndexStates []IndexState
+
+type IndexState struct {
+	Name  string
+	State string
 }
 
 type ContentNuller interface {

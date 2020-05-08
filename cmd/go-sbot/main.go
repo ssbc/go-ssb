@@ -232,12 +232,6 @@ func main() {
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
-	if flagReindex {
-		opts = append(opts,
-			mksbot.DisableNetworkNode(),
-			mksbot.DisableLiveIndexMode())
-	}
-
 	sbot, err := mksbot.New(opts...)
 	checkFatal(err)
 
@@ -264,6 +258,9 @@ func main() {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
 		return
 	}
+
+	level.Info(log).Log("event", "waiting for indexes to catch up")
+	sbot.WaitUntilIndexesAreSynced()
 
 	var fsckMode = mksbot.FSCKModeLength
 	var exitAfterFSCK = false
@@ -311,6 +308,8 @@ func main() {
 	}
 
 	SystemEvents.With("event", "openedRepo").Add(1)
+	// establish message anf feed numbers in the repo
+
 	feeds, err := uf.List()
 	checkFatal(err)
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
@@ -323,9 +322,10 @@ func main() {
 	level.Info(log).Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
 	if flagReindex {
-		level.Warn(log).Log("mode", "reindexing")
-		err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
-		checkFatal(err)
+		if fsckMode != mksbot.FSCKModeSequences {
+			err = sbot.FSCK(mksbot.FSCKWithMode(mksbot.FSCKModeSequences))
+			checkFatal(err)
+		}
 		level.Warn(log).Log("mode", "fsck done")
 		err = sbot.Close()
 		checkAndLog(err)

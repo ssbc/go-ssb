@@ -15,7 +15,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, repo.ServeFunc, error) {
+func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
 	mlog, serve, err := repo.OpenMultiLog(r, plug.Name(), func(ctx context.Context, seq margaret.Seq, msgv interface{}, mlog multilog.MultiLog) error {
 		if nulled, ok := msgv.(error); ok {
 			if margaret.IsErrNulled(nulled) {
