@@ -5,6 +5,7 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 
@@ -266,8 +267,8 @@ func (wmgr *wantManager) WantWithDist(ref *ssb.BlobRef, dist int64) error {
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
+	defer wmgr.l.Unlock()
 	err := sink.Pour(ctx, wmgr.wants)
-	wmgr.l.Unlock()
 	if err != nil {
 		if !muxrpc.IsSinkClosed(err) {
 			level.Error(wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
@@ -531,7 +532,8 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	for ref, dist := range wantsMap {
 		br, err := ssb.ParseBlobRef(ref)
 		if err != nil {
-			return errors.Wrap(err, "WantMsg: error parsing blob reference")
+			fmt.Println(errors.Wrap(err, "WantMsg: error parsing blob reference"))
+			continue
 		}
 
 		wants = append(wants, ssb.BlobWant{
