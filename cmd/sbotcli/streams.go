@@ -44,6 +44,9 @@ var historyStreamCmd = &cli.Command{
 	Name:  "hist",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
+		if ctx.String("id") == "" {
+			return errors.Errorf("--id flag is unset but required")
+		}
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
 		if err != nil {
