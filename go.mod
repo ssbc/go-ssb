@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/RoaringBitmap/roaring v0.4.21-0.20190925020156-96f2302555b6
-	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
@@ -23,7 +22,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.3.0
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
-	github.com/stamblerre/gocode v1.0.0 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go/codec v1.1.7
 	go.cryptoscope.co/librarian v0.2.1-0.20200604160012-d85e03a70e79
@@ -51,9 +49,3 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
-
-replace go.cryptoscope.co/muxrpc => /home/cryptix/go-repos/muxrpc
-
-replace go.cryptoscope.co/librarian => /home/cryptix/go-repos/librarian
-
-replace go.cryptoscope.co/margaret => /home/cryptix/go-repos/margaret
