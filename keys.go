@@ -9,15 +9,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/keks/nocomment"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 )
-
-// SecretPerms are the file permissions for holding SSB secrets.
-const SecretPerms os.FileMode = 0600
 
 type KeyPair struct {
 	Id   *FeedRef
@@ -30,6 +28,19 @@ type ssbSecret struct {
 	ID      *FeedRef `json:"id"`
 	Private string   `json:"private"`
 	Public  string   `json:"public"`
+}
+
+func SecretPerms() os.FileMode {
+	// SecretPerms are the file permissions for holding SSB secrets.
+	var perms os.FileMode
+
+	switch runtime.GOOS {
+	case "windows":
+		perms = 0666
+	default:
+		perms = 0600
+	}
+	return perms
 }
 
 func IsValidFeedFormat(r *FeedRef) error {
@@ -65,7 +76,7 @@ func SaveKeyPair(kp *KeyPair, path string) error {
 	if err != nil && !os.IsExist(err) {
 		return errors.Wrap(err, "failed to create folder for keypair")
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms())
 	if err != nil {
 		return errors.Wrap(err, "ssb.SaveKeyPair: failed to create file")
 	}
@@ -100,8 +111,8 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ssb.LoadKeyPair: could not stat key file %s", fname)
 	}
-	if perms := info.Mode().Perm(); perms != SecretPerms {
-		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
+	if perms := info.Mode().Perm(); perms != SecretPerms() {
+		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms(), perms)
 	}
 
 	return ParseKeyPair(nocomment.NewReader(f))
