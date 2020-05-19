@@ -115,25 +115,30 @@ func (cdr *dropContentTrigger) consume() {
 	}
 }
 
-func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Index, repo.ServeFunc, error) {
+func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
 
 	// TODO: currently the locking of margaret/offset doesn't allow us to get previous messages while being in an index update
 	// this is realized as an luigi.Broadcast and the current bases of the index update mechanism
 	dcr.check = make(chan *triggerEvent, 10)
 
-	sinkIdx, serve, err := repo.OpenIndex(r, FolderNameDelete, dcr.idxupdate)
+	idx, snk, err := repo.OpenIndex(r, FolderNameDelete, dcr.idxupdate)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting dcr trigger index")
 	}
+	go dcr.consume()
+	ws := &wrappedIndexSink{SinkIndex: snk, ch: dcr.check}
+	return idx, ws, nil
+}
 
-	wrappedServe := func(ctx context.Context, log margaret.Log, live bool) error {
-		go dcr.consume()
-		err := serve(ctx, log, live)
-		close(dcr.check)
-		return err
-	}
+type wrappedIndexSink struct {
+	librarian.SinkIndex
 
-	return sinkIdx, wrappedServe, nil
+	ch chan *triggerEvent
+}
+
+func (snk *wrappedIndexSink) Close() error {
+	close(snk.ch)
+	return snk.SinkIndex.Close()
 }
 
 func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {

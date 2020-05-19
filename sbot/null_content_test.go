@@ -214,8 +214,6 @@ func TestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 	a.NotNil(msg.ContentBytes())
 
-	time.Sleep(2 * time.Second)
-
 	mainbot.Shutdown()
 	r.NoError(mainbot.Close())
 }
@@ -366,6 +364,9 @@ func TestNullContentAndSync(t *testing.T) {
 	// conect, should still get the full feeds
 	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpArny.Id))
 	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpBert.Id))
+	// TODO: indexing delay
+	time.Sleep(30 * time.Second)
+
 	err = mainbot.Network.Connect(ctx, otherBot.Network.GetListenAddr())
 	r.NoError(err)
 
