@@ -12,6 +12,7 @@ import (
 type mockMessageProcessor struct {
 	procMsgFunc func(context.Context, ssb.Message, margaret.Seq) error
 	closeFunc   func(context.Context) error
+	curSeqFunc  func() (margaret.Seq, error)
 }
 
 func (mmp mockMessageProcessor) ProcessMessage(ctx context.Context, msg ssb.Message, seq margaret.Seq) error {
@@ -20,6 +21,10 @@ func (mmp mockMessageProcessor) ProcessMessage(ctx context.Context, msg ssb.Mess
 
 func (mmp mockMessageProcessor) Close(ctx context.Context) error {
 	return mmp.closeFunc(ctx)
+}
+
+func (mmp mockMessageProcessor) CurrentSeq() (margaret.Seq, error) {
+	return mmp.curSeqFunc()
 }
 
 type mockMultilog struct {

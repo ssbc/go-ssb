@@ -24,6 +24,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/processing"
 )
 
 var _ Interface = repo{}
@@ -97,46 +98,77 @@ func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.Mul
 	return mlog, serve, nil
 }
 
+func OpenContentProcessor(r Interface, name string, f processing.ContentProcessorFunc) (multilog.MultiLog, ServeFunc, error) {
+	mlog, err := openMultiLog(r, name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	idxStateFile, err := openStateFile(r, name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cp := &processing.ContentProcessor{
+		MLog:      mlog,
+		Func:      f,
+		StateFile: idxStateFile,
+	}
+
+	curSeq, err := cp.CurrentSeq()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
+		if rootLog == nil {
+			return errors.Errorf("repo/multilog: %s was passed a nil root log", name)
+		}
+
+		src, err := rootLog.Query(margaret.Live(live), margaret.SeqWrap(true), margaret.Gt(curSeq))
+		if err != nil {
+			return errors.Wrap(err, "error querying rootLog for mlog")
+		}
+
+		sink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+			// TODO is this correct?
+			if err != nil {
+				return nil
+			}
+
+			var (
+				sw  = v.(margaret.SeqWrapper)
+				msg = sw.Value().(ssb.Message)
+				seq = sw.Seq()
+			)
+
+			return cp.ProcessMessage(ctx, msg, seq)
+		})
+
+		err = luigi.Pump(ctx, sink, src)
+		if err == ssb.ErrShuttingDown {
+			return nil
+		}
+
+		return errors.Wrap(err, "error reading query for mlog")
+	}
+
+	return mlog, serve, nil
+}
+
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, ServeFunc, error) {
 
-	dbPath := r.GetPath(PrefixMultiLog, name, "roaring")
-	err := os.MkdirAll(dbPath, 0700)
+	mlog, err := openMultiLog(r, name)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+		return nil, nil, err
 	}
 
-	mkvPath := filepath.Join(dbPath, "mkv")
-	mlog, err := roaringfiles.NewMKV(mkvPath)
+	idxStateFile, err := openStateFile(r, name)
 	if err != nil {
-		// yuk..
-		if !isLockFileExistsErr(err) {
-			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
-		}
-		if err := cleanupLockFiles(dbPath); err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to recover lockfiles")
-
-		}
-		mlog, err = roaringfiles.NewMKV(mkvPath)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to open roaring db")
-		}
-	}
-
-	if err := mlog.CompressAll(); err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to compress db")
+		return nil, nil, err
 	}
 
 	// todo: save the current state in the multilog
-	statePath := r.GetPath(PrefixMultiLog, name, "state_mkv.json")
-	mode := os.O_RDWR | os.O_EXCL
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		mode |= os.O_CREATE
-	}
-	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "error opening state file")
-	}
-
 	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
 
 	serve := func(ctx context.Context, rootLog margaret.Log, live bool) error {
@@ -158,6 +190,47 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 	}
 
 	return mlog, serve, nil
+}
+
+func openStateFile(r Interface, name string) (*os.File, error) {
+	statePath := r.GetPath(PrefixMultiLog, name, "state_mkv.json")
+	mode := os.O_RDWR | os.O_EXCL
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		mode |= os.O_CREATE
+	}
+
+	return os.OpenFile(statePath, mode, 0700)
+}
+
+func openMultiLog(r Interface, name string) (multilog.MultiLog, error) {
+	dbPath := r.GetPath(PrefixMultiLog, name, "roaring")
+	err := os.MkdirAll(dbPath, 0700)
+	if err != nil {
+		return nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+	}
+
+	mkvPath := filepath.Join(dbPath, "mkv")
+	mlog, err := roaringfiles.NewMKV(mkvPath)
+	if err != nil {
+		// yuk..
+		if !isLockFileExistsErr(err) {
+			return nil, errors.Wrapf(err, "failed to recover lockfiles")
+		}
+		if err := cleanupLockFiles(dbPath); err != nil {
+			return nil, errors.Wrapf(err, "failed to recover lockfiles")
+
+		}
+		mlog, err = roaringfiles.NewMKV(mkvPath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to open roaring db")
+		}
+	}
+
+	if err := mlog.CompressAll(); err != nil {
+		return nil, errors.Wrapf(err, "failed to compress db")
+	}
+
+	return mlog, nil
 }
 
 func cleanupLockFiles(root string) error {

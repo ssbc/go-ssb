@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,8 +61,8 @@ func TestContentProcessorErrors(t *testing.T) {
 		}
 
 		// cp is the ContentProcessor that uses the mocked multilog
-		cp = ContentProcessor{
-			F: f,
+		cp = &ContentProcessor{
+			Func: f,
 			MLog: mockMultilog{
 				getFunc: func(addr librarian.Addr) (margaret.Log, error) {
 					fmt.Sprintf("%x\n", addr)
@@ -110,6 +112,15 @@ func TestContentProcessor(t *testing.T) {
 			return func(t *testing.T) {
 				t.Parallel()
 
+				stateFile, err := ioutil.TempFile(".", "stateFile")
+				require.NoError(t, err)
+
+				defer func() {
+					if !t.Failed() {
+						os.Remove(stateFile.Name())
+					}
+				}()
+
 				var (
 					// offs tracks how far we progressed in the individual
 					// sublogs
@@ -133,13 +144,14 @@ func TestContentProcessor(t *testing.T) {
 					}
 
 					// cp is the ContentProcessor that uses the mocked multilog
-					cp = ContentProcessor{
-						F: tc.f,
+					cp = &ContentProcessor{
+						Func: tc.f,
 						MLog: mockMultilog{
 							getFunc: func(addr librarian.Addr) (margaret.Log, error) {
 								return mkMockLog(addr), nil
 							},
 						},
+						StateFile: stateFile,
 					}
 				)
 
@@ -149,6 +161,11 @@ func TestContentProcessor(t *testing.T) {
 					seq := margaret.BaseSeq(i)
 					err := cp.ProcessMessage(ctx, in, seq)
 					require.NoError(t, err)
+
+					t.Log("i", i)
+					curSeq, err := cp.CurrentSeq()
+					require.NoError(t, err)
+					require.Equal(t, seq.Seq(), curSeq.Seq())
 				}
 
 				for k := range offs {

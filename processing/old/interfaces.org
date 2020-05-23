@@ -1,0 +1,146 @@
+** exploring solution space for interfaces
+
+we are trying to build a library that allows us to extract information from a log.
+the extracted information should then be added to different kinds of indexes.
+bonus points if we can find an interface that works in just one pass.
+
+*** idea 1: extractors as they are currently implemented
+
+ this approach needs just one pass, but can only fill multilogs.
+
+ the idea is that we have several extractor functions, like
+ - give me key-value pairs with string values
+ - give me the kv pairs p at ~threads/(*)/root = (*)~ as ~(\1, \2)~
+  
+ then, these are binary-encoded to pBin and the sequence number of the message is added
+ to a sublog with he address pBin.
+
+ we also have selectors, that allow us to run a selector on e.g.
+ - a specific map[string]interface{}
+ - recursively in submaps
+  
+**** good things
+ - i like the selector idea
+
+**** bad things
+ - specific to multilogs
+
+*** idea 2: use extractors, but they don't return kv pairs but are index specific
+
+#+BEGIN_SRC
+type Extractor func(Message) error
+func NewMultiLogExtractor(mlog MultiLog, f func(MultiLog, Message)) Extractor {
+    return func(msg Message) error {
+	return f(mlog, msg)
+    }
+}
+#+END_SRC
+
+ one issue that i have with this is that in order to make this one-pass,
+ the caller would have to handle traversing the message to the correct
+ spot and evaluate the extractor.
+ if the extractor did it, we would have to do the traversing afresh for
+ every extractor, which is not single-pass.
+
+
+** exploring solution space for selectors that are defined inside the extractor but evaluaed outside.
+   
+this is tricky.
+we want to bake the selector logic into the extractor, but then let it execute outside.
+ 
+*** idea 1: pass current path into the extractor and let it return if we are going the wrong path
+   
+#+BEGIN_SRC
+type Hint uint8
+type Extractor func(path []string, msg Message) (more bool, err error)
+type MultiLogExtractor func(mlog MultiLog, path []string, msg Message) (more bool, err error)
+func multilog.NewExtractor(mlog MultiLog, f MultiLogExtractor) Extractor {
+    return func(path []string, msg Message) (bool, error) {
+	return f(mlog, path msg)
+    }
+}
+#+END_SRC
+
+
+and then
+
+#+BEGIN_SRC
+func ExtractThreads(rl RumourLog) MultiLogExtractor {
+    return func(mlog MultiLog, path []string, msg Message) (bool, error) {
+	if len(path) == 0 {
+	    return true, nil
+	}
+
+	if path[0] != "threads" {
+	    return false, nil
+	}
+
+	if len(path) == 1 {
+	    return true, nil
+	}
+
+	return ExtractThread(mlog, rl, path, msg)
+	name := path[1]
+	rootString := msg["root"]
+
+	rootRef := ParseMessageRef(rootString) // or return error
+	rootRumourSeq := rl.Get(rootRef) // or return error
+	mlog.Get(encode(name, rootRumourSeq)).Append(msg.Seq) // or return error
+	//    DARN WE DON'T HAVE THAT VALUE HERE --- ^^^^^^^
+    }
+}
+#+END_SRC
+
+hrmpf, we still need access to the sequence number of the message, but we dropped that during the traversal.
+the reason we didn't need it in the current implementation is that the sequence number is supplied from outside.
+in this scenario the extractor needs to handle it, or we need a different abstraction for the things we use to pour data into.
+
+ha! this is basically what "path/filepath".Walk is doing!
+
+they use the signature
+#+BEGIN_SRC 
+type WalkFunc func(path string, info os.FileInfo, err error) error
+#+END_SRC
+
+to adapt this approach, we add a special error, a new value and change the extractor signature as follows:
+#+BEGIN_SRC
+var Skip = errors.New("skip this value")
+type MessageInfo struct {
+	RootSeq Seq
+	// RumourSeq Seq // <- maybe later
+	Message            Message
+}
+type Extractor func(path []string, mi MessageInfo) error
+#+END_SRC
+
+now we can have a global walk that tracks which subwalks need to be executed.
+
+
+
+hmmm kind of stuck now. 
+a) this isn't a message info, this is about the current walk state.
+   maybe the path should be in there? should we call it walkinfo? or walkstate?
+b) the walk state should contain the current map value! or possibly a generic interface?
+c) i don't want to assemble all the interesting metadata like rumour log sequence
+   number in the generic function, but i also don't know how to make the walk
+   state full of stuff. would be cool if it was extensible without too much fuss.
+d) we could define the recurse function as a method of the walk state! we could, but no.
+   my intuition is that the recurse function is a bit like a generic trait method in rust.
+   we don't have that here, so we just use regular fucntions that take the walkstate as an argument.
+   
+other random ideas:
+- track per-extractor state that propagates down the object tree
+- for message level metadata (e.g. rumourlog sequence number, plaintext of encrypted messages, ...), use different messages types. the message is not modified or wrapped during the walk, so it is accessible to all walkfuncs.
+
+
+
+#+BEGIN_SRC
+func Extract(msg Message, xtrs ...Extractor) error {
+  recurse := func(path []string, , xtrs ...Extractor) error {
+    
+    for _, xtr := range xtrs {
+      err := xtr(
+    }
+  }
+}
+#+END_SRC
