@@ -63,6 +63,10 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
 
+	if dmsg.Hash != "sha256" {
+		return nil, nil, errors.Errorf("ssb Verify: scuttlebutt happend anyway")
+	}
+
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
