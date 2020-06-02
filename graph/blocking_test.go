@@ -4,8 +4,6 @@ package graph
 
 import (
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 )
 
 /*
@@ -138,6 +136,34 @@ var blockScenarios = []PeopleTestCase{
 			PeopleAssertOnBlocklist("4"),
 		},
 	},
+
+	{
+		name: "follow then block",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"1"},
+			PeopleOpNewPeer{"2"},
+			PeopleOpNewPeer{"3"},
+
+			PeopleOpFollow{"1", "2"},
+			PeopleOpFollow{"2", "1"},
+
+			PeopleOpFollow{"2", "3"},
+			PeopleOpUnfollow{"2", "3"},
+			PeopleOpBlock{"2", "3"},
+
+			PeopleOpUnfollow{"1", "2"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertFollows("1", "2", false),
+			PeopleAssertBlocks("1", "2", false),
+			PeopleAssertBlocks("1", "3", false),
+			PeopleAssertBlocks("2", "3", true),
+
+			PeopleAssertOnBlocklist("1"),
+			PeopleAssertOnBlocklist("2", "3"),
+			PeopleAssertOnBlocklist("3"),
+		},
+	},
 }
 
 func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
@@ -161,17 +187,16 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 				return errors.Errorf("BlockedList() wrong length: %d", got)
 			}
 
-			var wants = make(map[librarian.Addr]struct{}, len(who))
 			for _, want := range who {
 				pFrom, ok := state.peers[want]
 				if !ok {
 					state.t.Fatal("no such wanted peer:", want)
 					return nil
 				}
-				addr := pFrom.key.Id.StoredAddr()
-				wants[addr] = struct{}{}
+				if !set.Has(pFrom.key.Id) {
+					state.t.Errorf("expected %s on block list", want)
+				}
 			}
-			require.EqualValues(state.t, set, wants)
 			return nil
 		}
 	}

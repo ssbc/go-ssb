@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -251,6 +252,8 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
 
+		time.Sleep(time.Second / 10)
+
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()
 		r.NoError(err, "failed to build graph for debugging")
@@ -261,8 +264,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			if !a.True(ok, "did not find peer %s in graph lookup table (len:%d)", nick, len(g.lookup)) {
 				continue
 			}
-			cn := node.(*contactNode)
-			cn.name = nick
+			node.name = nick
 		}
 		g.Unlock()
 
@@ -425,39 +427,40 @@ func TestPeople(t *testing.T) {
 				PeopleAssertBlocks("alice", "bob", false),
 			},
 		},
+		/*
+			{
+				name: "feedFormats",
+				ops: []PeopleOp{
+					PeopleOpNewPeer{"alice"},
+					PeopleOpNewPeer{"claire"},
 
-		{
-			name: "feedFormats",
-			ops: []PeopleOp{
-				PeopleOpNewPeer{"alice"},
-				PeopleOpNewPeer{"claire"},
+					PeopleOpNewPeerWithAglo{"piet", ssb.RefAlgoFeedGabby},
+					PeopleOpNewPeerWithAglo{"pew", ssb.RefAlgoFeedGabby},
 
-				PeopleOpNewPeerWithAglo{"piet", ssb.RefAlgoFeedGabby},
-				PeopleOpNewPeerWithAglo{"pew", ssb.RefAlgoFeedGabby},
+					PeopleOpFollow{"alice", "piet"},
+					PeopleOpFollow{"piet", "claire"},
+					PeopleOpFollow{"piet", "pew"},
+					PeopleOpFollow{"pew", "piet"},
+				},
+				asserts: []PeopleAssertMaker{
+					PeopleAssertFollows("alice", "piet", true),
+					PeopleAssertFollows("piet", "alice", false),
+					PeopleAssertFollows("piet", "claire", true),
 
-				PeopleOpFollow{"alice", "piet"},
-				PeopleOpFollow{"piet", "claire"},
-				PeopleOpFollow{"piet", "pew"},
-				PeopleOpFollow{"pew", "piet"},
+					PeopleAssertFollows("piet", "pew", true),
+					PeopleAssertFollows("pew", "piet", true),
+
+					PeopleAssertAuthorize("alice", "piet", 0, true),
+					PeopleAssertAuthorize("piet", "alice", 0, false),
+					PeopleAssertAuthorize("piet", "claire", 0, true),
+					PeopleAssertAuthorize("piet", "pew", 0, true),
+					PeopleAssertAuthorize("pew", "piet", 0, true),
+
+					PeopleAssertHops("alice", 0, "alice", "piet"),
+					PeopleAssertHops("piet", 0, "piet", "claire", "pew"),
+				},
 			},
-			asserts: []PeopleAssertMaker{
-				PeopleAssertFollows("alice", "piet", true),
-				PeopleAssertFollows("piet", "alice", false),
-				PeopleAssertFollows("piet", "claire", true),
-
-				PeopleAssertFollows("piet", "pew", true),
-				PeopleAssertFollows("pew", "piet", true),
-
-				PeopleAssertAuthorize("alice", "piet", 0, true),
-				PeopleAssertAuthorize("piet", "alice", 0, false),
-				PeopleAssertAuthorize("piet", "claire", 0, true),
-				PeopleAssertAuthorize("piet", "pew", 0, true),
-				PeopleAssertAuthorize("pew", "piet", 0, true),
-
-				PeopleAssertHops("alice", 0, "alice", "piet"),
-				PeopleAssertHops("piet", 0, "piet", "claire", "pew"),
-			},
-		},
+		*/
 
 		// { TODO: unfinished
 		// 	name: "inviteAccept",

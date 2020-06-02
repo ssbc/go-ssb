@@ -101,6 +101,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
 	tick := time.NewTicker(5 * time.Minute)
 	for {
+		start = time.Now()
 		select {
 		case <-ctx.Done():
 			tick.Stop()
@@ -116,7 +117,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 				return
 			}
 		}
-		level.Debug(info).Log("msg", "hops fetch done", "count", feeds.Count(), "took", time.Since(start))
+		level.Debug(info).Log("msg", "timer fetch done", "count", feeds.Count(), "took", time.Since(start))
 	}
 }
 

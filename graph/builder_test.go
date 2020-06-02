@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 
@@ -43,17 +44,17 @@ func makeBadger(t *testing.T) testStore {
 	// tRootLog := mem.New()
 	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
 	r.NoError(err)
-	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
+	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var builder *builder
 
 	var tc testStore
-	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) librarian.SinkIndex {
+	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 		builder = NewBuilder(info, db)
 		return builder.OpenIndex()
 	})
 	r.NoError(err)
-	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve)
+	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve, true)
 	tc.root = tRootLog
 	tc.gbuilder = builder
 	tc.userLogs = uf
@@ -92,7 +93,7 @@ func makeTypedLog(t *testing.T) testStore {
 
 	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
 	r.NoError(err)
-	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF)
+	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var tc testStore
 	tc.root = tRootLog
@@ -100,7 +101,7 @@ func makeTypedLog(t *testing.T) testStore {
 
 	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
 	r.NoError(err, "sbot: failed to open message type sublogs")
-	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT)
+	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT, true)
 
 	contactLog, err := mt.Get(librarian.Addr("contact"))
 	r.NoError(err, "sbot: failed to open message contact sublog")
@@ -165,7 +166,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	myself.follow(alice.key.Id)
 	myself.block(bob.key.Id)
 
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(time.Second / 10)
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
@@ -194,12 +195,14 @@ func (tc testStore) theScenario(t *testing.T) {
 	// alice follows claire
 	alice.follow(claire.key.Id)
 
+	t.Log("warning: this needs export LIBRARIAN_WRITEALL=0")
+
+	time.Sleep(time.Second / 10)
+
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(4, g.NodeCount())
 	// r.NoError(g.RenderSVG())
-
-	time.Sleep(250 * time.Millisecond)
 
 	// now allowed. zero hops and not friends
 	err = auth.Authorize(claire.key.Id)
@@ -232,6 +235,7 @@ func (tc testStore) theScenario(t *testing.T) {
 
 	// claire follows debby
 	claire.follow(debby.key.Id)
+
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(5, g.NodeCount()) // same nodes more edges
@@ -249,15 +253,23 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.Nil(err)
 }
 
-func serveLog(ctx context.Context, name string, l margaret.Log, f repo.ServeFunc) <-chan error {
+func serveLog(ctx context.Context, name string, l margaret.Log, snk librarian.SinkIndex, live bool) <-chan error {
 	errc := make(chan error)
 	go func() {
-		err := f(ctx, l, true)
+		defer close(errc)
+
+		src, err := l.Query(snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
+			log.Println("got err for", name, err)
+			errc <- errors.Wrapf(err, "%s query failed", name)
+			return
+		}
+
+		err = luigi.Pump(ctx, snk, src)
+		if err != nil && errors.Cause(err) != ssb.ErrShuttingDown {
 			log.Println("got err for", name, err)
 			errc <- errors.Wrapf(err, "%s serve exited", name)
 		}
-		close(errc)
 	}()
 	return errc
 }
