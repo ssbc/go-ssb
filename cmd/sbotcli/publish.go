@@ -36,6 +36,12 @@ var publishRawCmd = &cli.Command{
 		if err != nil {
 			return errors.Wrapf(err, "publish/raw: invalid json input from stdin")
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		type reply map[string]interface{}
 		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, content)
 		if err != nil {
@@ -70,9 +76,14 @@ var publishPostCmd = &cli.Command{
 				arg["branch"] = r
 			}
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		type reply map[string]interface{}
 		var v interface{}
-		var err error
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
 			v, err = client.Async(longctx, reply{},
 				muxrpc.Method{"private", "publish"}, arg, recps)
@@ -127,6 +138,11 @@ var publishVoteCmd = &cli.Command{
 			}
 		}
 
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		type reply map[string]interface{}
 		var v interface{}
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
@@ -172,6 +188,12 @@ var publishAboutCmd = &cli.Command{
 			}
 			arg["image"] = blobRef
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		type reply map[string]interface{}
 		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, arg)
 		if err != nil {
@@ -206,6 +228,12 @@ var publishContactCmd = &cli.Command{
 			"following": ctx.Bool("following"),
 			"blocking":  ctx.Bool("blocking"),
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		type reply map[string]interface{}
 		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, arg)
 		if err != nil {

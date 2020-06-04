@@ -42,8 +42,6 @@ var (
 	longctx      context.Context
 	shutdownFunc func()
 
-	client *ssbClient.Client
-
 	log   logging.Interface
 	check = logging.CheckFatal
 
@@ -118,20 +116,23 @@ func initClient(ctx *cli.Context) error {
 		os.Exit(0)
 	}()
 	logging.SetCloseChan(signalc)
-
-	sockPath := ctx.String("unixsock")
-	if sockPath == "" {
-		return initClientTCP(ctx)
-	}
-	var err error
-	client, err = ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
-	return errors.Wrap(err, "unix-path based client init failed")
+	return nil
 }
 
-func initClientTCP(ctx *cli.Context) error {
+func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
+	sockPath := ctx.String("unixsock")
+	if sockPath != "" {
+		client, err := ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
+		if err != nil {
+			return nil, errors.Wrap(err, "unix-path based client init failed")
+		}
+		return client, nil
+	}
+
+	// Assume TCP connection
 	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var remotePubKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
@@ -141,25 +142,25 @@ func initClientTCP(ctx *cli.Context) error {
 		rk = strings.TrimPrefix(rk, "@")
 		rpk, err := base64.StdEncoding.DecodeString(rk)
 		if err != nil {
-			return errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
+			return nil, errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
 		}
 		copy(remotePubKey, rpk)
 	}
 
 	plainAddr, err := net.ResolveTCPAddr("tcp", ctx.String("addr"))
 	if err != nil {
-		return errors.Wrapf(err, "int: failed to resolve TCP address")
+		return nil, errors.Wrapf(err, "int: failed to resolve TCP address")
 	}
 
 	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{PubKey: remotePubKey})
-	client, err = ssbClient.NewTCP(localKey, shsAddr,
+	client, err := ssbClient.NewTCP(localKey, shsAddr,
 		ssbClient.WithSHSAppKey(ctx.String("shscap")),
 		ssbClient.WithContext(longctx))
 	if err != nil {
-		return errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
+		return nil, errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
 	}
 	log.Log("init", "done")
-	return nil
+	return client, nil
 }
 
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
@@ -214,6 +215,12 @@ CAVEAT: only one argument...
 				sendArgs[i] = v
 			}
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var reply interface{}
 		val, err := client.Async(longctx, reply, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
 		if err != nil {
@@ -237,8 +244,14 @@ var connectCmd = &cli.Command{
 		if to == "" {
 			return errors.New("connect: multiserv addr argument can't be empty")
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var val interface{}
-		val, err := client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
+		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
 		if err != nil {
 			return errors.Wrapf(err, "connect: async call failed.")
 		}
