@@ -5,11 +5,11 @@ package friends
 import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-
 	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/ssb/graph"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/internal/muxmux"
 )
 
 /*
@@ -37,9 +37,7 @@ func checkAndLog(log logging.Interface, err error) {
 }
 
 func New(log logging.Interface, self ssb.FeedRef, b graph.Builder) ssb.Plugin {
-	rootHdlr := HandlerMux{
-		logger: log,
-	}
+	rootHdlr := muxmux.New(log)
 
 	rootHdlr.RegisterAsync(muxrpc.Method{"friends", "isFollowing"}, isFollowingH{
 		log:     log,
