@@ -362,11 +362,10 @@ func TestNullContentAndSync(t *testing.T) {
 	botgroup.Go(bs.Serve(otherBot))
 
 	// conect, should still get the full feeds
-	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpArny.Id))
-	otherBot.PublishLog.Publish(ssb.NewContactFollow(kpBert.Id))
-	// TODO: indexing delay
-	time.Sleep(30 * time.Second)
-
+	mainbot.Replicate(otherBot.KeyPair.Id)
+	otherBot.Replicate(mainbot.KeyPair.Id)
+	otherBot.Replicate(kpArny.Id)
+	otherBot.Replicate(kpBert.Id)
 	err = mainbot.Network.Connect(ctx, otherBot.Network.GetListenAddr())
 	r.NoError(err)
 

@@ -17,23 +17,22 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/message"
 )
 
 type handler struct {
-	Id           *ssb.FeedRef
-	RootLog      margaret.Log
-	UserFeeds    multilog.MultiLog
-	GraphBuilder graph.Builder
-	Info         logging.Interface
+	Id        *ssb.FeedRef
+	RootLog   margaret.Log
+	UserFeeds multilog.MultiLog
+	WantList  ssb.ReplicationLister
+	Info      logging.Interface
 
 	hmacSec  HMACSecret
 	hopCount int
 	promisc  bool // ask for remote feed even if it's not on owns fetch list
 
-	activeLock  sync.Mutex
-	activeFetch sync.Map
+	activeLock  *sync.Mutex
+	activeFetch map[string]struct{}
 
 	sysGauge metrics.Gauge
 	sysCtr   metrics.Counter
@@ -90,25 +89,35 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		}
 	}
 
-	// TODO: ctx to build and list?!
-	// or pass rootCtx to their constructor but than we can't cancel sessions
-	select {
-	case <-ctx.Done():
-		return
-	default:
-	}
-
-	hops := g.GraphBuilder.Hops(g.Id, g.hopCount)
-	if hops != nil {
-		err := g.fetchAll(ctx, e, hops)
-		if muxrpc.IsSinkClosed(err) || errors.Cause(err) == context.Canceled {
-			return
-		}
+	feeds := g.WantList.ReplicationList()
+	if feeds != nil {
+		err := g.fetchAll(ctx, e, feeds)
 		if err != nil {
 			level.Error(info).Log("msg", "hops failed", "err", err)
+			return
 		}
 	}
-	level.Debug(info).Log("msg", "hops fetch done", "count", hops.Count(), "took", time.Since(start))
+	level.Debug(info).Log("msg", "hops fetch done", "count", feeds.Count(), "took", time.Since(start))
+
+	tick := time.NewTicker(5 * time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			tick.Stop()
+			return
+		case <-tick.C:
+		}
+		start := time.Now()
+		feeds := g.WantList.ReplicationList()
+		if feeds != nil {
+			err := g.fetchAll(ctx, e, feeds)
+			if err != nil {
+				level.Error(info).Log("msg", "hops failed", "err", err)
+				return
+			}
+		}
+		level.Debug(info).Log("msg", "hops fetch done", "count", feeds.Count(), "took", time.Since(start))
+	}
 }
 
 func (g *handler) HandleCall(
@@ -170,13 +179,9 @@ func (g *handler) HandleCall(
 
 		// skip this check for self/master or in promisc mode (talk to everyone)
 		if !(g.Id.Equal(remote) || g.promisc) {
-			tg, err := g.GraphBuilder.Build()
-			if err != nil {
-				closeIfErr(errors.Wrap(err, "internal error"))
-				return
-			}
+			blocks := g.WantList.BlockList()
 
-			if tg.Blocks(query.ID, remote) {
+			if blocks.Has(query.ID) {
 				dbgLog.Log("msg", "feed blocked")
 				req.Stream.Close()
 				return

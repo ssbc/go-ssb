@@ -353,34 +353,28 @@ func runSbot() error {
 		level.Warn(log).Log("mode", "cleanup")
 
 		tg, err := sbot.GraphBuilder.Build()
-		checkAndLog(err)
+		if err != nil {
+			return errors.Wrap(err, "failed to build graph during cleanup")
+		}
+
 		botRef := sbot.KeyPair.Id
-		for blocked := range tg.BlockedList(botRef) {
-			var sr ssb.StorageRef
-			err = sr.Unmarshal([]byte(blocked))
-			if err != nil {
-				return errors.Wrap(err, "blocked user reference")
-			}
-			blockedRef, err := sr.FeedRef()
-			if err != nil {
-				return errors.Wrap(err, "blocked user reference")
-			}
+		lst, err := tg.BlockedList(botRef).List()
+		if err != nil {
+			return errors.Wrap(err, "cleanup: failed to get blocked list")
+		}
 
-			blocks := tg.Blocks(botRef, blockedRef)
-			if !blocks {
-				dbState := sbot.GraphBuilder.State(botRef, blockedRef)
-				level.Warn(log).Log("event", "feed in block list that isn't blocked?", "ref", blockedRef.Ref(), "state", dbState)
-				continue
-			}
-
-			isStored, err := multilog.Has(uf, blocked)
+		for _, blocked := range lst {
+			isStored, err := multilog.Has(uf, blocked.StoredAddr())
 			if err != nil {
 				return errors.Wrap(err, "blocked lookup in multilog")
 			}
+
 			if isStored {
-				level.Info(log).Log("event", "nulled feed", "ref", blockedRef.Ref())
-				err = sbot.NullFeed(blockedRef)
-				checkAndLog(err)
+				level.Info(log).Log("event", "nulled feed", "ref", blocked.Ref())
+				err = sbot.NullFeed(blocked)
+				if err != nil {
+					return errors.Wrapf(err, "failed to null blocked feed %s", blocked.Ref())
+				}
 			}
 		}
 

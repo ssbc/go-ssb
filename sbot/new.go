@@ -67,10 +67,12 @@ func (s *Sbot) Close() error {
 		s.closeErr = err
 		return s.closeErr
 	}
+
 	level.Info(closeEvt).Log("msg", "closers closed")
 	return nil
 }
 
+// is called by New() in options, sorry
 func initSbot(s *Sbot) (*Sbot, error) {
 	log := s.info
 	var err error
@@ -179,6 +181,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return s, nil
 	}
 
+	s.replicator, err = s.newGraphReplicator()
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
 	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
@@ -193,7 +200,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	var inviteService *legacyinvites.Service
 
-	auth := s.GraphBuilder.Authorizer(s.KeyPair.Id, int(s.hopCount+2))
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
 		// bypassing badger-close bug to go through with an accept (or not) before closing the bot
 		s.closedMu.Lock()
@@ -224,6 +230,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		if s.promisc {
 			return s.public.MakeHandler(conn)
 		}
+
+		auth := s.authorizer
+		if auth == nil {
+			auth = s.replicator.makeLister()
+		}
+
 		if s.latency != nil {
 			start := time.Now()
 			defer func() {
@@ -240,7 +252,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		remote.Algo = ssb.RefAlgoFeedGabby
 		err = auth.Authorize(remote)
 		if err == nil {
-			level.Debug(log).Log("warn", "found gg feed, using that")
+			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
+			return s.public.MakeHandler(conn)
+		}
+		if lst, err := uf.List(); err == nil && len(lst) == 0 {
+			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			return s.public.MakeHandler(conn)
 		}
 		return nil, err
@@ -289,13 +305,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.public.Register(gossip.New(ctx,
 		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
+		s.KeyPair.Id, s.RootLog, uf, s.replicator.makeLister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
 		kitlog.With(log, "plugin", "gossip/hist"),
-		s.KeyPair.Id, s.RootLog, uf, s.GraphBuilder,
+		s.KeyPair.Id, s.RootLog, uf, s.replicator.makeLister(),
 		histOpts...)
 	s.public.Register(hist)
 
