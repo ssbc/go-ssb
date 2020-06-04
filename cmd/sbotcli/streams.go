@@ -31,6 +31,11 @@ var typeStreamCmd = &cli.Command{
 	UsageText: "aka messagesByType",
 	Flags:     streamFlags,
 	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, ctx.Args().First())
 		if err != nil {
 			return errors.Wrap(err, "source stream call failed")
@@ -47,6 +52,12 @@ var historyStreamCmd = &cli.Command{
 		if ctx.String("id") == "" {
 			return errors.Errorf("--id flag is unset but required")
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
 		if err != nil {
@@ -61,6 +72,11 @@ var logStreamCmd = &cli.Command{
 	Name:  "log",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createLogStream"}, args)
 		if err != nil {
@@ -75,6 +91,11 @@ var privateReadCmd = &cli.Command{
 	Name:  "read",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"private", "read"}, args)
 		if err != nil {
@@ -89,6 +110,11 @@ var replicateUptoCmd = &cli.Command{
 	Name:  "upto",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
 		if err != nil {

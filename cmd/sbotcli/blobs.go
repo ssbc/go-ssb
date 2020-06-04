@@ -1,14 +1,15 @@
 package main
 
 import (
+	"io"
+	"os"
+
 	"github.com/pkg/errors"
 	"github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"gopkg.in/urfave/cli.v2"
-	"io"
-	"os"
 )
 
 var blobsStore ssb.BlobStore
@@ -21,7 +22,7 @@ var blobsCmd = &cli.Command{
 	Before: func(ctx *cli.Context) error {
 		var localRepo = ctx.String("localstore")
 		if localRepo == "" {
-			//blobsStore = client
+			//blobsStore, err = newClient(ctx)
 			return errors.Errorf("TODO: implement more blobs features on client")
 		}
 		var err error
@@ -48,6 +49,12 @@ var blobsHasCmd = &cli.Command{
 		if ref == "" {
 			return errors.New("blobs.has: need a blob ref")
 		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
 		// TODO: direct blobstore mode!?
 		var has bool
 		//sz, err := blobsStore.Size()
@@ -84,8 +91,12 @@ var blobsWantCmd = &cli.Command{
 		if err != nil {
 			return errors.Wrap(err, "blobs: failed to parse argument ref")
 		}
-		err = client.BlobsWant(*br)
-		return err
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+		return client.BlobsWant(*br)
 	},
 }
 
