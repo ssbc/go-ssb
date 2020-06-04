@@ -291,21 +291,39 @@ func runSbot() error {
 			return err
 		}
 
-		if report, ok := err.(mksbot.ErrConsistencyProblems); ok {
+		switch report := err.(type) {
+		case ssb.ErrWrongSequence:
+
+			err = sbot.NullFeed(report.Ref)
+			if err != nil {
+				return errors.Wrap(err, "fsck: failed to drop broken feed")
+			}
+
+			sbot.Shutdown()
+			err := sbot.Close()
+			if err != nil {
+				return errors.Wrap(err, "fsck: failed to stop sbot after repair action")
+			}
+
+		case mksbot.ErrConsistencyProblems:
 			err = sbot.HealRepo(report)
 			if err != nil {
 				level.Error(log).Log("fsck", "heal failed", "err", err)
 			} else {
-				level.Info(log).Log("fsck", "healed", "msgs", report.Sequences.GetCardinality(), "feeds", len(report.Errors))
+				level.Info(log).Log("fsck", "healed",
+					"msgs", report.Sequences.GetCardinality(),
+					"feeds", len(report.Errors))
 			}
-		} else {
+			sbot.Shutdown()
+			err := sbot.Close()
+			if err != nil {
+				return errors.Wrap(err, "fsck: failed to halt sbot after repo heal")
+			}
+		default:
 			level.Error(log).Log("fsck", "wrong report type", "T", fmt.Sprintf("%T", err))
 
 		}
 
-		sbot.Shutdown()
-		err := sbot.Close()
-		checkAndLog(err)
 		return nil
 	}
 	if exitAfterFSCK {
