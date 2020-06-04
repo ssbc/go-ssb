@@ -77,6 +77,7 @@ var app = cli.App{
 	Before: initClient,
 	Commands: []*cli.Command{
 		blobsCmd,
+		friendsCmd,
 		logStreamCmd,
 		typeStreamCmd,
 		historyStreamCmd,

@@ -24,6 +24,7 @@ import (
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	"go.cryptoscope.co/ssb/plugins/legacyinvites"
@@ -322,6 +323,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(hist)                        // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(uf))
+
+	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
 
 	// tcp+shs
 	opts := network.Options{
