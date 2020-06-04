@@ -3,6 +3,7 @@ package sbot
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
@@ -193,11 +194,24 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 }
 
 // implements machinebox/progress.Counter
-type processedCounter struct{ n int64 }
+type processedCounter struct {
+	mu sync.Mutex
+	n  int64
+}
 
-func (p processedCounter) N() int64 { return p.n }
+func (p *processedCounter) Incr() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.n++
+}
 
-func (p processedCounter) Err() error { return nil }
+func (p *processedCounter) N() int64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.n
+}
+
+func (p *processedCounter) Err() error { return nil }
 
 // sequenceFSCK goes through every message in the receiveLog
 // and checks tha the sequence of a feed is correctly increasing by one each message
@@ -307,7 +321,7 @@ func sequenceFSCK(receiveLog margaret.Log, progressFn FSCKUpdateFunc) error {
 		lastSequence[authorRef] = currSeq + 1
 
 		// bench stats
-		pc.n++
+		pc.Incr()
 	}
 
 	if len(consistencyErrors) == 0 {

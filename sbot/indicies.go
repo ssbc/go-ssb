@@ -5,6 +5,7 @@ package sbot
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -196,7 +197,9 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 type progressSink struct {
 	erred error
-	n     uint
+
+	mu sync.Mutex
+	n  uint
 
 	backing luigi.Sink
 }
@@ -206,11 +209,21 @@ var (
 	_ progress.Counter = &progressSink{}
 )
 
-func (p progressSink) N() int64 { return int64(p.n) }
+func (p *progressSink) N() int64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return int64(p.n)
+}
 
-func (p progressSink) Err() error { return p.erred }
+func (p *progressSink) Err() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.erred
+}
 
 func (ps *progressSink) Pour(ctx context.Context, v interface{}) error {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
 	if ps.erred != nil {
 		return ps.erred
 	}
@@ -220,6 +233,7 @@ func (ps *progressSink) Pour(ctx context.Context, v interface{}) error {
 		ps.erred = err
 		return err
 	}
+
 	ps.n++
 	return nil
 }
