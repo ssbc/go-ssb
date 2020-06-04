@@ -19,7 +19,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cryptix/go/logging"
+	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/log/term"
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc"
@@ -42,8 +44,7 @@ var (
 	longctx      context.Context
 	shutdownFunc func()
 
-	log   logging.Interface
-	check = logging.CheckFatal
+	log kitlog.Logger
 
 	keyFileFlag  = cli.StringFlag{Name: "key,k", Value: "unset"}
 	unixSockFlag = cli.StringFlag{Name: "unixsock", Usage: "if set, unix socket is used instead of tcp"}
@@ -55,6 +56,8 @@ func init() {
 
 	keyFileFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "secret")
 	unixSockFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "socket")
+
+	log = term.NewColorLogger(os.Stdout, kitlog.NewLogfmtLogger, colorFn)
 }
 
 var app = cli.App{
@@ -86,16 +89,31 @@ var app = cli.App{
 	},
 }
 
+// Color by level
+func colorFn(keyvals ...interface{}) term.FgBgColor {
+	for i := 1; i < len(keyvals); i += 2 {
+		if _, ok := keyvals[i].(error); ok {
+			return term.FgBgColor{Fg: term.Red}
+		}
+	}
+	return term.FgBgColor{}
+}
+
+func check(err error) {
+	if err != nil {
+		level.Error(log).Log("err", err)
+		os.Exit(1)
+	}
+}
+
 func main() {
-	logging.SetupLogging(nil)
-	log = logging.Logger("cli")
 
 	cli.VersionPrinter = func(c *cli.Context) {
 		fmt.Printf("%s (rev: %s, built: %s)\n", c.App.Version, Version, Build)
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Log("runErr", err)
+		level.Error(log).Log("run-failure", err)
 	}
 }
 
@@ -109,13 +127,12 @@ func initClient(ctx *cli.Context) error {
 	signalc := make(chan os.Signal)
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-signalc
-		fmt.Println("killed. shutting down")
+		s := <-signalc
+		level.Warn(log).Log("event", "shutting down", "sig", s)
 		shutdownFunc()
 		time.Sleep(1 * time.Second)
 		os.Exit(0)
 	}()
-	logging.SetCloseChan(signalc)
 	return nil
 }
 
