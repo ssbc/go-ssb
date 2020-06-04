@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+    - name: Set up Node for interop testing
+      uses: actions/setup-node@v1
+      with:
+        node-version: 12.x
+
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
       with:
@@ -25,8 +30,17 @@ jobs:
     - name: Get dependencies
       run: go get -v -t -d ./...
 
-    - name: Build
-      run: go build -v ./sbot
+    - name: Build smoke test
+      run: go build -v ./cmd/go-sbot
+
+    - name: install node ssb-stack
+      run: |
+        pushd message/legacy
+        npm ci
+        popd
+        pushd tests
+        npm ci
+        popd
 
     - name: Test
       run: make test
