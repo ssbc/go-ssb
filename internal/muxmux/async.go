@@ -25,7 +25,7 @@ type asyncStub struct {
 }
 
 func (hm asyncStub) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// TODO: check call type
+	// TODO: check call type?
 
 	v, err := hm.h.HandleAsync(ctx, req)
 	if err != nil {

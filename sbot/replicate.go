@@ -63,6 +63,7 @@ func (r *replicator) makeUpdater(log log.Logger, self *ssb.FeedRef, hopCount int
 		lst, err := newBlocked.List()
 		if err == nil {
 			for _, bf := range lst {
+				r.current.blocked.AddRef(bf)
 				r.current.feedWants.Delete(bf)
 			}
 		}

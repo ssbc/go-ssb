@@ -48,21 +48,11 @@ func (hm *HandlerMux) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 // RegisterAsync registers a 'async' call for name method
 func (hm *HandlerMux) RegisterAsync(m muxrpc.Method, h AsyncHandler) {
-
 	hm.handlers[m.String()] = asyncStub{
 		logger: hm.logger,
 		h:      h,
 	}
 }
-
-/*
-func (hm *HandlerMux) RegisterAsyncFunc(m muxrpc.Method, fn AsyncFunc) {
-	hm.handlers[m.String()] = asyncStub{
-		logger: hm.logger,
-		h:      fn,
-	}
-}
-*/
 
 // RegisterSource registers a 'source' call for name method
 func (hm *HandlerMux) RegisterSource(m muxrpc.Method, h SourceHandler) {
@@ -71,12 +61,3 @@ func (hm *HandlerMux) RegisterSource(m muxrpc.Method, h SourceHandler) {
 		h:      h,
 	}
 }
-
-/*
-func (hm *HandlerMux) RegisterSourceFunc(m muxrpc.Method, fn SourceFunc) {
-	hm.handlers[m.String()] = sourceStub{
-		logger: hm.logger,
-		h:      fn,
-	}
-}
-*/

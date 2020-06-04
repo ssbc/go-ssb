@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -77,6 +78,7 @@ var app = cli.App{
 	Before: initClient,
 	Commands: []*cli.Command{
 		blobsCmd,
+		blockCmd,
 		friendsCmd,
 		logStreamCmd,
 		typeStreamCmd,
@@ -271,9 +273,44 @@ var connectCmd = &cli.Command{
 		var val interface{}
 		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
 		if err != nil {
-			return errors.Wrapf(err, "connect: async call failed.")
+			// js fallback (our mux doesnt support authed namespaces)
+			val, err = client.Async(longctx, val, muxrpc.Method{"gossip", "connect"}, to)
+			if err != nil {
+				return errors.Wrapf(err, "connect: async call failed.")
+			}
 		}
 		log.Log("event", "connect reply")
+		goon.Dump(val)
+		return nil
+	},
+}
+
+var blockCmd = &cli.Command{
+	Name: "block",
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var blocked = make(map[*ssb.FeedRef]bool)
+
+		sc := bufio.NewScanner(os.Stdin)
+		for sc.Scan() {
+			fr, err := ssb.ParseFeedRef(sc.Text())
+			if err != nil {
+				return err
+			}
+			blocked[fr] = true
+		}
+		log.Log("blocking", len(blocked))
+
+		var val interface{}
+		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "block"}, blocked)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "block reply")
 		goon.Dump(val)
 		return nil
 	},
