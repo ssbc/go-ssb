@@ -69,6 +69,11 @@ func New(log logging.Interface, self ssb.FeedRef, bs ssb.BlobStore, wm ssb.WantM
 			log: log,
 			bs:  bs,
 		}},
+		{muxrpc.Method{"blobs", "size"}, sizeHandler{
+			log: log,
+			bs:  bs,
+		}},
+
 		{muxrpc.Method{"blobs", "want"}, wantHandler{
 			log: log,
 			wm:  wm,
