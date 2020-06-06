@@ -36,26 +36,35 @@ const manifestBlob = `
 	"auth": "async",
 	"address": "sync",
 	"manifest": "sync",
-	
+
 	"multiserverNet": {},
 	"get": "async",
 	"createFeedStream": "source",
 	"createUserStream": "source",
 	"createWriteStream": "sink",
 	"links": "source",
-	
+
 	"add": "async",
-	
+
 	"getLatest": "async",
 	"latest": "source",
 	"latestSequence": "async",
-	
+
 	"createSequenceStream": "source",
 	"createLogStream": "source",
 	"messagesByType": "source",
 	"createHistoryStream": "source",
 
 	"tangles": "source",
+    "names": {
+        "get": "async",
+        "getImageFor": "async",
+        "getSignifier": "async"
+    },
+
+	"friends": {
+	  "isFollowing": "async"
+	},
 
 	"publish": "async",
 	"whoami": "sync",
@@ -67,18 +76,18 @@ const manifestBlob = `
 	"replicate": {
 	  "upto": "source"
 	},
-	
+
 	"blobs": {
 	  "get": "source",
-	  
+
 	  "add": "sink",
 	  "rm": "async",
 	  "ls": "source",
 	  "has": "async",
 	  "size": "async",
-	
+
 	  "want": "async",
-	 
+
 	  "createWants": "source"
 	}
   }
