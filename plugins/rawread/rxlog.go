@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
-	"github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
@@ -64,7 +64,10 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		}
 		if len(args) == 1 {
 			qry = args[0]
-
+			qry.Values = true
+			qry.Keys = true
+			qry.Limit = 1312
+			spew.Dump(qry)
 		}
 	} else {
 		qry.Keys = true
@@ -88,17 +91,15 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		qry.Seq = 0
 	}
 
-	goon.Dump(qry)
 	start := time.Now()
 	src, err := g.root.Query(
 		margaret.SeqWrap(false),
-		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		//		margaret.Gte(margaret.BaseSeq(qry.Seq)),
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live),
 		margaret.Reverse(qry.Reverse),
 	)
 	if err != nil {
-		fmt.Println("qry err:", err)
 		req.CloseWithError(errors.Wrap(err, "logStream: failed to qry tipe"))
 		return
 	}
