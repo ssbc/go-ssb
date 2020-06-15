@@ -34,11 +34,11 @@ func TestMessageTypes(t *testing.T) {
 
 	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
 	r.NoError(err)
-	ufErrc := asynctesting.ServeLog(ctx, "user feeds", tRootLog, serveUF)
+	ufErrc := asynctesting.ServeLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", IndexUpdate)
 	r.NoError(err)
-	mtErrc := asynctesting.ServeLog(ctx, "message types", tRootLog, serveMT)
+	mtErrc := asynctesting.ServeLog(ctx, "message types", tRootLog, serveMT, true)
 
 	alice, err := ssb.NewKeyPair(nil)
 	r.NoError(err)

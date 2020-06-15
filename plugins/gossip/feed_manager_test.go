@@ -13,9 +13,11 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
@@ -60,15 +62,15 @@ func loadTestRepo(
 	return createMessages(pub, refresh, rootLog), rootLog, userFeeds, keyPair
 }
 
-func createMessages(pub ssb.Publisher, refresh repo.ServeFunc, rootLog margaret.Log) func(t *testing.T, num int, text string) {
+func createMessages(pub ssb.Publisher, fill librarian.SinkIndex, rootLog margaret.Log) func(t *testing.T, num int, text string) {
 
 	return func(t *testing.T, num int, text string) {
 		t.Log("creating", num, text)
 		for i := 0; i < num; i++ {
 			msg, err := pub.Publish(fmt.Sprintf("hello world #%d - %s", i, text))
 			require.NoError(t, err)
-			err = refresh(context.TODO(), rootLog, false)
-			require.NoError(t, err)
+			errc := asynctesting.ServeLog(context.TODO(), "helper", rootLog, fill, false)
+			require.NoError(t, <-errc, "refresh failed")
 			t.Log("msg:", i, msg.Ref())
 		}
 	}

@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -35,16 +35,12 @@ func TestSignMessages(t *testing.T) {
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
 
-	userFeeds, userFeedsServe, err := multilogs.OpenUserFeeds(testRepo)
+	userFeeds, userFeedsSnk, err := multilogs.OpenUserFeeds(testRepo)
 	r.NoError(err, "failed to get user feeds multilog")
 
 	killServe, cancel := context.WithCancel(tctx)
 	defer cancel()
-	errc := make(chan error)
-	go func() {
-		err := userFeedsServe(killServe, rl, true)
-		errc <- errors.Wrap(err, "failed to pump log into userfeeds multilog")
-	}()
+	errc := asynctesting.ServeLog(killServe, t.Name(), rl, userFeedsSnk, true)
 
 	staticRand := rand.New(rand.NewSource(42))
 	testAuthor, err := ssb.NewKeyPair(staticRand)
@@ -102,6 +98,8 @@ func TestSignMessages(t *testing.T) {
 		// a.NotNil(storedMsg.Raw, "msg:%d - raw", i)
 		// a.Contains(string(storedMsg.Raw), `"signature": "`)
 		// a.Contains(string(storedMsg.Raw), fmt.Sprintf(`"sequence": %d`, i+1))
-
 	}
+
+	cancel()
+	r.NoError(<-errc, "serveLog failed")
 }

@@ -15,7 +15,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/repo"
 )
 
 func CheckTypes(t *testing.T, tipe string, tExpected []string, rootLog margaret.Log, mt multilog.MultiLog) {
@@ -76,14 +75,22 @@ func MakeCompareSink(texpected []string, rootLog margaret.Log) (luigi.FuncSink, 
 	return snk, closeC
 }
 
-func ServeLog(ctx context.Context, name string, l margaret.Log, f repo.ServeFunc) <-chan error {
+func ServeLog(ctx context.Context, name string, l margaret.Log, snk librarian.SinkIndex, live bool) <-chan error {
 	errc := make(chan error)
 	go func() {
-		err := f(ctx, l, true)
+		defer close(errc)
+
+		src, err := l.Query(margaret.SeqWrap(true), snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
-			errc <- errors.Wrapf(err, "%s serve exited", name)
+			errc <- errors.Wrapf(err, "%s failed to construct query", name)
+			return
 		}
-		close(errc)
+
+		err = luigi.Pump(ctx, snk, src)
+		if err != nil && errors.Cause(err) != context.Canceled && errors.Cause(err) != ssb.ErrShuttingDown {
+			errc <- errors.Wrapf(err, "%s serve exited", name)
+			return
+		}
 	}()
 	return errc
 }

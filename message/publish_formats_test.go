@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -83,8 +84,8 @@ func TestFormatsSimple(t *testing.T) {
 				mr, err := w.Publish(msg)
 				r.NoError(err, "failed to pour test message %d", i)
 				r.NotNil(mr)
-				err = userFeedsServe(context.TODO(), rl, false)
-				r.NoError(err)
+				errc := asynctesting.ServeLog(context.TODO(), t.Name(), rl, userFeedsServe, false)
+				r.NoError(<-errc)
 				currSeq, err := authorLog.Seq().Value()
 				r.NoError(err, "failed to get log seq")
 				r.Equal(margaret.BaseSeq(i), currSeq, "failed to ")

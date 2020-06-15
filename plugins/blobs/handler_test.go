@@ -36,14 +36,14 @@ func TestReplicate(t *testing.T) {
 
 	srcLog := kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "src/alice")
 	//srcLog := logging.Logger("alice/src")
-	srcWM := blobstore.NewWantManager(srcLog, srcBS)
+	srcWM := blobstore.NewWantManager(srcBS, blobstore.WantWithLogger(srcLog))
 
 	dstBS, err := repo.OpenBlobStore(dstRepo)
 	r.NoError(err, "error dst opening blob store")
 
 	dstLog := kitlog.With(kitlog.NewSyncLogger(kitlog.NewLogfmtLogger(os.Stderr)), "node", "dst/bob")
 	//dstLog := logging.Logger("bob/dst")
-	dstWM := blobstore.NewWantManager(dstLog, dstBS)
+	dstWM := blobstore.NewWantManager(dstBS, blobstore.WantWithLogger(dstLog))
 
 	// do the dance
 	pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
