@@ -30,11 +30,12 @@ require (
 	go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
-	go.mindeco.de/ssb-gabbygrove v0.1.6
-	go.mindeco.de/ssb-multiserver v0.0.0-20200302144839-6902de33e194
+	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
+	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
+	go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9 // indirect
+	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
 	golang.org/x/text v0.3.2
 	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
@@ -50,4 +51,3 @@ require (
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
 
-replace go.mindeco.de/ssb-gabbygrove => /home/cryptix/go-repos/go-gabbygrove

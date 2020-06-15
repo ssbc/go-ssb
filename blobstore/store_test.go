@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
@@ -121,14 +122,14 @@ func TestStore(t *testing.T) {
 
 			bs.Changes().Register(changesSink)
 
-			refs := make(map[string]*ssb.BlobRef)
+			testRefs := make(map[string]*refs.BlobRef)
 
 			for _, refStr := range tc.putRefs {
 				ref, err := bs.Put(strings.NewReader(tc.blobs[refStr]))
 				r.NoError(err, "err putting blob %q", refStr)
 				r.NotNil(ref, "ref returned by bs.Put is nil")
 				a.Equal(refStr, ref.Ref(), "ref strings don't match: %q != %q", refStr, ref.Ref())
-				refs[refStr] = ref
+				testRefs[refStr] = ref
 
 				sz, err := bs.Size(ref)
 				r.NoError(err, "err getting blob size for %q", refStr)
@@ -160,7 +161,7 @@ func TestStore(t *testing.T) {
 					r.NoError(err, "error calling Next on list source")
 				}
 
-				ref, ok := v.(*ssb.BlobRef)
+				ref, ok := v.(*refs.BlobRef)
 				r.Equal(true, ok, "got something that is not a blobref in list: %v(%T)", v, v)
 
 				_, ok = listExp[ref.Ref()]
@@ -172,7 +173,7 @@ func TestStore(t *testing.T) {
 			r.Equal(0, len(listExp), "not all expected entries in list have been received: %v", listExp)
 
 			for _, refStr := range tc.delRefs {
-				ref := refs[refStr]
+				ref := testRefs[refStr]
 				err := bs.Delete(ref)
 				r.NoError(err, "err putting blob %q", refStr)
 
