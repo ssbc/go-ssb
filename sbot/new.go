@@ -349,7 +349,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 					feeds.(*roaring.MultiLog),
 					byType.(*roaring.MultiLog),
 					tangles.(*roaring.MultiLog),
-					s.RootLog)
+					s.RootLog, s)
 				s.public.Register(plug)
 				s.master.Register(plug)
 			}
