@@ -73,6 +73,8 @@ type Sbot struct {
 	enableAdverts   bool
 	enableDiscovery bool
 
+	websocketAddr string
+
 	repoPath string
 	KeyPair  *ssb.KeyPair
 
@@ -335,6 +337,14 @@ func WithHMACSigning(key []byte) Option {
 			return errors.Errorf("WithHMACSigning: wrong key length (%d)", n)
 		}
 		s.signHMACsecret = key
+		return nil
+	}
+}
+
+func WithWebsocketAddress(addr string) Option {
+	return func(s *Sbot) error {
+		// TODO: listen here?
+		s.websocketAddr = addr
 		return nil
 	}
 }

@@ -55,6 +55,8 @@ type Options struct {
 	SystemGauge     metrics.Gauge
 	Latency         metrics.Histogram
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
+
+	WebsocketAddr string
 }
 
 type node struct {
@@ -86,6 +88,7 @@ type node struct {
 	latency    metrics.Histogram
 
 	// "ssb-ws"
+	httpLis     net.Listener
 	httpHandler http.Handler
 }
 
@@ -166,10 +169,18 @@ func New(opts Options) (ssb.Network, error) {
 		}
 	})
 
-	go func() {
-		err := http.ListenAndServe(":8989", httpHandler)
-		level.Error(n.log).Log("conn", "ssb-ws :8998 listen exited", "err", err)
-	}()
+	if addr := opts.WebsocketAddr; addr != "" {
+		n.httpLis, err = net.Listen("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: move to serve
+		go func() {
+			err := http.Serve(n.httpLis, httpHandler)
+			level.Error(n.log).Log("conn", "ssb-ws :8998 listen exited", "err", err)
+		}()
+	}
 
 	return n, nil
 }
@@ -473,6 +484,13 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 func (n *node) Close() error {
 	if n.localDiscovTx != nil {
 		n.localDiscovTx.Stop()
+	}
+
+	if n.httpLis != nil {
+		err := n.httpLis.Close()
+		if err != nil {
+			return errors.Wrap(err, "ssb: failed to close http listener")
+		}
 	}
 
 	if n.l != nil {

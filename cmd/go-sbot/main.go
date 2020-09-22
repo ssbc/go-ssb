@@ -56,6 +56,7 @@ var (
 	flagDisableUNIXSock bool
 
 	listenAddr string
+	wsLisAddr  string
 	debugAddr  string
 	repoDir    string
 	dbgLogDir  string
@@ -98,6 +99,8 @@ func initFlags() {
 	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
 	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
+
+	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
 
 	flag.BoolVar(&flagDecryptPrivate, "decryptprivate", false, "store which messages can be decrypted")
 	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
@@ -168,6 +171,7 @@ func runSbot() error {
 		mksbot.WithListenAddr(listenAddr),
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
+		mksbot.WithWebsocketAddress(wsLisAddr),
 	}
 
 	if !flagDisableUNIXSock {

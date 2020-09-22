@@ -388,6 +388,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		SystemGauge:     s.systemGauge,
 		EndpointWrapper: s.edpWrapper,
 		Latency:         s.latency,
+
+		WebsocketAddr: s.websocketAddr,
 	}
 
 	s.Network, err = network.New(opts)
