@@ -14,7 +14,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -33,9 +32,9 @@ func makeTestBot(t *testing.T) (*Sbot, []Option) {
 
 	// some extra keypairs for multi-feed fun
 	tRepo := repo.New(testPath)
-	_, err := repo.NewKeyPair(tRepo, "one", ssb.RefAlgoFeedSSB1)
+	_, err := repo.NewKeyPair(tRepo, "one", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	_, err = repo.NewKeyPair(tRepo, "two", ssb.RefAlgoFeedGabby)
+	_, err = repo.NewKeyPair(tRepo, "two", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
 	botOptions := []Option{
@@ -235,7 +234,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 // to use this, put the repo in
 func testFSCKrepro(t *testing.T) {
 	r := require.New(t)
-	r.EqualValues(t.Name,"foo")
+	r.EqualValues(t.Name, "foo")
 
 	const buggedRepo = "testdata/example-repo-with-a-bug"
 	tRepoPath := filepath.Join("testrun", t.Name())
@@ -243,7 +242,7 @@ func testFSCKrepro(t *testing.T) {
 	os.MkdirAll("testrun/TestFSCK", 0700)
 	//tRepo := repo.New(tRepoPath)
 
-	out, err := exec.Command("cp", "-v", "-r",buggedRepo, tRepoPath).CombinedOutput()
+	out, err := exec.Command("cp", "-v", "-r", buggedRepo, tRepoPath).CombinedOutput()
 	r.NoError(err, "got: %s", string(out))
 
 	theBot, _ := makeTestBot(t)

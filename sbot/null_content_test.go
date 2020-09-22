@@ -44,11 +44,11 @@ func TestNullContentRequest(t *testing.T) {
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
 
-	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["arny"] = kpArny
 
-	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 	n2kp["bert"] = kpBert
 
@@ -73,8 +73,8 @@ func TestNullContentRequest(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", ssb.NewContactFollow(kpBert.Id)},
-		{"bert", ssb.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.Id)},
+		{"bert", refs.NewContactFollow(kpArny.Id)},
 		{"arny", map[string]interface{}{"test": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
@@ -132,7 +132,7 @@ func TestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 
 	arniesLog = mutil.Indirect(mainbot.RootLog, arniesLog)
-	dcr := ssb.NewDropContentRequest(1, allMessages[0])
+	dcr := refs.NewDropContentRequest(1, allMessages[0])
 	r.False(dcr.Valid(arniesLog))
 
 	// bert is in gg format so it works
@@ -165,13 +165,13 @@ func TestNullContentRequest(t *testing.T) {
 	}
 
 	for ic, c := range cases {
-		tmsg := ssb.NewDropContentRequest(c.seq, c.msgkey)
+		tmsg := refs.NewDropContentRequest(c.seq, c.msgkey)
 		_, err = json.Marshal(tmsg)
 		r.NoError(err)
 		a.Equal(c.okay, tmsg.Valid(bertLog), "%d: failed", ic)
 	}
 
-	dropContent := ssb.NewDropContentRequest(3, *msg.Key())
+	dropContent := refs.NewDropContentRequest(3, *msg.Key())
 	v, err := json.Marshal(dropContent)
 	r.NoError(err)
 	t.Log(string(v))
@@ -201,7 +201,7 @@ func TestNullContentRequest(t *testing.T) {
 	a.NotNil(msg.Seq(), "sequence is still there")
 
 	// can't delete a delete
-	cantDropThis := ssb.NewDropContentRequest(6, *del)
+	cantDropThis := refs.NewDropContentRequest(6, *del)
 	a.False(cantDropThis.Valid(bertLog), "can't delete a delete")
 
 	// still try
@@ -242,11 +242,11 @@ func TestNullContentAndSync(t *testing.T) {
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
 
-	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["arny"] = kpArny
 
-	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 	n2kp["bert"] = kpBert
 
@@ -314,8 +314,8 @@ func TestNullContentAndSync(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", ssb.NewContactFollow(kpBert.Id)},
-		{"bert", ssb.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.Id)},
+		{"bert", refs.NewContactFollow(kpArny.Id)},
 		{"arny", map[string]interface{}{"test": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
@@ -336,7 +336,7 @@ func TestNullContentAndSync(t *testing.T) {
 	checkUserLogSeq(mainbot, "bert", 5)
 
 	// can't null self (because it's in old fomrat)
-	r.Equal(mainbot.KeyPair.Id.Algo, ssb.RefAlgoFeedSSB1, "wrong feed format (upgraded default?)")
+	r.Equal(mainbot.KeyPair.Id.Algo, refs.RefAlgoFeedSSB1, "wrong feed format (upgraded default?)")
 	err = mainbot.NullContent(kpArny.Id, 2)
 	r.Error(err, "should not work")
 	r.EqualError(err, ssb.ErrUnuspportedFormat.Error())

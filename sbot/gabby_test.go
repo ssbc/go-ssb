@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/go-kit/kit/log"
@@ -57,7 +58,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	// bob is the one with the other feed format
 	bobsKey, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	bobsKey.Id.Algo = ssb.RefAlgoFeedGabby
+	bobsKey.Id.Algo = refs.RefAlgoFeedGabby
 
 	bob, err := New(
 		WithAppKey(appKey),

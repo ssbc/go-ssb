@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
+	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/invite"
 )
@@ -48,7 +48,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 	})
 
 	for i := 15; i > 0; i-- {
-		_, err := bob.PublishLog.Publish(ssb.Post{
+		_, err := bob.PublishLog.Publish(refs.Post{
 			Type: "test-post",
 			Text: fmt.Sprintf("hello, world! %d", i),
 		})
@@ -115,7 +115,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 	<-ts.doneJS
 
 	// now follow alice
-	_, err = bob.PublishLog.Publish(ssb.NewContactFollow(&tok.Peer))
+	_, err = bob.PublishLog.Publish(refs.NewContactFollow(&tok.Peer))
 	r.NoError(err)
 
 	hasBobsFeed := `
@@ -180,7 +180,7 @@ func TestLegacyInviteJSAccept(t *testing.T) {
 	})
 
 	for i := 15; i > 0; i-- {
-		_, err := bob.PublishLog.Publish(ssb.Post{
+		_, err := bob.PublishLog.Publish(refs.Post{
 			Type: "test-post",
 			Text: fmt.Sprintf("hello, world! %d", i),
 		})

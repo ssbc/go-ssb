@@ -59,7 +59,7 @@ func TestBlobFromJS(t *testing.T) {
 	r := require.New(t)
 
 	const fooBarRef = "&w6uP8Tcg6K2QR905Rms8iXTlksL6OD1KOWBxTK7wxPI=.sha256"
-	testRef, err := ssb.ParseBlobRef(fooBarRef) // foobar
+	testRef, err := refs.ParseBlobRef(fooBarRef) // foobar
 	r.NoError(err)
 
 	ts := newRandomSession(t)

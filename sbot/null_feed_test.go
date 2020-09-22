@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -43,11 +44,11 @@ func TestNullFeed(t *testing.T) {
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
 
-	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["arny"] = kpArny
 
-	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 	n2kp["bert"] = kpBert
 
@@ -72,8 +73,8 @@ func TestNullFeed(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", ssb.NewContactFollow(kpBert.Id)},
-		{"bert", ssb.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.Id)},
+		{"bert", refs.NewContactFollow(kpArny.Id)},
 		{"arny", map[string]interface{}{"hello": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
@@ -140,10 +141,10 @@ func TestNullFeed(t *testing.T) {
 	botgroup.Go(bs.Serve(bertBot))
 
 	// make main want it
-	_, err = mainbot.PublishLog.Publish(ssb.NewContactFollow(kpBert.Id))
+	_, err = mainbot.PublishLog.Publish(refs.NewContactFollow(kpBert.Id))
 	r.NoError(err)
 
-	_, err = bertBot.PublishLog.Publish(ssb.NewContactFollow(mainbot.KeyPair.Id))
+	_, err = bertBot.PublishLog.Publish(refs.NewContactFollow(mainbot.KeyPair.Id))
 	r.NoError(err)
 
 	mainbot.Replicate(bertBot.KeyPair.Id)

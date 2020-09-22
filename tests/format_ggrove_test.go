@@ -30,7 +30,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	kp, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	kp.Id.Algo = ssb.RefAlgoFeedGabby
+	kp.Id.Algo = refs.RefAlgoFeedGabby
 
 	ts.startGoBot(sbot.WithKeyPair(kp))
 	s := ts.gobot
@@ -93,7 +93,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
 	aliceAsGabby := *alice
-	aliceAsGabby.Algo = ssb.RefAlgoFeedGabby
+	aliceAsGabby.Algo = refs.RefAlgoFeedGabby
 	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {

@@ -39,15 +39,15 @@ func TestMultipleIdentities(t *testing.T) {
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
 
-	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["arny"] = kpArny
 
-	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 	n2kp["bert"] = kpBert
 
-	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", ssb.RefAlgoFeedSSB1)
+	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["cloe"] = kpCloe
 
@@ -87,10 +87,10 @@ func TestMultipleIdentities(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", ssb.NewContactFollow(kpBert.Id)},
-		{"bert", ssb.NewContactFollow(kpArny.Id)},
-		{"bert", ssb.NewContactFollow(kpCloe.Id)},
-		{"cloe", ssb.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.Id)},
+		{"bert", refs.NewContactFollow(kpArny.Id)},
+		{"bert", refs.NewContactFollow(kpCloe.Id)},
+		{"cloe", refs.NewContactFollow(kpArny.Id)},
 		{"arny", map[string]interface{}{"hello": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"cloe", map[string]interface{}{"test": 789}},

@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb"
+
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // first simple case
@@ -21,15 +22,15 @@ func TestBlocking(t *testing.T) {
 
 	ts := newRandomSession(t)
 
-	kpAlice, err := repo.NewKeyPair(repo.New(ts.repo), "alice", ssb.RefAlgoFeedSSB1)
+	kpAlice, err := repo.NewKeyPair(repo.New(ts.repo), "alice", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	ts.startGoBot()
 	bob := ts.gobot
 
-	_, err = bob.PublishAs("alice", ssb.NewContactFollow(bob.KeyPair.Id))
+	_, err = bob.PublishAs("alice", refs.NewContactFollow(bob.KeyPair.Id))
 	r.NoError(err)
-	aliceHelloWorld, err := bob.PublishAs("alice", ssb.Post{Type: "post", Text: "hello, world!"})
+	aliceHelloWorld, err := bob.PublishAs("alice", refs.Post{Type: "post", Text: "hello, world!"})
 	r.NoError(err)
 
 	claire := ts.startJSBotWithName("TestBlocking/claire", fmt.Sprintf(`
@@ -71,18 +72,18 @@ func TestBlocking(t *testing.T) {
 	})
 	`, kpAlice.Id.Ref(), aliceHelloWorld.Ref()), ``)
 
-	newSeq, err := bob.PublishLog.Append(ssb.NewContactFollow(claire))
+	newSeq, err := bob.PublishLog.Append(refs.NewContactFollow(claire))
 	r.NoError(err)
 	r.NotNil(newSeq)
-	newSeq, err = bob.PublishLog.Append(ssb.NewContactFollow(kpAlice.Id))
+	newSeq, err = bob.PublishLog.Append(refs.NewContactFollow(kpAlice.Id))
 	r.NoError(err)
 	r.NotNil(newSeq)
 
 	<-ts.doneJS
 
-	_, err = bob.PublishAs("alice", ssb.NewContactBlock(claire))
+	_, err = bob.PublishAs("alice", refs.NewContactBlock(claire))
 	r.NoError(err)
-	dontGet, err := bob.PublishAs("alice", ssb.Post{Type: "post", Text: "post sync - who the heck is claire?"})
+	dontGet, err := bob.PublishAs("alice", refs.Post{Type: "post", Text: "post sync - who the heck is claire?"})
 	r.NoError(err)
 
 	// restart claire and connect again
