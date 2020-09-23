@@ -14,3 +14,4 @@ plugins/gossip/testdata
 # ignore go analysis files, anywhere
 **/c.out
 **/trace.out
+release

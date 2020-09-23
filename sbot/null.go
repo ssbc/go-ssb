@@ -32,14 +32,12 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 	feedAddr := ref.StoredAddr()
 	userSeqs, err := uf.Get(feedAddr)
 	if err != nil {
-		err = errors.Wrap(err, "NullFeed: failed to open log for feed argument")
-		return err
+		return errors.Wrap(err, "NullFeed: failed to open log for feed argument")
 	}
 
-	src, err := userSeqs.Query() //margaret.SeqWrap(true))
+	src, err := userSeqs.Query()
 	if err != nil {
-		err = errors.Wrap(err, "NullFeed: failed create user seqs query")
-		return err
+		return errors.Wrap(err, "NullFeed: failed create user seqs query")
 	}
 
 	i := 0
@@ -50,26 +48,23 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		}
 		seq, ok := v.(margaret.Seq)
 		if !ok {
-			return errors.Errorf("NullFeed: not a sequenc from userlog query")
+			return errors.Errorf("NullFeed: not a sequence from userlog query")
 		}
 		return s.RootLog.Null(seq)
 	})
 	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
-		err = errors.Wrapf(err, "NullFeed: failed to pump entries and null them %d", i)
-		return err
+		return errors.Wrapf(err, "NullFeed: failed to pump entries and null them %d", i)
 	}
 
 	err = uf.Delete(feedAddr)
 	if err != nil {
-		err = errors.Wrapf(err, "NullFeed: error while deleting feed from userFeeds index")
-		return err
+		return errors.Wrapf(err, "NullFeed: error while deleting feed from userFeeds index")
 	}
 
 	err = s.GraphBuilder.DeleteAuthor(ref)
 	if err != nil {
-		err = errors.Wrapf(err, "NullFeed: error while deleting feed from graph index")
-		return err
+		return errors.Wrapf(err, "NullFeed: error while deleting feed from graph index")
 	}
 
 	return nil

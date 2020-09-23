@@ -19,14 +19,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 const blobSize = 1024 * 512
 
 func TestBlobsPair(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	if testing.Short() {
 		return
@@ -337,7 +336,7 @@ func (s *session) eachOnBothWant(t *testing.T) {
 
 // check that we can get blobs from C to A through B
 func TestBlobsWithHops(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
 
@@ -458,7 +457,7 @@ func TestBlobsWithHops(t *testing.T) {
 // TODO: make extra test to make sure this doesn't turn into an echo chamber
 
 func TestBlobsTooBig(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 
