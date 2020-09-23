@@ -17,11 +17,12 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 func TestFeedsOneByOne(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())

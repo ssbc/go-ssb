@@ -19,12 +19,13 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
 
 func TestNullFeed(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
 	logger := testutils.NewRelativeTimeLogger(nil)
@@ -194,7 +195,7 @@ func TestNullFeed(t *testing.T) {
 }
 
 func TestNullFetched(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ctx, cancel := context.WithCancel(context.TODO())

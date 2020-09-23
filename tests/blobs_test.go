@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -25,7 +26,7 @@ import (
 )
 
 func TestBlobToJS(t *testing.T) {
-	// defer leakcheck.Check(t)
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
