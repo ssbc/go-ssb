@@ -154,8 +154,6 @@ func New(opts Options) (ssb.Network, error) {
 	n.log = opts.Logger
 
 	// local websocket
-	n.log.Log("info", "new ws conn")
-
 	wsHandler := websockHandler(n)
 	httpHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		url := req.URL.String()

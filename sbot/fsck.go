@@ -365,7 +365,6 @@ func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to null message (%d) in receive log", seq)
 		}
-		level.Debug(funcLog).Log("msg", seq)
 	}
 
 	// now remove feed metadata from the indexes

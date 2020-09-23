@@ -44,8 +44,6 @@ func websockHandler(n *node) http.HandlerFunc {
 			wsc: wsConn,
 		}
 
-		level.Info(n.log).Log("event", "new ws conn", "r", remoteAddr)
-
 		// comment out this block to get `noauth` instead of `shs`
 		// TODO:
 		// netwrap.WrapAddr(remoteAddr, secretstream.Addr{
@@ -77,8 +75,6 @@ func websockHandler(n *node) http.HandlerFunc {
 			wsConn.Close()
 			return
 		}
-
-		level.Debug(n.log).Log("event", "ws handler made - serving")
 
 		edp := muxrpc.HandleWithRemote(pkr, h, wc.RemoteAddr())
 
