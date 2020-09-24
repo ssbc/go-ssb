@@ -16,18 +16,17 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
-
-	"go.cryptoscope.co/ssb/internal/testutils"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestUnixSock(t *testing.T) {
@@ -69,7 +68,7 @@ func TestUnixSock(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = ssb.KeyValueRaw{}
+	o.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
@@ -313,7 +312,8 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		var lopt message.CreateLogArgs
 		lopt.Live = true
 		lopt.Keys = true
-		lopt.MarshalType = ssb.KeyValueRaw{}
+		lopt.Limit = -1
+		lopt.MarshalType = refs.KeyValueRaw{}
 		src, err := c.CreateLogStream(lopt)
 		r.NoError(err)
 
@@ -408,7 +408,7 @@ func TestPublish(t *testing.T) {
 	opts := message.CreateLogArgs{}
 	opts.Limit = 1
 	opts.Keys = true
-	opts.MarshalType = ssb.KeyValueRaw{}
+	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
@@ -486,7 +486,7 @@ func TestTangles(t *testing.T) {
 	opts.Root = *rootRef
 	opts.Limit = 2
 	opts.Keys = true
-	opts.MarshalType = ssb.KeyValueRaw{}
+	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.Tangles(opts)
 	r.NoError(err)
 

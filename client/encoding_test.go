@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestEncodeHistStreamAsJSON(t *testing.T) {
@@ -33,7 +34,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 
 	testKP, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
-	testKP.Id.Algo = ssb.RefAlgoFeedGabby
+	testKP.Id.Algo = refs.RefAlgoFeedGabby
 
 	srv, err := sbot.New(
 		sbot.WithKeyPair(testKP),
@@ -66,7 +67,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		Foo string
 		Bar int
 	}
-	var refs []string
+	var wantRefs []string
 	for i := 0; i < 10; i++ {
 
 		msg := testMsg{"hello", 23}
@@ -74,7 +75,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		r.NoError(err, "failed to call publish")
 		r.NotNil(ref)
 
-		refs = append(refs, ref.Ref())
+		wantRefs = append(wantRefs, ref.Ref())
 	}
 
 	seqv, err = srv.RootLog.Seq().Value()
@@ -100,7 +101,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		var v map[string]interface{}
 		err = json.Unmarshal(msg, &v)
 		r.NoError(err, "failed JSON unmarshal message:%d", i)
-		// a.Equal(refs[i], msg.Key().Ref())
+		// a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
 	v, err := src.Next(context.TODO())
@@ -108,7 +109,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	a.Equal(luigi.EOS{}, errors.Cause(err))
 
 	// now with key-value wrapping
-	args.MarshalType = &ssb.KeyValueRaw{}
+	args.MarshalType = &refs.KeyValueRaw{}
 	args.Keys = true
 	src, err = c.CreateHistoryStream(args)
 	r.NoError(err)
@@ -118,14 +119,14 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		// ctx, _ := context.WithTimeout(ctx, 5*time.Second)
 		streamV, err := src.Next(ctx)
 		r.NoError(err, "failed to next msg:%d", i)
-		msg, ok := streamV.(*ssb.KeyValueRaw)
+		msg, ok := streamV.(*refs.KeyValueRaw)
 		r.True(ok, "acutal type: %T", streamV)
 
 		var v testMsg
 		spew.Dump(msg.Value.Content)
 		err = json.Unmarshal(msg.Value.Content, &v)
 		r.NoError(err, "failed JSON unmarshal message:%d", i)
-		// a.Equal(refs[i], msg.Key().Ref())
+		// a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
 	v, err = src.Next(context.TODO())

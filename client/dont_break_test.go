@@ -77,7 +77,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = ssb.KeyValueRaw{}
+	o.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
@@ -100,7 +100,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 				ID:   bytes.Repeat([]byte("nope"), 8),
 			}
 			o.Keys = true
-			o.MarshalType = ssb.KeyValueRaw{}
+			o.MarshalType = refs.KeyValueRaw{}
 			// starting the call works (although our lib could check that the ref is wrong, too)
 			src, err := c.CreateHistoryStream(o)
 			a.NoError(err)

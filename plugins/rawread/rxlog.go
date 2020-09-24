@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -52,7 +50,7 @@ func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
 func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
+	// fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
 	var qry message.CreateLogArgs
 	if len(req.Args()) == 1 {
 		var args []message.CreateLogArgs
@@ -64,37 +62,37 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		}
 		if len(args) == 1 {
 			qry = args[0]
-			qry.Values = true
-			qry.Keys = true
-			qry.Limit = 1312
-			spew.Dump(qry)
 		}
 	} else {
+		// Defaults for no arguments
 		qry.Keys = true
 		qry.Limit = -1
 	}
 
-	// // only return message keys
+	// empty query doesn't make much sense...
+	if qry.Limit == 0 {
+		qry.Limit = -1
+	}
+
+	// only return message keys
 	// qry.Values = true
 
 	if qry.Gt == -1 {
-		// sv, err := g.root.Seq().Value()
-		// if err != nil {
-		// 	fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-		// 	req.CloseWithError(errors.Wrap(err, "logStream: failed to qry current seq"))
-		// 	return
-		// }
+		sv, err := g.root.Seq().Value()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
+			req.CloseWithError(errors.Wrap(err, "logStream: failed to qry current seq"))
+			return
+		}
 
-		// seq := sv.(margaret.Seq)
-		// qry.Seq = seq.Seq() - 1
-		qry.Keys = true
-		qry.Seq = 0
+		seq := sv.(margaret.Seq)
+		qry.Seq = seq.Seq() - 1
 	}
 
-	start := time.Now()
+	// start := time.Now()
 	src, err := g.root.Query(
 		margaret.SeqWrap(false),
-		//		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Gte(margaret.BaseSeq(qry.Seq)),
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live),
 		margaret.Reverse(qry.Reverse),
@@ -111,5 +109,5 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		return
 	}
 	req.Stream.Close()
-	fmt.Fprintln(os.Stderr, "createLogStream closed:", err, "after:", time.Since(start))
+	// fmt.Fprintln(os.Stderr, "createLogStream closed:", err, "after:", time.Since(start))
 }

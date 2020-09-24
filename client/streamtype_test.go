@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestReadStreamAsInterfaceMessage(t *testing.T) {
@@ -61,7 +62,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		Foo string
 		Bar int
 	}
-	var refs []string
+	var wantRefs []string
 	for i := 0; i < 10; i++ {
 
 		msg := testMsg{"hello", 23}
@@ -79,13 +80,13 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		newMsg, ok := msgv.(refs.Message)
 		r.True(ok)
 		r.Equal(newMsg.Key(), ref)
-		refs = append(refs, ref.Ref())
+		wantRefs = append(wantRefs, ref.Ref())
 
 		opts := message.CreateLogArgs{}
 		opts.Keys = true
 		opts.Limit = 1
 		opts.Seq = int64(i)
-		opts.MarshalType = ssb.KeyValueRaw{}
+		opts.MarshalType = refs.KeyValueRaw{}
 		src, err := c.CreateLogStream(opts)
 		r.NoError(err)
 
@@ -99,13 +100,19 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 
 		v, err := src.Next(context.TODO())
 		a.Nil(v)
-		a.Equal(luigi.EOS{}, errors.Cause(err))
+		if !a.Equal(luigi.EOS{}, errors.Cause(err)) {
+			t.Log("got additional item from stream?")
+			if msg, ok := v.(refs.Message); ok {
+				t.Log(i, "ref:", msg.Key().Ref())
+				t.Log("content:", string(msg.ContentBytes()))
+			}
+		}
 	}
 
 	opts := message.CreateLogArgs{}
 	opts.Keys = true
 	opts.Limit = 10
-	opts.MarshalType = ssb.KeyValueRaw{}
+	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
@@ -114,7 +121,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		r.NoError(err, "failed to next msg:%d", i)
 		msg, ok := streamV.(refs.Message)
 		r.True(ok, "acutal type: %T", streamV)
-		a.Equal(refs[i], msg.Key().Ref())
+		a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
 	v, err := src.Next(context.TODO())

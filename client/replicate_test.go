@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
@@ -54,7 +55,7 @@ func TestReplicateUpTo(t *testing.T) {
 		kp, err := ssb.NewKeyPair(nil)
 		r.NoError(err)
 		if i%2 == 0 {
-			kp.Id.Algo = ssb.RefAlgoFeedGabby
+			kp.Id.Algo = refs.RefAlgoFeedGabby
 		}
 
 		publish, err := message.OpenPublishLog(srv.RootLog, uf, kp)
