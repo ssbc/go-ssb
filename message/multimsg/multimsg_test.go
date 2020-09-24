@@ -8,7 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
-	"go.mindeco.de/ssb-gabbygrove"
+	gabbygrove "go.mindeco.de/ssb-gabbygrove"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -57,9 +58,9 @@ func TestMultiMsgGabby(t *testing.T) {
 	authorRef, err := gabbygrove.NewBinaryRef(kp.Id)
 	r.NoError(err)
 
-	cref := &ssb.ContentRef{
+	cref := &refs.ContentRef{
 		Hash: kpSeed,
-		Algo: ssb.RefAlgoContentGabby,
+		Algo: refs.RefAlgoContentGabby,
 	}
 	payloadRef, err := gabbygrove.NewBinaryRef(cref)
 	r.NoError(err)

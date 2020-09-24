@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
@@ -20,6 +19,7 @@ import (
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestFormatsSimple(t *testing.T) {
@@ -44,8 +44,8 @@ func TestFormatsSimple(t *testing.T) {
 		ff string
 	}
 	var testCases = []testCase{
-		{ssb.RefAlgoFeedSSB1},
-		{ssb.RefAlgoFeedGabby},
+		{refs.RefAlgoFeedSSB1},
+		{refs.RefAlgoFeedGabby},
 	}
 
 	staticRand := rand.New(rand.NewSource(42))
@@ -130,14 +130,14 @@ func TestFormatsSimple(t *testing.T) {
 				mm, ok := storedV.(*multimsg.MultiMessage)
 				r.True(ok, "wrong type: %T", storedV)
 				switch tc.ff {
-				case ssb.RefAlgoFeedSSB1:
+				case refs.RefAlgoFeedSSB1:
 					msg, ok := mm.AsLegacy()
 					r.True(ok)
 
 					_, _, err = legacy.Verify(msg.Raw_, nil)
 					r.NoError(err)
 
-				case ssb.RefAlgoFeedGabby:
+				case refs.RefAlgoFeedGabby:
 					g, ok := mm.AsGabby()
 					r.True(ok)
 					a.True(g.Verify(nil), "gabby failed to validate msg:%d", i)

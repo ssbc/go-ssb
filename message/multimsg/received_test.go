@@ -73,15 +73,15 @@ func TestReceivedSet(t *testing.T) {
 	r.EqualValues(23, rxt.Unix(), "time: %s", rxt)
 
 	// a gabby message
-	bobsKey.Id.Algo = ssb.RefAlgoFeedGabby
+	bobsKey.Id.Algo = refs.RefAlgoFeedGabby
 
-	enc := gabbygrove.NewEncoder(bobsKey)
+	enc := gabbygrove.NewEncoder(bobsKey.Pair.Secret)
 
 	tr, ref, err := enc.Encode(1, nil, "hello, world")
 	r.NoError(err)
 	r.NotNil(ref)
 
-	//fn.next = time.Unix(42, 0)
+	fn.next = time.Unix(42, 0)
 	ggSeq, err := wl.Append(tr)
 	r.NoError(err)
 	r.NotNil(ggSeq)

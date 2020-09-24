@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type PeopleOp interface {
@@ -32,7 +33,7 @@ type PeopleOpNewPeer struct{ name string }
 func (op PeopleOpNewPeer) Op(state *testState) error {
 	var opk PeopleOpNewPeerWithAglo
 	opk.name = op.name
-	opk.algo = ssb.RefAlgoFeedSSB1
+	opk.algo = refs.RefAlgoFeedSSB1
 	return opk.Op(state)
 }
 

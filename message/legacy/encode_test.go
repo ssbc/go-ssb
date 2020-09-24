@@ -12,7 +12,6 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -72,7 +71,7 @@ func init() {
 		if !has {
 			checkPanic(errors.Errorf("test(%d) - expected author in value field", i))
 		}
-		r, err := ssb.ParseRef(a.(string))
+		r, err := refs.ParseRef(a.(string))
 		checkPanic(errors.Wrapf(err, "test(%d) - failed to parse author ref", i))
 		fr, ok := r.(*refs.FeedRef)
 		if !ok {
