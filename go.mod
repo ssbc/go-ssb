@@ -13,7 +13,6 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
-	github.com/keks/persist v0.0.0-20191006175951-43c124092b8b // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
 	github.com/machinebox/progress v0.2.0
@@ -34,9 +33,9 @@ require (
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
 	go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097
-	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
+	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
 	golang.org/x/text v0.3.2
 	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
@@ -50,4 +49,4 @@ require (
 // This seemed like the easiest change to port agl's extra25519 to use x/crypto
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
-replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
+replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
