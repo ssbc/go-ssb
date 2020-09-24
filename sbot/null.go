@@ -40,21 +40,22 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		return errors.Wrap(err, "NullFeed: failed create user seqs query")
 	}
 
-	i := 0
-	snk := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		defer func() { i++ }()
+	for {
+		v, err := src.Next(ctx)
 		if err != nil {
+			if luigi.IsEOS(err) {
+				break
+			}
 			return err
 		}
 		seq, ok := v.(margaret.Seq)
 		if !ok {
 			return errors.Errorf("NullFeed: not a sequence from userlog query")
 		}
-		return s.RootLog.Null(seq)
-	})
-	err = luigi.Pump(ctx, snk, src)
-	if err != nil {
-		return errors.Wrapf(err, "NullFeed: failed to pump entries and null them %d", i)
+		err = s.RootLog.Null(seq)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = uf.Delete(feedAddr)

@@ -21,13 +21,16 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestNullContentRequest(t *testing.T) {
-	// defer leakcheck.Check(t)
+// TODO: disabled since the plugin is disabled in sbot/new.go
+
+func XTestNullContentRequest(t *testing.T) {
+	defer leakcheck.Check(t)
 
 	r := require.New(t)
 	a := assert.New(t)
@@ -219,10 +222,9 @@ func TestNullContentRequest(t *testing.T) {
 	r.NoError(mainbot.Close())
 }
 
-func TestNullContentAndSync(t *testing.T) {
-	// // defer leakcheck.Check(t)
+func XTestNullContentAndSync(t *testing.T) {
+	defer leakcheck.Check(t)
 	r := require.New(t)
-	// a := assert.New(t)
 
 	hk := make([]byte, 32)
 	n, err := rand.Read(hk)
