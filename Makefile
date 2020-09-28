@@ -1,4 +1,4 @@
-PKGS := $(shell go list ./... | grep -v node_modules | grep -v go.cryptoscope.co/ssb/tests )
+PKGS := $(shell go list ./... | grep -v node_modules )
 
 .PHONY: test
 test:

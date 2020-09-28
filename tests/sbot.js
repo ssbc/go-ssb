@@ -4,8 +4,19 @@ const { loadOrCreateSync } = require('ssb-keys')
 const pull = require('pull-stream') // used in eval scripts
 const tape = require('tape')
 const parallel = require('run-parallel') // used in eval scripts
+const theStack = require('secret-stack')
+const ssbCaps = require('ssb-caps')
 
-const createSbot = require('ssb-server')
+const testSHSappKey = bufFromEnv('TEST_APPKEY')
+const testHMACkey = bufFromEnv('TEST_HMACKEY')
+
+let testAppkey = ssbCaps.shs
+if (testSHSappKey !== false) {
+  testAppkey = testSHSappKey
+}
+
+const createSbot = theStack({caps: {shs: Buffer.from(testAppkey, 'base64') } })
+  .use(require('ssb-db'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
   .use(require('ssb-private'))
@@ -24,9 +35,6 @@ const testAddr = process.env.TEST_GOADDR
 
 const scriptBefore = readFileSync(process.env.TEST_BEFORE).toString()
 const scriptAfter = readFileSync(process.env.TEST_AFTER).toString()
-
-const testSHSappKey = bufFromEnv('TEST_APPKEY')
-const testHMACkey = bufFromEnv('TEST_HMACKEY')
 
 function bufFromEnv(evname) {
   const has = process.env[evname]
