@@ -253,7 +253,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
 
-		time.Sleep(time.Second / 10)
+		//		time.Sleep(time.Second / 10)
+		t.Log("TODO: fix this - waiting for setup")
+		time.Sleep(time.Second * 30)
 
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()
