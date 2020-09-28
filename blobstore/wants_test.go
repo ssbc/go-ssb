@@ -133,22 +133,17 @@ func TestWantManager(t *testing.T) {
 						return nil, errors.Errorf("expected one argument, got %v", len(args))
 					}
 
-					refStr, ok := args[0].(string)
+					arg, ok := args[0].(GetWithSize)
 					if !ok {
 						return nil, errors.Errorf("expected a string argument, got type %T", args[0])
 					}
 
-					br, err := parseBlobRef(refStr)
-					if err != nil {
-						return nil, errors.Wrap(err, "error parsing blob ref")
-					}
-
-					sz, ok := tc.remoteWants[br.Ref()]
+					sz, ok := tc.remoteWants[arg.Key.Ref()]
 					if !ok || sz < 0 {
 						return nil, ErrNoSuchBlob
 					}
 
-					data := tc.blobs[br.Ref()]
+					data := tc.blobs[arg.Key.Ref()]
 
 					return (*luigi.SliceSource)(&[]interface{}{
 						[]byte(data),

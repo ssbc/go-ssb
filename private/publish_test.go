@@ -25,8 +25,8 @@ import (
 )
 
 func TestPrivatePublish(t *testing.T) {
-	t.Run("classic", testPublishPerAlgo(ssb.RefAlgoFeedSSB1))
-	t.Run("gabby", testPublishPerAlgo(ssb.RefAlgoFeedGabby))
+	t.Run("classic", testPublishPerAlgo(refs.RefAlgoFeedSSB1))
+	t.Run("gabby", testPublishPerAlgo(refs.RefAlgoFeedGabby))
 }
 
 func testPublishPerAlgo(algo string) func(t *testing.T) {

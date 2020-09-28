@@ -50,22 +50,18 @@ func (p Plugin) Handler() muxrpc.Handler {
 
 const FolderNameInvites = "peerInvites"
 
-func (p *Plugin) OpenIndex(r repo.Interface) (librarian.Index, repo.ServeFunc, error) {
-	db, sinkIdx, serve, err := repo.OpenBadgerIndex(r, FolderNameInvites, p.updateIndex)
+func (p *Plugin) OpenIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
+	_, sinkIdx, serve, err := repo.OpenBadgerIndex(r, FolderNameInvites, p.updateIndex)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error getting index")
 	}
-	nextServe := func(ctx context.Context, log margaret.Log, live bool) error {
-		err := serve(ctx, log, live)
-		if err != nil {
-			return err
-		}
-		return db.Close()
-	}
-	return sinkIdx, nextServe, nil
+
+	// TODO: close badger db?
+
+	return sinkIdx, serve, nil
 }
 
-func (p *Plugin) updateIndex(db *badger.DB) librarian.SinkIndex {
+func (p *Plugin) updateIndex(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 	p.h.state = libbadger.NewIndex(db, true)
 
 	idxSink := librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
@@ -97,7 +93,7 @@ func (p *Plugin) updateIndex(db *badger.DB) librarian.SinkIndex {
 			return nil // skip
 		}
 	}, p.h.state)
-	return idxSink
+	return nil, idxSink
 }
 
 func (p *Plugin) indexNewInvite(ctx context.Context, msg refs.Message) error {
