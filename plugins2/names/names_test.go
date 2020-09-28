@@ -11,11 +11,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func XTestNames(t *testing.T) {
@@ -34,15 +36,15 @@ func XTestNames(t *testing.T) {
 	// make three new keypairs with nicknames
 	n2kp := make(map[string]*ssb.KeyPair)
 
-	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["arny"] = kpArny
 
-	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 	n2kp["bert"] = kpBert
 
-	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", ssb.RefAlgoFeedSSB1)
+	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	n2kp["cloe"] = kpCloe
 
@@ -67,11 +69,11 @@ func XTestNames(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", ssb.NewAboutName(kpArny.Id, "i'm arny!")},
-		{"bert", ssb.NewAboutName(kpBert.Id, "i'm bert!")},
-		{"bert", ssb.NewAboutName(kpCloe.Id, "that cloe")},
-		{"cloe", ssb.NewAboutName(kpBert.Id, "iditot")},
-		{"cloe", ssb.NewAboutName(kpCloe.Id, "i'm cloe!")},
+		{"arny", refs.NewAboutName(kpArny.Id, "i'm arny!")},
+		{"bert", refs.NewAboutName(kpBert.Id, "i'm bert!")},
+		{"bert", refs.NewAboutName(kpCloe.Id, "that cloe")},
+		{"cloe", refs.NewAboutName(kpBert.Id, "iditot")},
+		{"cloe", refs.NewAboutName(kpCloe.Id, "i'm cloe!")},
 	}
 
 	for idx, intro := range intros {

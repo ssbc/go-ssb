@@ -34,7 +34,7 @@ func (h sizeHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		return
 	}
 	if len(blobs) != 1 {
-		req.Stream.CloseWithError(errors.Errorf("bad request", len(blobs)))
+		req.Stream.CloseWithError(errors.Errorf("bad request - got %d arguments, expected 1", len(blobs)))
 		return
 	}
 	sz, err := h.bs.Size(blobs[0])

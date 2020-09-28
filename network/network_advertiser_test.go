@@ -18,7 +18,7 @@ func makeTestPubKey(t *testing.T) *ssb.KeyPair {
 	if err != nil {
 		t.Fatal(err)
 	}
-	copy(kp.Pair.Public[:], fr.PubKey())
+	kp.Pair.Public = fr.PubKey()
 	kp.Id = fr
 	return &kp
 }

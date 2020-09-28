@@ -14,14 +14,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
-	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestAboutNames(t *testing.T) {
@@ -54,7 +53,7 @@ func TestAboutNames(t *testing.T) {
 		close(aliErrc)
 	}()
 
-	var newName ssb.About
+	var newName refs.About
 	newName.Type = "about"
 	newName.Name = fmt.Sprintf("testName:%x", hk[:16])
 	newName.About = ali.KeyPair.Id
@@ -71,7 +70,7 @@ func TestAboutNames(t *testing.T) {
 			break
 		}
 		sm := v.(refs.Message)
-		var a ssb.About
+		var a refs.About
 		c := sm.ContentBytes()
 		err = json.Unmarshal(c, &a)
 		r.NoError(err)
@@ -85,9 +84,10 @@ func TestAboutNames(t *testing.T) {
 
 	all, err := c.NamesGet()
 	r.NoError(err)
+	t.Log(all)
 
 	name, ok := all.GetCommonName(ali.KeyPair.Id)
-	r.True(ok)
+	r.True(ok, "name for ali not found")
 	r.Equal(newName.Name, name)
 
 	name2, err := c.NamesSignifier(*ali.KeyPair.Id)

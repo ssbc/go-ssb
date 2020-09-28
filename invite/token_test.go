@@ -5,14 +5,12 @@ import (
 	"net"
 	"testing"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
-
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestParseParseLegacyToken(t *testing.T) {
@@ -20,7 +18,7 @@ func TestParseParseLegacyToken(t *testing.T) {
 
 	testRef := refs.FeedRef{
 		ID:   bytes.Repeat([]byte("b00p"), 8),
-		Algo: ssb.RefAlgoFeedSSB1,
+		Algo: refs.RefAlgoFeedSSB1,
 	}
 	var tcases = []struct {
 		input string
