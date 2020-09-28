@@ -404,8 +404,6 @@ func TestBlobsWithHops(t *testing.T) {
 	bob.Replicate(cle.KeyPair.Id)
 	cle.Replicate(bob.KeyPair.Id)
 
-	time.Sleep(30 * time.Second)
-
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
 	err = bob.Network.Connect(ctx, cle.Network.GetListenAddr())
@@ -517,8 +515,6 @@ func TestBlobsTooBig(t *testing.T) {
 
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
-
-	time.Sleep(30 * time.Second)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)

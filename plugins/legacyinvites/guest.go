@@ -31,7 +31,6 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		Feed *refs.FeedRef `json:"feed"`
 	}
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
-		fmt.Println("accept:", string(req.RawArgs))
 		req.CloseWithError(fmt.Errorf("invalid arguments (%w)", err))
 		return
 	}
@@ -41,15 +40,15 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	}
 	arg := args[0]
 
-	// lookup guest key
-	if err := h.service.kv.BeginTransaction(); err != nil {
-		req.CloseWithError(err)
-		return
-	}
-
 	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "no guest ref!?"))
+		return
+	}
+
+	// lookup guest key
+	if err := h.service.kv.BeginTransaction(); err != nil {
+		req.CloseWithError(err)
 		return
 	}
 

@@ -40,7 +40,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	before := `fromKey = testBob
 
 	sbot.on('rpc:connect', (rpc) => {
-		rpc.on('closed', () => { 
+		rpc.on('closed', () => {
 			t.comment('now should have feed:' + fromKey)
 			pull(
 				sbot.private.read({}),
@@ -70,7 +70,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 			)
 		})
 	})
-	
+
 	sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
 		t.error(err, 'follow:' + fromKey)
 
@@ -97,11 +97,13 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	alice := ts.startJSBot(before, "")
 
+	s.Replicate(alice)
 	newSeq, err := s.PublishLog.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   alice.Ref(),
 		"following": true,
 	})
+
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
 
@@ -180,6 +182,8 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		"contact":   alice.Ref(),
 		"following": true,
 	})
+	bob.Replicate(alice)
+
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
 

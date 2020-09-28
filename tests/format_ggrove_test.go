@@ -37,6 +37,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	before := `fromKey = testBob
 	sbot.on('rpc:connect', (rpc) => {
+        t.comment('got connection: ' + rpc.id)
 		pull(
 			rpc.createHistoryStream({id: fromKey}),
 			pull.collect((err, msgs) => {
@@ -47,14 +48,15 @@ func TestGabbyFeedFromGo(t *testing.T) {
 				sbot.gabbygrove.verify(msgs[0], (err, evt) => {
 					t.error(err, 'verified msg[0]')
 					t.ok(evt)
-					t.comment('exiting in 5 secs')
-					setTimeout(exit, 5000)
+					t.comment('exiting in 3 secs')
+					setTimeout(exit, 3000)
 				})
 			})
 		)
 	})
-	
-	setTimeout(run, 1000) // give go bot a moment to publish
+
+    run()
+
 	// following is blocked on proper feed format support with new suffixes
 `
 
@@ -65,11 +67,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 			"type":  "ex-message",
 			"hello": "world",
 		},
-		map[string]interface{}{
-			"type":      "contact",
-			"contact":   alice.Ref(),
-			"following": true,
-		},
+		refs.NewContactFollow(alice),
 		map[string]interface{}{
 			"type":  "message",
 			"text":  "whoops",
@@ -81,8 +79,9 @@ func TestGabbyFeedFromGo(t *testing.T) {
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
+	s.Replicate(alice)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(1 * time.Second) // wait for alice' connection
 
 	aliceEdp, ok := s.Network.GetEndpointFor(alice)
 	r.True(ok, "no endpoint for alice")

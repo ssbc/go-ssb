@@ -246,8 +246,6 @@ func TestNullFetched(t *testing.T) {
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
-	time.Sleep(30 * time.Second)
-
 	for i := 1000; i > 0; i-- {
 		_, err = bob.PublishLog.Publish(i)
 		r.NoError(err)

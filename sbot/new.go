@@ -236,7 +236,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			if err == nil {
 				return inviteService.GuestHandler(), nil
 			}
-			level.Debug(s.info).Log("invite", err)
 		}
 
 		if s.promisc {

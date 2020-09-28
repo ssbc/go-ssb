@@ -48,7 +48,7 @@ func TestBlocking(t *testing.T) {
 	for (var i = n; i>0; i--) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i}))
 	}
-	
+
 	// be done when the other party is done
 	sbot.on('rpc:connect', rpc => rpc.on('closed', function() {
 		//
@@ -64,7 +64,7 @@ func TestBlocking(t *testing.T) {
 		  })
 		)
 }))
-	
+
 	parallel(msgs, function(err, results) {
 		t.error(err, "parallel of publish")
 		t.equal(msgs.length, results.length, "message count")
@@ -78,6 +78,8 @@ func TestBlocking(t *testing.T) {
 	newSeq, err = bob.PublishLog.Append(refs.NewContactFollow(kpAlice.Id))
 	r.NoError(err)
 	r.NotNil(newSeq)
+	bob.Replicate(claire)
+	bob.Replicate(kpAlice.Id)
 
 	<-ts.doneJS
 
@@ -92,7 +94,7 @@ func TestBlocking(t *testing.T) {
 	let testAlice = %q
 	let testAlicePost = %q
 	let testAliceNowBlocked = %q
-	
+
 	// be done when the other party is done
 	sbot.on('rpc:connect', rpc => rpc.on('closed', function() {
 		//
@@ -109,7 +111,7 @@ func TestBlocking(t *testing.T) {
 		  })
 		)
 	}))
-	
+
 	pull(
 		sbot.createUserStream({id:testAlice}),
 		pull.collect(function(err, msgs) {

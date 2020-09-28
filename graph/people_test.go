@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -252,10 +251,6 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			err := op.Op(&state)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
-
-		//		time.Sleep(time.Second / 10)
-		t.Log("TODO: fix this - waiting for setup")
-		time.Sleep(time.Second * 30)
 
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()

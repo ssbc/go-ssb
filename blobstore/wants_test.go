@@ -187,6 +187,7 @@ func TestWantManager(t *testing.T) {
 			ourW.l.Lock()
 			a.IsType(map[string]int64{}, outSlice[0], "slice element type mismatch")
 			a.Equal(tc.localWants, outSlice[0], "map content mismatch")
+			// there is a small race somewhere here and this fails sometimes
 
 			a.IsType(map[string]int64{}, outSlice[1], "slice element type mismatch")
 			a.Equal(sizeWants(tc.localBlobs), outSlice[1], "map content mismatch")

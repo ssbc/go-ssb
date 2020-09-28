@@ -1,8 +1,8 @@
-PKGS := $(shell go list ./... | grep -v /vendor | grep -v node_modules)
+PKGS := $(shell go list ./... | grep -v node_modules | grep -v go.cryptoscope.co/ssb/tests )
 
 .PHONY: test
 test:
-	go test -failfast -race -timeout 2m $(PKGS)
+	LIBRARIAN_WRITEALL=0 go test -failfast -race -timeout 2m $(PKGS)
 
 VERSION = $(shell git describe --tags --exact-match)
 ifeq ($(VERSION),)
