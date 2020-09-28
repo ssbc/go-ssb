@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/ssb"
+
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func check(err error) {
@@ -37,7 +38,7 @@ func init() {
 	check(err)
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to store the key")
-	flag.StringVar(&feedAlgo, "format", ssb.RefAlgoFeedSSB1, "format to use")
+	flag.StringVar(&feedAlgo, "format", refs.RefAlgoFeedSSB1, "format to use")
 
 	flag.Parse()
 
@@ -53,8 +54,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if feedAlgo != ssb.RefAlgoFeedSSB1 && feedAlgo != ssb.RefAlgoFeedGabby { //  enums would be nice
-		check(errors.Errorf("invalid feed refrence algo. %s or %s", ssb.RefAlgoFeedSSB1, ssb.RefAlgoFeedGabby))
+	if feedAlgo != refs.RefAlgoFeedSSB1 && feedAlgo != refs.RefAlgoFeedGabby { //  enums would be nice
+		check(errors.Errorf("invalid feed refrence algo. %s or %s", refs.RefAlgoFeedSSB1, refs.RefAlgoFeedGabby))
 	}
 
 	r := repo.New(repoDir)

@@ -40,21 +40,21 @@ func main() {
 
 	r := repo.New(os.Args[1])
 
-	var refs []*refs.FeedRef
+	var inputRefs []*refs.FeedRef
 	if os.Args[2] == "-" {
 		s := bufio.NewScanner(os.Stdin)
 		for s.Scan() {
 			line := s.Text()
 			fr, err := refs.ParseFeedRef(line)
 			check(errors.Wrapf(err, "failed to parse %q argument", line))
-			refs = append(refs, fr)
+			inputRefs = append(inputRefs, fr)
 		}
 		check(errors.Wrap(s.Err(), "stdin scanner failed"))
 	} else {
 
 		fr, err := refs.ParseFeedRef(os.Args[2])
 		check(errors.Wrap(err, "failed to parse feed argument"))
-		refs = append(refs, fr)
+		inputRefs = append(inputRefs, fr)
 	}
 
 	rmbot, err := sbot.New(
@@ -62,7 +62,7 @@ func main() {
 		sbot.WithUNIXSocket())
 	check(errors.Wrap(err, "failed to open bot"))
 
-	for i, fr := range refs {
+	for i, fr := range inputRefs {
 		start := time.Now()
 
 		err := rmbot.NullFeed(fr)

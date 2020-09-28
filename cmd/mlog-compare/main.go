@@ -35,6 +35,16 @@ func fail(err error) {
 
 var ctx = context.Background()
 
+func serve(rxlog margaret.Log, snk librarian.SinkIndex) {
+	src, err := rxlog.Query(margaret.Live(false), margaret.SeqWrap(true), snk.QuerySpec())
+
+	check(errors.Wrapf(err, "error querying receiveLog for message backlog"))
+
+	err = luigi.Pump(ctx, snk, src)
+	check(errors.Wrap(err, "failed to fill index"))
+
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: mlog-cmp <repo>")
@@ -47,18 +57,22 @@ func main() {
 	rootLog, err := repo.OpenLog(r)
 	check(err)
 
-	badger, serve, err := repo.OpenBadgerMultiLog(r, "users_badger", multilogs.UserFeedsUpdate)
+	badger, snk, err := repo.OpenBadgerMultiLog(r, "users_badger", multilogs.UserFeedsUpdate)
 	check(err)
 
-	err = serve(ctx, rootLog, false)
+	// TODO: rework fill logic
+
+	serve(rootLog, snk)
+
 	badgerMap := mapListOfAllSequencesByAddr(badger)
 	check(badger.Close())
 	fmt.Println("badger ready")
 
-	roar, serve, err := multilogs.OpenUserFeeds(r)
+	roar, snk, err := multilogs.OpenUserFeeds(r)
 	check(err)
-	err = serve(ctx, rootLog, false)
-	check(err)
+
+	serve(rootLog, snk)
+
 	roaringMap := mapListOfAllSequencesByAddr(roar)
 	fmt.Println("roaring ready")
 

@@ -15,8 +15,9 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/margaret/offset2"
-	"go.cryptoscope.co/ssb"
+
 	"go.cryptoscope.co/ssb/message/multimsg"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 var check = logging.CheckFatal
@@ -68,7 +69,7 @@ func main() {
 
 			fmt.Println("count:", bmap.GetCardinality())
 			fmt.Println(bmap.String())
-			logp := "/home/cryptix/.ssb-go/log"
+			logp := "/home/cryptix/.ssb-go/log" // TODO
 			log, err := offset2.Open(logp, multimsg.MargaretCodec{})
 			check(err)
 
@@ -79,7 +80,7 @@ func main() {
 				if err != nil {
 					check(err)
 				}
-				msg := sv.(ssb.Message)
+				msg := sv.(refs.Message)
 				fmt.Println(string(msg.ValueContentJSON()))
 			}
 			check(log.Close())

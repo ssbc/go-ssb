@@ -37,9 +37,15 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		if !ok {
 			return errors.Errorf("invalid argument - missing 'id' in map")
 		}
-		feed, err = refs.ParseFeedRef(refV.(string))
+
+		ref, ok := refV.(string)
+		if !ok {
+			return errors.Errorf("invalid argument - 'id' field is not a string")
+		}
+
+		feed, err = refs.ParseFeedRef(ref)
 		if err != nil {
-			return errors.Errorf("invalid argument: %w", err)
+			return fmt.Errorf("invalid argument: %w", err)
 		}
 
 		typeV, ok := v["type"]
