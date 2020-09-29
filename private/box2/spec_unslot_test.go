@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb/keys"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type unslotSpecTest struct {
@@ -29,10 +30,15 @@ type unslotSpecTestOutput struct {
 }
 
 func (ut unslotSpecTest) Test(t *testing.T) {
-	fref := feedRefFromTFK(ut.Input.FeedID)
-	mref := messageRefFromTFK(ut.Input.PrevMsgID)
+	var f tfk.Feed
+	err := f.UnmarshalBinary(ut.Input.FeedID)
+	require.NoError(t, err)
 
-	keySlots, _ := deriveMessageKey(fref, mref, []keys.Recipient{
+	var m tfk.Message
+	err = m.UnmarshalBinary(ut.Input.PrevMsgID)
+	require.NoError(t, err)
+
+	keySlots, _ := deriveMessageKey(f.Feed(), m.Message(), []keys.Recipient{
 		{Key: keys.Key(ut.Input.Recipient.Key), Scheme: ut.Input.Recipient.Scheme},
 	})
 

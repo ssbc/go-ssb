@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	"go.mindeco.de/ssb-refs/tfk"
+
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb/keys"
 )
@@ -32,7 +34,7 @@ type boxSpecTestOutput struct {
 
 func (bt boxSpecTest) Test(t *testing.T) {
 
-	rand := bytes.NewBuffer([]byte(bt.Input.MsgKey))
+	rand := bytes.NewBuffer(bt.Input.MsgKey)
 	bxr := NewBoxer(rand)
 
 	recps := make([]keys.Recipient, len(bt.Input.RecpKeys))
@@ -40,14 +42,19 @@ func (bt boxSpecTest) Test(t *testing.T) {
 		recps[i] = keys.Recipient{Key: keys.Key(bt.Input.RecpKeys[i].Key), Scheme: bt.Input.RecpKeys[i].Scheme}
 	}
 
-	fref := feedRefFromTFK(bt.Input.FeedID)
-	mref := messageRefFromTFK(bt.Input.PrevMsgID)
+	var f tfk.Feed
+	err := f.UnmarshalBinary(bt.Input.FeedID)
+	require.NoError(t, err)
+
+	var m tfk.Message
+	err = m.UnmarshalBinary(bt.Input.PrevMsgID)
+	require.NoError(t, err)
 
 	out, err := bxr.Encrypt(
 		nil,
 		bt.Input.PlainText,
-		fref,
-		mref,
+		f.Feed(),
+		m.Message(),
 		recps,
 	)
 
