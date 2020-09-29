@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestEncodeList(t *testing.T) {
@@ -44,90 +43,6 @@ func TestEncodeList(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.out, encodeList(nil, tc.in))
-		})
-	}
-}
-
-func TestEncodeFeedRef(t *testing.T) {
-	type testcase struct {
-		name string
-		in   *refs.FeedRef
-		out  []byte
-	}
-
-	tcs := []testcase{
-		{
-			name: "ed25519",
-			in: &refs.FeedRef{
-				Algo: "ed25519",
-				ID:   seq(0, 32),
-			},
-			out: append([]byte{typeFeed, feedFormatEd25519}, seq(0, 32)...),
-		},
-		{
-			name: "gabby",
-			in: &refs.FeedRef{
-				Algo: "gabby",
-				ID:   seq(0, 32),
-			},
-			out: append([]byte{typeFeed, feedFormatGabbyGrove}, seq(0, 32)...),
-		},
-		{
-			name: "unknown",
-			in: &refs.FeedRef{
-				Algo: "unknown",
-				ID:   seq(0, 32),
-			},
-			out: nil,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.out, encodeFeedRef(nil, tc.in))
-		})
-	}
-}
-
-func TestEncodeMessageRef(t *testing.T) {
-	type testcase struct {
-		name string
-		in   *refs.MessageRef
-		out  []byte
-	}
-
-	tcs := []testcase{
-		{
-			name: "sha256",
-			in: &refs.MessageRef{
-				Algo: "sha256",
-				Hash: seq(0, 32),
-			},
-			out: append([]byte{typeMessage, messageFormatSHA256}, seq(0, 32)...),
-		},
-		{
-			name: "gabby",
-			in: &refs.MessageRef{
-				Algo: "gabby",
-				Hash: seq(0, 32),
-			},
-			out: append([]byte{typeMessage, messageFormatGabbyGrove}, seq(0, 32)...),
-		},
-		{
-			name: "unknown",
-			in: &refs.MessageRef{
-				Algo: "unknown",
-				Hash: seq(0, 32),
-			},
-			out: nil,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.out, encodeMessageRef(nil, tc.in))
 		})
 	}
 }

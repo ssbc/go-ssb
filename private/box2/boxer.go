@@ -6,10 +6,22 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"go.cryptoscope.co/ssb/keys"
+	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
+)
+
+const (
+	KeySize = 256 / 8
+
+	MaxSlots = 32
+)
+
+var (
+	zero24  [24]byte
+	zeroKey [KeySize]byte
 )
 
 type Message struct {
@@ -28,19 +40,7 @@ func NewBoxer(rand io.Reader) *Boxer {
 }
 
 type Boxer struct {
-	// TODO store base infos?
-	// TODO use a simple buffer pool?
 	rand io.Reader
-}
-
-const (
-	KeySize = 256 / 8
-)
-
-func clear(buf []byte) {
-	for i := range buf {
-		buf[i] = 0
-	}
 }
 
 type makeHKDFContextList func(...[]byte) [][]byte
@@ -58,8 +58,25 @@ func makeInfo(author *refs.FeedRef, prev *refs.MessageRef) makeHKDFContextList {
 		}
 		out := make([][]byte, len(infos)+3)
 		out[0] = []byte("envelope")
-		out[1] = encodeFeedRef(nil, author)
-		out[2] = encodeMessageRef(nil, prev)
+
+		tfkFeed, err := tfk.FeedFromRef(author)
+		if err != nil {
+			panic(err)
+		}
+		out[1], err = tfkFeed.MarshalBinary()
+		if err != nil {
+			panic(err)
+		}
+
+		tfkMsg, err := tfk.MessageFromRef(prev)
+		if err != nil {
+			panic(err)
+		}
+		out[2], err = tfkMsg.MarshalBinary()
+		if err != nil {
+			panic(err)
+		}
+
 		copy(out[3:], infos)
 		return out
 	}
@@ -141,11 +158,6 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 	return out, nil
 }
 
-const MaxSlots = 32
-
-var zero24 [24]byte
-var zeroKey [KeySize]byte
-
 func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([][KeySize]byte, makeHKDFContextList) {
 	var (
 		info     = makeInfo(author, prev)
@@ -214,7 +226,9 @@ OUTER:
 	return plain, nil
 }
 
-func alloc(bs []byte, n int) (old, allocd, new []byte) {
-	old, allocd, new = bs, bs[:n], bs[n:]
-	return
+// utils
+func clear(buf []byte) {
+	for i := range buf {
+		buf[i] = 0
+	}
 }

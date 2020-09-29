@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type deriveSecretSpecTest struct {
@@ -26,10 +27,15 @@ type deriveSecretSpecTestOutput struct {
 }
 
 func (dt deriveSecretSpecTest) Test(t *testing.T) {
-	fref := feedRefFromTFK(dt.Input.FeedID)
-	mref := messageRefFromTFK(dt.Input.PrevMsgID)
+	var f tfk.Feed
+	err := f.UnmarshalBinary(dt.Input.FeedID)
+	require.NoError(t, err)
 
-	info := makeInfo(fref, mref)
+	var m tfk.Message
+	err = m.UnmarshalBinary(dt.Input.PrevMsgID)
+	require.NoError(t, err)
+
+	info := makeInfo(f.Feed(), m.Message())
 
 	var readKey, headerKey, bodyKey [32]byte
 

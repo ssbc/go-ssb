@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb/keys"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type unboxSpecTest struct {
@@ -29,16 +30,21 @@ type unboxSpecTestOutput struct {
 }
 
 func (ut unboxSpecTest) Test(t *testing.T) {
-	//spew.Dump(bt)
 	bxr := NewBoxer(nil)
-	fref := feedRefFromTFK(ut.Input.FeedID)
-	mref := messageRefFromTFK(ut.Input.PrevMsgID)
+
+	var f tfk.Feed
+	err := f.UnmarshalBinary(ut.Input.FeedID)
+	require.NoError(t, err)
+
+	var m tfk.Message
+	err = m.UnmarshalBinary(ut.Input.PrevMsgID)
+	require.NoError(t, err)
 
 	out, err := bxr.Decrypt(
 		nil,
 		ut.Input.Ciphertext,
-		fref,
-		mref,
+		f.Feed(),
+		m.Message(),
 		[]keys.Recipient{
 			{Key: keys.Key(ut.Input.Recipient.Key), Scheme: ut.Input.Recipient.Scheme},
 		},
