@@ -35,7 +35,8 @@ func (dt deriveSecretSpecTest) Test(t *testing.T) {
 	err = m.UnmarshalBinary(dt.Input.PrevMsgID)
 	require.NoError(t, err)
 
-	info := makeInfo(f.Feed(), m.Message())
+	info, err := makeInfo(f.Feed(), m.Message())
+	require.NoError(t, err)
 
 	var readKey, headerKey, bodyKey [32]byte
 

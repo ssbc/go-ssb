@@ -3,6 +3,7 @@ package box2
 import (
 	"encoding/binary"
 	stderr "errors"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -45,41 +46,43 @@ type Boxer struct {
 
 type makeHKDFContextList func(...[]byte) [][]byte
 
-func makeInfo(author *refs.FeedRef, prev *refs.MessageRef) makeHKDFContextList {
-	return func(infos ...[]byte) [][]byte {
-		if prev == nil {
-			if author.Algo != refs.RefAlgoFeedSSB1 {
-				panic("unsupported feed type:" + author.Algo)
-			}
-			prev = &refs.MessageRef{
-				Algo: refs.RefAlgoMessageSSB1,
-				Hash: make([]byte, 32),
-			}
+func makeInfo(author *refs.FeedRef, prev *refs.MessageRef) (makeHKDFContextList, error) {
+	if prev == nil {
+		if author.Algo != refs.RefAlgoFeedSSB1 {
+			return nil, fmt.Errorf("unsupported feed type: %s", author.Algo)
 		}
+		prev = &refs.MessageRef{
+			Algo: refs.RefAlgoMessageSSB1,
+			Hash: make([]byte, 32),
+		}
+	}
+
+	tfkFeed, err := tfk.FeedFromRef(author)
+	if err != nil {
+		return nil, err
+	}
+	feedBytes, err := tfkFeed.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	tfkMsg, err := tfk.MessageFromRef(prev)
+	if err != nil {
+		return nil, err
+	}
+	msgBytes, err := tfkMsg.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	return func(infos ...[]byte) [][]byte {
 		out := make([][]byte, len(infos)+3)
 		out[0] = []byte("envelope")
-
-		tfkFeed, err := tfk.FeedFromRef(author)
-		if err != nil {
-			panic(err)
-		}
-		out[1], err = tfkFeed.MarshalBinary()
-		if err != nil {
-			panic(err)
-		}
-
-		tfkMsg, err := tfk.MessageFromRef(prev)
-		if err != nil {
-			panic(err)
-		}
-		out[2], err = tfkMsg.MarshalBinary()
-		if err != nil {
-			panic(err)
-		}
-
+		out[1] = feedBytes
+		out[2] = msgBytes
 		copy(out[3:], infos)
 		return out
-	}
+	}, nil
 }
 
 // API and processing errors
@@ -121,7 +124,10 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 		return nil, errors.Wrap(err, "error reading random data")
 	}
 
-	info := makeInfo(author, prev)
+	info, err := makeInfo(author, prev)
+	if err != nil {
+		return nil, errors.Wrap(err, "error constructing keying information")
+	}
 
 	deriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
 
@@ -158,24 +164,28 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 	return out, nil
 }
 
-func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([][KeySize]byte, makeHKDFContextList) {
-	var (
-		info     = makeInfo(author, prev)
-		slotKeys = make([][KeySize]byte, len(candidates))
-	)
+func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([][KeySize]byte, makeHKDFContextList, error) {
+	var slotKeys = make([][KeySize]byte, len(candidates))
+
+	info, err := makeInfo(author, prev)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// derive slot keys
 	for i, candidate := range candidates {
 		deriveTo(slotKeys[i][:], candidate.Key, info([]byte("slot_key"), []byte(candidate.Scheme))...)
 	}
 
-	return slotKeys, info
+	return slotKeys, info, nil
 }
 
 // TODO: Maybe return entire decrypted message?
 func (bxr *Boxer) Decrypt(out, ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
-	slotKeys, info := deriveMessageKey(author, prev, candidates)
-
+	slotKeys, info, err := deriveMessageKey(author, prev, candidates)
+	if err != nil {
+		return nil, errors.Wrap(err, "error constructing keying information")
+	}
 	var (
 		hdr               = make([]byte, 16)
 		msgKey, headerKey [KeySize]byte

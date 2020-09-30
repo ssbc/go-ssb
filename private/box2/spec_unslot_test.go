@@ -38,9 +38,10 @@ func (ut unslotSpecTest) Test(t *testing.T) {
 	err = m.UnmarshalBinary(ut.Input.PrevMsgID)
 	require.NoError(t, err)
 
-	keySlots, _ := deriveMessageKey(f.Feed(), m.Message(), []keys.Recipient{
+	keySlots, _, err := deriveMessageKey(f.Feed(), m.Message(), []keys.Recipient{
 		{Key: keys.Key(ut.Input.Recipient.Key), Scheme: ut.Input.Recipient.Scheme},
 	})
+	require.NoError(t, err)
 
 	require.Len(t, keySlots, 1)
 
