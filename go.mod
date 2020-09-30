@@ -33,7 +33,7 @@ require (
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
-	go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097
+	go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
@@ -51,6 +51,3 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
-
-// TODO: pin add-tfk branch
-replace go.mindeco.de/ssb-refs => /Users/cryptix/go/src/go.mindeco.de/ssb-refs

@@ -405,6 +405,8 @@ go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996/go.mod h1:00eKD
 go.mindeco.de/ssb-refs v0.0.0-20200615115708-7b8437f55cef/go.mod h1:u3EqvzDljgzrGT93hyWA1VbE06NKdavnpJ4sMXZxQxE=
 go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097 h1:CIlsAbrn4c1/xBX4E/IgOFTJMkc/MJwYdkDZ9v61Y7Q=
 go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
+go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe h1:EI9l2VuF6otb8g0NoSE3D1FLREObP2PH/9P2Z49FUho=
+go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
