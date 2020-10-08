@@ -16,7 +16,9 @@ type Store struct {
 	Index librarian.SetterIndex
 }
 
-func (mgr *Store) AddKey(ctx context.Context, ks KeyScheme, id ID, key Key) error {
+var todoCtx = context.TODO()
+
+func (mgr *Store) AddKey(ks KeyScheme, id ID, key Key) error {
 	idxk := &idxKey{
 		ks: ks,
 		id: id,
@@ -34,7 +36,7 @@ func (mgr *Store) AddKey(ctx context.Context, ks KeyScheme, id ID, key Key) erro
 	var lenBuf [2]byte
 	binary.LittleEndian.PutUint16(lenBuf[:], uint16(len(key)))
 
-	recps, err := mgr.GetKeys(ctx, ks, id)
+	recps, err := mgr.GetKeys(ks, id)
 	if err != nil {
 		if IsNoSuchKey(err) {
 			recps = Recipients{}
@@ -51,10 +53,10 @@ func (mgr *Store) AddKey(ctx context.Context, ks KeyScheme, id ID, key Key) erro
 	// add new key to existing ones
 	keys = append(keys, key)
 
-	return mgr.Index.Set(ctx, librarian.Addr(idxkBytes), keys)
+	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBytes), keys)
 }
 
-func (mgr *Store) SetKey(ctx context.Context, ks KeyScheme, id ID, key Key) error {
+func (mgr *Store) SetKey(ks KeyScheme, id ID, key Key) error {
 	if !ks.Valid() {
 		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
 	}
@@ -69,10 +71,10 @@ func (mgr *Store) SetKey(ctx context.Context, ks KeyScheme, id ID, key Key) erro
 		return err
 	}
 
-	return mgr.Index.Set(ctx, librarian.Addr(idxkBs), Keys{key})
+	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), Keys{key})
 }
 
-func (mgr *Store) RmKeys(ctx context.Context, ks KeyScheme, id ID) error {
+func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 	idxk := &idxKey{
 		ks: ks,
 		id: id,
@@ -83,10 +85,10 @@ func (mgr *Store) RmKeys(ctx context.Context, ks KeyScheme, id ID) error {
 		return err
 	}
 
-	return mgr.Index.Delete(ctx, librarian.Addr(idxkBs))
+	return mgr.Index.Delete(todoCtx, librarian.Addr(idxkBs))
 }
 
-func (mgr *Store) GetKeys(ctx context.Context, ks KeyScheme, id ID) (Recipients, error) {
+func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
 	if !ks.Valid() {
 		return nil, Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
 	}
@@ -101,7 +103,7 @@ func (mgr *Store) GetKeys(ctx context.Context, ks KeyScheme, id ID) (Recipients,
 		return nil, err
 	}
 
-	data, err := mgr.Index.Get(ctx, librarian.Addr(idxkBs))
+	data, err := mgr.Index.Get(todoCtx, librarian.Addr(idxkBs))
 	if err != nil {
 		return nil, err
 	}

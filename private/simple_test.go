@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/private/box"
 )
 
 func TestSimple(t *testing.T) {
@@ -25,11 +26,13 @@ func TestSimple(t *testing.T) {
 	kp, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
 
+	boxer := box.NewBoxer(nil)
+
 	for i, msg := range tmsgs {
-		sbox, err := Box(msg, kp.Id)
+		sbox, err := boxer.Encrypt(msg, kp.Id)
 		r.NoError(err, "failed to create ciphertext %d", i)
-		sbox = sbox[5:]
-		out, err := Unbox(kp, sbox)
+
+		out, err := boxer.Decrypt(kp, sbox)
 		r.NoError(err, "should decrypt my message %d", i)
 		r.True(bytes.Equal(out, msg), "msg decrypted not equal %d", i)
 	}
@@ -52,11 +55,13 @@ func TestNotForMe(t *testing.T) {
 	kp, err := ssb.NewKeyPair(nil)
 	r.NoError(err)
 
+	boxer := box.NewBoxer(nil)
+
 	for i, msg := range tmsgs {
-		sbox, err := Box(msg, who.Id)
+		sbox, err := boxer.Encrypt(msg, who.Id)
 		r.NoError(err, "failed to create ciphertext %d", i)
 
-		out, err := Unbox(kp, sbox)
+		out, err := boxer.Decrypt(kp, sbox)
 		r.Error(err)
 		r.Nil(out)
 	}

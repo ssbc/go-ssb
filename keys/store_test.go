@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -27,15 +26,14 @@ func TestStore(t *testing.T) {
 	tDir, err := ioutil.TempDir(".", "test-manager-")
 	require.NoError(t, err, "mk temp dir")
 
-	defer func() {
-		require.NoError(t, os.RemoveAll(tDir), "rm temp dir")
-	}()
+	t.Cleanup(func() {
+		os.RemoveAll(tDir)
+	})
 
 	var (
 		idx librarian.SeqSetterIndex
 		db  *kv.DB
 		mgr Store
-		ctx = context.Background()
 	)
 
 	tcs := []testops.TestCase{
@@ -59,9 +57,7 @@ func TestStore(t *testing.T) {
 					Mgr:    &mgr,
 					ID:     ID("test"),
 					Scheme: SchemeLargeSymmetricGroup,
-					Key:    Key("topsecret"),
-					Ctx:    &ctx,
-				},
+					Key:    Key("topsecret")},
 				opIndexGet{
 					Index: &idx,
 					Addr: librarian.Addr([]byte{
@@ -98,7 +94,6 @@ func TestStore(t *testing.T) {
 					ID:     ID("test"),
 					Scheme: SchemeLargeSymmetricGroup,
 					Key:    Key("alsosecret"),
-					Ctx:    &ctx,
 				},
 				opIndexGet{
 					Index: &idx,
@@ -135,14 +130,12 @@ func TestStore(t *testing.T) {
 					Mgr:    &mgr,
 					ID:     ID("foo"),
 					Key:    Key("bar"),
-					Ctx:    &ctx,
 					ExpErr: "keys: invalid scheme at (, )",
 				},
 				opStoreGetKeys{
 					Mgr:    &mgr,
 					ID:     ID("test"),
 					Scheme: SchemeLargeSymmetricGroup,
-					Ctx:    &ctx,
 					ExpRecps: Recipients{
 						Recipient{Key: Key("topsecret"), Scheme: SchemeLargeSymmetricGroup},
 						Recipient{Key: Key("alsosecret"), Scheme: SchemeLargeSymmetricGroup},
@@ -152,13 +145,11 @@ func TestStore(t *testing.T) {
 					Mgr:    &mgr,
 					ID:     ID("test"),
 					Scheme: SchemeLargeSymmetricGroup,
-					Ctx:    &ctx,
 				},
 				opStoreGetKeys{
 					Mgr:    &mgr,
 					ID:     ID("test"),
 					Scheme: SchemeLargeSymmetricGroup,
-					Ctx:    &ctx,
 					ExpErr: fmt.Sprintf("keys: no such key found at (envelope-large-symmetric-group, %x)", "test"),
 				},
 			},

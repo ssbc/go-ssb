@@ -14,7 +14,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
 )
@@ -31,6 +31,8 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	r.NoError(err)
 
 	mlogPriv := multilogs.NewPrivateRead(log.With(ts.info, "module", "privLogs"), aliceKP)
+
+	boxer := box.NewBoxer(nil)
 
 	ts.startGoBot(
 		sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
@@ -118,7 +120,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	}
 
 	for i, msg := range tmsgs {
-		sbox, err := private.Box(msg, alice, s.KeyPair.Id)
+		sbox, err := boxer.Encrypt(msg, alice, s.KeyPair.Id)
 		r.NoError(err, "failed to create ciphertext %d", i)
 
 		newSeq, err := s.PublishLog.Append(sbox)
@@ -150,6 +152,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
+	boxer := box.NewBoxer(nil)
 
 	ts.startGoBot()
 	bob := ts.gobot
@@ -227,7 +230,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(m.Content, ".box"))
 		r.NoError(err)
 
-		clearMsg, err := private.Unbox(bob.KeyPair, data)
+		clearMsg, err := boxer.Decrypt(bob.KeyPair, data)
 		r.NoError(err, "should decrypt the msg %d!", i)
 
 		type testMsg struct {

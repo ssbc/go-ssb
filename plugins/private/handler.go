@@ -6,18 +6,17 @@ import (
 	"context"
 	"encoding/json"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb/internal/transform"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/private"
-	refs "go.mindeco.de/ssb-refs"
-
-	"go.cryptoscope.co/ssb"
-
 	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
+
+	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/transform"
+	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/private/box"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type handler struct {
@@ -25,6 +24,8 @@ type handler struct {
 
 	publish ssb.Publisher
 	read    margaret.Log
+
+	boxer *box.Boxer
 }
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
@@ -165,7 +166,8 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 }
 
 func (h handler) privatePublish(msg []byte, recps []*refs.FeedRef) (*refs.MessageRef, error) {
-	boxedMsg, err := private.Box(msg, recps...)
+	// TODO: manager?!
+	boxedMsg, err := h.boxer.Encrypt(msg, recps...)
 	if err != nil {
 		return nil, errors.Wrap(err, "private/publish: failed to box message")
 

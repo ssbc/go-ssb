@@ -129,19 +129,28 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 		return nil, errors.Wrap(err, "error constructing keying information")
 	}
 
-	deriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
+	err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
+	if err != nil {
+		return nil, err
+	}
 
 	// build header plaintext
 	binary.LittleEndian.PutUint16(headerPlain[:], bodyOff)
 
 	// append header ciphertext
-	deriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
+	err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
+	if err != nil {
+		return nil, err
+	}
 	out = secretbox.Seal(out, headerPlain[:], &zero24, &headerKey)
 	clear(headerKey[:])
 
 	// append slots
 	for _, bk := range recpts {
-		deriveTo(slotKey[:], bk.Key, info([]byte("slot_key"), []byte(bk.Scheme))...)
+		err = DeriveTo(slotKey[:], bk.Key, info([]byte("slot_key"), []byte(bk.Scheme))...)
+		if err != nil {
+			return nil, err
+		}
 
 		out = append(out, make([]byte, KeySize)...)
 		for i := range slotKey {
@@ -156,7 +165,11 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 	}
 
 	// append encrypted body
-	deriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
+	err = DeriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
+	if err != nil {
+		return nil, err
+	}
+
 	out = secretbox.Seal(out, plain, &zero24, &bodyKey)
 	clear(bodyKey[:])
 	clear(readKey[:])
@@ -174,7 +187,11 @@ func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []
 
 	// derive slot keys
 	for i, candidate := range candidates {
-		deriveTo(slotKeys[i][:], candidate.Key, info([]byte("slot_key"), []byte(candidate.Scheme))...)
+		err = DeriveTo(slotKeys[i][:], candidate.Key, info([]byte("slot_key"), []byte(candidate.Scheme))...)
+		if err != nil {
+			return nil, nil, err
+		}
+
 	}
 
 	return slotKeys, info, nil
@@ -208,8 +225,14 @@ OUTER:
 				msgKey[k] = slotKeys[j][k] ^ slot[k]
 			}
 
-			deriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
-			deriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
+			err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
+			if err != nil {
+				return nil, err
+			}
+			err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
+			if err != nil {
+				return nil, err
+			}
 
 			hdr, ok = secretbox.Open(hdr[:0], headerbox, &zero24, &headerKey)
 			if ok {
@@ -227,7 +250,10 @@ OUTER:
 	)
 
 	// decrypt body
-	deriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
+	err = DeriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
+	if err != nil {
+		return nil, err
+	}
 	plain, ok = secretbox.Open(plain, ctxt[bodyOffset:], &zero24, &bodyKey)
 	if !ok {
 		return nil, ErrInvalid

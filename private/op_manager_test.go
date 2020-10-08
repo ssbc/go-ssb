@@ -1,7 +1,6 @@
 package private
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -23,7 +22,6 @@ type OpManagerEncrypt struct {
 }
 
 func (op OpManagerEncrypt) Do(t *testing.T, _ interface{}) {
-	ctx := context.TODO()
 
 	// add recipients option
 	encOpts := make([]EncryptOption, len(op.Options)+1)
@@ -31,7 +29,7 @@ func (op OpManagerEncrypt) Do(t *testing.T, _ interface{}) {
 	copy(encOpts[1:], op.Options)
 
 	// encrypt
-	ctxt, err := op.Manager.Encrypt(ctx, testMessage, encOpts...)
+	ctxt, err := op.Manager.Encrypt(testMessage, encOpts...)
 	expErr(t, err, op.ExpErr, "encrypt")
 
 	*op.Ciphertext = ctxt
@@ -47,10 +45,9 @@ type OpManagerDecrypt struct {
 }
 
 func (op OpManagerDecrypt) Do(t *testing.T, _ interface{}) {
-	ctx := context.TODO()
 
 	// attempt decryption
-	dec, err := op.Manager.Decrypt(ctx, *op.Ciphertext, op.Sender, op.Options...)
+	dec, err := op.Manager.Decrypt(*op.Ciphertext, op.Sender, op.Options...)
 	expErr(t, err, op.ExpDecryptErr, "decrypt")
 
 	require.EqualValues(t, testMessage, dec, "msg decrypted not equal")

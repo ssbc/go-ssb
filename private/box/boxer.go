@@ -4,6 +4,7 @@ package box
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"io"
 
@@ -24,8 +25,11 @@ const (
 	rcptSboxSize = 32 + 1 + secretbox.Overhead // secretbox secret + rcptCount + overhead
 )
 
-func NewBoxer(rand io.Reader) *Boxer {
-	return &Boxer{rand: rand}
+func NewBoxer(r io.Reader) *Boxer {
+	if r == nil {
+		r = rand.Reader
+	}
+	return &Boxer{rand: r}
 }
 
 type Boxer struct {

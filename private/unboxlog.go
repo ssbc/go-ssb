@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/base64"
 
+	"go.cryptoscope.co/ssb/private/box"
+
 	"github.com/cryptix/go/encodedTime"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -20,6 +22,7 @@ import (
 type unboxedLog struct {
 	root, seqlog margaret.Log
 	kp           *ssb.KeyPair
+	boxer        *box.Boxer
 }
 
 // NewUnboxerLog expects the sequence numbers, that are returned from seqlog, to be decryptable by kp.
@@ -28,6 +31,7 @@ func NewUnboxerLog(root, seqlog margaret.Log, kp *ssb.KeyPair) margaret.Log {
 		root:   root,
 		seqlog: seqlog,
 		kp:     kp,
+		boxer:  box.NewBoxer(nil),
 	}
 	return il
 }
@@ -110,7 +114,7 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 		return nil, errors.Errorf("decode pm: unknown feed type: %s", author.Algo)
 	}
 
-	clearContent, err := Unbox(il.kp, boxedContent)
+	clearContent, err := il.boxer.Decrypt(il.kp, boxedContent)
 	if err != nil {
 		return nil, errors.Wrap(err, "unboxLog: unbox failed")
 	}

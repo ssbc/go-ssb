@@ -1,7 +1,6 @@
 package private
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 
@@ -42,7 +41,7 @@ func TestManager(t *testing.T) {
 
 	tcs2 := []testops.TestCase{
 		testops.TestCase{
-			Name: "alice->alice, string",
+			Name: "alice->alice",
 			Ops: []testops.Op{
 				OpManagerEncrypt{
 					Manager:    alice.manager,
@@ -211,11 +210,9 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 
 	var err error
 
-	ctx := context.TODO()
-
 	for _, spec := range specs {
 		t.Logf("adding key %s - %x", spec.Scheme, spec.ID)
-		err = km.AddKey(ctx, spec.Scheme, spec.ID, spec.Key)
+		err = km.AddKey(spec.Scheme, spec.ID, spec.Key)
 		require.NoError(t, err)
 	}
 
