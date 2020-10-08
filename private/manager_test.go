@@ -2,7 +2,6 @@ package private
 
 import (
 	"context"
-	"encoding/json"
 	"math/rand"
 	"testing"
 
@@ -39,26 +38,7 @@ func TestManager(t *testing.T) {
 
 	populateKeyStore(t, ks, alice, bob)
 
-	type testStruct struct {
-		Hello bool `json:"hello"`
-	}
-
-	var (
-		ctxt []byte
-		msg  interface{}
-
-		// TODO: for JS compat all messages need to have a type:string field...
-		msgs = []interface{}{
-			"plainStringLikeABlob",
-			[]int{1, 2, 3, 4, 5},
-			map[string]interface{}{"some": 1, "msg": "here"},
-			testStruct{true},
-			testStruct{false},
-			map[string]interface{}{"hello": false},
-			map[string]interface{}{"hello": true},
-			json.RawMessage("omg this isn't even valid json"),
-		}
-	)
+	var ctxt []byte
 
 	tcs2 := []testops.TestCase{
 		testops.TestCase{
@@ -66,7 +46,6 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncrypt{
 					Manager:    alice.manager,
-					Message:    &msgs[0],
 					Recipients: []refs.Ref{alice.Id},
 
 					Ciphertext: &ctxt,
@@ -75,40 +54,15 @@ func TestManager(t *testing.T) {
 					Manager:    alice.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
-
-					Message: &msg,
-
-					ExpMessage: msgs[0],
 				},
 			},
 		},
 		testops.TestCase{
-			Name: "alice->alice, struct",
+			Name: "alice->alice+bob",
 			Ops: []testops.Op{
 				OpManagerEncrypt{
-					Manager:    alice.manager,
-					Message:    &msgs[3],
-					Recipients: []refs.Ref{alice.Id},
+					Manager: alice.manager,
 
-					Ciphertext: &ctxt,
-				},
-				OpManagerDecrypt{
-					Manager:    alice.manager,
-					Sender:     alice.Id,
-					Ciphertext: &ctxt,
-
-					Message: &testStruct{},
-
-					ExpMessage: msgs[3],
-				},
-			},
-		},
-		testops.TestCase{
-			Name: "alice->alice+bob, slice",
-			Ops: []testops.Op{
-				OpManagerEncrypt{
-					Manager:    alice.manager,
-					Message:    &msgs[1],
 					Recipients: []refs.Ref{alice.Id, bob.Id},
 
 					Ciphertext: &ctxt,
@@ -117,28 +71,20 @@ func TestManager(t *testing.T) {
 					Manager:    alice.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
-
-					Message: &[]int{},
-
-					ExpMessage: msgs[1],
 				},
 				OpManagerDecrypt{
 					Manager:    bob.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
-
-					Message: &[]int{},
-
-					ExpMessage: msgs[1],
 				},
 			},
 		},
 		testops.TestCase{
-			Name: "alice->alice+bob, slice, box2",
+			Name: "alice->alice+bob, box2",
 			Ops: []testops.Op{
 				OpManagerEncrypt{
-					Manager:    alice.manager,
-					Message:    &msgs[1],
+					Manager: alice.manager,
+
 					Recipients: []refs.Ref{alice.Id, bob.Id},
 					Options:    []EncryptOption{WithBox2()},
 
@@ -149,20 +95,12 @@ func TestManager(t *testing.T) {
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 					Options:    []EncryptOption{WithBox2()},
-
-					Message: &[]int{},
-
-					ExpMessage: msgs[1],
 				},
 				OpManagerDecrypt{
 					Manager:    bob.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 					Options:    []EncryptOption{WithBox2()},
-
-					Message: &[]int{},
-
-					ExpMessage: msgs[1],
 				},
 			},
 		},
