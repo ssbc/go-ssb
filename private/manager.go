@@ -1,7 +1,6 @@
 package private
 
 import (
-	"context"
 	"fmt"
 	"io"
 
@@ -50,7 +49,7 @@ func WithBox2() EncryptOption {
 	}
 }
 
-func (mgr *Manager) Encrypt(ctx context.Context, content []byte, opts ...EncryptOption) ([]byte, error) {
+func (mgr *Manager) Encrypt(content []byte, opts ...EncryptOption) ([]byte, error) {
 	var cfg = defaultEncConfig
 
 	for _, opt := range opts {
@@ -96,7 +95,7 @@ func (mgr *Manager) Encrypt(ctx context.Context, content []byte, opts ...Encrypt
 				keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
 			}
 
-			ks_, err := mgr.keymgr.GetKeys(ctx, keyScheme, keyID)
+			ks_, err := mgr.keymgr.GetKeys(keyScheme, keyID)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not get key for recipient %s", rcpt.Ref())
 			}
@@ -114,7 +113,7 @@ func (mgr *Manager) Encrypt(ctx context.Context, content []byte, opts ...Encrypt
 	}
 }
 
-func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *refs.FeedRef, opts ...EncryptOption) ([]byte, error) {
+func (mgr *Manager) Decrypt(ctxt []byte, author *refs.FeedRef, opts ...EncryptOption) ([]byte, error) {
 	var (
 		cfg encConfig = defaultEncConfig
 		err error
@@ -145,7 +144,7 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *refs.FeedR
 		keyScheme = keys.SchemeDiffieStyleConvertedED25519
 		keyID = sortAndConcat(mgr.author.ID)
 
-		ks, err = mgr.keymgr.GetKeys(ctx, keyScheme, keyID)
+		ks, err = mgr.keymgr.GetKeys(keyScheme, keyID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not get key for recipient %s", mgr.author.Ref())
 		}
@@ -165,7 +164,7 @@ func (mgr *Manager) Decrypt(ctx context.Context, ctxt []byte, author *refs.FeedR
 		keyScheme = keys.SchemeDiffieStyleConvertedED25519
 		keyID = sortAndConcat(mgr.author.ID, author.ID)
 
-		ks, err = mgr.keymgr.GetKeys(ctx, keyScheme, keyID)
+		ks, err = mgr.keymgr.GetKeys(keyScheme, keyID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not get key for author %s", author.Ref())
 		}

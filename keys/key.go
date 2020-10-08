@@ -2,6 +2,7 @@ package keys
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 
 	"github.com/pkg/errors"
@@ -38,6 +39,7 @@ func (is Infos) Encode(out []byte) int {
 	return used
 }
 
+// TODO: or should this be the ref?
 // Recipient combines key data with a scheme
 type Recipient struct {
 	Key Key
@@ -50,6 +52,15 @@ type Recipients []Recipient
 
 // Key holds actual key material
 type Key []byte
+
+// ????
+func (k Key) ShortRef() string {
+	return "%....cloaked"
+}
+func (k Key) Ref() string {
+	b := base64.StdEncoding.EncodeToString(k)
+	return "%" + b + ".cloaked"
+}
 
 // Derive returns a new key derived from the internal key data and the passed infos.
 func (k Key) Derive(buf []byte, infos Infos, outLen int) (Key, error) {

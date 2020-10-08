@@ -25,7 +25,7 @@ type cloakedIDSpecTestOutput struct {
 func (ct cloakedIDSpecTest) Test(t *testing.T) {
 	// TOOD: one-off use of dervieTo() should probably be an (exported?) function
 	cloaked := make([]byte, 32)
-	deriveTo(cloaked, ct.Input.ReadKey, []byte("cloaked_msg_id"), ct.Input.MessageID)
+	DeriveTo(cloaked, ct.Input.ReadKey, []byte("cloaked_msg_id"), ct.Input.MessageID)
 
 	require.EqualValues(t, ct.Output.CloakedID, cloaked, "wrong cloacked ID")
 }

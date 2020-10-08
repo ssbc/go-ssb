@@ -18,7 +18,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -29,6 +29,7 @@ func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 	return &Private{
 		logger:   log,
 		keyPairs: kps,
+		boxer:    box.NewBoxer(nil),
 	}
 }
 
@@ -36,6 +37,7 @@ type Private struct {
 	logger kitlog.Logger
 
 	keyPairs []*ssb.KeyPair
+	boxer    *box.Boxer
 }
 
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
@@ -110,7 +112,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 	}
 
 	for _, kp := range pr.keyPairs {
-		if _, err := private.Unbox(kp, boxedContent); err != nil {
+		if _, err := pr.boxer.Decrypt(kp, boxedContent); err != nil {
 			continue
 		}
 		userPrivs, err := mlog.Get(kp.Id.StoredAddr())

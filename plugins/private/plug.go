@@ -7,6 +7,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/private/box"
 )
 
 type privatePlug struct {
@@ -14,7 +15,12 @@ type privatePlug struct {
 }
 
 func NewPlug(i logging.Interface, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
-	return &privatePlug{h: handler{publish: publish, read: readIdx, info: i}}
+	return &privatePlug{h: handler{
+		boxer:   box.NewBoxer(nil),
+		publish: publish,
+		read:    readIdx,
+		info:    i,
+	}}
 }
 
 func (p privatePlug) Name() string {

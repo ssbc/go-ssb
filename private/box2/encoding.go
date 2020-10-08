@@ -3,6 +3,7 @@ package box2
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -46,7 +47,19 @@ func encodeList(out []byte, list [][]byte) []byte {
 		  +-> (TODO: Ratcheting, ...)
 */
 
-func deriveTo(out, key []byte, infos ...[]byte) {
+func DeriveTo(out, key []byte, infos ...[]byte) error {
+	if n := len(out); n != 32 {
+		return fmt.Errorf("box2: expected 32bytes as output argument, got %d", n)
+	}
 	r := hkdf.Expand(sha256.New, key, encodeList(nil, infos))
-	r.Read(out)
+	nout, err := r.Read(out)
+	if err != nil {
+		return fmt.Errorf("box2: failed to derive key: %w", err)
+	}
+
+	if nout != 32 {
+		return fmt.Errorf("box2: expected to read 32bytes into output, got %d", nout)
+	}
+
+	return nil
 }
