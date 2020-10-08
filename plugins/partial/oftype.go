@@ -2,6 +2,7 @@ package partial
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,8 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 	var (
 		feed *refs.FeedRef
 		tipe string
+
+		keys bool
 
 		err error
 	)
@@ -55,6 +58,12 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 		tipe = typeV.(string)
 
+		if keysV, has := v["keys"]; has {
+			if yes, ok := keysV.(bool); ok {
+				keys = yes
+			}
+		}
+
 	default:
 		return errors.Errorf("invalid argument type %T", req.Args()[0])
 
@@ -82,7 +91,6 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	it := workSet.Iterator()
 	for it.HasNext() {
-		// var kv ssb.KeyValueRaw
 
 		v := it.Next()
 		msgv, err := h.rxlog.Get(margaret.BaseSeq(v))
@@ -94,17 +102,23 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		if !ok {
 			return errors.Errorf("invalid msg type %T", msgv)
 		}
-		/*
+		if keys {
+			var kv refs.KeyValueRaw
 			kv.Key_ = msg.Key()
 			kv.Value = *msg.ValueContent()
 			b, err := json.Marshal(kv)
 			if err != nil {
 				return errors.Errorf("failed to encode json: %w", err)
 			}
-		*/
-		err = snk.Pour(ctx, msg.ValueContentJSON())
-		if err != nil {
-			return fmt.Errorf("failed to send json data: %w", err)
+			err = snk.Pour(ctx, json.RawMessage(b))
+			if err != nil {
+				return fmt.Errorf("failed to send json data: %w", err)
+			}
+		} else {
+			err = snk.Pour(ctx, msg.ValueContentJSON())
+			if err != nil {
+				return fmt.Errorf("failed to send json data: %w", err)
+			}
 		}
 	}
 	snk.Close()
