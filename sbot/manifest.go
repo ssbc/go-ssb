@@ -3,6 +3,7 @@ package sbot
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"go.cryptoscope.co/muxrpc"
 )
@@ -27,7 +28,10 @@ type manifestHandler string
 func (manifestHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
 func (h manifestHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	req.Return(ctx, json.RawMessage(h))
+	err := req.Return(ctx, json.RawMessage(h))
+	if err != nil {
+		fmt.Println("manifest err", err)
+	}
 }
 
 // this is a very simple hardcoded manifest.json dump which oasis' ssb-client expects to do it's magic.
@@ -56,12 +60,12 @@ const manifestBlob = `
 	"createHistoryStream": "source",
 
 	"partialReplication":{
-	 	"getFeed": 'source',
-	 	"getFeedReverse": 'source',
-	 	"getTangle": 'async',
-	 	"getMessagesOfType": 'source'
+	 	"getFeed": "source",
+	 	"getFeedReverse": "source",
+	 	"getTangle": "async",
+	 	"getMessagesOfType": "source"
 	},
-		
+
 
 	"tangles": "source",
     "names": {
@@ -71,7 +75,8 @@ const manifestBlob = `
     },
 
 	"friends": {
-	  "isFollowing": "async"
+	  "isFollowing": "async",
+	  "isBlocking": "async"
 	},
 
 	"publish": "async",
