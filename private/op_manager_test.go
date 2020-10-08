@@ -2,16 +2,18 @@ package private
 
 import (
 	"context"
-	"reflect"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	refs "go.mindeco.de/ssb-refs"
 )
 
+var testMessage = json.RawMessage(`{"type":"test", "some": 1, "msg": "here"}`)
+
 type OpManagerEncrypt struct {
-	Manager    *Manager
-	Message    *interface{}
+	Manager *Manager
+
 	Recipients []refs.Ref
 	Options    []EncryptOption
 
@@ -29,7 +31,7 @@ func (op OpManagerEncrypt) Do(t *testing.T, _ interface{}) {
 	copy(encOpts[1:], op.Options)
 
 	// encrypt
-	ctxt, err := op.Manager.Encrypt(ctx, *op.Message, encOpts...)
+	ctxt, err := op.Manager.Encrypt(ctx, testMessage, encOpts...)
 	expErr(t, err, op.ExpErr, "encrypt")
 
 	*op.Ciphertext = ctxt
@@ -41,28 +43,17 @@ type OpManagerDecrypt struct {
 	Sender     *refs.FeedRef
 	Options    []EncryptOption
 
-	Message interface{}
-
 	ExpDecryptErr string
-	ExpBase64Err  string
-	ExpJSONErr    string
-	ExpMessage    interface{}
 }
 
 func (op OpManagerDecrypt) Do(t *testing.T, _ interface{}) {
 	ctx := context.TODO()
 
-	// check that output field is a pointer
-	rv := reflect.ValueOf(op.Message)
-	require.Equal(t, rv.Kind(), reflect.Ptr, "output not a pointer")
-
 	// attempt decryption
-	err := op.Manager.Decrypt(ctx, op.Message, *op.Ciphertext, op.Sender, op.Options...)
+	dec, err := op.Manager.Decrypt(ctx, *op.Ciphertext, op.Sender, op.Options...)
 	expErr(t, err, op.ExpDecryptErr, "decrypt")
 
-	// check that ExpMessage == *op.Message
-	// (which doesn't work directly becuause pointers and interfaces).
-	require.Equal(t, op.ExpMessage, rv.Elem().Interface(), "msg decrypted not equal")
+	require.EqualValues(t, testMessage, dec, "msg decrypted not equal")
 }
 
 // expErr uses either require.NoError or require.EqualError, depending on
