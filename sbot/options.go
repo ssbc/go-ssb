@@ -15,6 +15,7 @@ import (
 
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -206,6 +207,16 @@ func WithUNIXSocket() Option {
 					c.Close()
 					continue
 				}
+				for _, w := range s.postSecureWrappers {
+					var err error
+					wc, err = w(wc)
+					if err != nil {
+						level.Warn(s.info).Log("err", err)
+						c.Close()
+						continue
+					}
+				}
+
 				go func(conn net.Conn) {
 					defer conn.Close()
 
@@ -219,7 +230,7 @@ func WithUNIXSocket() Option {
 						return
 					}
 
-					edp := muxrpc.HandleWithLogger(pkr, h, s.info)
+					edp := muxrpc.HandleWithLogger(pkr, h, kitlog.NewNopLogger())
 
 					ctx, cancel := context.WithCancel(s.rootCtx)
 					srv := edp.(muxrpc.Server)
