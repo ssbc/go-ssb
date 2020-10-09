@@ -1,11 +1,11 @@
 package private
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
 
@@ -16,173 +16,110 @@ import (
 )
 
 type Manager struct {
-	log    margaret.Log // Q: ???? which log is this?!
+	// log    margaret.Log // Q: ???? which log is this?!
+	publog ssb.Publisher
+
 	author *refs.FeedRef
 
 	keymgr *keys.Store
 	rand   io.Reader
 }
 
-type EncryptOption func(*encConfig) error
-
-type encConfig struct {
-	boxVersion int
-	rcpts      []refs.Ref
-}
-
-var defaultEncConfig = encConfig{
-	boxVersion: 1,
-}
-
-// TODO: If one of the refs is not a feedref, set box2
-func WithRecipients(rcpts ...refs.Ref) EncryptOption {
-	return func(cfg *encConfig) error {
-		cfg.rcpts = append(cfg.rcpts, rcpts...)
-		return nil
+func NewManager(author *refs.FeedRef, publishLog ssb.Publisher, km *keys.Store) *Manager {
+	return &Manager{
+		author: author,
+		publog: publishLog,
+		keymgr: km,
+		rand:   rand.Reader,
 	}
 }
 
-func WithBox2() EncryptOption {
-	return func(cfg *encConfig) error {
-		cfg.boxVersion = 2
-		return nil
-	}
+func (mgr *Manager) EncryptBox1(content []byte, rcpts ...*refs.FeedRef) ([]byte, error) {
+	bxr := box.NewBoxer(mgr.rand)
+	ctxt, err := bxr.Encrypt(content, rcpts...)
+	return ctxt, errors.Wrap(err, "error encrypting message (box1)")
 }
 
-func (mgr *Manager) Encrypt(content []byte, opts ...EncryptOption) ([]byte, error) {
-	var cfg = defaultEncConfig
+func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []refs.Ref) ([]byte, error) {
 
-	for _, opt := range opts {
-		err := opt(&cfg)
-		if err != nil {
-			return nil, errors.Wrap(err, "error applying option")
-		}
-	}
-
-	switch cfg.boxVersion {
-	case 1:
-		var (
-			bxr   = box.NewBoxer(mgr.rand)
-			rcpts = make([]*refs.FeedRef, len(cfg.rcpts))
-			ok    bool
-		)
-
-		for i := range cfg.rcpts {
-			rcpts[i], ok = cfg.rcpts[i].(*refs.FeedRef)
-			if !ok {
-				return nil, fmt.Errorf("box1 can only send to feed ids")
-			}
-		}
-
-		ctxt, err := bxr.Encrypt(content, rcpts...)
-		return ctxt, errors.Wrap(err, "error encrypting message (box1)")
-	case 2:
-		// first, look up keys
-		var (
-			ks        = make(keys.Recipients, 0, len(cfg.rcpts))
-			keyScheme keys.KeyScheme
-			keyID     keys.ID
-		)
-
-		for _, rcpt := range cfg.rcpts {
-			switch ref := rcpt.(type) {
-			case *refs.FeedRef:
-				keyScheme = keys.SchemeDiffieStyleConvertedED25519
-				keyID = keys.ID(sortAndConcat(mgr.author.ID, ref.ID))
-			case *refs.MessageRef:
-				// TODO: maybe verify this is a group message?
-				keyScheme = keys.SchemeLargeSymmetricGroup
-				keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
-			}
-
-			ks_, err := mgr.keymgr.GetKeys(keyScheme, keyID)
-			if err != nil {
-				return nil, errors.Wrapf(err, "could not get key for recipient %s", rcpt.Ref())
-			}
-
-			ks = append(ks, ks_...)
-		}
-
-		// then, encrypt message
-		bxr := box2.NewBoxer(mgr.rand)
-		// TODO: previous?!
-		ctxt, err := bxr.Encrypt(nil, content, mgr.author, nil, ks)
-		return ctxt, errors.Wrap(err, "error encrypting message (box1)")
-	default:
-		return nil, fmt.Errorf("invalid box version %q, need 1 or 2", cfg.boxVersion)
-	}
-}
-
-func (mgr *Manager) Decrypt(ctxt []byte, author *refs.FeedRef, opts ...EncryptOption) ([]byte, error) {
-	var (
-		cfg encConfig = defaultEncConfig
-		err error
-	)
-
-	for _, opt := range opts {
-		err = opt(&cfg)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// determine candidate keys
+	// first, look up keys
 	var (
 		ks        keys.Recipients
 		keyScheme keys.KeyScheme
 		keyID     keys.ID
-		plain     []byte
 	)
 
-	switch cfg.boxVersion {
-	case 1: // case box1 ?????
-		keyPair := ssb.KeyPair{Id: mgr.author}
-		keyPair.Pair.Secret = make(ed25519.PrivateKey, ed25519.PrivateKeySize)
-		keyPair.Pair.Public = make(ed25519.PublicKey, ed25519.PublicKeySize)
+	for _, rcpt := range recpts {
+		switch ref := rcpt.(type) {
+		case *refs.FeedRef:
+			keyScheme = keys.SchemeDiffieStyleConvertedED25519
+			keyID = keys.ID(sortAndConcat(mgr.author.ID, ref.ID))
+		case *refs.MessageRef:
+			// TODO: maybe verify this is a group message?
+			keyScheme = keys.SchemeLargeSymmetricGroup
+			keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
+		}
 
-		// read secret DH key from database
-		keyScheme = keys.SchemeDiffieStyleConvertedED25519
-		keyID = sortAndConcat(mgr.author.ID)
-
-		ks, err = mgr.keymgr.GetKeys(keyScheme, keyID)
+		ks_, err := mgr.keymgr.GetKeys(keyScheme, keyID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "could not get key for recipient %s", mgr.author.Ref())
+			return nil, errors.Wrapf(err, "could not get key for recipient %s", rcpt.Ref())
 		}
 
-		if len(ks) < 1 {
-			return nil, fmt.Errorf("no cv25519 secret for feed id %s", mgr.author)
-		}
-		copy(keyPair.Pair.Secret[:], ks[0].Key)
-		copy(keyPair.Pair.Public[:], mgr.author.ID)
-
-		// try decrypt
-		bxr := box.NewBoxer(mgr.rand)
-		plain, err = bxr.Decrypt(&keyPair, []byte(ctxt))
-		return plain, errors.Wrap(err, "could not decrypt")
-	case 2: // case box2
-		// fetch feed2feed shared key
-		keyScheme = keys.SchemeDiffieStyleConvertedED25519
-		keyID = sortAndConcat(mgr.author.ID, author.ID)
-
-		ks, err = mgr.keymgr.GetKeys(keyScheme, keyID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not get key for author %s", author.Ref())
-		}
-
-		// fetch groups author is member of
-		// TODO: we don't track this yet
-
-		// fetch group keys
-		// TODO: we don't know which group keys to fetch yet
-
-		// try decrypt
-		// TODO pass in buffer
-		// TODO set infos
-		bxr := box2.NewBoxer(mgr.rand)
-		plain, err = bxr.Decrypt(nil, []byte(ctxt), author, nil, ks)
-		return plain, errors.Wrap(err, "could not decrypt")
-	default:
-		return nil, fmt.Errorf("expected string to end with either %q or %q", ".box", ".box2")
+		ks = append(ks, ks_...)
 	}
+
+	// then, encrypt message
+	bxr := box2.NewBoxer(mgr.rand)
+	ctxt, err := bxr.Encrypt(content, mgr.author, prev, ks)
+	return ctxt, errors.Wrap(err, "error encrypting message (box1)")
+
+}
+func (mgr *Manager) DecryptBox1(ctxt []byte, author *refs.FeedRef) ([]byte, error) {
+	keyPair := ssb.KeyPair{Id: mgr.author}
+	keyPair.Pair.Secret = make(ed25519.PrivateKey, ed25519.PrivateKeySize)
+	keyPair.Pair.Public = make(ed25519.PublicKey, ed25519.PublicKeySize)
+
+	// read secret DH key from database
+	keyScheme := keys.SchemeDiffieStyleConvertedED25519
+	keyID := sortAndConcat(mgr.author.ID)
+
+	ks, err := mgr.keymgr.GetKeys(keyScheme, keyID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get key for recipient %s", mgr.author.Ref())
+	}
+
+	if len(ks) < 1 {
+		return nil, fmt.Errorf("no cv25519 secret for feed id %s", mgr.author)
+	}
+	copy(keyPair.Pair.Secret[:], ks[0].Key)
+	copy(keyPair.Pair.Public[:], mgr.author.ID)
+
+	// try decrypt
+	bxr := box.NewBoxer(mgr.rand)
+	plain, err := bxr.Decrypt(&keyPair, []byte(ctxt))
+	return plain, errors.Wrap(err, "could not decrypt")
+}
+
+func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef) ([]byte, error) {
+	// assumes 1:1 pm
+	// fetch feed2feed shared key
+	keyScheme := keys.SchemeDiffieStyleConvertedED25519
+	keyID := sortAndConcat(mgr.author.ID, author.ID)
+	var allKeys keys.Recipients
+	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
+		allKeys = append(allKeys, ks...)
+	}
+
+	// try my groups
+	keyScheme = keys.SchemeLargeSymmetricGroup
+	keyID = sortAndConcat(mgr.author.ID, mgr.author.ID)
+	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
+		allKeys = append(allKeys, ks...)
+	}
+
+	// try decrypt
+	bxr := box2.NewBoxer(mgr.rand)
+	plain, err := bxr.Decrypt([]byte(ctxt), author, prev, allKeys)
+	return plain, errors.Wrap(err, "could not decrypt")
 
 }

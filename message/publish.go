@@ -52,10 +52,10 @@ func (p *publishLog) Publish(content interface{}) (*refs.MessageRef, error) {
 	return key, nil
 }
 
-/* Get retreives the message object by traversing the authors sublog to the root log
+// Get retreives the message object by traversing the authors sublog to the root log
 func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
 
-	idxv, err := pl.authorLog.Get(s)
+	idxv, err := pl.Log.Get(s)
 	if err != nil {
 		return nil, errors.Wrap(err, "publish get: failed to retreive sequence for the root log")
 	}
@@ -67,10 +67,12 @@ func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
 	return msgv, nil
 }
 
+/*
 TODO: do the same for Query()? but how?
 
 => just overwrite publish on the authorLog for now
 */
+
 func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 	pl.Lock()
 	defer pl.Unlock()
@@ -90,7 +92,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, errors.Errorf("publishLog: invalid sequence from publish sublog %v: %T", currSeq, currSeq)
 	}
 
-	currRootSeq, err := pl.Get(seq)
+	currRootSeq, err := pl.Log.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, errors.Wrap(err, "publishLog: failed to retreive current msg")
 	}

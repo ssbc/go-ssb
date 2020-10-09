@@ -6,18 +6,18 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-
-	"github.com/rs/cors"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
+	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -25,6 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -43,6 +44,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func (s *Sbot) Close() error {
@@ -165,6 +167,26 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
+
+	// groups2
+	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
+	err = os.MkdirAll(pth, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "openIndex: error making index directory")
+	}
+
+	db, err := repo.OpenMKV(pth)
+	if err != nil {
+		return nil, errors.Wrap(err, "openIndex: failed to open MKV database")
+	}
+
+	idx := libmkv.NewIndex(db, keys.Keys{})
+	ks := &keys.Store{
+		Index: idx,
+	}
+	s.closers.addCloser(idx)
+
+	s.Groups = private.NewManager(s.KeyPair.Id, s.PublishLog, ks)
 
 	// LogBuilder doesn't fully work yet
 	if mt, _ := s.mlogIndicies["msgTypes"]; false {
