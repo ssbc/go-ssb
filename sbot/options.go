@@ -30,6 +30,7 @@ import (
 	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -103,6 +104,8 @@ type Sbot struct {
 	eventCounter metrics.Counter
 	systemGauge  metrics.Gauge
 	latency      metrics.Histogram
+
+	Groups *private.Manager
 
 	ssb.Replicator
 }

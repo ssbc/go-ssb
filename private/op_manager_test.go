@@ -10,44 +10,77 @@ import (
 
 var testMessage = json.RawMessage(`{"type":"test", "some": 1, "msg": "here"}`)
 
-type OpManagerEncrypt struct {
+type OpManagerEncryptBox1 struct {
 	Manager *Manager
 
-	Recipients []refs.Ref
-	Options    []EncryptOption
+	Recipients []*refs.FeedRef
 
 	Ciphertext *[]byte
 
 	ExpErr string
 }
 
-func (op OpManagerEncrypt) Do(t *testing.T, _ interface{}) {
-
-	// add recipients option
-	encOpts := make([]EncryptOption, len(op.Options)+1)
-	encOpts[0] = WithRecipients(op.Recipients...)
-	copy(encOpts[1:], op.Options)
+func (op OpManagerEncryptBox1) Do(t *testing.T, _ interface{}) {
 
 	// encrypt
-	ctxt, err := op.Manager.Encrypt(testMessage, encOpts...)
+	ctxt, err := op.Manager.EncryptBox1(testMessage, op.Recipients...)
 	expErr(t, err, op.ExpErr, "encrypt")
 
 	*op.Ciphertext = ctxt
 }
 
-type OpManagerDecrypt struct {
+type OpManagerEncryptBox2 struct {
+	Manager *Manager
+
+	Prev       *refs.MessageRef
+	Recipients []refs.Ref
+
+	Ciphertext *[]byte
+
+	ExpErr string
+}
+
+func (op OpManagerEncryptBox2) Do(t *testing.T, _ interface{}) {
+
+	// add recipients option
+
+	// encrypt
+	ctxt, err := op.Manager.EncryptBox2(testMessage, op.Prev, op.Recipients)
+	expErr(t, err, op.ExpErr, "encrypt")
+
+	*op.Ciphertext = ctxt
+}
+
+type OpManagerDecryptBox1 struct {
 	Manager    *Manager
 	Ciphertext *[]byte
 	Sender     *refs.FeedRef
-	Options    []EncryptOption
 
 	ExpDecryptErr string
 }
 
-func (op OpManagerDecrypt) Do(t *testing.T, _ interface{}) {
+func (op OpManagerDecryptBox1) Do(t *testing.T, _ interface{}) {
 
 	// attempt decryption
-	dec, err := op.Manager.Decrypt(*op.Ciphertext, op.Sender, op.Options...)
+	dec, err := op.Manager.DecryptBox1(*op.Ciphertext, op.Sender)
+	expErr(t, err, op.ExpDecryptErr, "decrypt")
+
+	require.EqualValues(t, testMessage, dec, "msg decrypted not equal")
+}
+
+type OpManagerDecryptBox2 struct {
+	Manager    *Manager
+	Ciphertext *[]byte
+	Sender     *refs.FeedRef
+	Previous   *refs.MessageRef
+
+	ExpDecryptErr string
+}
+
+func (op OpManagerDecryptBox2) Do(t *testing.T, _ interface{}) {
+
+	// attempt decryption
+	dec, err := op.Manager.DecryptBox2(*op.Ciphertext, op.Sender, op.Previous)
 	expErr(t, err, op.ExpDecryptErr, "decrypt")
 
 	require.EqualValues(t, testMessage, dec, "msg decrypted not equal")

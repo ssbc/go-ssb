@@ -5,9 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
-
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 )
 
 // Q: what's the relation of ID and key?

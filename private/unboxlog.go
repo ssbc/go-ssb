@@ -7,16 +7,15 @@ import (
 	"context"
 	"encoding/base64"
 
-	"go.cryptoscope.co/ssb/private/box"
-
 	"github.com/cryptix/go/encodedTime"
-	refs "go.mindeco.de/ssb-refs"
-
 	"github.com/pkg/errors"
+
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/private/box"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type unboxedLog struct {

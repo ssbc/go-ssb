@@ -96,7 +96,7 @@ var (
 
 // Encrypt takes a buffer to write into (out), the plaintext to encrypt, the (author) of the message, her (prev)ious message hash and a list of recipients (recpts).
 // If out is too small to hold the full message, additonal allocations will be made. The ciphertext is returned as the first return value.
-func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.MessageRef, recpts []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.MessageRef, recpts []keys.Recipient) ([]byte, error) {
 	if len(plain) == 0 {
 		return nil, ErrEmptyPlaintext
 	}
@@ -142,7 +142,8 @@ func (bxr *Boxer) Encrypt(out, plain []byte, author *refs.FeedRef, prev *refs.Me
 	if err != nil {
 		return nil, err
 	}
-	out = secretbox.Seal(out, headerPlain[:], &zero24, &headerKey)
+
+	out := secretbox.Seal(nil, headerPlain[:], &zero24, &headerKey)
 	clear(headerKey[:])
 
 	// append slots
@@ -198,7 +199,7 @@ func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []
 }
 
 // TODO: Maybe return entire decrypted message?
-func (bxr *Boxer) Decrypt(out, ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) Decrypt(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
 	slotKeys, info, err := deriveMessageKey(author, prev, candidates)
 	if err != nil {
 		return nil, errors.Wrap(err, "error constructing keying information")

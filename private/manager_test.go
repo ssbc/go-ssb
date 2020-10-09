@@ -23,11 +23,10 @@ func TestManager(t *testing.T) {
 	}
 
 	type testcase struct {
-		name    string
-		msg     []byte
-		sender  *refs.FeedRef
-		rcpts   []refs.Ref
-		encOpts []EncryptOption
+		name   string
+		msg    []byte
+		sender *refs.FeedRef
+		rcpts  []refs.Ref
 	}
 
 	var (
@@ -43,13 +42,13 @@ func TestManager(t *testing.T) {
 		testops.TestCase{
 			Name: "alice->alice",
 			Ops: []testops.Op{
-				OpManagerEncrypt{
+				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []refs.Ref{alice.Id},
+					Recipients: []*refs.FeedRef{alice.Id},
 
 					Ciphertext: &ctxt,
 				},
-				OpManagerDecrypt{
+				OpManagerDecryptBox1{
 					Manager:    alice.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
@@ -59,19 +58,19 @@ func TestManager(t *testing.T) {
 		testops.TestCase{
 			Name: "alice->alice+bob",
 			Ops: []testops.Op{
-				OpManagerEncrypt{
+				OpManagerEncryptBox1{
 					Manager: alice.manager,
 
-					Recipients: []refs.Ref{alice.Id, bob.Id},
+					Recipients: []*refs.FeedRef{alice.Id, bob.Id},
 
 					Ciphertext: &ctxt,
 				},
-				OpManagerDecrypt{
+				OpManagerDecryptBox1{
 					Manager:    alice.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 				},
-				OpManagerDecrypt{
+				OpManagerDecryptBox1{
 					Manager:    bob.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
@@ -81,25 +80,20 @@ func TestManager(t *testing.T) {
 		testops.TestCase{
 			Name: "alice->alice+bob, box2",
 			Ops: []testops.Op{
-				OpManagerEncrypt{
-					Manager: alice.manager,
-
+				OpManagerEncryptBox2{
+					Manager:    alice.manager,
 					Recipients: []refs.Ref{alice.Id, bob.Id},
-					Options:    []EncryptOption{WithBox2()},
-
 					Ciphertext: &ctxt,
 				},
-				OpManagerDecrypt{
+				OpManagerDecryptBox2{
 					Manager:    alice.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
-					Options:    []EncryptOption{WithBox2()},
 				},
-				OpManagerDecrypt{
+				OpManagerDecryptBox2{
 					Manager:    bob.manager,
 					Sender:     alice.Id,
 					Ciphertext: &ctxt,
-					Options:    []EncryptOption{WithBox2()},
 				},
 			},
 		},
