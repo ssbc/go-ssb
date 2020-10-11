@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/keys"
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
@@ -15,9 +16,9 @@ type deriveSecretSpecTest struct {
 }
 
 type deriveSecretSpecTestInput struct {
-	FeedID    b64str `json:"feed_id"`
-	PrevMsgID b64str `json:"prev_msg_id"`
-	MsgKey    []byte `json:"msg_key"`
+	FeedID    keys.Base64String `json:"feed_id"`
+	PrevMsgID keys.Base64String `json:"prev_msg_id"`
+	MsgKey    []byte            `json:"msg_key"`
 }
 
 type deriveSecretSpecTestOutput struct {
@@ -40,9 +41,9 @@ func (dt deriveSecretSpecTest) Test(t *testing.T) {
 
 	var readKey, headerKey, bodyKey [32]byte
 
-	deriveTo(readKey[:], dt.Input.MsgKey, info([]byte("read_key"))...)
-	deriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
-	deriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
+	DeriveTo(readKey[:], dt.Input.MsgKey, info([]byte("read_key"))...)
+	DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
+	DeriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
 
 	require.EqualValues(t, dt.Output.ReadKey, readKey[:], "read key wrong")
 	require.EqualValues(t, dt.Output.HeaderKey, headerKey[:], "header wrong")

@@ -1,7 +1,6 @@
 package box2
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -91,24 +90,4 @@ type genericSpecTest struct {
 	Input     json.RawMessage `json:"input"`
 	Output    json.RawMessage `json:"output"`
 	ErrorCode interface{}     `json:"error_code"`
-}
-
-// utils
-
-type b64str []byte
-
-func (s *b64str) UnmarshalJSON(data []byte) error {
-	var strdata string
-	err := json.Unmarshal(data, &strdata)
-	if err != nil {
-		return fmt.Errorf("b64str: json decode of string failed: %w", err)
-	}
-	decoded := make([]byte, len(strdata)) // will be shorter
-	n, err := base64.StdEncoding.Decode(decoded, []byte(strdata))
-	if err != nil {
-		return fmt.Errorf("invalid base64 key: %w", err)
-	}
-
-	*s = decoded[:n]
-	return nil
 }

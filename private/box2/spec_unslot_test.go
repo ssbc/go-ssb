@@ -16,11 +16,11 @@ type unslotSpecTest struct {
 }
 
 type unslotSpecTestInput struct {
-	KeySlot   b64str `json:"key_slot"`
-	FeedID    b64str `json:"feed_id"`
-	PrevMsgID b64str `json:"prev_msg_id"`
+	KeySlot   keys.Base64String `json:"key_slot"`
+	FeedID    keys.Base64String `json:"feed_id"`
+	PrevMsgID keys.Base64String `json:"prev_msg_id"`
 	Recipient struct {
-		Key    b64str         `json:"key"`
+		Key    keys.Base64String         `json:"key"`
 		Scheme keys.KeyScheme `json:"scheme"`
 	} `json:"recipient"`
 }

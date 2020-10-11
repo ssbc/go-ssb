@@ -18,13 +18,13 @@ type boxSpecTest struct {
 }
 
 type boxSpecTestInput struct {
-	PlainText []byte `json:"plain_text"`
-	FeedID    b64str `json:"feed_id"` // as TFK
-	PrevMsgID b64str `json:"prev_msg_id"`
-	MsgKey    []byte `json:"msg_key"`
+	PlainText []byte            `json:"plain_text"`
+	FeedID    keys.Base64String `json:"feed_id"` // as TFK
+	PrevMsgID keys.Base64String `json:"prev_msg_id"`
+	MsgKey    []byte            `json:"msg_key"`
 	RecpKeys  []struct {
-		Key    b64str         `json:"key"`
-		Scheme keys.KeyScheme `json:"scheme"`
+		Key    keys.Base64String `json:"key"`
+		Scheme keys.KeyScheme    `json:"scheme"`
 	} `json:"recp_keys"`
 }
 
@@ -51,7 +51,6 @@ func (bt boxSpecTest) Test(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := bxr.Encrypt(
-		nil,
 		bt.Input.PlainText,
 		f.Feed(),
 		m.Message(),
