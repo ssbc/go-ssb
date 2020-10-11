@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/keys"
 )
 
 type cloakedIDSpecTest struct {
@@ -14,18 +15,17 @@ type cloakedIDSpecTest struct {
 }
 
 type cloakedIDSpecTestInput struct {
-	MessageID b64str `json:"public_Msg_id"`
-	ReadKey   b64str `json:"read_key"`
+	MessageID keys.Base64String `json:"public_Msg_id"`
+	ReadKey   keys.Base64String `json:"read_key"`
 }
 
 type cloakedIDSpecTestOutput struct {
-	CloakedID b64str `json:"cloaked_msg_id"`
+	CloakedID keys.Base64String `json:"cloaked_msg_id"`
 }
 
 func (ct cloakedIDSpecTest) Test(t *testing.T) {
 	// TOOD: one-off use of dervieTo() should probably be an (exported?) function
 	cloaked := make([]byte, 32)
 	DeriveTo(cloaked, ct.Input.ReadKey, []byte("cloaked_msg_id"), ct.Input.MessageID)
-
 	require.EqualValues(t, ct.Output.CloakedID, cloaked, "wrong cloacked ID")
 }

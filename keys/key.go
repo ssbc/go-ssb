@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/hkdf"
@@ -53,15 +55,6 @@ type Recipients []Recipient
 // Key holds actual key material
 type Key []byte
 
-// ????
-func (k Key) ShortRef() string {
-	return "%....cloaked"
-}
-func (k Key) Ref() string {
-	b := base64.StdEncoding.EncodeToString(k)
-	return "%" + b + ".cloaked"
-}
-
 // Derive returns a new key derived from the internal key data and the passed infos.
 func (k Key) Derive(buf []byte, infos Infos, outLen int) (Key, error) {
 	// if buffer is too short to hold everything, allocate
@@ -97,4 +90,22 @@ type Keys []Key
 func alloc(bs []byte, n int) (old, allocd, new []byte) {
 	old, allocd, new = bs, bs[:n], bs[n:]
 	return
+}
+
+type Base64String Key
+
+func (s *Base64String) UnmarshalJSON(data []byte) error {
+	var strdata string
+	err := json.Unmarshal(data, &strdata)
+	if err != nil {
+		return fmt.Errorf("Base64String: json decode of string failed: %w", err)
+	}
+	decoded := make([]byte, len(strdata)) // will be shorter
+	n, err := base64.StdEncoding.Decode(decoded, []byte(strdata))
+	if err != nil {
+		return fmt.Errorf("invalid base64 string: %w", err)
+	}
+
+	*s = decoded[:n]
+	return nil
 }

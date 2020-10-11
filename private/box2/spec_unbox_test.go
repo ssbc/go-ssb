@@ -16,12 +16,12 @@ type unboxSpecTest struct {
 }
 
 type unboxSpecTestInput struct {
-	Ciphertext []byte `json:"ciphertext"`
-	FeedID     b64str `json:"feed_id"`
-	PrevMsgID  b64str `json:"prev_msg_id"`
+	Ciphertext []byte            `json:"ciphertext"`
+	FeedID     keys.Base64String `json:"feed_id"`
+	PrevMsgID  keys.Base64String `json:"prev_msg_id"`
 	Recipient  struct {
-		Key    b64str         `json:"key"`
-		Scheme keys.KeyScheme `json:"scheme"`
+		Key    keys.Base64String `json:"key"`
+		Scheme keys.KeyScheme    `json:"scheme"`
 	} `json:"recipient"`
 }
 
@@ -41,7 +41,6 @@ func (ut unboxSpecTest) Test(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := bxr.Decrypt(
-		nil,
 		ut.Input.Ciphertext,
 		f.Feed(),
 		m.Message(),

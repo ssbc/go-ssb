@@ -2,12 +2,12 @@ package private
 
 import (
 	"crypto/rand"
-	"fmt"
 	"io"
+
+	"go.cryptoscope.co/margaret/multilog"
 
 	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
-	"golang.org/x/crypto/ed25519"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/keys"
@@ -16,19 +16,22 @@ import (
 )
 
 type Manager struct {
-	// log    margaret.Log // Q: ???? which log is this?!
-	publog ssb.Publisher
+	publog  ssb.Publisher
+	tangles multilog.MultiLog
 
-	author *refs.FeedRef
+	author *ssb.KeyPair
 
 	keymgr *keys.Store
 	rand   io.Reader
 }
 
-func NewManager(author *refs.FeedRef, publishLog ssb.Publisher, km *keys.Store) *Manager {
+func NewManager(author *ssb.KeyPair, publishLog ssb.Publisher, km *keys.Store, tangles multilog.MultiLog) *Manager {
 	return &Manager{
+		tangles: tangles,
+
 		author: author,
 		publog: publishLog,
+
 		keymgr: km,
 		rand:   rand.Reader,
 	}
@@ -44,7 +47,7 @@ func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []
 
 	// first, look up keys
 	var (
-		ks        keys.Recipients
+		allKeys   keys.Recipients
 		keyScheme keys.KeyScheme
 		keyID     keys.ID
 	)
@@ -54,23 +57,22 @@ func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []
 		case *refs.FeedRef:
 			keyScheme = keys.SchemeDiffieStyleConvertedED25519
 			keyID = keys.ID(sortAndConcat(mgr.author.ID, ref.ID))
+			// roll key if not exist?
 		case *refs.MessageRef:
 			// TODO: maybe verify this is a group message?
 			keyScheme = keys.SchemeLargeSymmetricGroup
 			keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
 		}
 
-		ks_, err := mgr.keymgr.GetKeys(keyScheme, keyID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not get key for recipient %s", rcpt.Ref())
+		if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
+			allKeys = append(allKeys, ks...)
 		}
 
-		ks = append(ks, ks_...)
 	}
 
 	// then, encrypt message
 	bxr := box2.NewBoxer(mgr.rand)
-	ctxt, err := bxr.Encrypt(content, mgr.author, prev, ks)
+	ctxt, err := bxr.Encrypt(content, mgr.author, prev, allKeys)
 	return ctxt, errors.Wrap(err, "error encrypting message (box1)")
 
 }

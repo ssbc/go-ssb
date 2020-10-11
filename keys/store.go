@@ -2,7 +2,6 @@ package keys
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -31,9 +30,6 @@ func (mgr *Store) AddKey(ks KeyScheme, id ID, key Key) error {
 	if err != nil {
 		return err
 	}
-
-	var lenBuf [2]byte
-	binary.LittleEndian.PutUint16(lenBuf[:], uint16(len(key)))
 
 	recps, err := mgr.GetKeys(ks, id)
 	if err != nil {

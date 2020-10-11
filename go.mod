@@ -51,3 +51,5 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
+
+replace go.mindeco.de/ssb-refs => /home/cryptix/go/src/go.mindeco.de/ssb-refs
