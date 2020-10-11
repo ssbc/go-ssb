@@ -1,30 +1,27 @@
 package private
 
-import "sort"
+import (
+	"bytes"
+	"sort"
+)
 
 // bytesSlice attaches the methods of sort.Interface to [][]byte, sorting in increasing order.
 type bytesSlice [][]byte
 
 func (p bytesSlice) Len() int { return len(p) }
-func (p bytesSlice) Less(i, j int) bool {
-	for k := range p[i] {
-		if p[i][k] < p[j][k] {
-			return true
-		}
-	}
 
-	return false
+func (p bytesSlice) Less(i, j int) bool {
+	return bytes.Compare(p[i], p[j]) == -1
 }
+
 func (p bytesSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-// Sort is a convenience method.
-func (p bytesSlice) Sort() { sort.Sort(p) }
-
 func sortAndConcat(bss ...[]byte) []byte {
-	bytesSlice(bss).Sort()
+	sorter := bytesSlice(bss)
+	sort.Sort(sorter)
 
 	var l int
-	for _, bs := range bss {
+	for _, bs := range sorter {
 		l += len(bs)
 	}
 
@@ -33,7 +30,7 @@ func sortAndConcat(bss ...[]byte) []byte {
 		off int
 	)
 
-	for _, bs := range bss {
+	for _, bs := range sorter {
 		off += copy(buf[off:], bs)
 	}
 

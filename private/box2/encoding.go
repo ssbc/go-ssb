@@ -16,9 +16,9 @@ func encodeUint16(out []byte, l uint16) []byte {
 	return append(out, buf[:]...)
 }
 
-// encodeList appends the SLP-encoding of a list to out
+// EncodeSLP appends the SLP-encoding of a list to out
 // and returns the resulting slice.
-func encodeList(out []byte, list [][]byte) []byte {
+func EncodeSLP(out []byte, list ...[]byte) []byte {
 	for _, elem := range list {
 		out = encodeUint16(out, uint16(len(elem)))
 		out = append(out, elem...)
@@ -51,7 +51,7 @@ func DeriveTo(out, key []byte, infos ...[]byte) error {
 	if n := len(out); n != 32 {
 		return fmt.Errorf("box2: expected 32bytes as output argument, got %d", n)
 	}
-	r := hkdf.Expand(sha256.New, key, encodeList(nil, infos))
+	r := hkdf.Expand(sha256.New, key, EncodeSLP(nil, infos...))
 	nout, err := r.Read(out)
 	if err != nil {
 		return fmt.Errorf("box2: failed to derive key: %w", err)

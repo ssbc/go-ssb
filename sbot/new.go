@@ -191,7 +191,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Errorf("tangles plugin missing")
 	}
 
-	s.Groups = private.NewManager(s.KeyPair.Id, s.PublishLog, ks, tangles)
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, tangles)
 
 	// LogBuilder doesn't fully work yet
 	if mt, _ := s.mlogIndicies["msgTypes"]; false {

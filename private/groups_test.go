@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,6 +22,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -70,18 +73,20 @@ func TestGroupsFullCircle(t *testing.T) {
 	msg, err := srh.Get(*groupTangleRoot)
 	r.NoError(err)
 
-	content := msg.ContentBytes()
-
 	suffix := []byte(".box2\"")
-	r.True(bytes.HasSuffix(content, suffix), "%q", content)
+	getCipherText := func(m refs.Message) []byte {
+		content := m.ContentBytes()
 
-	n := base64.StdEncoding.DecodedLen(len(content))
-	ctxt := make([]byte, n)
-	decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, suffix)[1:])
-	r.NoError(err)
-	ctxt = ctxt[:decn]
+		r.True(bytes.HasSuffix(content, suffix), "%q", content)
 
-	clear, err := srh.Groups.DecryptBox2(ctxt, srh.KeyPair.Id, msg.Previous())
+		n := base64.StdEncoding.DecodedLen(len(content))
+		ctxt := make([]byte, n)
+		decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, suffix)[1:])
+		r.NoError(err)
+		return ctxt[:decn]
+	}
+
+	clear, err := srh.Groups.DecryptBox2(getCipherText(msg), srh.KeyPair.Id, msg.Previous())
 	r.NoError(err)
 	t.Log(string(clear))
 
@@ -91,7 +96,7 @@ func TestGroupsFullCircle(t *testing.T) {
 
 	msg, err = srh.Get(*postRef)
 	r.NoError(err)
-	content = msg.ContentBytes()
+	content := msg.ContentBytes()
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 
 	tal, err := sbot.New(
@@ -110,18 +115,28 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.Id))
 
+	dmKey, err := srh.Groups.GetOrDeriveKeyFor(tal.KeyPair.Id)
+	r.NoError(err, "%+v", err)
+	r.NotNil(dmKey)
+	r.Len(dmKey, 1)
+	r.Len(dmKey[0].Key, 32)
+
 	addMsgRef, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome, tal!")
 	r.NoError(err)
 	t.Log("added:", addMsgRef.ShortRef())
 
 	msg, err = srh.Get(*addMsgRef)
 	r.NoError(err)
-	content = msg.ContentBytes()
-	r.True(bytes.HasSuffix(content, suffix), "%q", content)
+	r.True(bytes.HasSuffix(msg.ContentBytes(), suffix), "%q", content)
 
 	// now replicate a bit
 	srh.Replicate(tal.KeyPair.Id)
 	tal.Replicate(srh.KeyPair.Id)
+
+	dmKey2, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	r.NoError(err)
+	r.Len(dmKey2, 1)
+	r.Equal(dmKey[0].Key, dmKey2[0].Key)
 
 	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
 	r.NoError(err)
@@ -152,8 +167,25 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.EqualValues(1, getSeq(srhsCopyOfTal))
 	r.EqualValues(3, getSeq(talsCopyOfSrh))
 
-	reply, err := tal.Groups.PublishPostTo(cloaked, "thanks sarah!")
-	r.NoError(err, "failed to publish to group")
+	// TODO: check messages get decrypted
+
+	addMsgCopy, err := tal.Get(*addMsgRef)
+	r.NoError(err)
+	content = addMsgCopy.ContentBytes()
+	r.True(bytes.HasSuffix(content, suffix), "%q", content)
+	t.Log(string(content))
+
+	decr, err := tal.Groups.DecryptBox2(getCipherText(msg), addMsgCopy.Author(), addMsgCopy.Previous())
+	r.NoError(err)
+	t.Log(string(decr))
+
+	var ga private.GroupAddMember
+	err = json.Unmarshal(decr, &ga)
+	r.NoError(err)
+	t.Log(ga.GroupKey)
+
+	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.Id.Ref()))
+	r.NoError(err, "tal failed to publish")
 	t.Log("reply:", reply.ShortRef())
 
 	tal.Shutdown()

@@ -67,7 +67,7 @@ func (mgr *Manager) Init(name string) (*refs.MessageRef, *refs.MessageRef, error
 	}
 
 	// my keys
-	err = mgr.keymgr.AddKey(r.Scheme, sortAndConcat(mgr.author.ID, mgr.author.ID), r.Key)
+	err = mgr.keymgr.AddKey(r.Scheme, sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), r.Key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -104,7 +104,7 @@ var content = {
 	}
   }`
 
-type groupAddMember struct {
+type GroupAddMember struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 
@@ -132,13 +132,19 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 		return nil, fmt.Errorf("inconsistent group-key count: %d", n)
 	}
 
+	sk, err := mgr.GetOrDeriveKeyFor(r)
+	if err != nil {
+		return nil, err
+	}
+	gskey = append(gskey, sk...)
+
 	groupRoot, err := mgr.getGroupRoot(groupID)
 	if err != nil {
 		return nil, err
 	}
 
 	// prepare init content
-	var ga groupAddMember
+	var ga GroupAddMember
 	ga.Type = "group/add-member"
 	ga.Version = "v1"
 	ga.Text = welcome
@@ -242,7 +248,7 @@ func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (*refs.Me
 	}
 	// now create the ciphertext
 	bxr := box2.NewBoxer(mgr.rand)
-	ciphertext, err := bxr.Encrypt(c, mgr.author, prev, recps)
+	ciphertext, err := bxr.Encrypt(c, mgr.author.Id, prev, recps)
 	if err != nil {
 		return nil, err
 	}
