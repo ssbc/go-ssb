@@ -45,12 +45,10 @@ func TestManager(t *testing.T) {
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
 					Recipients: []*refs.FeedRef{alice.Id},
-
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
 					Manager:    alice.manager,
-					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 				},
 			},
@@ -59,20 +57,16 @@ func TestManager(t *testing.T) {
 			Name: "alice->alice+bob",
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
-					Manager: alice.manager,
-
+					Manager:    alice.manager,
 					Recipients: []*refs.FeedRef{alice.Id, bob.Id},
-
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
 					Manager:    alice.manager,
-					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
 					Manager:    bob.manager,
-					Sender:     alice.Id,
 					Ciphertext: &ctxt,
 				},
 			},
@@ -140,7 +134,7 @@ func newIdentity(t *testing.T, name string, km *keys.Store) testIdentity {
 	t.Logf("%s is %s", name, id.Id.Ref())
 
 	id.manager = &Manager{
-		author: id.Id,
+		author: id.KeyPair,
 		keymgr: km,
 		rand:   rand,
 	}

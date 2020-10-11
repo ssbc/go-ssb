@@ -42,7 +42,7 @@ type OpManagerEncryptBox2 struct {
 
 func (op OpManagerEncryptBox2) Do(t *testing.T, _ interface{}) {
 
-	// add recipients option
+	// TODO: add correct previous
 
 	// encrypt
 	ctxt, err := op.Manager.EncryptBox2(testMessage, op.Prev, op.Recipients)
@@ -54,7 +54,6 @@ func (op OpManagerEncryptBox2) Do(t *testing.T, _ interface{}) {
 type OpManagerDecryptBox1 struct {
 	Manager    *Manager
 	Ciphertext *[]byte
-	Sender     *refs.FeedRef
 
 	ExpDecryptErr string
 }
@@ -62,7 +61,7 @@ type OpManagerDecryptBox1 struct {
 func (op OpManagerDecryptBox1) Do(t *testing.T, _ interface{}) {
 
 	// attempt decryption
-	dec, err := op.Manager.DecryptBox1(*op.Ciphertext, op.Sender)
+	dec, err := op.Manager.DecryptBox1(*op.Ciphertext)
 	expErr(t, err, op.ExpDecryptErr, "decrypt")
 
 	require.EqualValues(t, testMessage, dec, "msg decrypted not equal")
