@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
@@ -22,6 +23,8 @@ import (
 )
 
 type Manager struct {
+	receiveLog margaret.Log
+
 	publog  ssb.Publisher
 	tangles multilog.MultiLog
 
