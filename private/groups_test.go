@@ -74,7 +74,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 
 	suffix := []byte(".box2\"")
-	getCipherText := func(m refs.Message) []byte {
+	getCiphertext := func(m refs.Message) []byte {
 		content := m.ContentBytes()
 
 		r.True(bytes.HasSuffix(content, suffix), "%q", content)
@@ -86,7 +86,7 @@ func TestGroupsFullCircle(t *testing.T) {
 		return ctxt[:decn]
 	}
 
-	clear, err := srh.Groups.DecryptBox2(getCipherText(msg), srh.KeyPair.Id, msg.Previous())
+	clear, err := srh.Groups.DecryptBox2(getCiphertext(msg), srh.KeyPair.Id, msg.Previous())
 	r.NoError(err)
 	t.Log(string(clear))
 
@@ -175,7 +175,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 	t.Log(string(content))
 
-	decr, err := tal.Groups.DecryptBox2(getCipherText(msg), addMsgCopy.Author(), addMsgCopy.Previous())
+	decr, err := tal.Groups.DecryptBox2(getCiphertext(msg), addMsgCopy.Author(), addMsgCopy.Previous())
 	r.NoError(err)
 	t.Log(string(decr))
 

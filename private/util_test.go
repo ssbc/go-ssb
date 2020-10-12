@@ -25,10 +25,10 @@ func TestGroupsInfoSort(t *testing.T) {
 	a.Equal(bar, infos[1])
 	a.Equal(baz, infos[2])
 	a.Equal(foo, infos[3])
-	t.Log(infos)
 
 	one := []byte{0, 0, 0, 0, 1}
 	two := []byte{0, 0, 0, 0, 2}
+
 	thr := []byte{0, 0, 0, 0, 3}
 
 	check := func(infos [][]byte) {
@@ -73,8 +73,6 @@ func TestGroupsInfoMeh(t *testing.T) {
 
 	b2, err := hex.DecodeString("272af1160d3306676bebd858aff5f8c4a1a4c7c52eeafd4693d8ce9566644ac8")
 	r.NoError(err)
-	t.Log("\n", hex.Dump(b1))
-	t.Log("\n", hex.Dump(b2))
 
 	sort1 := bytesSlice{b1, b2}
 	sort.Sort(sort1)

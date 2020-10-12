@@ -1,13 +1,11 @@
 package private
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/private/box2"
 
@@ -205,34 +203,6 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 		return nil, err
 	}
 	return mgr.encryptAndPublish(content, r)
-}
-
-// fake hacks BIG TODO
-
-func (mgr *Manager) getGroupRoot(groupID *refs.MessageRef) (*refs.MessageRef, error) {
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("not a group")
-	}
-
-	return &refs.MessageRef{Algo: "fake", Hash: bytes.Repeat([]byte("1312"), 8)}, nil
-}
-
-func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
-	addr := librarian.Addr(append(root.Hash, []byte(tname)...))
-	thandle, err := mgr.tangles.Get(addr)
-	if err != nil {
-		return refs.TanglePoint{Root: root, Previous: []*refs.MessageRef{root}}
-	}
-
-	prev := getLooseEnds(thandle)
-	// TODO!!!
-	return refs.TanglePoint{Root: root, Previous: append(prev, root)}
-}
-
-func getLooseEnds(_ margaret.Log) refs.MessageRefs {
-	return []*refs.MessageRef{
-		{Algo: "fake", Hash: bytes.Repeat([]byte("acab"), 8)},
-	}
 }
 
 // utils
