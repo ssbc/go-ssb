@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
@@ -65,6 +66,39 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	if dmsg.Hash != "sha256" {
 		return nil, nil, errors.Errorf("ssb Verify: scuttlebutt happend anyway")
+	}
+
+	if n := len(dmsg.Content); n < 1 {
+		return nil, nil, errors.Errorf("ssb Verify: has no content (%d)", n)
+	}
+
+	switch dmsg.Content[0] {
+	case '{':
+		var typedContent struct {
+			Type string
+		}
+		err = json.Unmarshal(dmsg.Content, &typedContent)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if tlen := len(typedContent.Type); tlen < 3 || tlen > 53 {
+			return nil, nil, errors.Errorf("ssb Verify: scuttlebutt v1 requires a type field: %q", typedContent.Type)
+		}
+
+	case '"':
+		var justString string
+		err = json.Unmarshal(dmsg.Content, &justString)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if !strings.HasSuffix(justString, ".box") && !strings.HasSuffix(justString, ".box2") {
+			return nil, nil, errors.Errorf("ssb Verify: scuttlebutt v1 private messages need to have the right suffix")
+		}
+
+	default:
+		return nil, nil, errors.Errorf("ssb Verify: unexpected content: %q", dmsg.Content[0])
 	}
 
 	woSig, sig, err := ExtractSignature(enc)
