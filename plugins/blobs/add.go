@@ -7,38 +7,35 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/logging"
-
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type addHandler struct {
-	bs  ssb.BlobStore
-	log logging.Interface
+	self refs.FeedRef
+	bs   ssb.BlobStore
+	log  logging.Interface
 }
 
 func (addHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h addHandler) HandleAsync(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// TODO: push manifest check into muxrpc
-
-	src, err := req.ResponseSource()
+func (h addHandler) HandleSink(ctx context.Context, req *muxrpc.Request, src *muxrpc.ByteSource) error {
+	requester, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
-		err = fmt.Errorf("add: couldn't get source: %w", err)
-		checkAndLog(h.log, err)
-		req.CloseWithError(err)
-		return
+		return fmt.Errorf("unauthorized")
+	}
+
+	if !requester.Equal(&h.self) {
+		return fmt.Errorf("unauthorized")
 	}
 
 	r := muxrpc.NewSourceReader(src)
 	ref, err := h.bs.Put(r)
 	if err != nil {
-		err = fmt.Errorf("error putting blob: %w", err)
-		checkAndLog(h.log, err)
-		req.CloseWithError(err)
-		return
+		return fmt.Errorf("error putting blob: %w", err)
 	}
 
-	req.Return(ctx, ref)
+	return req.Return(ctx, ref)
 }

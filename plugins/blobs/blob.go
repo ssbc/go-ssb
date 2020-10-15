@@ -49,11 +49,11 @@ func checkAndLog(log logging.Interface, err error) {
 func New(log logging.Interface, self refs.FeedRef, bs ssb.BlobStore, wm ssb.WantManager) ssb.Plugin {
 	mux := typemux.New(log)
 
-	// TODO: needs priv checks
-	// mux.Register(muxrpc.Method{"blobs", "add"}, addHandler{
-	// 	log: log,
-	// 	bs:  bs,
-	// })
+	mux.RegisterSink(muxrpc.Method{"blobs", "add"}, addHandler{
+		self: self,
+		log:  log,
+		bs:   bs,
+	})
 	// mux.Register(muxrpc.Method{"blobs", "list"}, listHandler{
 	// 	log: log,
 	// 	bs:  bs,
