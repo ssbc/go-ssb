@@ -20,8 +20,8 @@ type groupInit struct {
 	Tangles refs.Tangles `json:"tangles"`
 }
 
-// returns cloaked id and public root
-func (mgr *Manager) Init(name string) (*refs.MessageRef, *refs.MessageRef, error) {
+// Create returns cloaked id and public root of a new group
+func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, error) {
 	// roll new key
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
@@ -45,36 +45,64 @@ func (mgr *Manager) Init(name string) (*refs.MessageRef, *refs.MessageRef, error
 	}
 
 	// encrypt the group/init message
-
 	publicRoot, err := mgr.encryptAndPublish(jsonContent, keys.Recipients{r})
 	if err != nil {
 		return nil, nil, err
 	}
 
+	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(publicRoot.Hash, r)
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO: persist me
+	memoryLookup[cloakedID.Ref()] = publicRoot
+
+	return cloakedID, publicRoot, nil
+}
+
+func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageRef, error) {
+	var r keys.Recipient
+	r.Scheme = keys.SchemeLargeSymmetricGroup
+	r.Key = make([]byte, 32) // TODO: key size const
+
+	if n := len(groupKey); n != 32 {
+		return nil, fmt.Errorf("groups/join: passed key length (%d)", n)
+	}
+	copy(r.Key, groupKey)
+
+	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(root.Hash, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return cloakedID, nil
+}
+
+func (mgr *Manager) deriveCloakedAndStoreNewKey(publicRootHash []byte, k keys.Recipient) (*refs.MessageRef, error) {
 	var cloakedID refs.MessageRef
 	cloakedID.Algo = refs.RefAlgoCloakedGroup
 	cloakedID.Hash = make([]byte, 32)
-	err = box2.DeriveTo(cloakedID.Hash, r.Key, []byte("cloaked_msg_id"), publicRoot.Hash)
+
+	err := box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), publicRootHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	err = mgr.keymgr.AddKey(r.Scheme, cloakedID.Hash, r.Key)
+	err = mgr.keymgr.AddKey(k.Scheme, cloakedID.Hash, k.Key)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// my keys
-	err = mgr.keymgr.AddKey(r.Scheme, sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), r.Key)
+	err = mgr.keymgr.AddKey(k.Scheme, sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), k.Key)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &cloakedID, publicRoot, nil
+	return &cloakedID, nil
 }
 
-const exampleAddMemberContent = `ex:
-var content = {
+/*
+{
 	type: 'group/add-member',
 	version: 'v1',
 	groupKey: '3YUat1ylIUVGaCjotAvof09DhyFxE8iGbF6QxLlCWWc=',
@@ -84,7 +112,6 @@ var content = {
 	  '%vof09Dhy3YUat1ylIUVGaCjotAFxE8iGbF6QxLlCWWc=.cloaked',  // group_id
 	  '@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519'   // feed_id (for new person)
 	],
-  
 	tangles: {
 	  group: {
 		root: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
@@ -100,7 +127,8 @@ var content = {
 		]
 	  }
 	}
-  }`
+}
+*/
 
 type GroupAddMember struct {
 	Type string `json:"type"`
@@ -111,7 +139,7 @@ type GroupAddMember struct {
 	GroupKey       keys.Base64String `json:"groupKey"`
 	InitialMessage *refs.MessageRef  `json:"initialMsg"`
 
-	Recps []refs.Ref `json:"recps"`
+	Recps []string `json:"recps"`
 
 	Tangles refs.Tangles `json:"tangles"`
 }
@@ -150,7 +178,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 	ga.GroupKey = keys.Base64String(gskey[0].Key)
 	ga.InitialMessage = groupRoot
 
-	ga.Recps = []refs.Ref{groupID, r}
+	ga.Recps = []string{groupID.Ref(), r.Ref()}
 
 	ga.Tangles = make(refs.Tangles)
 

@@ -27,6 +27,11 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+/* TODO: this is an integration test and should be moved to the sbot package
+
+before that, the indexing re-write needs to happen.
+*/
+
 func TestGroupsFullCircle(t *testing.T) {
 	r := require.New(t)
 	// a := assert.New(t)
@@ -67,7 +72,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 
 	// create a new group
-	cloaked, groupTangleRoot, err := srh.Groups.Init("hello, my group")
+	cloaked, groupTangleRoot, err := srh.Groups.Create("hello, my group")
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
@@ -187,19 +192,41 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 	t.Log(string(content))
 
-	decr, err := tal.Groups.DecryptBox2(getCiphertext(msg), addMsgCopy.Author(), addMsgCopy.Previous())
+	decr, err := tal.Groups.DecryptBox2(getCiphertext(addMsgCopy), addMsgCopy.Author(), addMsgCopy.Previous())
 	r.NoError(err)
 	t.Log(string(decr))
 
 	var ga private.GroupAddMember
 	err = json.Unmarshal(decr, &ga)
 	r.NoError(err)
-	t.Log(ga.GroupKey)
+	t.Logf("%x", ga.GroupKey)
+
+	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.InitialMessage)
+	r.NoError(err)
+	r.Equal(cloaked.Hash, cloaked2.Hash, "cloaked ID not equal")
 
 	// post back to group
 	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.Id.Ref()))
-	r.NoError(err, "tal failed to publish")
+	r.NoError(err, "tal failed to publish to group")
 	t.Log("reply:", reply.ShortRef())
+
+	// reconnect to get the reply
+	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.Id)
+	r.True(has)
+	edp.Terminate()
+	time.Sleep(1 * time.Second)
+	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
+	r.NoError(err)
+	time.Sleep(1 * time.Second)
+
+	r.EqualValues(2, getSeq(srhsCopyOfTal))
+
+	replyMsg, err := srh.Get(*reply)
+	r.NoError(err)
+
+	replyContent, err := srh.Groups.DecryptBox2(getCiphertext(replyMsg), replyMsg.Author(), replyMsg.Previous())
+	r.NoError(err)
+	t.Log(string(replyContent))
 
 	tal.Shutdown()
 	srh.Shutdown()

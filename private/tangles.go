@@ -15,14 +15,20 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// fake hacks BIG TODO
+// in-memory / unpersisted hacks BIG TODO
+var memoryLookup = make(map[string]*refs.MessageRef)
 
 func (mgr *Manager) getGroupRoot(groupID *refs.MessageRef) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
 	}
 
-	return &refs.MessageRef{Algo: "fake", Hash: bytes.Repeat([]byte("1312"), 8)}, nil
+	root, has := memoryLookup[groupID.Ref()]
+	if !has {
+		return nil, fmt.Errorf("unknown group")
+	}
+
+	return root, nil
 }
 
 func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
