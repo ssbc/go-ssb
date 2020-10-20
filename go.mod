@@ -52,4 +52,5 @@ require (
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
 
+// TODO: pin with-branches branch
 replace go.mindeco.de/ssb-refs => /home/cryptix/go/src/go.mindeco.de/ssb-refs
