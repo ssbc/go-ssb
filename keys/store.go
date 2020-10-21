@@ -9,6 +9,8 @@ import (
 )
 
 // Q: what's the relation of ID and key?
+// A: id is anything we want to use to store and find a key,
+// like the id in a database or key in a k:v store.
 
 type Store struct {
 	Index librarian.SetterIndex
@@ -16,14 +18,14 @@ type Store struct {
 
 var todoCtx = context.TODO()
 
-func (mgr *Store) AddKey(ks KeyScheme, id ID, key Key) error {
-	idxk := &idxKey{
-		ks: ks,
-		id: id,
+func (mgr *Store) AddKey(id ID, r Recipient) error {
+	if !r.Scheme.Valid() {
+		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: r.Scheme}
 	}
 
-	if !ks.Valid() {
-		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
+	idxk := &idxKey{
+		ks: r.Scheme,
+		id: id,
 	}
 
 	idxkBytes, err := idxk.MarshalBinary()
@@ -31,7 +33,7 @@ func (mgr *Store) AddKey(ks KeyScheme, id ID, key Key) error {
 		return err
 	}
 
-	recps, err := mgr.GetKeys(ks, id)
+	recps, err := mgr.GetKeys(r.Scheme, id)
 	if err != nil {
 		if IsNoSuchKey(err) {
 			recps = Recipients{}
@@ -40,24 +42,19 @@ func (mgr *Store) AddKey(ks KeyScheme, id ID, key Key) error {
 		}
 	}
 
-	var keys Keys
-	for _, recp := range recps { // convert recps to keys
-		keys = append(keys, recp.Key)
-	}
-
 	// add new key to existing ones
-	keys = append(keys, key)
+	recps = append(recps, r)
 
-	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBytes), keys)
+	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBytes), recps)
 }
 
-func (mgr *Store) SetKey(ks KeyScheme, id ID, key Key) error {
-	if !ks.Valid() {
-		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
+func (mgr *Store) SetKey(id ID, r Recipient) error {
+	if !r.Scheme.Valid() {
+		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: r.Scheme}
 	}
 
 	idxk := &idxKey{
-		ks: ks,
+		ks: r.Scheme,
 		id: id,
 	}
 
@@ -66,7 +63,7 @@ func (mgr *Store) SetKey(ks KeyScheme, id ID, key Key) error {
 		return err
 	}
 
-	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), Keys{key})
+	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), Recipients{r})
 }
 
 func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
@@ -108,16 +105,9 @@ func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
 		return nil, err
 	}
 
-	var recps Recipients
-
-	switch ksIface.(type) {
-	case Keys:
-		for _, k := range ksIface.(Keys) {
-			recps = append(recps, Recipient{
-				Key:    k,
-				Scheme: ks,
-			})
-		}
+	switch tv := ksIface.(type) {
+	case Recipients:
+		return tv, nil
 	case librarian.UnsetValue:
 		return nil, Error{
 			Code:   ErrorCodeNoSuchKey,
@@ -125,8 +115,7 @@ func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
 			ID:     id,
 		}
 	default:
-		return nil, fmt.Errorf("keys manager: expected type %T, got %T", recps, ksIface)
+		return nil, fmt.Errorf("keys manager: expected type %T, got %T", Recipients{}, ksIface)
 	}
 
-	return recps, nil
 }

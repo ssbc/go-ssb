@@ -180,7 +180,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "openIndex: failed to open MKV database")
 	}
 
-	idx := libmkv.NewIndex(db, keys.Keys{})
+	idx := libmkv.NewIndex(db, keys.Recipients{})
 	ks := &keys.Store{
 		Index: idx,
 	}

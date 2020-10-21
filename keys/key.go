@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -41,12 +42,20 @@ func (is Infos) Encode(out []byte) int {
 	return used
 }
 
+// should be either or but differently typed enums are hard in go :-/
+type Metadata struct {
+	GroupRoot *refs.MessageRef
+	ForFeed   *refs.FeedRef
+}
+
 // TODO: or should this be the ref?
 // Recipient combines key data with a scheme
 type Recipient struct {
 	Key Key
 
 	Scheme KeyScheme // (shared secret, diffie, etc)
+
+	Metadata Metadata
 }
 
 // Recipients are a list of Recipients

@@ -19,7 +19,7 @@ import (
 
 func TestManager(t *testing.T) {
 	ks := &keys.Store{
-		Index: newMemIndex(keys.Keys{}),
+		Index: newMemIndex(keys.Recipients{}),
 	}
 
 	type testcase struct {
@@ -200,7 +200,11 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 
 	for _, spec := range specs {
 		t.Logf("adding key %s - %x", spec.Scheme, spec.ID)
-		err = km.AddKey(spec.Scheme, spec.ID, spec.Key)
+		r := keys.Recipient{
+			Key:    spec.Key,
+			Scheme: spec.Scheme,
+		}
+		err = km.AddKey(spec.ID, r)
 		require.NoError(t, err)
 	}
 

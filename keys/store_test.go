@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -67,7 +66,12 @@ func TestStore(t *testing.T) {
 						't', 'e', 's', 't', // "test"
 					}),
 
-					ExpValue: Keys{Key("topsecret")},
+					ExpValue: Recipients{
+						Recipient{
+							Key:    Key("topsecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+					},
 				},
 				opDBGet{
 					DB: &db,
@@ -78,16 +82,12 @@ func TestStore(t *testing.T) {
 						't', 'e', 's', 't', // "test"
 					},
 
-					ExpValue: func(ks Keys) []byte {
-						var strs = make([]string, len(ks))
-						for i := range ks {
-							strs[i] = base64.StdEncoding.EncodeToString((ks)[i])
-						}
-
-						exp, err := json.Marshal(strs)
-						require.NoError(t, err, "json encode of test string")
-						return exp
-					}(Keys{Key("topsecret")}),
+					ExpValue: recpsToBytes(t, Recipients{
+						Recipient{
+							Key:    Key("topsecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+					}),
 				},
 				opStoreAddKey{
 					Mgr:    &mgr,
@@ -104,7 +104,16 @@ func TestStore(t *testing.T) {
 						't', 'e', 's', 't', // "test"
 					}),
 
-					ExpValue: Keys{Key("topsecret"), Key("alsosecret")},
+					ExpValue: Recipients{
+						Recipient{
+							Key:    Key("topsecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+						Recipient{
+							Key:    Key("alsosecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+					},
 				},
 				opDBGet{
 					DB: &db,
@@ -115,16 +124,16 @@ func TestStore(t *testing.T) {
 						't', 'e', 's', 't', // "test"
 					},
 
-					ExpValue: func(ks Keys) []byte {
-						var strs = make([]string, len(ks))
-						for i := range ks {
-							strs[i] = base64.StdEncoding.EncodeToString((ks)[i])
-						}
-
-						exp, err := json.Marshal(strs)
-						require.NoError(t, err, "json encode of test string")
-						return exp
-					}(Keys{Key("topsecret"), Key("alsosecret")}),
+					ExpValue: recpsToBytes(t, Recipients{
+						Recipient{
+							Key:    Key("topsecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+						Recipient{
+							Key:    Key("alsosecret"),
+							Scheme: SchemeLargeSymmetricGroup,
+						},
+					}),
 				},
 				opStoreSetKey{
 					Mgr:    &mgr,
@@ -235,4 +244,10 @@ func TestStore(t *testing.T) {
 			},
 		},
 	}, tcs)
+}
+
+func recpsToBytes(t *testing.T, rs Recipients) []byte {
+	exp, err := json.Marshal(rs)
+	require.NoError(t, err, "json encode of test string")
+	return exp
 }
