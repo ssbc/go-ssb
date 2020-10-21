@@ -50,12 +50,12 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 		return nil, nil, err
 	}
 
-	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(publicRoot.Hash, r)
+	r.Metadata.GroupRoot = publicRoot
+
+	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO: persist me
-	memoryLookup[cloakedID.Ref()] = publicRoot
 
 	return cloakedID, publicRoot, nil
 }
@@ -70,7 +70,9 @@ func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageR
 	}
 	copy(r.Key, groupKey)
 
-	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(root.Hash, r)
+	r.Metadata.GroupRoot = root
+
+	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
 	if err != nil {
 		return nil, err
 	}
@@ -78,22 +80,22 @@ func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageR
 	return cloakedID, nil
 }
 
-func (mgr *Manager) deriveCloakedAndStoreNewKey(publicRootHash []byte, k keys.Recipient) (*refs.MessageRef, error) {
+func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.MessageRef, error) {
 	var cloakedID refs.MessageRef
 	cloakedID.Algo = refs.RefAlgoCloakedGroup
 	cloakedID.Hash = make([]byte, 32)
 
-	err := box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), publicRootHash)
+	err := box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), k.Metadata.GroupRoot.Hash)
 	if err != nil {
 		return nil, err
 	}
 
-	err = mgr.keymgr.AddKey(k.Scheme, cloakedID.Hash, k.Key)
+	err = mgr.keymgr.AddKey(cloakedID.Hash, k)
 	if err != nil {
 		return nil, err
 	}
 
-	err = mgr.keymgr.AddKey(k.Scheme, sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), k.Key)
+	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), k)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +153,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 
 	gskey, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get key for group: %w", err)
 	}
 
 	if n := len(gskey); n != 1 {
@@ -160,14 +162,9 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 
 	sk, err := mgr.GetOrDeriveKeyFor(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to derive key for feed: %w", err)
 	}
 	gskey = append(gskey, sk...)
-
-	groupRoot, err := mgr.getGroupRoot(groupID)
-	if err != nil {
-		return nil, err
-	}
 
 	// prepare init content
 	var ga GroupAddMember
@@ -176,6 +173,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 	ga.Text = welcome
 
 	ga.GroupKey = keys.Base64String(gskey[0].Key)
+	groupRoot := gskey[0].Metadata.GroupRoot
 	ga.InitialMessage = groupRoot
 
 	ga.Recps = []string{groupID.Ref(), r.Ref()}
@@ -209,10 +207,15 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
 	}
-	r, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	rs, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
 	if err != nil {
 		return nil, err
 	}
+
+	if nr := len(rs); nr != 1 {
+		return nil, fmt.Errorf("expected 1 key for group, got %d", nr)
+	}
+	r := rs[0]
 
 	var p refs.Post
 	p.Type = "post"
@@ -220,26 +223,19 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 	p.Recps = refs.MessageRefs{groupID}
 	p.Tangles = make(refs.Tangles)
 
-	groupRoot, err := mgr.getGroupRoot(groupID)
-	if err != nil {
-		return nil, err
-	}
-	p.Tangles["group"] = mgr.getTangleState(groupRoot, "group")
+	p.Tangles["group"] = mgr.getTangleState(r.Metadata.GroupRoot, "group")
 
 	content, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
 	}
-	return mgr.encryptAndPublish(content, r)
+	return mgr.encryptAndPublish(content, rs)
 }
 
 // utils
 
 // TODO: protect against race of changing previous
-// mgr.publog.Lock()
 func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (*refs.MessageRef, error) {
-	fmt.Printf("encryptig :%s\n", string(c))
-
 	prev, err := mgr.getPrevious()
 	if err != nil {
 		return nil, err

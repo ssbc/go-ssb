@@ -15,22 +15,6 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// in-memory / unpersisted hacks BIG TODO
-var memoryLookup = make(map[string]*refs.MessageRef)
-
-func (mgr *Manager) getGroupRoot(groupID *refs.MessageRef) (*refs.MessageRef, error) {
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("not a group")
-	}
-
-	root, has := memoryLookup[groupID.Ref()]
-	if !has {
-		return nil, fmt.Errorf("unknown group")
-	}
-
-	return root, nil
-}
-
 func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
 	addr := librarian.Addr(append(root.Hash, []byte(tname)...)) // TODO: fill tangle
 	thandle, err := mgr.tangles.Get(addr)
@@ -42,7 +26,7 @@ func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.Tan
 	if err != nil {
 		panic(err)
 	}
-	// TODO!!!
+
 	return refs.TanglePoint{Root: root, Previous: append(prev, root)}
 }
 

@@ -16,7 +16,11 @@ type opStoreSetKey struct {
 }
 
 func (op opStoreSetKey) Do(t *testing.T, env interface{}) {
-	err := op.Mgr.SetKey(op.Scheme, op.ID, op.Key)
+	r := Recipient{
+		Key:    op.Key,
+		Scheme: op.Scheme,
+	}
+	err := op.Mgr.SetKey(op.ID, r)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on mgr.SetKey")
 	} else {
@@ -34,7 +38,12 @@ type opStoreAddKey struct {
 }
 
 func (op opStoreAddKey) Do(t *testing.T, env interface{}) {
-	err := op.Mgr.AddKey(op.Scheme, op.ID, op.Key)
+
+	r := Recipient{
+		Key:    op.Key,
+		Scheme: op.Scheme,
+	}
+	err := op.Mgr.AddKey(op.ID, r)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on mgr.AddKey")
 	} else {

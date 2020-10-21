@@ -110,15 +110,20 @@ func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, err
 			return nil, fmt.Errorf("box2: expected 32bytes from hkdf, got %d", n)
 		}
 
-		err = mgr.keymgr.SetKey(scheme, ourID, messageShared)
+		r := keys.Recipient{
+			Scheme: scheme,
+			Key:    messageShared,
+			Metadata: keys.Metadata{
+				ForFeed: other,
+			},
+		}
+
+		err = mgr.keymgr.SetKey(ourID, r)
 		if err != nil {
 			return nil, err
 		}
 
-		ks = keys.Recipients{keys.Recipient{
-			Scheme: scheme,
-			Key:    messageShared,
-		}}
+		ks = keys.Recipients{r}
 	}
 
 	return ks, nil
