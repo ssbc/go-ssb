@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/margaret/codec/msgpack"
 	"go.cryptoscope.co/margaret/multilog"
 	multibadger "go.cryptoscope.co/margaret/multilog/badger"
+	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
 	"modernc.org/kv"
@@ -75,7 +76,7 @@ func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.Mul
 	return mlog, mlogSink, nil
 }
 
-func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
+func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring.MultiLog, librarian.SinkIndex, error) {
 	dbPath := r.GetPath(PrefixMultiLog, name, "fs-bitmaps")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {
