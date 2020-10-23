@@ -130,18 +130,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	uf, ok := s.mlogIndicies[multilogs.IndexNameFeeds]
-	if !ok {
-		level.Debug(s.info).Log("event", "bot init", "msg", "loading default idx", "idx", multilogs.IndexNameFeeds)
-		err = MountMultiLog(multilogs.IndexNameFeeds, multilogs.OpenUserFeeds)(s)
-		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
-		}
-		uf, ok = s.mlogIndicies[multilogs.IndexNameFeeds]
-		if !ok {
-			return nil, errors.Errorf("sbot: failed get loaded default index")
-		}
+	var updateUf librarian.SinkIndex
+	s.Users, updateUf, err = multilogs.OpenUserFeeds(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
 	}
+
+	s.closers.addCloser(updateUf)
+	s.closers.addCloser(s.Users)
+	// TODO: serveAll()
+	// s.serveIndex(name, updateSink)
+	// backwards compat
+	s.mlogIndicies[multilogs.IndexNameFeeds] = s.Users
+	uf := s.Users
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
@@ -367,18 +368,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(get.New(s, s.RootLog))
 
-	if feeds, ok := s.mlogIndicies["userFeeds"]; ok {
-		if byType, ok := s.mlogIndicies["msgTypes"]; ok {
-			if tangles, ok := s.mlogIndicies["tangles"]; ok {
-				plug := partial.New(s.info,
-					fm,
-					feeds.(*roaring.MultiLog),
-					byType.(*roaring.MultiLog),
-					tangles.(*roaring.MultiLog),
-					s.RootLog, s)
-				s.public.Register(plug)
-				s.master.Register(plug)
-			}
+	if byType, ok := s.mlogIndicies["msgTypes"]; ok {
+		if tangles, ok := s.mlogIndicies["tangles"]; ok {
+			plug := partial.New(s.info,
+				fm,
+				uf,
+				byType.(*roaring.MultiLog),
+				tangles.(*roaring.MultiLog),
+				s.RootLog, s)
+			s.public.Register(plug)
+			s.master.Register(plug)
 		}
 	}
 

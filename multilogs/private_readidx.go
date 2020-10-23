@@ -24,6 +24,7 @@ import (
 
 const IndexNamePrivates = "privates"
 
+/* legacy
 // not strictly a multilog but allows multiple keys and gives us the good resumption
 func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 	return &Private{
@@ -32,6 +33,7 @@ func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 		boxer:    box.NewBoxer(nil),
 	}
 }
+*/
 
 type Private struct {
 	logger kitlog.Logger

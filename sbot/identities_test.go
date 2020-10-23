@@ -20,7 +20,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -75,10 +75,12 @@ func TestMultipleIdentities(t *testing.T) {
 	r.NoError(err)
 
 	// boxing helper
+	b := box.NewBoxer(nil)
 	box := func(v interface{}, recpts ...*refs.FeedRef) []byte {
 		msg, err := json.Marshal(v)
 		r.NoError(err, "failed to marshal privmsg")
-		ciph, err := private.Box(msg, recpts...)
+
+		ciph, err := b.Encrypt(msg, recpts...)
 		r.NoError(err, "failed to box privmg")
 		return ciph
 	}

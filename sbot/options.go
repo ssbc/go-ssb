@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 	"golang.org/x/sync/errgroup"
@@ -27,7 +28,6 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/internal/netwraputil"
-	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/private"
@@ -81,11 +81,20 @@ type Sbot struct {
 	repoPath string
 	KeyPair  *ssb.KeyPair
 
-	RootLog multimsg.AlterableLog
+	Groups *private.Manager
+
+	RootLog multimsg.AlterableLog // aka receive log (the stream of messages as it arrived)
 
 	PublishLog     ssb.Publisher
 	signHMACsecret []byte
 
+	// hardcoded default indexes
+	Users   *roaring.MultiLog // one sublog per feed
+	Private *roaring.MultiLog // one sublog per keypair
+	ByType  *roaring.MultiLog // one sublog per type: ... (special cases for private messages by suffix)
+	Tangles *roaring.MultiLog // one sublog per root:%ref (actual root is in the get index)
+
+	// plugin indexes
 	mlogIndicies map[string]multilog.MultiLog
 	simpleIndex  map[string]librarian.Index
 
@@ -98,14 +107,10 @@ type Sbot struct {
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
 
-	KeyManager *keys.Store
-
 	// TODO: wrap better
 	eventCounter metrics.Counter
 	systemGauge  metrics.Gauge
 	latency      metrics.Histogram
-
-	Groups *private.Manager
 
 	ssb.Replicator
 }
