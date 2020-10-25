@@ -57,7 +57,6 @@ github.com/cryptix/go v1.3.2/go.mod h1:mFQotm9rTzptzvNjJM+1vSIDa/rVOVqMu0889GIXg
 github.com/cryptix/go v1.4.0/go.mod h1:bopBFzjGB7Oqrsvt7HaPZSOX1gJW7hgIb84XNhnOhOY=
 github.com/cryptix/go v1.5.0 h1:2+g9oKxiTc5ELGISY2E4Q4E7X8FwP3cXyKbb93EUaZY=
 github.com/cryptix/go v1.5.0/go.mod h1:bopBFzjGB7Oqrsvt7HaPZSOX1gJW7hgIb84XNhnOhOY=
-github.com/cryptix/golang_x_crypto v0.0.0-20190325154230-a5d413f7728c h1:uHG8ePXHW0QRgGOaIE9EtKgzDpmxyZlvZSpU/1FnsCw=
 github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8 h1:eJ+NZ2KeNYBPYvshzkPxxKvaWM+h0CgpDyJw0aa6W1Y=
 github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -403,11 +402,6 @@ go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398 h1:SAmIyRPH5pB
 go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398/go.mod h1:14SS9YOzziQ7aWdBdB30WyL9lEZcxPY3PR5tQxRc7EY=
 go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996 h1:+v2nqtamGeqEgDjSm8p/o3KpuNasynIZOFwRp3XBltc=
 go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996/go.mod h1:00eKD22DevFY0GQ1ifsydiOvBHJi9Z/bomxlRGTEvL0=
-go.mindeco.de/ssb-refs v0.0.0-20200615115708-7b8437f55cef/go.mod h1:u3EqvzDljgzrGT93hyWA1VbE06NKdavnpJ4sMXZxQxE=
-go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097 h1:CIlsAbrn4c1/xBX4E/IgOFTJMkc/MJwYdkDZ9v61Y7Q=
-go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
-go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe h1:EI9l2VuF6otb8g0NoSE3D1FLREObP2PH/9P2Z49FUho=
-go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
