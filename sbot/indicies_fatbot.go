@@ -167,17 +167,19 @@ func (slog *applicationIdx) QuerySpec() margaret.QuerySpec {
 func (slog *applicationIdx) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]byte, error) {
 	box1, box2, err := getBoxedContent(msg)
 	if err != nil {
+		// not super sure what the idea with the different skip errors was
+		// these are _broken_ content-wise both kinds _should be ignored
 		if err == errSkipBox1 {
-			// not super sure what the idea here was
 			//slog.bot.ByTypes.Get(librarian.Addr("special:boxed1"))
 			return nil, errSkip
 		}
 
 		if err == errSkipBox2 {
-			// not super sure what the idea here was
 			//slog.bot.ByTypes.Get(librarian.Addr("special:boxed2"))
 			return nil, errSkip
 		}
+
+		return nil, err
 	}
 
 	var (
