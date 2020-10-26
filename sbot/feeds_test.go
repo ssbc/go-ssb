@@ -14,6 +14,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
@@ -91,8 +92,8 @@ func TestFeedsOneByOne(t *testing.T) {
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
-	ali.PublishLog.Publish("hello, world")
-	bob.PublishLog.Publish("hello, world")
+	ali.PublishLog.Publish(newPost("hello, world"))
+	bob.PublishLog.Publish(newPost("hello, world"))
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
@@ -107,6 +108,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		bob.Network.GetConnTracker().CloseAll()
 
 		_, err := ali.PublishLog.Append(map[string]interface{}{
+			"type": "test-value",
 			"test": i,
 		})
 		r.NoError(err)
@@ -127,4 +129,11 @@ func TestFeedsOneByOne(t *testing.T) {
 	r.NoError(bob.Close())
 
 	r.NoError(botgroup.Wait())
+}
+
+func newPost(txt string) refs.Post {
+	return refs.Post{
+		Type: "post",
+		Text: txt,
+	}
 }

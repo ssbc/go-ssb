@@ -120,7 +120,7 @@ func testFSCKdouble(t *testing.T) {
 
 	// more valid messages
 	for i := 64; i > 32; i-- {
-		_, err := theBot.PublishLog.Publish(i)
+		_, err := theBot.PublishLog.Publish(map[string]interface{}{"test:": i, "type": "test"})
 		r.NoError(err)
 	}
 
@@ -168,8 +168,8 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 	// create some messages
 	intros := []struct {
-		as string      // nick name
-		c  interface{} // content
+		as string                 // nick name
+		c  map[string]interface{} // content
 	}{
 		{"one", map[string]interface{}{"hello": 123}},
 		{"one", map[string]interface{}{"world": 456}},
@@ -178,6 +178,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 		{"two", map[string]interface{}{"test": 789}},
 	}
 	for idx, intro := range intros {
+		intro.c["type"] = "test"
 		ref, err := theBot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)

@@ -7,16 +7,18 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/private/box"
+	"go.cryptoscope.co/ssb/private"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type privatePlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
+func NewPlug(i logging.Interface, author *refs.FeedRef, mngr *private.Manager, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
 	return &privatePlug{h: handler{
-		boxer:   box.NewBoxer(nil),
+		author:  author,
+		mngr:    mngr,
 		publish: publish,
 		read:    readIdx,
 		info:    i,
