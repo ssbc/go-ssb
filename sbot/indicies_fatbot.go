@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/keks/persist"
@@ -15,16 +16,31 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/message/multimsg"
+	"go.cryptoscope.co/ssb/repo"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func newApplicationIndex(file *os.File, bot *Sbot) librarian.SinkIndex {
-	return &applicationIdx{
+func (bot *Sbot) newApplicationIndex() error {
+
+	statePath := repo.New(bot.repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
+	mode := os.O_RDWR | os.O_EXCL
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		mode |= os.O_CREATE
+	}
+	os.MkdirAll(filepath.Dir(statePath), 0700)
+	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
+	if err != nil {
+		return errors.Wrap(err, "error opening state file")
+	}
+
+	idx := &applicationIdx{
 		bot:  bot,
-		file: file,
+		file: idxStateFile,
 		l:    &sync.Mutex{},
 	}
+	bot.serveIndex("combined", idx)
+	return nil
 }
 
 type applicationIdx struct {
@@ -140,7 +156,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, v interface{}) error {
 	return nil
 }
 
-// Close does nothing...???
+// Close does nothing.
 func (slog *applicationIdx) Close() error { return nil }
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
