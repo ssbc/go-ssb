@@ -44,23 +44,30 @@ func (bot *Sbot) newApplicationIndex() error {
 }
 
 type applicationIdx struct {
-	bot  *Sbot
+	bot *Sbot
+
 	file *os.File
 	l    *sync.Mutex
 }
 
 // Pour calls the processing function to add a value to a sublog.
-func (slog *applicationIdx) Pour(ctx context.Context, v interface{}) error {
+func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
-	seq := v.(margaret.SeqWrapper)
+	sw, ok := swv.(margaret.SeqWrapper)
+	if !ok {
+		return errors.Errorf("error casting seq wrapper. got type %T", swv)
+	}
+	seq := sw.Seq()
 
 	// todo: defer state save!?
-	err := persist.Save(slog.file, seq.Seq())
+	err := persist.Save(slog.file, seq)
 	if err != nil {
 		return errors.Wrap(err, "error saving current sequence number")
 	}
+
+	v := sw.Value()
 
 	if isNulled, ok := v.(error); ok {
 		if margaret.IsErrNulled(isNulled) {
@@ -80,7 +87,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, v interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
-	_, err = authorLog.Append(seq)
+	_, err = authorLog.Append(seq.Seq())
 	if err != nil {
 		return errors.Wrap(err, "error updating author sublog")
 	}
@@ -88,7 +95,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, v interface{}) error {
 	// decrypt box 1 & 2
 	content := abstractMsg.ContentBytes()
 	if content[0] != '{' { // assuming all other content is json objects
-		cleartext, err := slog.tryDecrypt(abstractMsg, seq.Seq())
+		cleartext, err := slog.tryDecrypt(abstractMsg, seq)
 		if err != nil {
 			if err == errSkip {
 				return nil
@@ -128,7 +135,6 @@ func (slog *applicationIdx) Pour(ctx context.Context, v interface{}) error {
 	}
 
 	// tangles v1 and v2
-
 	if jsonContent.Root != nil {
 		addr := librarian.Addr(append([]byte("v1:"), jsonContent.Root.Hash...))
 		tangleLog, err := slog.bot.Tangles.Get(addr)
@@ -209,7 +215,7 @@ func (slog *applicationIdx) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]
 			idxAddr = librarian.Addr("notForUs:box1")
 			retErr = errSkip
 		} else {
-			idxAddr = librarian.Addr("box1:TODO:ME") // + kp.Id.StoredAddr()
+			idxAddr = librarian.Addr("box1:") + slog.bot.KeyPair.Id.StoredAddr()
 			cleartext = content
 		}
 	} else if box2 != nil {
@@ -220,7 +226,7 @@ func (slog *applicationIdx) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]
 		} else {
 			// instead by group root? could be PM... hmm
 			// would be nice to keep multi-keypair support here but might need rething of the gorups manager
-			idxAddr = librarian.Addr("box2:TODO:ME") // + kp.Id.StoredAddr()
+			idxAddr = librarian.Addr("box2:") + slog.bot.KeyPair.Id.StoredAddr()
 			cleartext = content
 		}
 	} else {
@@ -310,17 +316,17 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			prefixBox1 = []byte("box1:")
 			prefixBox2 = []byte("box2:")
 		)
-		if bytes.HasPrefix(tr.Content, prefixBox1) {
+		switch {
+		case bytes.HasPrefix(tr.Content, prefixBox1):
 			return tr.Content[5:], nil, nil
-		} else if bytes.HasPrefix(tr.Content, prefixBox2) {
+		case bytes.HasPrefix(tr.Content, prefixBox2):
 			return nil, tr.Content[5:], nil
-		} else {
+		default:
 			return nil, nil, errors.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortRef())
 		}
 
 	default:
 		err := errors.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
-		//level.Warn(pr.logger).Log("msg", "unahndled type", "err", err)
 		return nil, nil, err
 	}
 

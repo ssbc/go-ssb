@@ -16,6 +16,7 @@ import (
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
+	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -26,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
@@ -43,6 +45,8 @@ import (
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
+
+	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
 func (s *Sbot) Close() error {
@@ -128,31 +132,37 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	/* TODO: open multilogs without serving idexs
+	var mlogs = []struct {
+		Name string
+		Mlog **roaring.MultiLog
+	}{
+		{multilogs.IndexNameFeeds, &s.Users},
+		{multilogs.IndexNamePrivates, &s.Private},
+		{"msgTypes", &s.ByType},
+		{"tangles", &s.Tangles},
+	}
+	for _, index := range mlogs {
+		mlogPath := r.GetPath(repo.PrefixMultiLog, index.Name, "fs-bitmaps")
 
-	Users
-	Tangles
-	ByType
-	Private
-
-		var updateUf librarian.SinkIndex
-		s.Users, updateUf, err = multilogs.OpenUserFeeds(r)
+		ml, err := multifs.NewMultiLog(mlogPath)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
+			return nil, errors.Wrapf(err, "sbot: failed to open multilog %s", index.Name)
 		}
-		s.closers.addCloser(s.Users)
+		s.closers.addCloser(ml)
+		s.mlogIndicies[index.Name] = ml
 
-		s.mlogIndicies[multilogs.IndexNameFeeds] = s.Users
-		uf := s.Users
+		if err := ml.CompressAll(); err != nil {
+			return nil, errors.Wrapf(err, "sbot: failed compress multilog %s", index.Name)
+		}
+		s.info.Log("index", index.Name)
 
-	*/
+		*index.Mlog = ml
+	}
 
 	err = s.newApplicationIndex()
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
-
-	// backwards compat
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
@@ -308,13 +318,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
 
-	if pl, ok := s.mlogIndicies["privLogs"]; ok {
-		userPrivs, err := pl.Get(s.KeyPair.Id.StoredAddr())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open user private index")
-		}
-		s.master.Register(privplug.NewPlug(kitlog.With(log, "plugin", "private"), s.PublishLog, private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + s.KeyPair.Id.StoredAddr())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open user private index")
 	}
+	s.master.Register(privplug.NewPlug(
+		kitlog.With(log, "plugin", "private"),
+		s.KeyPair.Id,
+		s.Groups,
+		s.PublishLog,
+		private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
@@ -325,8 +338,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
-
-	// names
 
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
@@ -371,8 +382,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		histOpts...)
 	s.public.Register(hist)
 
+	// get idx muxrpc handler
 	s.master.Register(get.New(s, s.RootLog))
 
+	// partial wip
 	plug := partial.New(s.info,
 		fm,
 		s.Users,

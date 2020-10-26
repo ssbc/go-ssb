@@ -13,12 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
@@ -45,23 +47,22 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			srvLog = kitlog.NewJSONLogger(os.Stderr)
 		}
 
-		mlogPriv := multilogs.NewPrivateRead(kitlog.With(srvLog, "module", "privLogs"), alice)
-
 		srv, err := sbot.New(
 			sbot.WithKeyPair(alice),
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
 			sbot.LateOption(sbot.WithUNIXSocket()),
-			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
+			sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 		)
 
 		const n = 32
 		for i := n; i > 0; i-- {
 			_, err := srv.PublishLog.Publish(struct {
+				Type string `json:"type"`
 				Text string
 				I    int
-			}{"clear text!", i})
+			}{"test", "clear text!", i})
 			r.NoError(err)
 		}
 
@@ -71,7 +72,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		r.NoError(err, "failed to make client connection")
 
 		type msg struct {
-			Type string
+			Type string `json:"type"`
 			Msg  string
 		}
 		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.Id)
@@ -86,17 +87,22 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 
 		savedMsg, ok := v.(refs.Message)
 		r.True(ok, "wrong type: %T", v)
-		r.Equal(savedMsg.Key().Ref(), ref.Ref())
+		if !a.Equal(savedMsg.Key().Ref(), ref.Ref()) {
+
+			whoops, err := srv.Get(*ref)
+			r.NoError(err)
+			t.Log(string(whoops.ContentBytes()))
+		}
 
 		v, err = src.Next(context.TODO())
 		r.Error(err)
 		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
 
 		// try with seqwrapped query
-		pl, ok := srv.GetMultiLog("privLogs")
+		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
 		r.True(ok)
 
-		userPrivs, err := pl.Get(srv.KeyPair.Id.StoredAddr())
+		userPrivs, err := pl.Get(librarian.Addr("box1:") + srv.KeyPair.Id.StoredAddr())
 		r.NoError(err)
 
 		unboxlog := private.NewUnboxerLog(srv.RootLog, userPrivs, srv.KeyPair)

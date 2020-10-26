@@ -50,7 +50,6 @@ func TestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -68,7 +67,6 @@ func TestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -80,6 +78,7 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	for i := 0; i < 9; i++ {
 		seq, err := bob.PublishLog.Append(map[string]interface{}{
+			"type": "test",
 			"test": i,
 		})
 		r.NoError(err)

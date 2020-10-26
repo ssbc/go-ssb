@@ -76,9 +76,9 @@ func TestNullFeed(t *testing.T) {
 	}{
 		{"arny", refs.NewContactFollow(kpBert.Id)},
 		{"bert", refs.NewContactFollow(kpArny.Id)},
-		{"arny", map[string]interface{}{"hello": 123}},
-		{"bert", map[string]interface{}{"world": 456}},
-		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
+		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
+		{"bert", map[string]interface{}{"type": "test", "world": 456}},
+		{"bert", map[string]interface{}{"type": "test", "spew": true, "delete": "me"}},
 	}
 
 	for idx, intro := range intros {
@@ -221,7 +221,6 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -237,7 +236,6 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -247,7 +245,8 @@ func TestNullFetched(t *testing.T) {
 	bob.Replicate(ali.KeyPair.Id)
 
 	for i := 1000; i > 0; i-- {
-		_, err = bob.PublishLog.Publish(i)
+		c := map[string]interface{}{"test:": i, "type": "test"}
+		_, err = bob.PublishLog.Publish(c)
 		r.NoError(err)
 	}
 

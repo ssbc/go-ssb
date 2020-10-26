@@ -16,26 +16,8 @@ import (
 	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
 )
 
-const PrefixMultiLog = "sublogs"
-
-// OpenBadgerMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
-//
-// Exposes the badger db for 100% hackability. This will go away in future versions!
-// badger + librarian as index
-func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
-
-	dbPath := r.GetPath(PrefixMultiLog, name, "db")
-	err := os.MkdirAll(dbPath, 0700)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
-	}
-
-	db, err := badger.Open(badgerOpts(dbPath))
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "db/idx: badger failed to open")
-	}
-
-	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
+// todo: save the current state in the multilog
+func makeSinkIndex(r Interface, name string, mlog multilog.MultiLog, fn multilog.Func) (librarian.SinkIndex, error) {
 
 	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
 	mode := os.O_RDWR | os.O_EXCL
@@ -44,12 +26,38 @@ func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.Mul
 	}
 	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error opening state file")
+		return nil, errors.Wrap(err, "error opening state file")
 	}
 
-	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
+	return multilog.NewSink(idxStateFile, mlog, fn), nil
+}
 
-	return mlog, mlogSink, nil
+const PrefixMultiLog = "sublogs"
+
+// OpenBadgerMultiLog uses the repo to determine the paths where to finds the multilog with given name and opens it.
+//
+// Exposes the badger db for 100% hackability. This will go away in future versions!
+// badger + librarian as index
+func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
+	dbPath := r.GetPath(PrefixMultiLog, name, "db")
+	err := os.MkdirAll(dbPath, 0700)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
+	}
+
+	db, err := badger.Open(badgerOpts(dbPath))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "mlog/badger: badger failed to open")
+	}
+
+	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
+
+	snk, err := makeSinkIndex(r, name+"-badger", mlog, f)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "mlog/badger: failed to create sink")
+	}
+
+	return mlog, snk, nil
 }
 
 func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring.MultiLog, librarian.SinkIndex, error) {
@@ -63,24 +71,12 @@ func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring
 		return nil, nil, errors.Wrapf(err, "open error for %q", dbPath)
 	}
 
-	if err := mlog.CompressAll(); err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to compress db")
-	}
-
-	// todo: save the current state in the multilog
-	statePath := r.GetPath(PrefixMultiLog, name, "state_mkv.json")
-	mode := os.O_RDWR | os.O_EXCL
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		mode |= os.O_CREATE
-	}
-	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
+	snk, err := makeSinkIndex(r, dbPath, mlog, f)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error opening state file")
+		return nil, nil, errors.Wrap(err, "mlog/fs: failed to create sink")
 	}
 
-	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
-
-	return mlog, mlogSink, nil
+	return mlog, snk, nil
 
 }
 
@@ -111,22 +107,10 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 		}
 	}
 
-	if err := mlog.CompressAll(); err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to compress db")
-	}
-
-	// todo: save the current state in the multilog
-	statePath := r.GetPath(PrefixMultiLog, name, "state_mkv.json")
-	mode := os.O_RDWR | os.O_EXCL
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		mode |= os.O_CREATE
-	}
-	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
+	snk, err := makeSinkIndex(r, dbPath, mlog, f)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error opening state file")
+		return nil, nil, errors.Wrap(err, "mlog/fs: failed to create sink")
 	}
 
-	mlogSink := multilog.NewSink(idxStateFile, mlog, f)
-
-	return mlog, mlogSink, nil
+	return mlog, snk, nil
 }

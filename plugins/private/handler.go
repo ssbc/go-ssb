@@ -15,17 +15,18 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/private/box"
+	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 type handler struct {
 	info logging.Interface
 
+	author  *refs.FeedRef
 	publish ssb.Publisher
 	read    margaret.Log
 
-	boxer *box.Boxer
+	mngr *private.Manager
 }
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
@@ -83,6 +84,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 				req.CloseWithError(errors.Errorf("private/publish: wrong argument type. expected strings but got %T", rv))
 				return
 			}
+			// TODO: box2 message ref
 			rcpsRefs[i], err = refs.ParseFeedRef(rstr)
 			if err != nil {
 				req.CloseWithError(errors.Wrapf(err, "private/publish: failed to parse recp %d", i))
@@ -166,11 +168,14 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 }
 
 func (h handler) privatePublish(msg []byte, recps []*refs.FeedRef) (*refs.MessageRef, error) {
-	// TODO: manager?!
-	boxedMsg, err := h.boxer.Encrypt(msg, recps...)
+
+	boxedMsg, err := h.mngr.EncryptBox1(msg, recps...)
 	if err != nil {
 		return nil, errors.Wrap(err, "private/publish: failed to box message")
+	}
 
+	if h.author.Algo == refs.RefAlgoFeedGabby {
+		boxedMsg = append([]byte("box1:"), boxedMsg...)
 	}
 
 	ref, err := h.publish.Publish(boxedMsg)
