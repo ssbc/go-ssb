@@ -16,7 +16,6 @@ import (
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
-	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -27,7 +26,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
 	"go.cryptoscope.co/ssb/plugins/control"
@@ -130,19 +128,31 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	var updateUf librarian.SinkIndex
-	s.Users, updateUf, err = multilogs.OpenUserFeeds(r)
+	/* TODO: open multilogs without serving idexs
+
+	Users
+	Tangles
+	ByType
+	Private
+
+		var updateUf librarian.SinkIndex
+		s.Users, updateUf, err = multilogs.OpenUserFeeds(r)
+		if err != nil {
+			return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
+		}
+		s.closers.addCloser(s.Users)
+
+		s.mlogIndicies[multilogs.IndexNameFeeds] = s.Users
+		uf := s.Users
+
+	*/
+
+	err = s.newApplicationIndex()
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open userFeeds index")
+		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
 
-	s.closers.addCloser(updateUf)
-	s.closers.addCloser(s.Users)
-	// TODO: serveAll()
-	// s.serveIndex(name, updateSink)
 	// backwards compat
-	s.mlogIndicies[multilogs.IndexNameFeeds] = s.Users
-	uf := s.Users
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
@@ -164,7 +174,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if s.signHMACsecret != nil {
 		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
 	}
-	s.PublishLog, err = message.OpenPublishLog(s.RootLog, uf, s.KeyPair, pubopts...)
+	s.PublishLog, err = message.OpenPublishLog(s.RootLog, s.Users, s.KeyPair, pubopts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
@@ -187,12 +197,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(idx)
 
-	tangles, has := s.mlogIndicies["tangles"]
-	if !has {
-		return nil, errors.Errorf("tangles plugin missing")
-	}
-
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, tangles)
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
 
 	// LogBuilder doesn't fully work yet
 	if mt, _ := s.mlogIndicies["msgTypes"]; false {
@@ -294,7 +299,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
 			return s.public.MakeHandler(conn)
 		}
-		if lst, err := uf.List(); err == nil && len(lst) == 0 {
+		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			return s.public.MakeHandler(conn)
 		}
@@ -346,21 +351,21 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	fm := gossip.NewFeedManager(
 		ctx,
 		s.RootLog,
-		uf,
+		s.Users,
 		kitlog.With(log, "feedmanager"),
 		s.systemGauge,
 		s.eventCounter,
 	)
 	s.public.Register(gossip.New(ctx,
 		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, uf, fm, s.Replicator.Lister(),
+		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
 		kitlog.With(log, "plugin", "gossip/hist"),
 		s.KeyPair.Id,
-		s.RootLog, uf,
+		s.RootLog, s.Users,
 		s.Replicator.Lister(),
 		fm,
 		histOpts...)
@@ -368,25 +373,21 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(get.New(s, s.RootLog))
 
-	if byType, ok := s.mlogIndicies["msgTypes"]; ok {
-		if tangles, ok := s.mlogIndicies["tangles"]; ok {
-			plug := partial.New(s.info,
-				fm,
-				uf,
-				byType.(*roaring.MultiLog),
-				tangles.(*roaring.MultiLog),
-				s.RootLog, s)
-			s.public.Register(plug)
-			s.master.Register(plug)
-		}
-	}
+	plug := partial.New(s.info,
+		fm,
+		s.Users,
+		s.ByType,
+		s.Tangles,
+		s.RootLog, s)
+	s.public.Register(plug)
+	s.master.Register(plug)
 
 	// raw log plugins
 	s.master.Register(rawread.NewSequenceStream(s.RootLog))
 	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
 	s.master.Register(hist)                        // createHistoryStream
 
-	s.master.Register(replicate.NewPlug(uf))
+	s.master.Register(replicate.NewPlug(s.Users))
 
 	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
 
