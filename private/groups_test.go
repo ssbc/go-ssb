@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,13 +16,14 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog/roaring"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -62,7 +64,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
 		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
-		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
@@ -120,7 +121,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
 		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
-		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
@@ -228,6 +228,44 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 	t.Log(string(replyContent))
 
+	// indexed?
+	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
+		return func(tipe librarian.Addr, cnt int) {
+			posts, err := ml.Get(tipe)
+			r.NoError(err)
+
+			pv, err := posts.Seq().Value()
+			r.NoError(err)
+			r.EqualValues(cnt-1, pv, "margaret is 0-indexed (%d)", cnt)
+
+			bmap, err := ml.LoadInternalBitmap(tipe)
+			r.NoError(err)
+			t.Logf("%q: %s", tipe, bmap.String())
+		}
+	}
+
+	chkCount(srh.ByType)("test", 2)
+	chkCount(srh.ByType)("post", 2)
+
+	chkCount(tal.ByType)("test", 2)
+	chkCount(tal.ByType)("post", 1) // TODO: reindex
+
+	addr := librarian.Addr("box2:") + srh.KeyPair.Id.StoredAddr()
+	chkCount(srh.Private)(addr, 3)
+
+	addr = librarian.Addr("box2:") + tal.KeyPair.Id.StoredAddr()
+	chkCount(tal.Private)(addr, 2) // TODO: reindex
+
+	t.Log("srh")
+	streamLog(t, srh.RootLog)
+
+	t.Log("tal")
+	streamLog(t, tal.RootLog)
+
+	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
+	r.NoError(err)
+	t.Log("stillBoxed:", stillBoxed.String())
+
 	tal.Shutdown()
 	srh.Shutdown()
 
@@ -252,4 +290,33 @@ func (bs botServer) Serve(s *sbot.Sbot) func() error {
 		}
 		return err
 	}
+}
+
+func streamLog(t *testing.T, l margaret.Log) {
+
+	r := require.New(t)
+	src, err := l.Query()
+	r.NoError(err)
+	i := 0
+	for {
+		v, err := src.Next(context.TODO())
+		if luigi.IsEOS(err) {
+			break
+		}
+
+		mm, ok := v.(refs.Message)
+		r.True(ok, "%T", v)
+
+		t.Log(i, mm.Key().ShortRef())
+		t.Log(mm.Author().ShortRef(), mm.Seq())
+
+		b := mm.ContentBytes()
+		if len(b) > 128 {
+			b = b[len(b)-32:]
+		}
+		t.Logf("\n%s", hex.Dump(b))
+
+		i++
+	}
+
 }

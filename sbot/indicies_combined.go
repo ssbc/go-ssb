@@ -21,8 +21,11 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// this is one big index which updates the multilogs users, byType, private and tangles.
+// compared to the "old" fatbot approach of just having 4 independant indexes,
+// this one updates all 4 of them, resulting in less read-overhead
+// while also being able to index private massages by tangle and type.
 func (bot *Sbot) newApplicationIndex() error {
-
 	statePath := repo.New(bot.repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
@@ -117,7 +120,16 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 	err = json.Unmarshal(content, &jsonContent)
 	typeStr := jsonContent.Type
 	if err != nil {
-		return err
+		// fmt.Errorf("ssb: combined idx failed to unmarshal json content of %s: %w", abstractMsg.Key().Ref(), err)
+		// returning an error in this pipeline stops the processing,
+		// i.e. broken messages stop all other indexing
+		// not much to do here but continue with the next
+		// these can be quite educational though (like root: bool)
+		//
+		// TODO: make a "forgiving" content type
+		// which silently ignores invalid root: or tangle fields.
+		// right now these don't end up in byType or tangles
+		return nil
 	}
 
 	if typeStr == "" {

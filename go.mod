@@ -4,10 +4,10 @@ go 1.13
 
 require (
 	github.com/RoaringBitmap/roaring v0.4.21-0.20190925020156-96f2302555b6
+	github.com/cheekybits/is v0.0.0-20150225183255-68e9c0620927 // indirect
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
-	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.10.0
 	github.com/gorilla/websocket v1.4.1
@@ -37,8 +37,7 @@ require (
 	go.mindeco.de/ssb-refs v0.0.0-20200930083235-7f51ac8596fe
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
-	golang.org/x/text v0.3.2
+	golang.org/x/text v0.3.3
 	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
@@ -55,3 +54,5 @@ replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-2020092
 
 // TODO: pin with-branches branch
 replace go.mindeco.de/ssb-refs => /home/cryptix/go/src/go.mindeco.de/ssb-refs
+
+replace go.cryptoscope.co/margaret => /home/cryptix/go-repos/margaret
