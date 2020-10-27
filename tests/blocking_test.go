@@ -15,7 +15,7 @@ import (
 // alice<>bob and bob<>claire are friends
 // but alice starts blocking claire
 // clair should not get new messages from alice's feed anymore
-func TestBlocking(t *testing.T) {
+func XTestBlocking(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23

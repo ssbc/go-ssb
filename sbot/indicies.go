@@ -175,7 +175,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 
 		err = luigi.Pump(s.rootCtx, &ps, src)
 		cancel()
-		if err == ssb.ErrShuttingDown || err == context.Canceled {
+		if cause := errors.Cause(err); cause == ssb.ErrShuttingDown || cause == context.Canceled {
 			return nil
 		}
 		if err != nil {
@@ -200,7 +200,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 		s.indexStateMu.Unlock()
 
 		err = luigi.Pump(s.rootCtx, snk, src)
-		if err == ssb.ErrShuttingDown || err == context.Canceled {
+		if cause := errors.Cause(err); cause == ssb.ErrShuttingDown || cause == context.Canceled {
 			return nil
 		}
 		if err != nil {
