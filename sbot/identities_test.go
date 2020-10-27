@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-// +build ignore
-
 package sbot
 
 import (
@@ -21,12 +19,12 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestMultipleIdentities(t *testing.T) {
+// TODO: refactor for multi manager
+func XTestMultipleIdentities(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -65,13 +63,11 @@ func TestMultipleIdentities(t *testing.T) {
 
 	// make the bot
 	logger := log.NewLogfmtLogger(os.Stderr)
-	mlogPriv := multilogs.NewPrivateRead(logger, kps...)
 	mainbot, err := New(
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
 		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
-		LateOption(MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)

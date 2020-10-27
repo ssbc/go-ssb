@@ -42,6 +42,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/status"
 	"go.cryptoscope.co/ssb/plugins/whoami"
+	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
@@ -100,15 +101,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(s.RootLog.(io.Closer))
 
-	// TODO: rewirte about as consumer of msgs by type, like contacts
-	// ab, serveAbouts, err := indexes.OpenAbout(kitlog.With(log, "index", "abouts"), r)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "sbot: failed to open about idx")
-	// }
-	// // s.closers.addCloser(ab)
-	// s.serveIndex(ctx, "abouts", serveAbouts)
-	// s.AboutStore = ab
-
 	if s.BlobStore == nil { // load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
 		if err != nil {
@@ -154,7 +146,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		if err := ml.CompressAll(); err != nil {
 			return nil, errors.Wrapf(err, "sbot: failed compress multilog %s", index.Name)
 		}
-		s.info.Log("index", index.Name)
 
 		*index.Mlog = ml
 	}
@@ -235,6 +226,21 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.closers.addCloser(seqSetter)
 		s.GraphBuilder = gb
 	}
+
+	// abouts
+	aboutSeqs, err := s.ByType.Get(librarian.Addr("about"))
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open message about sublog")
+	}
+	aboutsOnly := mutil.Indirect(s.RootLog, aboutSeqs)
+
+	var namesPlug names.Plugin
+	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open about idx")
+	}
+	s.closers.addCloser(aboutSnk)
+	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
 
 	// from here on just network related stuff
 	if s.disableNetwork {
@@ -325,8 +331,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
+	// publish
 	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
 
+	// private
+	// TODO: box2
 	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + s.KeyPair.Id.StoredAddr())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
@@ -393,6 +402,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// get idx muxrpc handler
 	s.master.Register(get.New(s, s.RootLog))
+
+	//
+	s.master.Register(namesPlug)
 
 	// partial wip
 	plug := partial.New(s.info,

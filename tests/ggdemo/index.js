@@ -22,9 +22,9 @@ exports.init = function (sbot, config) {
             // console.warn(args)
             // console.warn(arguments)
 
-            let evt1 = grove.makeEventSync(config.keys, 1, null, {'message':'hello world', 'level':0})
-            let evt2 = grove.makeEventSync(config.keys, 2, evt1.key, {'message':'exciting', 'level':9000})
-            let evt3 = grove.makeEventSync(config.keys, 3, evt2.key, {'message':'last', 'level':9001})
+            let evt1 = grove.makeEventSync(config.keys, 1, null, {'type':'test','message':'hello world', 'level':0})
+            let evt2 = grove.makeEventSync(config.keys, 2, evt1.key, {'type':'test','message':'exciting', 'level':9000})
+            let evt3 = grove.makeEventSync(config.keys, 3, evt2.key, {'type':'test','message':'last', 'level':9001})
 
             return pull.values([
                 evt1.trBytes,

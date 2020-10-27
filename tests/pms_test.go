@@ -8,15 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private/box"
-	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
@@ -26,17 +22,9 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	testRepo := repo.New(ts.repo)
-	aliceKP, err := repo.DefaultKeyPair(testRepo)
-	r.NoError(err)
-
-	mlogPriv := multilogs.NewPrivateRead(log.With(ts.info, "module", "privLogs"), aliceKP)
-
 	boxer := box.NewBoxer(nil)
 
-	ts.startGoBot(
-		sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
-	)
+	ts.startGoBot()
 	s := ts.gobot
 
 	before := `fromKey = testBob
@@ -100,23 +88,17 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	alice := ts.startJSBot(before, "")
 
 	s.Replicate(alice)
-	newSeq, err := s.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   alice.Ref(),
-		"following": true,
-	})
+	newSeq, err := s.PublishLog.Append(refs.NewContactFollow(alice))
 
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
 
 	var tmsgs = [][]byte{
-		[]byte(`[1,2,3,4,5]`),
-		[]byte(`{"some": 1, "msg": "here"}`),
-		[]byte(`{"hello": true}`),
-		// []byte(`hello, world`), // invalid json
-		[]byte(`"plainStringLikeABlob"`),
-		[]byte(`{"hello": false}`),
-		[]byte(`{"hello": true}`),
+		[]byte(`{"some": 1, "msg": "this", "type":"test"}`),
+		[]byte(`{"some": 2, "msg": "is", "type":"test"}`),
+		[]byte(`{"some": 3, "msg": "not", "type":"test"}`),
+		[]byte(`{"some": 4, "msg": "a", "type":"test"}`),
+		[]byte(`{"some": 5, "msg": "test", "type":"test"}`),
 	}
 
 	for i, msg := range tmsgs {
@@ -130,9 +112,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := s.Users.Get(alice.StoredAddr())
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
