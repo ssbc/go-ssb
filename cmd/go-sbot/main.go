@@ -20,7 +20,6 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/cryptix/go/logging"
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
@@ -28,15 +27,9 @@ import (
 	"go.cryptoscope.co/muxrpc/debug"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
-	"go.cryptoscope.co/ssb/plugins2/names"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
-	"go.cryptoscope.co/ssb/repo"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 )
 
@@ -172,45 +165,46 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
-		mksbot.LateOption(mksbot.WithKeyManager(log)),
 	}
 
 	if !flagDisableUNIXSock {
 		opts = append(opts, mksbot.LateOption(mksbot.WithUNIXSocket()))
 	}
+	/*
+		if flagDecryptPrivate {
+			// TODO: refactor into plugins2
+			r := repo.New(repoDir)
+			kpsByPath, err := repo.AllKeyPairs(r)
+			if err != nil {
+				return errors.Wrap(err, "sbot: failed to open all keypairs in repo")
+			}
 
-	if flagDecryptPrivate {
-		// TODO: refactor into plugins2
-		r := repo.New(repoDir)
-		kpsByPath, err := repo.AllKeyPairs(r)
-		if err != nil {
-			return errors.Wrap(err, "sbot: failed to open all keypairs in repo")
+			var kps []*ssb.KeyPair
+			for _, v := range kpsByPath {
+				kps = append(kps, v)
+			}
+
+			defKP, err := repo.DefaultKeyPair(r)
+			if err != nil {
+				return errors.Wrap(err, "sbot: failed to open default keypair")
+			}
+			kps = append(kps, defKP)
+
+			mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
+
+			opts = append(opts, mksbot.LateOption(mksbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)))
 		}
 
-		var kps []*ssb.KeyPair
-		for _, v := range kpsByPath {
-			kps = append(kps, v)
+
+		if flagFatBot {
+			opts = append(opts,
+				mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
+				mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
+				mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
+				mksbot.LateOption(mksbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
+			)
 		}
-
-		defKP, err := repo.DefaultKeyPair(r)
-		if err != nil {
-			return errors.Wrap(err, "sbot: failed to open default keypair")
-		}
-		kps = append(kps, defKP)
-
-		mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
-
-		opts = append(opts, mksbot.LateOption(mksbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)))
-	}
-
-	if flagFatBot {
-		opts = append(opts,
-			mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
-			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
-			mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
-			mksbot.LateOption(mksbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
-		)
-	}
+	*/
 
 	if dbgLogDir != "" {
 		opts = append(opts, mksbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {

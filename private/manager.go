@@ -191,6 +191,9 @@ func (mgr *Manager) DecryptBox1(ctxt []byte) ([]byte, error) {
 	// copy(keyPair.Pair.Public[:], mgr.author.ID)
 
 	// try decrypt
+	if mgr.rand == nil {
+		panic("what?!")
+	}
 	bxr := box.NewBoxer(mgr.rand)
 	plain, err := bxr.Decrypt(mgr.author, []byte(ctxt))
 	return plain, errors.Wrap(err, "could not decrypt")

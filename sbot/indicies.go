@@ -147,7 +147,7 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 		ctx, cancel := context.WithCancel(s.rootCtx)
 		go func() {
-			p := progress.NewTicker(ctx, &ps, totalMessages, 3*time.Second)
+			p := progress.NewTicker(ctx, &ps, totalMessages, 7*time.Second)
 			pinfo := log.With(level.Info(s.info), "index", name, "event", "index-progress")
 			for remaining := range p {
 				// how much time until it's done?
@@ -168,6 +168,9 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 			return nil
 		}
 		if err != nil {
+			s.indexStateMu.Lock()
+			s.indexStates[name] = err.Error()
+			s.indexStateMu.Unlock()
 			return errors.Wrapf(err, "sbot index(%s) update of backlog failed", name)
 		}
 		s.idxInSync.Done()

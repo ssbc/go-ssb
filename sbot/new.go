@@ -159,6 +159,26 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		*index.Mlog = ml
 	}
 
+	// groups2
+	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
+	err = os.MkdirAll(pth, 0700)
+	if err != nil {
+		return nil, errors.Wrap(err, "openIndex: error making index directory")
+	}
+
+	db, err := repo.OpenMKV(pth)
+	if err != nil {
+		return nil, errors.Wrap(err, "openIndex: failed to open MKV database")
+	}
+
+	idx := libmkv.NewIndex(db, keys.Recipients{})
+	ks := &keys.Store{
+		Index: idx,
+	}
+	s.closers.addCloser(idx)
+
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
+
 	err = s.newApplicationIndex()
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
@@ -188,26 +208,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
-
-	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
-	err = os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, errors.Wrap(err, "openIndex: error making index directory")
-	}
-
-	db, err := repo.OpenMKV(pth)
-	if err != nil {
-		return nil, errors.Wrap(err, "openIndex: failed to open MKV database")
-	}
-
-	idx := libmkv.NewIndex(db, keys.Recipients{})
-	ks := &keys.Store{
-		Index: idx,
-	}
-	s.closers.addCloser(idx)
-
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
 
 	// LogBuilder doesn't fully work yet
 	if mt, _ := s.mlogIndicies["msgTypes"]; false {

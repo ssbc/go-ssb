@@ -77,7 +77,6 @@ func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring
 	}
 
 	return mlog, snk, nil
-
 }
 
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
