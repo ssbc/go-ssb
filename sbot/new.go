@@ -198,6 +198,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	*/
 
+	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
 	}
@@ -209,14 +210,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
 
+	// contact/follow graph
+	contactLog, err := s.ByType.Get(librarian.Addr("contact"))
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
+	}
+	justContacts := mutil.Indirect(s.RootLog, contactLog)
+
 	// LogBuilder doesn't fully work yet
-	if mt, _ := s.mlogIndicies["msgTypes"]; false {
+	if false {
 		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
-		contactLog, err := mt.Get(librarian.Addr("contact"))
-		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
-		}
-		s.GraphBuilder, err = graph.NewLogBuilder(s.info, mutil.Indirect(s.RootLog, contactLog))
+
+		s.GraphBuilder, err = graph.NewLogBuilder(s.info, justContacts)
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
 		}
@@ -225,15 +230,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "sbot: OpenContacts failed")
 		}
-		s.serveIndex("contacts", updateIdx)
+
+		s.serveIndexFrom("contacts", updateIdx, justContacts)
 		s.closers.addCloser(seqSetter)
 		s.GraphBuilder = gb
 	}
 
+	// from here on just network related stuff
 	if s.disableNetwork {
 		return s, nil
 	}
 
+	// which feeds to replicate
 	if s.Replicator == nil {
 		s.Replicator, err = s.newGraphReplicator()
 		if err != nil {
@@ -255,6 +263,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	var inviteService *legacyinvites.Service
 
+	// muxrpc handler creation and authoratization decider
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
 		// bypassing badger-close bug to go through with an accept (or not) before closing the bot
 		s.closedMu.Lock()

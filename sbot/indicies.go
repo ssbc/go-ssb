@@ -121,7 +121,18 @@ func (s *Sbot) WaitUntilIndexesAreSynced() {
 	s.idxInSync.Wait()
 }
 
+// the default is to fill an index with all messages
 func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
+	s.serveIndexFrom(name, snk, s.RootLog)
+}
+
+/* some indexes just require a certain kind of message, like type:contact or type:about.
+
+contactLog, err := s.ByType.Get(librarian.Addr("contact"))
+if err != nil { ... }
+msgs := mutil.Indirect(s.RootLog, contactLog)
+*/
+func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margaret.Log) {
 	s.idxInSync.Add(1)
 
 	s.indexStateMu.Lock()
@@ -130,12 +141,12 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 	s.idxDone.Go(func() error {
 
-		src, err := s.RootLog.Query(margaret.Live(false), margaret.SeqWrap(true), snk.QuerySpec())
+		src, err := msgs.Query(margaret.Live(false), margaret.SeqWrap(true), snk.QuerySpec())
 		if err != nil {
 			return errors.Wrapf(err, "sbot index(%s) error querying receiveLog for message backlog", name)
 		}
 
-		currentSeqV, err := s.RootLog.Seq().Value()
+		currentSeqV, err := msgs.Seq().Value()
 		if err != nil {
 			return err
 		}
@@ -147,7 +158,7 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 		ctx, cancel := context.WithCancel(s.rootCtx)
 		go func() {
-			p := progress.NewTicker(ctx, &ps, totalMessages, 7*time.Second)
+			p := progress.NewTicker(ctx, &ps, totalMessages, 1*time.Second)
 			pinfo := log.With(level.Info(s.info), "index", name, "event", "index-progress")
 			for remaining := range p {
 				// how much time until it's done?
@@ -179,7 +190,7 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 			return nil
 		}
 
-		src, err = s.RootLog.Query(margaret.Live(true), margaret.SeqWrap(true), snk.QuerySpec())
+		src, err = msgs.Query(margaret.Live(true), margaret.SeqWrap(true), snk.QuerySpec())
 		if err != nil {
 			return errors.Wrapf(err, "sbot index(%s) failed to query receive log for live updates", name)
 		}
