@@ -42,7 +42,9 @@ import (
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/status"
 	"go.cryptoscope.co/ssb/plugins/whoami"
+	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
+	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
@@ -331,6 +333,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
+	//
+	err = MountSimpleIndex("get", indexes.OpenGet)(s)
+	if err != nil {
+		return nil, err
+	}
+
 	// publish
 	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
 
@@ -429,6 +437,16 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		h:    manifestHandler(manifestBlob),
 		name: "manifest"}
 	s.master.Register(mh)
+
+	var bytypePlug bytype.Plugin
+	bytypePlug.WantRootLog(s.RootLog)
+	bytypePlug.UseMultiLog(s.ByType)
+	s.master.Register(bytypePlug)
+
+	var tplug tangles.Plugin
+	tplug.WantRootLog(s.RootLog)
+	tplug.UseMultiLog(s.Tangles)
+	s.master.Register(tplug)
 
 	// tcp+shs
 	opts := network.Options{
