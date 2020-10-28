@@ -17,9 +17,8 @@ import (
 )
 
 // todo: save the current state in the multilog
-func makeSinkIndex(r Interface, name string, mlog multilog.MultiLog, fn multilog.Func) (librarian.SinkIndex, error) {
-
-	statePath := r.GetPath(PrefixMultiLog, name, "state.json")
+func makeSinkIndex(r Interface, dbPath string, mlog multilog.MultiLog, fn multilog.Func) (librarian.SinkIndex, error) {
+	statePath := filepath.Join(dbPath, "..", "state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE
@@ -39,7 +38,7 @@ const PrefixMultiLog = "sublogs"
 // Exposes the badger db for 100% hackability. This will go away in future versions!
 // badger + librarian as index
 func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
-	dbPath := r.GetPath(PrefixMultiLog, name, "db")
+	dbPath := r.GetPath(PrefixMultiLog, name, "badger")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
@@ -52,7 +51,7 @@ func OpenBadgerMultiLog(r Interface, name string, f multilog.Func) (multilog.Mul
 
 	mlog := multibadger.New(db, msgpack.New(margaret.BaseSeq(0)))
 
-	snk, err := makeSinkIndex(r, name+"-badger", mlog, f)
+	snk, err := makeSinkIndex(r, dbPath, mlog, f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "mlog/badger: failed to create sink")
 	}
@@ -81,13 +80,13 @@ func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring
 
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
 
-	dbPath := r.GetPath(PrefixMultiLog, name, "roaring")
+	dbPath := r.GetPath(PrefixMultiLog, name, "roaring-mkv")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "mkdir error for %q", dbPath)
 	}
 
-	mkvPath := filepath.Join(dbPath, "mkv")
+	mkvPath := filepath.Join(dbPath, "db")
 	mlog, err := multimkv.NewMultiLog(mkvPath)
 	if err != nil {
 		// yuk..

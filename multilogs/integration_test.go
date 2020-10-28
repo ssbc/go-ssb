@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// +build ignore
+// +build bench
 
 // TODO: make testdata fetchable
 
@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/repo"
 
 	"github.com/stretchr/testify/assert"
@@ -183,13 +183,17 @@ func TestStaticRepos(t *testing.T) {
 			continue
 		}
 
-		start := time.Now()
-		roarmlog, serve, err := OpenUserFeeds(tr)
-		r.NoError(err)
+		// helper functions
 
-		err = serve(context.Background(), testLog, false)
-		r.NoError(err)
-		t.Log("indexing  mlog", tc.Name, "took", time.Since(start))
+		serve := func(idx string, snk librarian.SinkIndex) {
+			src, err := testLog.Query(snk.QuerySpec())
+			r.NoError(err)
+
+			start := time.Now()
+			err = luigi.Pump(context.TODO(), snk, src)
+			r.NoError(err)
+			t.Log("log", tc.Name, "index", idx, "took", time.Since(start))
+		}
 
 		compare := func(ml multilog.MultiLog) {
 			addrs, err := ml.List()
@@ -197,7 +201,7 @@ func TestStaticRepos(t *testing.T) {
 			a.Equal(len(tc.HeadCount), len(addrs))
 
 			for i, addr := range addrs {
-				var sr ssb.StorageRef
+				var sr refs.StorageRef
 				err := sr.Unmarshal([]byte(addr))
 				r.NoError(err, "ref %d invalid", i)
 
@@ -218,18 +222,24 @@ func TestStaticRepos(t *testing.T) {
 			r.NoError(ml.Close())
 		}
 
-		compare(roarmlog)
-
-		start = time.Now()
-		badgermlog, serve, err := repo.OpenBadgerMultiLog(tr, "testbadger_"+tc.Name, UserFeedsUpdate)
+		mkvMlog, snk, err := repo.OpenMultiLog(tr, "testmkv"+tc.Name, UserFeedsUpdate)
 		r.NoError(err)
+		serve("mkv", snk)
+		compare(mkvMlog)
 
-		err = serve(context.Background(), testLog, false)
+		/*
+			badgermlog, snk, err := repo.OpenBadgerMultiLog(tr, "testbadger_"+tc.Name, UserFeedsUpdate)
+			r.NoError(err)
+			serve("badger", snk)
+			compare(badgermlog)
+		*/
+
+		fsMlog, snk, err := repo.OpenFileSystemMultiLog(tr, "testfs"+tc.Name, UserFeedsUpdate)
 		r.NoError(err)
-		t.Log("indexing  roar", tc.Name, "took", time.Since(start))
+		serve("fs-based", snk)
+		compare(fsMlog)
 
-		compare(badgermlog)
-
+		// TODO: benchmark 4 seperate indexes vs combined
 	}
 }
 
