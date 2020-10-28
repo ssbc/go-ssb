@@ -172,10 +172,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
 
-	err = s.newApplicationIndex()
+	combIdx, err := multilogs.NewCombinedIndex(
+		s.repoPath,
+		s.Groups,
+		s.KeyPair.Id,
+		s.Users,
+		s.Private,
+		s.ByType,
+		s.Tangles)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
+	s.serveIndex("combined", combIdx)
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {

@@ -8,8 +8,7 @@ cmd/sbotcli/sbotcli
 # ignore crash/test data
 **/testrun/
 **/panics/
-plugins/blobs/testdata
-plugins/gossip/testdata
+**/testdata
 
 # ignore go analysis files, anywhere
 **/c.out

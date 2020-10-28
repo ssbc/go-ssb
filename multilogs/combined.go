@@ -1,4 +1,4 @@
-package sbot
+package multilogs
 
 import (
 	"bytes"
@@ -15,18 +15,20 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/ssb/message/multimsg"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// this is one big index which updates the multilogs users, byType, private and tangles.
-// compared to the "old" fatbot approach of just having 4 independant indexes,
+// NewCombinedIndex creates one big index which updates the multilogs users, byType, private and tangles.
+// Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func (bot *Sbot) newApplicationIndex() error {
-	statePath := repo.New(bot.repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, u, p, bt, tan *roaring.MultiLog) (librarian.SinkIndex, error) {
+	statePath := repo.New(repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE
@@ -34,27 +36,39 @@ func (bot *Sbot) newApplicationIndex() error {
 	os.MkdirAll(filepath.Dir(statePath), 0700)
 	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
 	if err != nil {
-		return errors.Wrap(err, "error opening state file")
+		return nil, errors.Wrap(err, "error opening state file")
 	}
 
-	idx := &applicationIdx{
-		bot:  bot,
+	idx := &combinedIndex{
+		self:  self,
+		boxer: box,
+
+		users:   u,
+		private: p,
+		byType:  bt,
+		tangles: tan,
+
 		file: idxStateFile,
 		l:    &sync.Mutex{},
 	}
-	bot.serveIndex("combined", idx)
-	return nil
+	return idx, nil
 }
 
-type applicationIdx struct {
-	bot *Sbot
+type combinedIndex struct {
+	self  *refs.FeedRef
+	boxer *private.Manager
+
+	users   *roaring.MultiLog
+	private *roaring.MultiLog
+	byType  *roaring.MultiLog
+	tangles *roaring.MultiLog
 
 	file *os.File
 	l    *sync.Mutex
 }
 
 // Pour calls the processing function to add a value to a sublog.
-func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
+func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
@@ -86,7 +100,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 
 	author := abstractMsg.Author()
 
-	authorLog, err := slog.bot.Users.Get(author.StoredAddr())
+	authorLog, err := slog.users.Get(author.StoredAddr())
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -97,6 +111,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 
 	// decrypt box 1 & 2
 	content := abstractMsg.ContentBytes()
+	// TODO: gabby grove
 	if content[0] != '{' { // assuming all other content is json objects
 		cleartext, err := slog.tryDecrypt(abstractMsg, seq)
 		if err != nil {
@@ -108,17 +123,14 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 		content = cleartext
 	}
 
-	// by type:
+	// by type:...
 	var jsonContent struct {
-		Type string
-
-		Root *refs.MessageRef
-
+		Type    string
+		Root    *refs.MessageRef
 		Tangles refs.Tangles
 	}
 
 	err = json.Unmarshal(content, &jsonContent)
-	typeStr := jsonContent.Type
 	if err != nil {
 		// fmt.Errorf("ssb: combined idx failed to unmarshal json content of %s: %w", abstractMsg.Key().Ref(), err)
 		// returning an error in this pipeline stops the processing,
@@ -132,11 +144,12 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 		return nil
 	}
 
+	typeStr := jsonContent.Type
 	if typeStr == "" {
 		return fmt.Errorf("ssb: untyped message")
 	}
 
-	typedLog, err := slog.bot.ByType.Get(librarian.Addr(typeStr))
+	typedLog, err := slog.byType.Get(librarian.Addr(typeStr))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -149,7 +162,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 	// tangles v1 and v2
 	if jsonContent.Root != nil {
 		addr := librarian.Addr(append([]byte("v1:"), jsonContent.Root.Hash...))
-		tangleLog, err := slog.bot.Tangles.Get(addr)
+		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
 			return errors.Wrap(err, "error opening sublog")
 		}
@@ -161,7 +174,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 
 	for tname, tip := range jsonContent.Tangles {
 		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
-		tangleLog, err := slog.bot.Tangles.Get(addr)
+		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
 			return errors.Wrap(err, "error opening sublog")
 		}
@@ -175,10 +188,10 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 }
 
 // Close does nothing.
-func (slog *applicationIdx) Close() error { return nil }
+func (slog *combinedIndex) Close() error { return nil }
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
-func (slog *applicationIdx) QuerySpec() margaret.QuerySpec {
+func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
@@ -198,18 +211,12 @@ func (slog *applicationIdx) QuerySpec() margaret.QuerySpec {
 	)
 }
 
-func (slog *applicationIdx) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]byte, error) {
+func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]byte, error) {
 	box1, box2, err := getBoxedContent(msg)
 	if err != nil {
 		// not super sure what the idea with the different skip errors was
 		// these are _broken_ content-wise both kinds _should be ignored
-		if err == errSkipBox1 {
-			//slog.bot.ByTypes.Get(librarian.Addr("special:boxed1"))
-			return nil, errSkip
-		}
-
-		if err == errSkipBox2 {
-			//slog.bot.ByTypes.Get(librarian.Addr("special:boxed2"))
+		if err == errSkipBox1 || err == errSkipBox2 {
 			return nil, errSkip
 		}
 
@@ -222,30 +229,30 @@ func (slog *applicationIdx) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]
 		retErr    error
 	)
 	if box1 != nil {
-		content, err := slog.bot.Groups.DecryptBox1(box1)
+		content, err := slog.boxer.DecryptBox1(box1)
 		if err != nil {
 			idxAddr = librarian.Addr("notForUs:box1")
 			retErr = errSkip
 		} else {
-			idxAddr = librarian.Addr("box1:") + slog.bot.KeyPair.Id.StoredAddr()
+			idxAddr = librarian.Addr("box1:") + slog.self.StoredAddr()
 			cleartext = content
 		}
 	} else if box2 != nil {
-		content, err := slog.bot.Groups.DecryptBox2(box2, msg.Author(), msg.Previous())
+		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), msg.Previous())
 		if err != nil {
 			idxAddr = librarian.Addr("notForUs:box2")
 			retErr = errSkip
 		} else {
 			// instead by group root? could be PM... hmm
 			// would be nice to keep multi-keypair support here but might need rething of the gorups manager
-			idxAddr = librarian.Addr("box2:") + slog.bot.KeyPair.Id.StoredAddr()
+			idxAddr = librarian.Addr("box2:") + slog.self.StoredAddr()
 			cleartext = content
 		}
 	} else {
 		return nil, fmt.Errorf("tryDecrypt: not skipped but also not valid content")
 	}
 
-	userPrivs, err := slog.bot.Private.Get(idxAddr)
+	userPrivs, err := slog.private.Get(idxAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "private/readidx: error opening priv sublog for")
 	}
@@ -285,7 +292,6 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 				return nil, nil, errSkipBox1
 			}
 			return boxedData[:n], nil, nil
-
 		} else if bytes.HasSuffix(input[1:], []byte(".box2\"")) {
 			b64data := bytes.TrimSuffix(input[1:], []byte(".box2\""))
 			boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(input)-7))
