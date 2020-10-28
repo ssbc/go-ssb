@@ -27,6 +27,9 @@ var (
 )
 
 // TODO: return plugin spec similar to margaret qry spec?
+func (tp *Plugin) UseMultiLog(ml multilog.MultiLog) {
+	tp.h.tangle = ml
+}
 
 func (tp *Plugin) WantRootLog(rl margaret.Log) error {
 	tp.h.root = rl
@@ -71,6 +74,7 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 			return
 		}
 		qry.CreateHistArgs = *q
+		qry.StreamArgs = q.StreamArgs
 
 		root, ok := v["root"].(string)
 		if !ok {
@@ -92,7 +96,12 @@ func (g tangleHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		qry.Limit = -1
 	}
 
-	threadLog, err := g.tangle.Get(librarian.Addr(qry.Root.Hash))
+	if qry.Limit == 0 {
+		qry.Limit = -1
+	}
+
+	addr := librarian.Addr(append([]byte("v1:"), qry.Root.Hash...))
+	threadLog, err := g.tangle.Get(addr)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "failed to load thread"))
 		return

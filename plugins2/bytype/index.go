@@ -13,6 +13,10 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+func (plug *Plugin) UseMultiLog(ml multilog.MultiLog) {
+	plug.h.types = ml
+}
+
 /* legacy
 func (plug *Plugin) MakeMultiLog(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
 	mlog, serve, err := repo.OpenFileSystemMultiLog(r, plug.Name(), IndexUpdate)

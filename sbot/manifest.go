@@ -67,6 +67,10 @@ const manifestBlob = `
 	},
 
 
+"private": {
+"read":"source"
+},
+
 	"tangles": "source",
     "names": {
         "get": "async",

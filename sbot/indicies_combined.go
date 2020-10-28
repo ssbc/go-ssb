@@ -160,7 +160,7 @@ func (slog *applicationIdx) Pour(ctx context.Context, swv interface{}) error {
 	}
 
 	for tname, tip := range jsonContent.Tangles {
-		addr := librarian.Addr(append([]byte("v2:"+tname), tip.Root.Hash...))
+		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
 		tangleLog, err := slog.bot.Tangles.Get(addr)
 		if err != nil {
 			return errors.Wrap(err, "error opening sublog")
