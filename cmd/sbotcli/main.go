@@ -127,7 +127,7 @@ func todo(ctx *cli.Context) error {
 
 func initClient(ctx *cli.Context) error {
 	longctx = context.Background()
-	longctx, shutdownFunc = context.WithCancel(longctx)
+	longctx, shutdownFunc = context.WithTimeout(longctx, 10*time.Second)
 	signalc := make(chan os.Signal)
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 	go func() {
