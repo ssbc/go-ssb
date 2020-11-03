@@ -4,22 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"strings"
-
-	"go.cryptoscope.co/ssb/message/legacy"
-
-	refs "go.mindeco.de/ssb-refs"
-
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/ssb"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
+
+	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/transform"
+	"go.cryptoscope.co/ssb/message/legacy"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type handler struct {
@@ -66,62 +66,24 @@ func (h *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 		"version": 3,
 	}
 
-	src, snk, err := e.Duplex(ctx, json.RawMessage{}, muxrpc.Method{"ebt", "replicate"}, opt)
+	// initiate ebt channel
+	rx, tx, err := e.Duplex(ctx, json.RawMessage{}, muxrpc.Method{"ebt", "replicate"}, opt)
 	h.info.Log("event", "call replicate", "err", err)
 	if err != nil {
 		return
 	}
-	go h.sendTo(ctx, snk, ref)
-	h.readFrom(ctx, src)
 
-}
-
-func (h *handler) sendTo(ctx context.Context, tx luigi.Sink, remote *refs.FeedRef) {
-	// defer tx.Close()
-	err := h.sendState(ctx, tx)
+	err = h.sendState(ctx, tx)
 	if err != nil {
 		h.check(err)
 		return
 	}
-}
 
-type networkFrontier map[*refs.FeedRef]uint64
-
-func (nf *networkFrontier) UnmarshalJSON(b []byte) error {
-	var dummy map[string]uint64
-
-	if err := json.Unmarshal(b, &dummy); err != nil {
-		return err
-	}
-
-	var newMap = make(networkFrontier, len(dummy))
-	for fstr, seq := range dummy {
-		ref, err := refs.ParseFeedRef(fstr)
-		if err != nil {
-			return err
-		}
-
-		newMap[ref] = seq
-	}
-
-	*nf = newMap
-	return nil
-}
-
-func (nf networkFrontier) String() string {
-	var sb strings.Builder
-	sb.WriteString("## Network Frontier:\n")
-	for feed, seq := range nf {
-		fmt.Fprintf(&sb, "\t%s:%d\n", feed.ShortRef(), seq)
-	}
-	return sb.String()
-}
-
-func (h *handler) readFrom(ctx context.Context, rx luigi.Source) {
-	for {
+	for { // read/write loop for messages
 		v, err := rx.Next(ctx)
 		if err != nil {
 			if luigi.IsEOS(err) {
+				fmt.Println("ebt client readFrom exited")
 				break
 			}
 			h.check(err)
@@ -143,13 +105,48 @@ func (h *handler) readFrom(ctx context.Context, rx luigi.Source) {
 				h.check(err2)
 				return
 			}
-			fmt.Println(desr.Author.ShortRef(), desr.Sequence, ref.ShortRef())
+			fmt.Println("valid message:", desr.Author.ShortRef(), desr.Sequence, ref.ShortRef())
 			continue
 		}
 
 		fmt.Println("their state:")
 		fmt.Println(nf.String())
 
+		// TODO: update our network perception
+
+		// ad-hoc send where we have newer messages
+		for feed, theirSeq := range nf {
+			if theirSeq < 0 {
+				// TODO: update our network perception
+				continue
+			}
+
+			ourSeq, err := h.currentSequence(feed)
+			if err != nil {
+				continue
+			}
+
+			if ourSeq > theirSeq {
+				fmt.Println("####\t\twe have more for", feed.ShortRef())
+				log, err := h.userFeeds.Get(feed.StoredAddr())
+				if err != nil {
+					h.check(err)
+					return
+				}
+
+				src, err := mutil.Indirect(h.rootLog, log).Query(margaret.Gt(margaret.BaseSeq(theirSeq)))
+				if err != nil {
+					h.check(err)
+					return
+				}
+				sentAsJSON := transform.NewKeyValueWrapper(tx, false)
+				err = luigi.Pump(ctx, sentAsJSON, src)
+				if err != nil {
+					h.check(err)
+					return
+				}
+			}
+		}
 	}
 }
 
@@ -193,13 +190,6 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 		return
 	}
 
-	ref, err := ssb.GetFeedRefFromAddr(edp.Remote())
-	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
-		checkAndClose(err)
-		return
-	}
-
 	v, err := req.Stream.Next(ctx)
 	if err != nil {
 		h.info.Log("err", err, "msg", "did not get ebt state")
@@ -208,15 +198,9 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 		}
 		return
 	}
-	// h.info.Log("debug", "got ebt state", "type", fmt.Sprintf("%T", v))
-	// goon.Dump(v)
+	h.info.Log("debug", "got ebt state", "type", fmt.Sprintf("%T", v))
+	goon.Dump(v)
 
-	b, err := json.Marshal(v)
-	if err != nil {
-		h.info.Log("err", err, "msg", "json dump failed state")
-		return
-	}
-	ioutil.WriteFile(fmt.Sprintf("ebt-%x.json", ref.ID), b, 0700)
 }
 
 func (h handler) sendState(ctx context.Context, snk luigi.Sink) error {
@@ -245,13 +229,6 @@ func (h handler) sendState(ctx context.Context, snk luigi.Sink) error {
 	fmt.Println("our state")
 	fmt.Println(currState.String())
 
-	// b, err := json.Marshal(currState)
-	// if err != nil {
-	// 	h.info.Log("err", err, "msg", "json dump failed state")
-	// } else {
-	// 	ioutil.WriteFile(fmt.Sprintf("ebt-%x.json", h.id), b, 0700)
-	// }
-
 	err = snk.Pour(ctx, currState)
 	if err != nil {
 		return errors.Wrapf(err, "failed to send currState: %d", len(currState))
@@ -271,12 +248,13 @@ func (h handler) sendState(ctx context.Context, snk luigi.Sink) error {
 	// if err != nil {
 	// 	return errors.Wrapf(err, "failed to copy mylog to remote")
 	// }
-	// time.Sleep(2 * time.Second)
 
 	return nil
 }
 
-func (h handler) currentSequence(feed *refs.FeedRef) (uint64, error) {
+// utils
+
+func (h handler) currentSequence(feed *refs.FeedRef) (int64, error) {
 	l, err := h.userFeeds.Get(feed.StoredAddr())
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to get user log %s", feed.ShortRef())
@@ -286,5 +264,38 @@ func (h handler) currentSequence(feed *refs.FeedRef) (uint64, error) {
 		return 0, errors.Wrapf(err, "failed to get sequence for user log:%s", feed.ShortRef())
 	}
 
-	return uint64(sv.(margaret.BaseSeq) + 1), nil
+	return sv.(margaret.BaseSeq).Seq() + 1, nil
+}
+
+// represents a set of feeds and their length
+type networkFrontier map[*refs.FeedRef]int64
+
+func (nf *networkFrontier) UnmarshalJSON(b []byte) error {
+	var dummy map[string]int64
+
+	if err := json.Unmarshal(b, &dummy); err != nil {
+		return err
+	}
+
+	var newMap = make(networkFrontier, len(dummy))
+	for fstr, seq := range dummy {
+		ref, err := refs.ParseFeedRef(fstr)
+		if err != nil {
+			return err
+		}
+
+		newMap[ref] = seq
+	}
+
+	*nf = newMap
+	return nil
+}
+
+func (nf networkFrontier) String() string {
+	var sb strings.Builder
+	sb.WriteString("## Network Frontier:\n")
+	for feed, seq := range nf {
+		fmt.Fprintf(&sb, "\t%s:%d\n", feed.ShortRef(), seq)
+	}
+	return sb.String()
 }

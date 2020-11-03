@@ -405,10 +405,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.systemGauge,
 		s.eventCounter,
 	)
-	s.public.Register(gossip.New(ctx,
-		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
-		histOpts...))
+	// TODO: need to unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
+	// s.public.Register(gossip.New(ctx,
+	// 	kitlog.With(log, "plugin", "gossip"),
+	// 	s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+	// 	histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
