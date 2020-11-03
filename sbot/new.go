@@ -374,7 +374,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
 	// fake ebt
-	ebtPlug := ebt.NewPlug(kitlog.With(log, "plugin", "ebt"), s.KeyPair.Id, s.RootLog, s.Users, s.GraphBuilder)
+	ebtPlug := ebt.NewPlug(kitlog.With(log, "plugin", "ebt"), s.KeyPair.Id, s.RootLog, s.Users, s.Replicator.Lister())
 	s.public.Register(ebtPlug)
 
 	// outgoing gossip behavior

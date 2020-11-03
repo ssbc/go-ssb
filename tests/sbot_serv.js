@@ -68,8 +68,8 @@ tape(testName, function (t) {
   
   sbot.on("rpc:connect", (remote, isClient) => {
     t.equal(testBob, remote.id, "correct ID")
-    // t.true(isClient, "connected remote is client")
-    t.comment(JSON.stringify(remote))
+    // t.true(isClient, "connected remote is client") ????
+    // t.comment(JSON.stringify(remote))
     eval(scriptAfter)
     // return true
   })

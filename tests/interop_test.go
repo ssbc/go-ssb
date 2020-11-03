@@ -101,13 +101,6 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
-
-		// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
-		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-		// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
-		// }),
-
 	}, sbotOpts...)
 
 	if ts.keySHS != nil {

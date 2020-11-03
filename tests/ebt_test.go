@@ -33,10 +33,16 @@ parallel(msgs, function(err, results) {
 func TestEpidemic(t *testing.T) {
 	r := require.New(t)
 
-	ts := newRandomSession(t)
-	// ts := newSession(t, nil, nil)
-
-	ts.startGoBot()
+	// ts := newRandomSession(t)
+	ts := newSession(t, nil, nil)
+	// info := testutils.NewRelativeTimeLogger(nil)
+	ts.startGoBot(
+	// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
+	// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+	// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+	// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
+	// }),
+	)
 	sbot := ts.gobot
 
 	// just for keygen, needed later
