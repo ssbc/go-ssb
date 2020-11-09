@@ -65,10 +65,11 @@ func TestReplicateUpTo(t *testing.T) {
 		for n := i; n > 0; n-- {
 
 			ref, err := publish.Publish(struct {
+				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
-			}{true, n, kp.Id.Ref()})
+			}{"test", true, n, kp.Id.Ref()})
 			r.NoError(err)
 			t.Log(ref.Ref())
 		}

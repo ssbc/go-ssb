@@ -58,14 +58,9 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
-	type testMsg struct {
-		Foo string
-		Bar int
-	}
 	var wantRefs []string
 	for i := 0; i < 10; i++ {
-
-		msg := testMsg{"hello", 23}
+		msg := testMsg{"test", "hello", 23}
 		ref, err := c.Publish(msg)
 		r.NoError(err, "failed to call publish")
 		r.NotNil(ref)

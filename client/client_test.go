@@ -58,7 +58,10 @@ func TestUnixSock(t *testing.T) {
 	var msgs []*refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
-		ref, err := c.Publish(struct{ I int }{i})
+		ref, err := c.Publish(struct {
+			Type string `json:"type"`
+			Test int
+		}{"test", i})
 		r.NoError(err)
 		r.NotNil(ref)
 		msgs = append(msgs, ref)
@@ -88,7 +91,7 @@ func TestUnixSock(t *testing.T) {
 		msg, ok := v.(refs.Message)
 		r.True(ok, "%d: wrong type: %T", i, v)
 
-		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
 	r.Equal(msgCount, i, "did not get all messages")
@@ -319,7 +322,10 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		for i := 25; i > 0; i-- {
 			time.Sleep(500 * time.Millisecond)
-			ref, err := c.Publish(struct{ Test int }{i})
+			ref, err := c.Publish(struct {
+				Type string `json:"type"`
+				Test int
+			}{"test", i})
 			r.NoError(err, "publish %d errored", i)
 			r.NotNil(ref)
 
@@ -346,6 +352,12 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		srv.Shutdown()
 		r.NoError(srv.Close())
 	}
+}
+
+type testMsg struct {
+	Type string `json:"type"`
+	Foo  string
+	Bar  int
 }
 
 func TestPublish(t *testing.T) {
@@ -385,11 +397,7 @@ func TestPublish(t *testing.T) {
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
-	type testMsg struct {
-		Foo string
-		Bar int
-	}
-	msg := testMsg{"hello", 23}
+	msg := testMsg{"test", "hello", 23}
 	ref, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(ref)
@@ -464,20 +472,21 @@ func TestTangles(t *testing.T) {
 	// end test boilerplate
 
 	type testMsg struct {
+		Type string `json:"type"`
 		Foo  string
 		Bar  int
 		Root *refs.MessageRef `json:"root,omitempty"`
 	}
-	msg := testMsg{"hello", 23, nil}
+	msg := testMsg{"test", "hello", 23, nil}
 	rootRef, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rootRef)
 
-	rep1 := testMsg{"reply", 1, rootRef}
+	rep1 := testMsg{"test", "reply", 1, rootRef}
 	rep1Ref, err := c.Publish(rep1)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep1Ref)
-	rep2 := testMsg{"reply", 2, rootRef}
+	rep2 := testMsg{"test", "reply", 2, rootRef}
 	rep2Ref, err := c.Publish(rep2)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep2Ref)
