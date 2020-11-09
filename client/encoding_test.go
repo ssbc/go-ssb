@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -57,6 +58,8 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	c, err := client.NewTCP(testKP, srvAddr)
 	r.NoError(err, "failed to make client connection")
 	// end test boilerplate
+
+	r.True(muxrpc.IsServer(c.Endpoint), "should be talking to a server")
 
 	// no messages yet
 	seqv, err := srv.ReceiveLog.Seq().Value()

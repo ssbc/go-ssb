@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 type AsyncFunc func(context.Context, *muxrpc.Request) (interface{}, error)

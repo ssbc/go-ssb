@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 type Plugin interface {

@@ -14,7 +14,7 @@ import (
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 )
 
@@ -205,13 +205,13 @@ func (lw *latencyWrapper) Remote() net.Addr {
 	return lw.root.Remote()
 }
 
-func (lw *latencyWrapper) Serve(ctx context.Context) error {
+func (lw *latencyWrapper) Serve() error {
 	srv, ok := lw.root.(muxrpc.Server)
 	if !ok {
 		return errors.Errorf("latencywrapper: server interface not implemented")
 	}
 	// this looses the wrapped endpoint again maybe?
-	return srv.Serve(ctx)
+	return srv.Serve()
 }
 
 type promCount struct {

@@ -10,7 +10,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 // SinkHandler initiates a 'sink' call. The handler receives stuff from the peer through the passed source

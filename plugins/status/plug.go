@@ -6,7 +6,7 @@ import (
 	"context"
 	"log"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 )
 

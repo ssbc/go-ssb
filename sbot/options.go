@@ -25,7 +25,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"golang.org/x/sync/errgroup"
 
@@ -261,15 +261,17 @@ func WithUNIXSocket() Option {
 						return
 					}
 
-					edp := muxrpc.HandleWithLogger(pkr, h, kitlog.NewNopLogger())
+					edp := muxrpc.Handle(pkr, h,
+						muxrpc.WithContext(s.rootCtx),
+						muxrpc.WithLogger(kitlog.NewNopLogger()),
+					)
 
-					ctx, cancel := context.WithCancel(s.rootCtx)
 					srv := edp.(muxrpc.Server)
-					if err := srv.Serve(ctx); err != nil {
+					if err := srv.Serve(); err != nil {
 						s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
 					}
 					edp.Terminate()
-					cancel()
+
 				}(wc)
 			}
 		}()

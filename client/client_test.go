@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"

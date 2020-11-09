@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type acceptHandler struct {

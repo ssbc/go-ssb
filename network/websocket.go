@@ -10,7 +10,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 func websockHandler(n *node) http.HandlerFunc {
@@ -76,11 +76,13 @@ func websockHandler(n *node) http.HandlerFunc {
 			return
 		}
 
-		edp := muxrpc.HandleWithRemote(pkr, h, wc.RemoteAddr())
+		edp := muxrpc.Handle(pkr, h,
+			muxrpc.WithContext(req.Context()),
+			muxrpc.WithRemoteAddr(wc.RemoteAddr()))
 
 		srv := edp.(muxrpc.Server)
 		// TODO: bundle root and connection context
-		if err := srv.Serve(req.Context()); err != nil {
+		if err := srv.Serve(); err != nil {
 			level.Error(n.log).Log("conn", "serve exited", "err", err, "peer", remoteAddr)
 		}
 		wsConn.Close()

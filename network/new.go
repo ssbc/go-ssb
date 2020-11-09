@@ -16,7 +16,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/secretstream/secrethandshake"
@@ -263,8 +263,7 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 	delete(n.remotes, r.Ref())
 }
 
-func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
-
+func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer bool, hws ...muxrpc.HandlerWrapper) {
 	// TODO: overhaul events and logging levels
 	conn, err := n.applyConnWrappers(origConn)
 	if err != nil {
@@ -313,8 +312,13 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	}
 
 	pkr := muxrpc.NewPacker(conn)
-	filtered := level.NewFilter(rLogger, level.AllowInfo())
-	edp := muxrpc.HandleWithLogger(pkr, h, filtered)
+	filtered := level.NewFilter(n.log, level.AllowInfo())
+	edp := muxrpc.Handle(pkr, h,
+		muxrpc.WithContext(ctx),
+		muxrpc.WithLogger(filtered),
+		// _isServer_ defines _are we a server_.
+		// the muxrpc option asks are we _talking_ to a server > inverted
+		muxrpc.WithIsServer(!isServer))
 
 	if n.edpWrapper != nil {
 		edp = n.edpWrapper(edp)
@@ -323,8 +327,8 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 
 	srv := edp.(muxrpc.Server)
 
-	err = srv.Serve(ctx)
-	level.Warn(n.log).Log("conn", "serve-return", "err", err)
+	err = srv.Serve()
+	// level.Warn(n.log).Log("conn", "serve-return", "err", err)
 	if err != nil {
 		causeErr := errors.Cause(err)
 		if !neterr.IsConnBrokenErr(causeErr) && causeErr != context.Canceled {
@@ -333,9 +337,9 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	}
 	n.removeRemote(edp)
 
-	panic("serve exited")
+	// panic("serve exited")
 	err = edp.Terminate()
-	level.Error(n.log).Log("conn", "serve-defer-terminate", "err", err)
+	// level.Error(n.log).Log("conn", "serve-defer-terminate", "err", err)
 }
 
 // Serve starts the network listener and configured resources like local discovery.
@@ -445,7 +449,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 			if conn == nil {
 				return nil
 			}
-			go n.handleConnection(ctx, conn, wrappers...)
+			go n.handleConnection(ctx, conn, true, wrappers...)
 		}
 	}
 }
@@ -478,7 +482,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 	}
 
 	go func(c net.Conn) {
-		n.handleConnection(ctx, c)
+		n.handleConnection(ctx, c, false)
 	}(conn)
 	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 // supplies create, use and other managment calls (maybe list and delete?)

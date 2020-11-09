@@ -19,7 +19,7 @@ import (
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/message/legacy"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/auth"

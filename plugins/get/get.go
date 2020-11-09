@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"

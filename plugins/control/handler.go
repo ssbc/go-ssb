@@ -13,7 +13,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb/internal/muxmux"

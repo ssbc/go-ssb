@@ -4,7 +4,7 @@ package control
 
 import (
 	"github.com/cryptix/go/logging"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 )
 

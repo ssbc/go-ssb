@@ -4,7 +4,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"

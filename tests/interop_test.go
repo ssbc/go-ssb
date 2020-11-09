@@ -21,7 +21,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
 	refs "go.mindeco.de/ssb-refs"
 

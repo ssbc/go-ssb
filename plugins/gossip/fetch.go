@@ -11,15 +11,15 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
-	refs "go.mindeco.de/ssb-refs"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/codec"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/luigiutils"
 	"go.cryptoscope.co/ssb/internal/neterr"
 	"go.cryptoscope.co/ssb/message"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func (h *handler) fetchAll(

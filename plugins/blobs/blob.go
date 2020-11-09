@@ -13,7 +13,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
 )

@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
 )

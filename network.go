@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 )
 

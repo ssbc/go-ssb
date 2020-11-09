@@ -15,8 +15,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	muxtest "go.cryptoscope.co/muxrpc/test"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"

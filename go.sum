@@ -165,6 +165,8 @@ github.com/hashicorp/consul/api v1.3.0/go.mod h1:MmDNSzIMUjNpY/mQ398R4bk2FnqQLoP
 github.com/hashicorp/consul/sdk v0.3.0/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
+github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
+github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.1/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.3/go.mod h1:ahLV/dePpqEmjfWmKiqvPkv/twdG7iPBM1vqhUKIvfM=
@@ -411,6 +413,8 @@ go.cryptoscope.co/margaret v0.1.0/go.mod h1:XaQFfkl05QT4jcX+Ab3s4q62iWgl6eO09IuF
 go.cryptoscope.co/margaret v0.1.6/go.mod h1:9anofnVTwgMMNY1zENRRZHSpjiEDEBZg40CIaX4raPY=
 go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0 h1:WHRr5lZrBhSfUATRxhsoH4aRJnqoT4pN/DpW8FGdk3o=
 go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0/go.mod h1:Z8xdZJFvYBgp6s7D1ghNIMKa0hNneDMuFxi9D1Ho0rE=
+go.cryptoscope.co/muxrpc v1.5.3 h1:apSA+EqwdzscviQAh+H4YTCGNmxKswAC2iWAwJxKA5E=
+go.cryptoscope.co/muxrpc v1.5.3/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
 go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced h1:L+7/t8fNU3h1ZPtEnoDA4ocw9kAAupQCivy3MT9ZMT8=
 go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=

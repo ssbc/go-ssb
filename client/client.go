@@ -15,8 +15,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/codec"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	refs "go.mindeco.de/ssb-refs"
@@ -75,7 +75,7 @@ func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	panic("TODO: is server?")
 	c.Endpoint = edp
 	return c, nil
 }
@@ -113,7 +113,11 @@ func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) 
 
 	h := whoami.New(c.logger, own.Id).Handler()
 
-	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(conn), h, conn.RemoteAddr())
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), h,
+		muxrpc.WithIsServer(true),
+		muxrpc.WithContext(c.rootCtx),
+		muxrpc.WithRemoteAddr(conn.RemoteAddr()),
+	)
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
@@ -122,7 +126,7 @@ func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) 
 	}
 
 	go func() {
-		err := srv.Serve(c.rootCtx)
+		err := srv.Serve()
 		if err != nil {
 			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
 		}
@@ -148,7 +152,10 @@ func NewUnix(path string, opts ...Option) (*Client, error) {
 		logger: c.logger,
 	}
 
-	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h)
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h,
+		muxrpc.WithIsServer(true),
+		muxrpc.WithContext(c.rootCtx),
+	)
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
@@ -157,7 +164,7 @@ func NewUnix(path string, opts ...Option) (*Client, error) {
 	}
 
 	go func() {
-		err := srv.Serve(c.rootCtx)
+		err := srv.Serve()
 		if err != nil {
 			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
 		}

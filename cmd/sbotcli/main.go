@@ -26,7 +26,7 @@ import (
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"

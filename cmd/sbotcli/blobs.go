@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shurcooL/go-goon"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	refs "go.mindeco.de/ssb-refs"
