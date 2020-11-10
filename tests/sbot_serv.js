@@ -1,6 +1,7 @@
+const Path = require('path')
 const tape = require('tape')
 const { readFileSync } = require('fs')
-const { generate } = require('ssb-keys')
+const { loadOrCreateSync } = require('ssb-keys')
 const theStack = require('secret-stack')
 const ssbCaps = require('ssb-caps')
 
@@ -50,10 +51,13 @@ tape(testName, function (t) {
     t.end()
   }
 
+  const tempRepo = Path.join('testrun', testName)
+  const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const sbot = createSbot({
     port: testPort,
-    temp: testName,
-    keys: generate(),
+    // temp: testName,
+    path: tempRepo,
+    keys: keys,
     replicate: {"legacy":false},
   })
   const alice = sbot.whoami()

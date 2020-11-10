@@ -25,7 +25,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type handler struct {
+type LegacyGossip struct {
 	repo repo.Interface
 
 	Id         *refs.FeedRef
@@ -51,7 +51,12 @@ type handler struct {
 	rootCtx context.Context
 }
 
-func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+func (g *LegacyGossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	// TODO: only do this if negotiate isn't registerd
+	g.StartLegacyFetching(ctx, e)
+}
+
+func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoint) {
 	remote := e.Remote()
 	remoteRef, err := ssb.GetFeedRefFromAddr(remote)
 	if err != nil {
@@ -90,7 +95,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	}
 }
 
-func (g *handler) HandleCall(
+func (g *LegacyGossip) HandleCall(
 	ctx context.Context,
 	req *muxrpc.Request,
 	edp muxrpc.Endpoint,

@@ -11,8 +11,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type ebtPlug struct {
-	h muxrpc.Handler
+type Plugin struct {
+	*MUXRPCHandler
 }
 
 func NewPlug(
@@ -23,9 +23,9 @@ func NewPlug(
 	wl ssb.ReplicationLister,
 	nf *numberedfeeds.Index,
 	sm *statematrix.StateMatrix,
-) ssb.Plugin {
+) *Plugin {
 
-	return &ebtPlug{h: &handler{
+	return &Plugin{&MUXRPCHandler{
 		info:      i,
 		id:        id,
 		rootLog:   rootLog,
@@ -40,14 +40,14 @@ func NewPlug(
 	}
 }
 
-func (p ebtPlug) Name() string {
+func (p Plugin) Name() string {
 	return "ebt"
 }
 
-func (p ebtPlug) Method() muxrpc.Method {
+func (p Plugin) Method() muxrpc.Method {
 	return muxrpc.Method{"ebt"}
 }
 
-func (p ebtPlug) Handler() muxrpc.Handler {
-	return p.h
+func (p Plugin) Handler() muxrpc.Handler {
+	return p.MUXRPCHandler
 }

@@ -34,12 +34,13 @@ func NewFetcher(
 	wantList ssb.ReplicationLister,
 	opts ...interface{},
 ) *plugin {
-	h := &handler{
+	h := &LegacyGossip{
 		repo: r,
+
+		ReceiveLog: rxlog,
 
 		Id: id,
 
-		ReceiveLog:  rxlog,
 		UserFeeds:   userFeeds,
 		feedManager: fm,
 		WantList:    wantList,
@@ -83,7 +84,7 @@ func NewServer(
 	fm *FeedManager,
 	opts ...interface{},
 ) histPlugin {
-	h := &handler{
+	h := &LegacyGossip{
 		Id: id,
 
 		ReceiveLog:  rxlog,
@@ -114,7 +115,7 @@ func NewServer(
 }
 
 type plugin struct {
-	h *handler
+	*LegacyGossip
 }
 
 func (plugin) Name() string { return "gossip" }
@@ -124,11 +125,11 @@ func (plugin) Method() muxrpc.Method {
 }
 
 func (p plugin) Handler() muxrpc.Handler {
-	return p.h
+	return p.LegacyGossip
 }
 
 type histPlugin struct {
-	h *handler
+	*LegacyGossip
 }
 
 func (hp histPlugin) Name() string { return "createHistoryStream" }
@@ -142,5 +143,5 @@ type IgnoreConnectHandler struct{ muxrpc.Handler }
 func (IgnoreConnectHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 func (hp histPlugin) Handler() muxrpc.Handler {
-	return IgnoreConnectHandler{hp.h}
+	return IgnoreConnectHandler{hp.LegacyGossip}
 }

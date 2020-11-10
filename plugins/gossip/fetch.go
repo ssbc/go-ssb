@@ -22,7 +22,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (h *handler) fetchAll(
+func (h *LegacyGossip) FetchAll(
 	ctx context.Context,
 	e muxrpc.Endpoint,
 	set *ssb.StrFeedSet,
@@ -56,7 +56,7 @@ func (h *handler) fetchAll(
 	return err
 }
 
-func (h *handler) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef) func() error {
+func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef) func() error {
 	return func() error {
 		err := h.fetchFeed(ctx, ref, edp, time.Now())
 		causeErr := errors.Cause(err)
@@ -72,7 +72,7 @@ func (h *handler) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.F
 }
 
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
-func (g *handler) fetchFeed(
+func (h *LegacyGossip) fetchFeed(
 	ctx context.Context,
 	fr *refs.FeedRef,
 	edp muxrpc.Endpoint,
@@ -84,14 +84,14 @@ func (g *handler) fetchFeed(
 	default:
 	}
 
-	snk, err := g.verifySinks.GetSink(fr)
+	snk, err := h.verifySinks.GetSink(fr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get verify sink for feed")
 	}
 
 	var latestSeq = int(snk.Seq())
 	startSeq := latestSeq
-	info := log.With(g.Info, "event", "gossiprx",
+	info := log.With(h.Info, "event", "gossiprx",
 		"fr", fr.ShortRef(),
 		"starting", latestSeq) // , "me", g.Id.ShortRef())
 
@@ -104,11 +104,11 @@ func (g *handler) fetchFeed(
 
 	defer func() {
 		if n := latestSeq - startSeq; n > 0 {
-			if g.sysGauge != nil {
-				g.sysGauge.With("part", "msgs").Add(float64(n))
+			if h.sysGauge != nil {
+				h.sysGauge.With("part", "msgs").Add(float64(n))
 			}
-			if g.sysCtr != nil {
-				g.sysCtr.With("event", "gossiprx").Add(float64(n))
+			if h.sysCtr != nil {
+				h.sysCtr.With("event", "gossiprx").Add(float64(n))
 			}
 			level.Debug(info).Log("received", n, "took", time.Since(started))
 		}

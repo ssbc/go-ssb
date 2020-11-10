@@ -24,7 +24,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type handler struct {
+type MUXRPCHandler struct {
 	info   logging.Interface
 	isServ bool
 
@@ -40,7 +40,7 @@ type handler struct {
 	currentMessages map[string]refs.Message
 }
 
-func (h *handler) check(err error) {
+func (h *MUXRPCHandler) check(err error) {
 	if err != nil {
 		level.Error(h.info).Log("error", err)
 	}
@@ -48,31 +48,12 @@ func (h *handler) check(err error) {
 
 // client side, asking remote for support
 // TODO: we need to coordinate this with legacy gossip
-func (h *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	// TODO: find a way to signal if we are client or server
+func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 
-	remote, err := ssb.GetFeedRefFromAddr(e.Remote())
-	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
-		return
-	}
-
-	h.info.Log("event", "triggering ebt.replicate", "r", remote.ShortRef())
-
-	var opt = map[string]interface{}{"version": 3}
-
-	// initiate ebt channel
-	rx, tx, err := e.Duplex(ctx, json.RawMessage{}, muxrpc.Method{"ebt", "replicate"}, opt)
-	h.info.Log("event", "call replicate", "err", err)
-	if err != nil {
-		return
-	}
-
-	h.loop(ctx, tx, rx, remote)
 }
 
 // server side (getting called by client asking for support)
-func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	var closed bool
 	checkAndClose := func(err error) {
 		h.check(err)
@@ -108,12 +89,12 @@ func (h *handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrp
 		return
 	}
 
-	h.loop(ctx, req.Stream, req.Stream, remote)
+	h.Loop(ctx, req.Stream, req.Stream, remote)
 	h.info.Log("debug", "loop exited", "r", remote.ShortRef())
 
 }
 
-func (h handler) sendState(ctx context.Context, snk luigi.Sink, remote *refs.FeedRef) error {
+func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *refs.FeedRef) error {
 
 	currState, err := h.stateMatrix.Changed(h.id, remote)
 	if err != nil {
@@ -156,7 +137,7 @@ func (h handler) sendState(ctx context.Context, snk luigi.Sink, remote *refs.Fee
 	return nil
 }
 
-func (h *handler) loop(ctx context.Context, tx luigi.Sink, rx luigi.Source, remote *refs.FeedRef) {
+func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source, remote *refs.FeedRef) {
 	sentAsJSON := transform.NewKeyValueWrapper(tx, false)
 
 	/*
@@ -322,7 +303,7 @@ func (h *handler) loop(ctx context.Context, tx luigi.Sink, rx luigi.Source, remo
 
 // utils
 
-func (h handler) currentSequence(feed *refs.FeedRef) (ssb.Note, error) {
+func (h MUXRPCHandler) currentSequence(feed *refs.FeedRef) (ssb.Note, error) {
 	l, err := h.userFeeds.Get(feed.StoredAddr())
 	if err != nil {
 		return ssb.Note{}, errors.Wrapf(err, "failed to get user log %s", feed.ShortRef())

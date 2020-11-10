@@ -232,7 +232,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		*index.Mlog = ml
 	}
-
 	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
@@ -250,6 +249,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
+	// current ebt state?!
 	// l, err := s.Users.Get(s.KeyPair.Id.StoredAddr())
 	// if err != nil {
 	// 	return nil, errors.Wrapf(err, "failed to get user log %s")
@@ -561,11 +561,20 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.systemGauge,
 		s.eventCounter,
 	)
-	// TODO: need to unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
-	// s.public.Register(gossip.NewFetcher(ctx,
-	// 	kitlog.With(log, "plugin", "gossip"),
-	// 	s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
-	// 	histOpts...))
+
+	// unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
+	gossipPlug := gossip.New(ctx,
+		kitlog.With(log, "plugin", "gossip"),
+		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+		histOpts...)
+
+	rn := negPlugin{replicateNegotiator{
+		logger: kitlog.With(log, "module", "replicate-negotiator"),
+
+		lg:  gossipPlug.LegacyGossip,
+		ebt: ebtPlug.MUXRPCHandler,
+	}}
+	s.public.Register(rn)
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewServer(ctx,

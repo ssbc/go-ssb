@@ -158,6 +158,9 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
+	if name == "" {
+		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+	}
 	jsBotCnt++
 	env := []string{
 		"TEST_NAME=" + name,
@@ -211,6 +214,7 @@ func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs
 	if name == "" {
 		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
 	}
+	jsBotCnt++
 
 	var port = 1024 + mrand.Intn(23000)
 
