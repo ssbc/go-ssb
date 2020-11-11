@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 
-	"go.cryptoscope.co/ssb/keys"
+	"go.cryptoscope.co/ssb/private/keys"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
 )

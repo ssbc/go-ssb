@@ -9,7 +9,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/private/box2"
 
-	"go.cryptoscope.co/ssb/keys"
+	"go.cryptoscope.co/ssb/private/keys"
 	refs "go.mindeco.de/ssb-refs"
 )
 

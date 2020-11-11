@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/keys"
+	"go.cryptoscope.co/ssb/private/keys"
 )
 
 func TestBoxer(t *testing.T) {
