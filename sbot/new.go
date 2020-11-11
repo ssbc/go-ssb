@@ -25,7 +25,6 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/private/keys"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -46,6 +45,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/keys"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -126,6 +126,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	// default multilogs
 	var mlogs = []struct {
 		Name string
 		Mlog **roaring.MultiLog
@@ -150,6 +151,23 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		*index.Mlog = ml
+	}
+
+	// publish
+	var pubopts = []message.PublishOption{
+		message.UseNowTimestamps(true),
+	}
+	if s.signHMACsecret != nil {
+		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
+	}
+	s.PublishLog, err = message.OpenPublishLog(s.RootLog, s.Users, s.KeyPair, pubopts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+	}
+
+	err = MountSimpleIndex("get", indexes.OpenGet)(s)
+	if err != nil {
+		return nil, err
 	}
 
 	// groups2
@@ -198,18 +216,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 	*/
-
-	// publish
-	var pubopts = []message.PublishOption{
-		message.UseNowTimestamps(true),
-	}
-	if s.signHMACsecret != nil {
-		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
-	}
-	s.PublishLog, err = message.OpenPublishLog(s.RootLog, s.Users, s.KeyPair, pubopts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create publish log")
-	}
 
 	// contact/follow graph
 	contactLog, err := s.ByType.Get(librarian.Addr("contact"))
@@ -338,12 +344,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			return s.public.MakeHandler(conn)
 		}
-		return nil, err
-	}
-
-	//
-	err = MountSimpleIndex("get", indexes.OpenGet)(s)
-	if err != nil {
 		return nil, err
 	}
 

@@ -23,7 +23,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -63,7 +62,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
-		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
@@ -120,7 +118,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
-		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
