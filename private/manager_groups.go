@@ -60,6 +60,8 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 	return cloakedID, publicRoot, nil
 }
 
+// Join is called with a groupKey and the tangle root for the group.
+// It adds the key to the keystore so that messages to this group can be decrypted.
 func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageRef, error) {
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
@@ -103,35 +105,8 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 	return &cloakedID, nil
 }
 
-/*
-{
-	type: 'group/add-member',
-	version: 'v1',
-	groupKey: '3YUat1ylIUVGaCjotAvof09DhyFxE8iGbF6QxLlCWWc=',
-	initialMsg: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-	text: 'welcome keks!',                                      // optional
-	recps: [
-	  '%vof09Dhy3YUat1ylIUVGaCjotAFxE8iGbF6QxLlCWWc=.cloaked',  // group_id
-	  '@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519'   // feed_id (for new person)
-	],
-	tangles: {
-	  group: {
-		root: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-		previous: [
-		  '%Sp294oBk7OJxizvPOlm6Sqk3fFJA2EQFiyJ1MS/BZ9E=.sha256'
-		]
-	  },
-	  members: {
-		root: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-		previous: [
-		  '%lm6Sqk3fFJA2EQFiyJ1MSASDASDASDASDASDAS/BZ9E=.sha256',
-		  '%Sp294oBk7OJxizvPOlm6Sqk3fFJA2EQFiyJ1MS/BZ9E=.sha256'
-		]
-	  }
-	}
-}
-*/
-
+// GroupAddMember is a JSON serialization helper.
+// See https://github.com/ssbc/private-group-spec/tree/master/group/add-member for more.
 type GroupAddMember struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
@@ -146,6 +121,7 @@ type GroupAddMember struct {
 	Tangles refs.Tangles `json:"tangles"`
 }
 
+// AddMember creates, encrypts and publishes a GroupAddMember message.
 func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome string) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
@@ -191,6 +167,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 	return mgr.encryptAndPublish(jsonContent, gskey)
 }
 
+// PublishTo encrypts and publishes a json blob as content to a group.
 func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
@@ -203,6 +180,8 @@ func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.M
 	return mgr.encryptAndPublish(content, r)
 }
 
+// PublishPostTo publishes a new post to a group.
+// TODO: reply root?
 func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
@@ -236,6 +215,10 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 
 // TODO: protect against race of changing previous
 func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (*refs.MessageRef, error) {
+	if !json.Valid(c) {
+		return nil, fmt.Errorf("box2 manager: passed content is not valid JSON")
+	}
+
 	prev, err := mgr.getPrevious()
 	if err != nil {
 		return nil, err
