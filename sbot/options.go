@@ -36,8 +36,10 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+// MuxrpcEndpointWrapper can be used to wrap ever call a endpoint makes
 type MuxrpcEndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
+// Sbot is the database and replication server
 type Sbot struct {
 	info kitlog.Logger
 
@@ -85,7 +87,7 @@ type Sbot struct {
 
 	Groups *private.Manager
 
-	ReceiveLog multimsg.AlterableLog // the stream of messages as it arrived
+	ReceiveLog multimsg.AlterableLog // the stream of messages as they arrived
 
 	PublishLog     ssb.Publisher
 	signHMACsecret []byte
@@ -117,8 +119,10 @@ type Sbot struct {
 	ssb.Replicator
 }
 
+// Option is a functional option type definition to change sbot behaviour
 type Option func(*Sbot) error
 
+// WithBlobStore can be used to use a different storage backend for blobs.
 func WithBlobStore(bs ssb.BlobStore) Option {
 	return func(s *Sbot) error {
 		s.BlobStore = bs
@@ -135,6 +139,7 @@ func DisableLiveIndexMode() Option {
 	}
 }
 
+// WithRepoPath changes where the replication database and blobs are stored.
 func WithRepoPath(path string) Option {
 	return func(s *Sbot) error {
 		s.repoPath = path
@@ -142,6 +147,7 @@ func WithRepoPath(path string) Option {
 	}
 }
 
+// DisableNetworkNode disables all networking, in turn it only serves the database.
 func DisableNetworkNode() Option {
 	return func(s *Sbot) error {
 		s.disableNetwork = true
@@ -149,6 +155,7 @@ func DisableNetworkNode() Option {
 	}
 }
 
+// WithListenAddr changes the muxrpc listener address. By default it listens to ':8008'.
 func WithListenAddr(addr string) Option {
 	return func(s *Sbot) error {
 		var err error
@@ -157,6 +164,8 @@ func WithListenAddr(addr string) Option {
 	}
 }
 
+// WithDialer changes the function that is used to dial remote peers.
+// This could be a sock5 connection builder to support tor proxying to hidden services.
 func WithDialer(dial netwrap.Dialer) Option {
 	return func(s *Sbot) error {
 		s.dialer = dial
@@ -164,6 +173,7 @@ func WithDialer(dial netwrap.Dialer) Option {
 	}
 }
 
+// WithNetworkConnTracker changes the connection tracker. See network.NewLastWinsTracker and network.NewAcceptAllTracker.
 func WithNetworkConnTracker(ct ssb.ConnTracker) Option {
 	return func(s *Sbot) error {
 		s.networkConnTracker = ct
@@ -171,6 +181,8 @@ func WithNetworkConnTracker(ct ssb.ConnTracker) Option {
 	}
 }
 
+// WithUNIXSocket enables listening for muxrpc connections on a unix socket files ($repo/socket).
+// This socket is not encrypted or authenticated since access to it is mediated by filesystem ownership.
 func WithUNIXSocket() Option {
 	return func(s *Sbot) error {
 		// this races because sbot might not be done with init yet
@@ -259,6 +271,8 @@ func WithUNIXSocket() Option {
 	}
 }
 
+// WithAppKey changes the appkey (aka secret-handshake network cap).
+// See https://ssbc.github.io/scuttlebutt-protocol-guide/#handshake for more.
 func WithAppKey(k []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(k); n != 32 {
@@ -269,6 +283,7 @@ func WithAppKey(k []byte) Option {
 	}
 }
 
+// WithNamedKeyPair changes from the default `secret` file, useful for testing.
 func WithNamedKeyPair(name string) Option {
 	return func(s *Sbot) error {
 		r := repo.New(s.repoPath)
@@ -278,6 +293,8 @@ func WithNamedKeyPair(name string) Option {
 	}
 }
 
+// WithJSONKeyPair expectes a JSON-string as blob and calls ssb.ParseKeyPair on it.
+// This is useful if you dont't want to place the keypair on the filesystem.
 func WithJSONKeyPair(blob string) Option {
 	return func(s *Sbot) error {
 		var err error
@@ -286,6 +303,7 @@ func WithJSONKeyPair(blob string) Option {
 	}
 }
 
+// WithKeyPair exepect a initialized ssb.KeyPair. Useful for testing.
 func WithKeyPair(kp *ssb.KeyPair) Option {
 	return func(s *Sbot) error {
 		s.KeyPair = kp
@@ -293,6 +311,7 @@ func WithKeyPair(kp *ssb.KeyPair) Option {
 	}
 }
 
+// WithInfo changes the info/warn/debug loging output.
 func WithInfo(log kitlog.Logger) Option {
 	return func(s *Sbot) error {
 		s.info = log
@@ -300,6 +319,9 @@ func WithInfo(log kitlog.Logger) Option {
 	}
 }
 
+// WithContext changes the context that is context.Background() by default.
+// Handy to setup cancelation against a interup signal like ctrl+c.
+// Canceling the context also shuts down indexing. If no context is passed sbot.Shutdown() can be used.
 func WithContext(ctx context.Context) Option {
 	return func(s *Sbot) error {
 		s.rootCtx = ctx
@@ -307,17 +329,10 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithKeyManager(log kitlog.Logger) Option {
-	return func(s *Sbot) error {
-		return fmt.Errorf("TODO: make private manager an index")
-		/*
-			mount := MountSimpleIndex("keys", // key manager here // )
-			return mount(s)
-		*/
-	}
-}
-
 // TODO: remove all this network stuff and make them options on network
+
+// WithPreSecureConnWrapper wrapps the connection after it is encrypted.
+// Usefull for debugging and measuring traffic.
 func WithPreSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	return func(s *Sbot) error {
 		s.preSecureWrappers = append(s.preSecureWrappers, cw)
@@ -325,7 +340,8 @@ func WithPreSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	}
 }
 
-// TODO: remove all this network stuff and make them options on network
+// WithPostSecureConnWrapper wrapps the connection before it is encrypted.
+// Usefull to insepct the muxrpc frames before they go into boxstream.
 func WithPostSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	return func(s *Sbot) error {
 		s.postSecureWrappers = append(s.postSecureWrappers, cw)
@@ -333,6 +349,7 @@ func WithPostSecureConnWrapper(cw netwrap.ConnWrapper) Option {
 	}
 }
 
+// WithEventMetrics sets up latency and counter metrics
 func WithEventMetrics(ctr metrics.Counter, lvls metrics.Gauge, lat metrics.Histogram) Option {
 	return func(s *Sbot) error {
 		s.eventCounter = ctr
@@ -342,6 +359,7 @@ func WithEventMetrics(ctr metrics.Counter, lvls metrics.Gauge, lat metrics.Histo
 	}
 }
 
+// WithEndpointWrapper sets a MuxrpcEndpointWrapper for new connections.
 func WithEndpointWrapper(mw MuxrpcEndpointWrapper) Option {
 	return func(s *Sbot) error {
 		s.edpWrapper = mw
@@ -357,7 +375,7 @@ func EnableAdvertismentBroadcasts(do bool) Option {
 	}
 }
 
-// EnableAdvertismentBroadcasts controls local peer discovery through listening for and connecting to UDP broadcasts
+// EnableAdvertismentDialing controls local peer discovery through listening for and connecting to UDP broadcasts
 func EnableAdvertismentDialing(do bool) Option {
 	return func(s *Sbot) error {
 		s.enableDiscovery = do
@@ -365,6 +383,8 @@ func EnableAdvertismentDialing(do bool) Option {
 	}
 }
 
+// WithHMACSigning sets an HMAC signing key for messages.
+// Useful for testing, see https://github.com/ssb-js/ssb-validate#state--validateappendstate-hmac_key-msg for more.
 func WithHMACSigning(key []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(key); n != 32 {
@@ -375,6 +395,7 @@ func WithHMACSigning(key []byte) Option {
 	}
 }
 
+// WithWebsocketAddress changes the HTTP listener address, by default it's :8989.
 func WithWebsocketAddress(addr string) Option {
 	return func(s *Sbot) error {
 		// TODO: listen here?
@@ -433,6 +454,7 @@ func LateOption(o Option) Option {
 	}
 }
 
+// New creates an sbot instance using the passed options to configure it.
 func New(fopts ...Option) (*Sbot, error) {
 	var s Sbot
 	s.liveIndexUpdates = true

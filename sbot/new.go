@@ -52,6 +52,7 @@ import (
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
+// Close closes the bot by stopping network connections and closing the internal databases
 func (s *Sbot) Close() error {
 	s.closedMu.Lock()
 	defer s.closedMu.Unlock()
@@ -435,7 +436,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// raw log plugins
 	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
 	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
-	s.master.Register(hist)                        // createHistoryStream
+	s.master.Register(hist)                           // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
