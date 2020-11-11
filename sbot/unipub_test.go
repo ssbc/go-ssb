@@ -60,7 +60,7 @@ func TestPublishUnicode(t *testing.T) {
 	_, err = ali.PublishLog.Append(newMsg)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

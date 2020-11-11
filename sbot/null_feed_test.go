@@ -118,7 +118,7 @@ func TestNullFeed(t *testing.T) {
 		checkLogSeq(l, seq)
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 1)

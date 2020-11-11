@@ -121,9 +121,9 @@ func XTestMultipleIdentities(t *testing.T) {
 		r.EqualValues(seq, v.(margaret.Seq).Seq())
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
-	src, err := mainbot.RootLog.Query()
+	src, err := mainbot.ReceiveLog.Query()
 	r.NoError(err)
 
 	ctx := context.Background()

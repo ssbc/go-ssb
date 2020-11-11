@@ -104,7 +104,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		userPrivs, err := pl.Get(librarian.Addr("box1:") + srv.KeyPair.Id.StoredAddr())
 		r.NoError(err)
 
-		unboxlog := private.NewUnboxerLog(srv.RootLog, userPrivs, srv.KeyPair)
+		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)
 
 		src, err = unboxlog.Query(margaret.SeqWrap(true))
 		r.NoError(err)

@@ -17,7 +17,7 @@ import (
 )
 
 func (sbot *Sbot) Status() (ssb.Status, error) {
-	v, err := sbot.RootLog.Seq().Value()
+	v, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
 		return ssb.Status{}, errors.Wrap(err, "failed to get root log sequence")
 	}

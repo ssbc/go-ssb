@@ -23,6 +23,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// TODO: move these into the sbot package
+
 func TestAboutNames(t *testing.T) {
 	// defer leakcheck.Check(t) TODO: add closer to plugin so that they can free their resources properly
 	r := require.New(t)
@@ -61,7 +63,7 @@ func TestAboutNames(t *testing.T) {
 	_, err = ali.PublishLog.Publish(newName)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

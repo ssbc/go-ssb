@@ -158,7 +158,7 @@ func (g *handler) fetchFeed(
 			if err != nil {
 				return errors.Wrapf(err, "failed to look up root seq for latest user sublog")
 			}
-			msgV, err := g.RootLog.Get(rootLogValue.(margaret.Seq))
+			msgV, err := g.ReceiveLog.Get(rootLogValue.(margaret.Seq))
 			if err != nil {
 				return errors.Wrapf(err, "failed retreive stored message")
 			}
@@ -210,7 +210,7 @@ func (g *handler) fetchFeed(
 			}
 			return err
 		}
-		_, err = g.RootLog.Append(val)
+		_, err = g.ReceiveLog.Append(val)
 		return errors.Wrap(err, "failed to append verified message to rootLog")
 	})
 

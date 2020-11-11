@@ -346,7 +346,7 @@ func runSbot() error {
 	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	rseq, err := sbot.RootLog.Seq().Value()
+	rseq, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
 		return errors.Wrap(err, "could not get root log sequence number")
 	}

@@ -97,11 +97,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	r := repo.New(s.repoPath)
 
 	// optionize?!
-	s.RootLog, err = repo.OpenLog(r)
+	s.ReceiveLog, err = repo.OpenLog(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
 	}
-	s.closers.addCloser(s.RootLog.(io.Closer))
+	s.closers.addCloser(s.ReceiveLog.(io.Closer))
 
 	if s.BlobStore == nil { // load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
@@ -160,7 +160,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if s.signHMACsecret != nil {
 		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
 	}
-	s.PublishLog, err = message.OpenPublishLog(s.RootLog, s.Users, s.KeyPair, pubopts...)
+	s.PublishLog, err = message.OpenPublishLog(s.ReceiveLog, s.Users, s.KeyPair, pubopts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to create publish log")
 	}
@@ -207,7 +207,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
 		var dcrTrigger dropContentTrigger
 		dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
-		dcrTrigger.root = s.RootLog
+		dcrTrigger.root = s.ReceiveLog
 		dcrTrigger.feeds = uf
 		dcrTrigger.nuller = s
 		err = MountSimpleIndex("content-delete-requests", dcrTrigger.MakeSimpleIndex)(s)
@@ -222,7 +222,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
 	}
-	justContacts := mutil.Indirect(s.RootLog, contactLog)
+	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
 	// LogBuilder doesn't fully work yet
 	if false {
@@ -248,7 +248,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message about sublog")
 	}
-	aboutsOnly := mutil.Indirect(s.RootLog, aboutSeqs)
+	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
 	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
@@ -274,7 +274,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
 	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
-	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.RootLog, s.PublishLog)
+	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
 	// 	s.public.Register(peerPlug)
 	// 	_, peerServ, err := peerPlug.OpenIndex(r)
 	// 	if err != nil {
@@ -348,7 +348,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// publish
-	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
+	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.ReceiveLog))
 
 	// private
 	// TODO: box2
@@ -361,7 +361,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.Groups,
 		s.PublishLog,
-		private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
@@ -395,7 +395,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	fm := gossip.NewFeedManager(
 		ctx,
-		s.RootLog,
+		s.ReceiveLog,
 		s.Users,
 		kitlog.With(log, "feedmanager"),
 		s.systemGauge,
@@ -403,21 +403,21 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	)
 	s.public.Register(gossip.New(ctx,
 		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
 		kitlog.With(log, "plugin", "gossip/hist"),
 		s.KeyPair.Id,
-		s.RootLog, s.Users,
+		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
 		fm,
 		histOpts...)
 	s.public.Register(hist)
 
 	// get idx muxrpc handler
-	s.master.Register(get.New(s, s.RootLog))
+	s.master.Register(get.New(s, s.ReceiveLog))
 
 	//
 	s.master.Register(namesPlug)
@@ -428,13 +428,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.Users,
 		s.ByType,
 		s.Tangles,
-		s.RootLog, s)
+		s.ReceiveLog, s)
 	s.public.Register(plug)
 	s.master.Register(plug)
 
 	// raw log plugins
-	s.master.Register(rawread.NewSequenceStream(s.RootLog))
-	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
+	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
+	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
 	s.master.Register(hist)                        // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
@@ -447,12 +447,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(mh)
 
 	var bytypePlug bytype.Plugin
-	bytypePlug.WantRootLog(s.RootLog)
+	bytypePlug.WantRootLog(s.ReceiveLog)
 	bytypePlug.UseMultiLog(s.ByType)
 	s.master.Register(bytypePlug)
 
 	var tplug tangles.Plugin
-	tplug.WantRootLog(s.RootLog)
+	tplug.WantRootLog(s.ReceiveLog)
 	tplug.UseMultiLog(s.Tangles)
 	s.master.Register(tplug)
 
@@ -521,7 +521,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.Network,
 		s.PublishLog,
-		s.RootLog,
+		s.ReceiveLog,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open legacy invites plugin")

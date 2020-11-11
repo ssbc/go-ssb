@@ -85,7 +85,7 @@ type Sbot struct {
 
 	Groups *private.Manager
 
-	RootLog multimsg.AlterableLog // aka receive log (the stream of messages as it arrived)
+	ReceiveLog multimsg.AlterableLog // the stream of messages as it arrived
 
 	PublishLog     ssb.Publisher
 	signHMACsecret []byte

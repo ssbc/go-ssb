@@ -31,7 +31,7 @@ func (sbot *Sbot) PublishAs(nick string, val interface{}) (*refs.MessageRef, err
 		pubopts = append(pubopts, message.SetHMACKey(sbot.signHMACsecret))
 	}
 
-	pl, err := message.OpenPublishLog(sbot.RootLog, uf, kp, pubopts...)
+	pl, err := message.OpenPublishLog(sbot.ReceiveLog, uf, kp, pubopts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "publishAs: failed to create publish log")
 	}

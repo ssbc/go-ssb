@@ -95,7 +95,7 @@ func testFSCKdouble(t *testing.T) {
 	// now do some nasty magic, double the log by appending it to itself again
 	// TODO: refactor to only have Add() on the bot, not the internal rootlog
 	// Add() should do the append logic
-	src, err := theBot.RootLog.Query(margaret.Limit(n))
+	src, err := theBot.ReceiveLog.Query(margaret.Limit(n))
 	r.NoError(err)
 
 	for {
@@ -107,13 +107,13 @@ func testFSCKdouble(t *testing.T) {
 			r.NoError(err)
 		}
 
-		seq, err := theBot.RootLog.Append(v)
+		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
 		t.Log("doubled:", seq.Seq())
 	}
 
 	// check duplication
-	seqv, err := theBot.RootLog.Seq().Value()
+	seqv, err := theBot.ReceiveLog.Seq().Value()
 	r.NoError(err)
 	seq := seqv.(margaret.Seq)
 	r.EqualValues(seq.Seq()+1, n*2)
@@ -185,7 +185,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	}
 
 	// copy the messages from one and two (leaving "main" intact)
-	src, err := theBot.RootLog.Query(
+	src, err := theBot.ReceiveLog.Query(
 		margaret.Gt(margaret.BaseSeq(n-1)),
 		margaret.Limit(5))
 	r.NoError(err)
@@ -201,7 +201,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 		msg, ok := v.(refs.Message)
 		r.True(ok)
 
-		seq, err := theBot.RootLog.Append(v)
+		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
 		t.Log("doubled:", msg.Author().ShortRef(), seq.Seq())
 	}
@@ -248,7 +248,7 @@ func testFSCKrepro(t *testing.T) {
 
 	theBot, _ := makeTestBot(t)
 
-	seqV, err := theBot.RootLog.Seq().Value()
+	seqV, err := theBot.ReceiveLog.Seq().Value()
 	r.NoError(err)
 	latestSeq := seqV.(margaret.Seq)
 	r.EqualValues(latestSeq.Seq(), 6699)

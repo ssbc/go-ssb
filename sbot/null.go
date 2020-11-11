@@ -52,7 +52,7 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		if !ok {
 			return errors.Errorf("NullFeed: not a sequence from userlog query")
 		}
-		err = s.RootLog.Null(seq)
+		err = s.ReceiveLog.Null(seq)
 		if err != nil {
 			return err
 		}

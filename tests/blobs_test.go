@@ -184,7 +184,7 @@ func TestBlobWithHop(t *testing.T) {
 
 	var wantBlob *refs.BlobRef
 
-	msg, err := mutil.Indirect(bob.RootLog, aliceLog).Get(margaret.BaseSeq(0))
+	msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(margaret.BaseSeq(0))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -328,7 +328,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 
 	jsFeedSeqs, err := uf.Get(jsBot.StoredAddr())
 	r.NoError(err)
-	jsFeed := mutil.Indirect(s.RootLog, jsFeedSeqs)
+	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10
 	var testData struct {
 		Type  string        `json:"test-data"`

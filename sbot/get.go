@@ -37,7 +37,7 @@ func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 		return nil, errors.Errorf("sbot/get: wrong sequence type in index: %T", v)
 	}
 
-	storedV, err := s.RootLog.Get(seq)
+	storedV, err := s.ReceiveLog.Get(seq)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot/get: failed to load message")
 	}

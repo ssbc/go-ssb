@@ -254,10 +254,10 @@ func TestGroupsFullCircle(t *testing.T) {
 	chkCount(tal.Private)(addr, 2) // TODO: reindex
 
 	t.Log("srh")
-	streamLog(t, srh.RootLog)
+	streamLog(t, srh.ReceiveLog)
 
 	t.Log("tal")
-	streamLog(t, tal.RootLog)
+	streamLog(t, tal.ReceiveLog)
 
 	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
 	r.NoError(err)

@@ -47,7 +47,7 @@ func (s *Sbot) NullContent(fr *refs.FeedRef, seq uint) error {
 		return errors.Errorf("not a sequence type: %T", seqv)
 	}
 
-	msgv, err := s.RootLog.Get(rootLogSeq)
+	msgv, err := s.ReceiveLog.Get(rootLogSeq)
 	if err != nil {
 		return errors.Wrap(err, "nullContent: failed to get message in rootLog")
 	}
@@ -69,7 +69,7 @@ func (s *Sbot) NullContent(fr *refs.FeedRef, seq uint) error {
 		return errors.Wrap(err, "nullContent: unable to marshall nulled content transfer")
 	}
 
-	err = s.RootLog.Replace(rootLogSeq, nulled)
+	err = s.ReceiveLog.Replace(rootLogSeq, nulled)
 	return errors.Wrap(err, "nullContent: failed to execute replace operation")
 }
 

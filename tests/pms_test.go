@@ -117,7 +117,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
-	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -187,7 +187,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		r.NoError(err)
 		r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
-		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := bob.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		absMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)

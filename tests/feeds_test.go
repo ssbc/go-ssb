@@ -68,7 +68,7 @@ func TestFeedFromJS(t *testing.T) {
 
 	var lastMsg string
 	for i := 0; i < n; i++ { // don't check the contact:following message from A to C
-		msg, err := mutil.Indirect(bob.RootLog, aliceLog).Get(margaret.BaseSeq(i))
+		msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(margaret.BaseSeq(i))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)
@@ -229,7 +229,7 @@ func TestFeedFromGo(t *testing.T) {
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
-	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -252,7 +252,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.NoError(err)
 	seqMsg, err = aliceLog.Get(aseq.(margaret.BaseSeq))
 	r.NoError(err)
-	msg, err = s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err = s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -264,7 +264,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.NoError(err)
 	seqMsg, err = bobLog.Get(bseq.(margaret.BaseSeq))
 	r.NoError(err)
-	msg, err = s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err = s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -371,7 +371,7 @@ func XTestFeedFromGoLive(t *testing.T) {
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
-	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)

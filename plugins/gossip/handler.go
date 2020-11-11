@@ -23,11 +23,11 @@ import (
 )
 
 type handler struct {
-	Id        *refs.FeedRef
-	RootLog   margaret.Log
-	UserFeeds multilog.MultiLog
-	WantList  ssb.ReplicationLister
-	Info      logging.Interface
+	Id         *refs.FeedRef
+	ReceiveLog margaret.Log
+	UserFeeds  multilog.MultiLog
+	WantList   ssb.ReplicationLister
+	Info       logging.Interface
 
 	hmacSec  HMACSecret
 	hopCount int

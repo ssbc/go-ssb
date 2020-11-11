@@ -58,7 +58,7 @@ func TestReplicateUpTo(t *testing.T) {
 			kp.Id.Algo = refs.RefAlgoFeedGabby
 		}
 
-		publish, err := message.OpenPublishLog(srv.RootLog, uf, kp)
+		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)
 
 		testKeyPairs[kp.Id.Ref()] = i

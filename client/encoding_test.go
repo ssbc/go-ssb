@@ -59,7 +59,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.RootLog.Seq().Value()
+	seqv, err := srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
@@ -78,7 +78,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		wantRefs = append(wantRefs, ref.Ref())
 	}
 
-	seqv, err = srv.RootLog.Seq().Value()
+	seqv, err = srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	r.EqualValues(9, seqv)
 

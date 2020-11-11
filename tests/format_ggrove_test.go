@@ -100,7 +100,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 			}
 			return err
 		}
-		_, err = s.RootLog.Append(val)
+		_, err = s.ReceiveLog.Append(val)
 		return errors.Wrap(err, "failed to append verified message to rootLog")
 	})
 	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
@@ -122,7 +122,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	for demoFeedSeq := margaret.BaseSeq(1); demoFeedSeq < 3; demoFeedSeq++ {
 		seqMsg, err := demoLog.Get(demoFeedSeq - 1)
 		r.NoError(err)
-		msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)

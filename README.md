@@ -106,7 +106,7 @@ func main() {
 	sbot, err := sbot.New()
 	check(err)
 
-	publish, err := multilogs.OpenPublishLog(sbot.RootLog, sbot.UserFeeds, *sbot.KeyPair)
+	publish, err := multilogs.OpenPublishLog(sbot.ReceiveLog, sbot.UserFeeds, *sbot.KeyPair)
 	check(err)
 
 	alice, err := refs.ParseFeedRef("@alicesKeyInActualBase64Bytes.ed25519")

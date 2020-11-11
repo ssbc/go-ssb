@@ -120,7 +120,7 @@ func XTestNullContentRequest(t *testing.T) {
 		checkLogSeq(l, seq)
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 2)
@@ -134,7 +134,7 @@ func XTestNullContentRequest(t *testing.T) {
 	arniesLog, err := uf.Get(kpArny.Id.StoredAddr())
 	r.NoError(err)
 
-	arniesLog = mutil.Indirect(mainbot.RootLog, arniesLog)
+	arniesLog = mutil.Indirect(mainbot.ReceiveLog, arniesLog)
 	dcr := refs.NewDropContentRequest(1, allMessages[0])
 	r.False(dcr.Valid(arniesLog))
 
@@ -142,7 +142,7 @@ func XTestNullContentRequest(t *testing.T) {
 	bertLog, err := uf.Get(kpBert.Id.StoredAddr())
 	r.NoError(err)
 
-	bertLog = mutil.Indirect(mainbot.RootLog, bertLog)
+	bertLog = mutil.Indirect(mainbot.ReceiveLog, bertLog)
 	msgv, err := bertLog.Get(margaret.BaseSeq(2)) // 0-indexed
 	r.NoError(err)
 	msg, ok := msgv.(refs.Message)
@@ -282,7 +282,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		userLog, err := uf.Get(kp.Id.StoredAddr())
 		r.NoError(err)
 
-		msgv, err := mutil.Indirect(bot.RootLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
+		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
 		r.NoError(err)
 
 		msg, ok := msgv.(refs.Message)
@@ -396,7 +396,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		t.Log(sw.Seq().Seq(), string(msg.ContentBytes()))
 		return err
 	})
-	src, err := otherBot.RootLog.Query(margaret.SeqWrap(true))
+	src, err := otherBot.ReceiveLog.Query(margaret.SeqWrap(true))
 	r.NoError(err)
 	luigi.Pump(context.Background(), printSink, src)
 

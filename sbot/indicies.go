@@ -24,7 +24,7 @@ import (
 func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 	return func(s *Sbot) error {
 		if wrl, ok := plug.(plugins2.NeedsRootLog); ok {
-			wrl.WantRootLog(s.RootLog)
+			wrl.WantRootLog(s.ReceiveLog)
 		}
 
 		if wrl, ok := plug.(plugins2.NeedsMultiLog); ok {
@@ -123,14 +123,14 @@ func (s *Sbot) WaitUntilIndexesAreSynced() {
 
 // the default is to fill an index with all messages
 func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
-	s.serveIndexFrom(name, snk, s.RootLog)
+	s.serveIndexFrom(name, snk, s.ReceiveLog)
 }
 
 /* some indexes just require a certain kind of message, like type:contact or type:about.
 
 contactLog, err := s.ByType.Get(librarian.Addr("contact"))
 if err != nil { ... }
-msgs := mutil.Indirect(s.RootLog, contactLog)
+msgs := mutil.Indirect(s.ReceiveLog, contactLog)
 */
 func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margaret.Log) {
 	s.idxInSync.Add(1)

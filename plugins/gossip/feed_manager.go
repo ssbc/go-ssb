@@ -29,9 +29,9 @@ import (
 type FeedManager struct {
 	rootCtx context.Context
 
-	RootLog   margaret.Log
-	UserFeeds multilog.MultiLog
-	logger    logging.Interface
+	ReceiveLog margaret.Log
+	UserFeeds  multilog.MultiLog
+	logger     logging.Interface
 
 	liveFeeds    map[string]*multiSink
 	liveFeedsMut sync.Mutex
@@ -45,20 +45,20 @@ type FeedManager struct {
 // Feeds.
 func NewFeedManager(
 	ctx context.Context,
-	rootLog margaret.Log,
+	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	info logging.Interface,
 	sysGauge metrics.Gauge,
 	sysCtr metrics.Counter,
 ) *FeedManager {
 	fm := &FeedManager{
-		RootLog:   rootLog,
-		UserFeeds: userFeeds,
-		logger:    info,
-		rootCtx:   ctx,
-		sysCtr:    sysCtr,
-		sysGauge:  sysGauge,
-		liveFeeds: make(map[string]*multiSink),
+		ReceiveLog: rxlog,
+		UserFeeds:  userFeeds,
+		logger:     info,
+		rootCtx:    ctx,
+		sysCtr:     sysCtr,
+		sysGauge:   sysGauge,
+		liveFeeds:  make(map[string]*multiSink),
 	}
 	// QUESTION: How should the error case be handled?
 	go fm.serveLiveFeeds()
@@ -86,13 +86,13 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 }
 
 func (m *FeedManager) serveLiveFeeds() {
-	seqv, err := m.RootLog.Seq().Value()
+	seqv, err := m.ReceiveLog.Seq().Value()
 	if err != nil {
 		err = errors.Wrap(err, "failed to get root log sequence")
 		panic(err)
 	}
 
-	src, err := m.RootLog.Query(
+	src, err := m.ReceiveLog.Query(
 		margaret.Gt(seqv.(margaret.BaseSeq)),
 		margaret.Live(true),
 		margaret.SeqWrap(true),
@@ -225,7 +225,7 @@ func (m *FeedManager) CreateStreamHistory(
 
 	// Make query
 	limit := nonliveLimit(arg, latest)
-	resolved := mutil.Indirect(m.RootLog, userLog)
+	resolved := mutil.Indirect(m.ReceiveLog, userLog)
 	src, err := resolved.Query(
 		margaret.Gte(margaret.BaseSeq(arg.Seq)),
 		margaret.Limit(int(limit)),

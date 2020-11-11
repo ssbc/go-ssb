@@ -114,7 +114,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(8), seqv)
 
-	src, err := mutil.Indirect(ali.RootLog, bosLogAtAli).Query()
+	src, err := mutil.Indirect(ali.ReceiveLog, bosLogAtAli).Query()
 	r.NoError(err)
 	for {
 		v, err := src.Next(ctx)
