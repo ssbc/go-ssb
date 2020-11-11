@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package client is a a simple muxrpc interface to common ssb methods, similar to npm:ssb-client
 package client
 
 import (

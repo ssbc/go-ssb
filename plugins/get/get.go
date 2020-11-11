@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package get is just a muxrpc wrapper around sbot.Get
 package get
 
 import (

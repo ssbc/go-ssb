@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package tests contains test scenarios and helpers to run interoparability tests against the javascript implementation.
 package tests
 
 import (

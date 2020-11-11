@@ -1,3 +1,7 @@
+// Package muxmux offers an improved muxrpc.HandlerMux (think HTTP router).
+// compared to the first draft, this one offers specialed handler functions for the different call types (async, source, sink)
+// to reduce boilerplate in handlers.
+// TODO: if this shows itselv to be worthwhile, it should be moved to go-muxrpc.
 package muxmux
 
 import (

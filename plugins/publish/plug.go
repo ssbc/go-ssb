@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package publish is just a muxrpc wrapper around sbot.PublishLog.Publish.
 package publish
 
 import (

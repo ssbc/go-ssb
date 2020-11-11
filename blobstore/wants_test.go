@@ -103,14 +103,14 @@ func TestWantManager(t *testing.T) {
 			}
 
 			for refStr, dist := range tc.localWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				a.NoError(wmgr.WantWithDist(ref, dist), "error wanting local ref")
 			}
 
 			for refStr := range tc.localWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				a.Equal(true, wmgr.Wants(ref), "expected want manager to want ref %q, but it doesn't", ref.Ref())
@@ -118,7 +118,7 @@ func TestWantManager(t *testing.T) {
 
 			var wmsg WantMsg
 			for refStr, dist := range tc.remoteWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				wmsg = append(wmsg, ssb.BlobWant{Ref: ref, Dist: dist})

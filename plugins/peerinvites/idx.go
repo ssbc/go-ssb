@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package peerinvites spplies the server part of the newer invite system: npm:ssb-peer-invites
 package peerinvites
 
 import (

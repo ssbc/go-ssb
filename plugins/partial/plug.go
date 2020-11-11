@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// Package partial is a helper module for ssb-browser-core, enabling to fetch subsets of feeds.
+// See https://github.com/arj03/ssb-partial-replication for more.
 package partial
 
 import (
@@ -29,13 +31,6 @@ func (p plugin) Method() muxrpc.Method {
 func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
-
-// "partialReplication":{
-// 	getFeed: 'source',
-// 	getFeedReverse: 'source',
-// 	getTangle: 'async',
-// 	getMessagesOfType: 'source'
-//   }
 
 func New(log logging.Interface,
 	fm *gossip.FeedManager,

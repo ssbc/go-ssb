@@ -37,9 +37,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.AsJSON = b
 			}
 
-		case "type":
-			fallthrough
-		case "id":
+		case "type", "id":
 			val, ok := v.(string)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not string (but %T) for %s", v, k)

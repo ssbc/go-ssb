@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package blobstore implements the filesystem storage and simpathy/want managment for ssb-blobs.
 package blobstore
 
 import (
@@ -15,31 +16,18 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/luigi"
+
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
-var (
-	ErrNoSuchBlob = stderr.New("no such blob")
-)
+// ErrNoSuchBlob is returned if the requested blob isn't available
+var ErrNoSuchBlob = stderr.New("ssb: no such blob")
 
-func parseBlobRef(refStr string) (*refs.BlobRef, error) {
-	ref, err := refs.ParseRef(refStr)
-	if err != nil {
-		return nil, err
-	}
-
-	br, ok := ref.(*refs.BlobRef)
-
-	if !ok {
-		return nil, fmt.Errorf("ref is not a %T but a %T", br, ref)
-	}
-
-	return br, nil
-}
-
+// New creates a new BlobStore, storing it's blobs at the given path.
+// This store is functionally equivalent to the javascript implementation and thus can share it's path.
+// ie: 'ln -s ~/.ssb/blobs ~/.ssb-go/blobs' works to deduplicate the storage.
 func New(basePath string) (ssb.BlobStore, error) {
 	err := os.MkdirAll(filepath.Join(basePath, "sha256"), 0700)
 	if err != nil {

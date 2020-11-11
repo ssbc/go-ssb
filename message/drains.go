@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package message contains abstract verification and publish helpers.
 package message
 
 import (

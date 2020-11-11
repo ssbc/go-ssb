@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// Package blobs implements the muxrpc handlers for npm:ssb-blobs.
+// The storage and want-managment is found in the blobstore package.
 package blobs
 
 import (

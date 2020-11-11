@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+// Package private suuplies an about to be deprecated way of accessing private messages.
+// This supplies the private.read source from npm:ssb-private.
+// In the  future relevant queries will have a private:true parameter to unbox readable messages automatically.
 package private
 
 import (

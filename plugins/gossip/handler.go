@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package gossip implements the createHistoryStream muxrpc call. Legacy (non-EBT) Replication of fetching and verifying the selected feeds is found here.
 package gossip
 
 import (

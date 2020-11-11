@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// Package multimsg implements a margaret codec to encode multiple kinds of messages to disk.
+// Currently _legacy_ and _gabbygrove_ but should be easily extendable.
 package multimsg
 
 import (

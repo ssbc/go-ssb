@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+// go-sbot hosts the database and p2p server for replication.
+// It supplies various flags to contol options.
+// See 'go-sbot -h' for a list and their usage.
 package main
 
 import (

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package repo contains utility modules to open offset logs and create different kinds of indexes.
 package repo
 
 import (

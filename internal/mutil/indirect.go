@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package mutil offers some margaret utilities.
 package mutil
 
 import (
@@ -15,6 +16,8 @@ type indirectLog struct {
 	root, indirect margaret.Log
 }
 
+// Indirect returns a new Log uses the "indirection Log" to lookup entries in the "root log".
+// This helps with the existing database abstraction where indexes just point to entries in the root log by sequence numbers.
 func Indirect(root, indirect margaret.Log) margaret.Log {
 	il := indirectLog{
 		root:     root,

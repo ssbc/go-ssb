@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package friends supplies some of npm:ssb-friends, namly isFollowing, isBlocking and hops but not hopStream, onEdge or createLayer.
 package friends
 
 import (
@@ -17,11 +18,7 @@ import (
 
   isFollowing: 'async',
   isBlocking: 'async',
-  hops: 'async',
-
-extra:
-
-  follows: 'source',
+  hops: 'source',
   blocks: 'source',
 
 */

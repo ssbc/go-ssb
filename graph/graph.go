@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package graph derives trust/block relations by consuming type:contact message and offers lookup APIs between two feeds.
 package graph
 
 import (

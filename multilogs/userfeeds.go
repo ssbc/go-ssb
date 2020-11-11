@@ -13,7 +13,7 @@ import (
 
 const IndexNameFeeds = "userFeeds"
 
-/* legacy
+/* deprecated
 func OpenUserFeeds(r repo.Interface) (*roaring.MultiLog, librarian.SinkIndex, error) {
 	return repo.OpenFileSystemMultiLog(r, IndexNameFeeds, UserFeedsUpdate)
 }

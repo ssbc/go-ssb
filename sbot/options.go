@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// Package sbot ties together network, repo and plugins like graph and blobs into a large server that offers data-access APIs and background replication.
+// It's name dates back to a time where ssb-server was still called scuttlebot, in short: sbot.
 package sbot
 
 import (

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+// Package replicate roughly translates to npm:ssb-replicate and only selects which feeds to block and fetch.
+//
+// TODO: move ctrl.replicate and ctrl.block here.
 package replicate
 
 import (

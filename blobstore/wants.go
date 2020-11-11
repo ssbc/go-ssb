@@ -16,13 +16,15 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
-var ErrBlobBlocked = errors.New("blobstore: unable to receive blob")
+// ErrBlobBlocked is returned if the want manager is unable to receive a blob after multiple tries
+var ErrBlobBlocked = errors.New("ssb: unable to receive blob correctly")
 
+// NewWantManager returns the configured WantManager, using bs for storage and opts to configure it.
 func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager {
 	wmgr := &wantManager{
 		bs:        bs,
@@ -413,6 +415,8 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 	return proc.out.Pour(ctx, newW)
 }
 
+// GetWithSize is a muxrpc argument helper.
+// It can be used to request a blob named _key_ with a different maximum size than the default.
 type GetWithSize struct {
 	Key *refs.BlobRef `json:"key"`
 	Max uint          `json:"max"`
@@ -488,24 +492,21 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	return errors.Wrap(err, "error responding to wants")
 }
 
+// WantMsg is an array of _wants_, a blob reference with a distance.
 type WantMsg []ssb.BlobWant
 
-/* turns a blobwant array into one object ala
-{
-	ref1:dist1,
-	ref2:dist2,
-	...
-}
-*/
+// MarshalJSON turns a BlobWant slice into one object.
+// for example: { ref1:dist1, ref2:dist2, ... }
 func (msg WantMsg) MarshalJSON() ([]byte, error) {
 	wantsMap := make(map[*refs.BlobRef]int64, len(msg))
 	for _, want := range msg {
 		wantsMap[want.Ref] = want.Dist
 	}
 	data, err := json.Marshal(wantsMap)
-	return data, errors.Wrap(err, "WantMsg: error marshalling map?")
+	return data, errors.Wrap(err, "WantMsg: error marshalling map")
 }
 
+// UnmarshalJSON turns an object of {ref:dist, ...} relations into a slice of BlobWants.
 func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	var directWants []ssb.BlobWant
 	err := json.Unmarshal(data, &directWants)
