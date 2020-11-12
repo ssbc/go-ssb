@@ -220,8 +220,7 @@ func (g *handler) HandleCall(
 			// } else {
 			// dbgLog.Log("msg", "feed access granted")
 		}
-		// query.Limit = 50
-		// spew.Dump(query)
+
 		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
 		if err != nil {
 			if luigi.IsEOS(err) {

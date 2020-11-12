@@ -414,7 +414,8 @@ func runSbot() error {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
-			return nil
+			err := sbot.Close()
+			return err
 		default:
 		}
 	}

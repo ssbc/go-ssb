@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 
+	"go.cryptoscope.co/ssb/message"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -19,6 +21,8 @@ import (
 var streamFlags = []cli.Flag{
 	&cli.IntFlag{Name: "limit", Value: -1},
 	&cli.IntFlag{Name: "seq", Value: 0},
+	&cli.IntFlag{Name: "gt"},
+	&cli.IntFlag{Name: "lt"},
 	&cli.BoolFlag{Name: "reverse"},
 	&cli.BoolFlag{Name: "live"},
 	&cli.BoolFlag{Name: "keys", Value: false},
@@ -27,7 +31,7 @@ var streamFlags = []cli.Flag{
 
 type mapMsg map[string]interface{}
 
-var typeStreamCmd = &cli.Command{
+var partialStreamCmd = &cli.Command{
 	Name:  "partial",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
@@ -108,6 +112,47 @@ var logStreamCmd = &cli.Command{
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
 		return errors.Wrap(err, "log failed")
+	},
+}
+
+var sortedStreamCmd = &cli.Command{
+	Name:  "sorted",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var args = getStreamArgs(ctx)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createFeedStream"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "log failed")
+	},
+}
+
+var typeStreamCmd = &cli.Command{
+	Name:  "bytype",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+		var targs message.MessagesByTypeArgs
+		arg := getStreamArgs(ctx)
+		targs.CommonArgs = arg.CommonArgs
+		targs.StreamArgs = arg.StreamArgs
+		targs.Type = ctx.Args().First()
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, targs)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "byType failed")
 	},
 }
 

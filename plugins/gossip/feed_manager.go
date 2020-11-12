@@ -225,12 +225,25 @@ func (m *FeedManager) CreateStreamHistory(
 
 	// Make query
 	limit := nonliveLimit(arg, latest)
-	resolved := mutil.Indirect(m.ReceiveLog, userLog)
-	src, err := resolved.Query(
-		margaret.Gte(margaret.BaseSeq(arg.Seq)),
+	qryArgs := []margaret.QuerySpec{
 		margaret.Limit(int(limit)),
 		margaret.Reverse(arg.Reverse),
-	)
+	}
+
+	if arg.Seq > 0 {
+		qryArgs = append(qryArgs, margaret.Gte(margaret.BaseSeq(arg.Seq)))
+	}
+
+	if arg.Lt > 0 {
+		qryArgs = append(qryArgs, margaret.Lt(margaret.BaseSeq(arg.Lt)))
+	}
+
+	if arg.Gt > 0 {
+		qryArgs = append(qryArgs, margaret.Gt(margaret.BaseSeq(arg.Gt)))
+	}
+
+	resolved := mutil.Indirect(m.ReceiveLog, userLog)
+	src, err := resolved.Query(qryArgs...)
 	if err != nil {
 		return errors.Wrapf(err, "invalid user log query")
 	}

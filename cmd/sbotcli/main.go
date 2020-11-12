@@ -82,8 +82,10 @@ var app = cli.App{
 		blockCmd,
 		friendsCmd,
 		logStreamCmd,
+		sortedStreamCmd,
 		typeStreamCmd,
 		historyStreamCmd,
+		partialStreamCmd,
 		replicateUptoCmd,
 		callCmd,
 		connectCmd,
@@ -111,7 +113,6 @@ func check(err error) {
 }
 
 func main() {
-
 	cli.VersionPrinter = func(c *cli.Context) {
 		fmt.Printf("%s (rev: %s, built: %s)\n", c.App.Version, Version, Build)
 	}
@@ -127,7 +128,7 @@ func todo(ctx *cli.Context) error {
 
 func initClient(ctx *cli.Context) error {
 	longctx = context.Background()
-	longctx, shutdownFunc = context.WithTimeout(longctx, 10*time.Second)
+	longctx, shutdownFunc = context.WithTimeout(longctx, 45*time.Second)
 	signalc := make(chan os.Signal)
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -199,6 +200,8 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 		AsJSON: ctx.Bool("asJSON"),
 	}
 	args.Limit = ctx.Int64("limit")
+	args.Gt = ctx.Int64("gt")
+	args.Lt = ctx.Int64("lt")
 	args.Reverse = ctx.Bool("reverse")
 	args.Live = ctx.Bool("live")
 	args.Keys = ctx.Bool("keys")

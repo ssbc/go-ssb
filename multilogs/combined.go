@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/keks/persist"
 	"github.com/pkg/errors"
@@ -27,8 +28,9 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, u, p, bt, tan *roaring.MultiLog) (librarian.SinkIndex, error) {
-	statePath := repo.New(repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*combinedIndex, error) {
+	r := repo.New(repoPath)
+	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE
@@ -48,11 +50,15 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 		byType:  bt,
 		tangles: tan,
 
+		seqresolver: res,
+
 		file: idxStateFile,
 		l:    &sync.Mutex{},
 	}
 	return idx, nil
 }
+
+var _ librarian.SinkIndex = (*combinedIndex)(nil)
 
 type combinedIndex struct {
 	self  *refs.FeedRef
@@ -62,6 +68,8 @@ type combinedIndex struct {
 	private *roaring.MultiLog
 	byType  *roaring.MultiLog
 	tangles *roaring.MultiLog
+
+	seqresolver *repo.SequenceResolver
 
 	file *os.File
 	l    *sync.Mutex
@@ -88,6 +96,10 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	if isNulled, ok := v.(error); ok {
 		if margaret.IsErrNulled(isNulled) {
+			err = slog.seqresolver.Append(seq.Seq(), 0, time.Now(), time.Now())
+			if err != nil {
+				return errors.Wrap(err, "error updating sequence resolver (nulled message)")
+			}
 			return nil
 		}
 		return isNulled
@@ -96,6 +108,11 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	abstractMsg, ok := v.(refs.Message)
 	if !ok {
 		return errors.Errorf("error casting message. got type %T", v)
+	}
+
+	err = slog.seqresolver.Append(seq.Seq(), abstractMsg.Seq(), abstractMsg.Claimed(), abstractMsg.Received())
+	if err != nil {
+		return errors.Wrap(err, "error updating sequence resolver")
 	}
 
 	author := abstractMsg.Author()
@@ -188,7 +205,9 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 }
 
 // Close does nothing.
-func (slog *combinedIndex) Close() error { return nil }
+func (slog *combinedIndex) Close() error {
+	return nil
+}
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
 func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
@@ -203,6 +222,11 @@ func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
 		}
 
 		seq = margaret.SeqEmpty
+	}
+
+	if resN := slog.seqresolver.Seq() - 1; resN != seq.Seq() {
+		err := fmt.Errorf("combined idx (has:%d, will: %d)", resN, seq.Seq())
+		return margaret.ErrorQuerySpec(err)
 	}
 
 	return margaret.MergeQuerySpec(

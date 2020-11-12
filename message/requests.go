@@ -49,12 +49,8 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				if err != nil {
 					return nil, errors.Wrapf(err, "ssb/message: not a feed ref")
 				}
-
-				// TODO:
-				// case "type":
-				// qry.Type = val
 			}
-		case "seq", "limit":
+		case "seq", "limit", "gt", "lt":
 			n, ok := v.(float64)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not a float64(%T) for %s", v, k)
@@ -64,6 +60,10 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.Seq = int64(n)
 			case "limit":
 				qry.Limit = int64(n)
+			case "gt":
+				qry.Gt = int64(n)
+			case "lt":
+				qry.Lt = int64(n)
 			}
 		}
 	}
@@ -94,7 +94,8 @@ type CommonArgs struct {
 type StreamArgs struct {
 	Limit int64 `json:"limit,omitempty"`
 
-	Gt int64 `json:"gt"`
+	Gt int64 `json:"gt,omitempty"`
+	Lt int64 `json:"lt,omitempty"`
 
 	Reverse bool `json:"reverse,omitempty"`
 }

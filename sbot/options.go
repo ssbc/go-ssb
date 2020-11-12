@@ -89,6 +89,8 @@ type Sbot struct {
 
 	ReceiveLog multimsg.AlterableLog // the stream of messages as they arrived
 
+	SeqResolver *repo.SequenceResolver
+
 	PublishLog     ssb.Publisher
 	signHMACsecret []byte
 

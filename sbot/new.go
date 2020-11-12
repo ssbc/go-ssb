@@ -41,7 +41,6 @@ import (
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/status"
 	"go.cryptoscope.co/ssb/plugins/whoami"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
 	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
@@ -127,6 +126,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	s.SeqResolver, err = repo.NewSequenceResolver(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening sequence resolver")
+	}
+	s.closers.addCloser(s.SeqResolver)
+
 	// default multilogs
 	var mlogs = []struct {
 		Name string
@@ -195,6 +200,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.repoPath,
 		s.Groups,
 		s.KeyPair.Id,
+		s.SeqResolver,
 		s.Users,
 		s.Private,
 		s.ByType,
@@ -203,6 +209,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
 	s.serveIndex("combined", combIdx)
+	s.closers.addCloser(combIdx)
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
@@ -434,9 +441,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(plug)
 
 	// raw log plugins
+
+	s.master.Register(rawread.NewByTypePlugin(s.info, s.ReceiveLog, s.ByType, s.SeqResolver))
 	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
-	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
-	s.master.Register(hist)                           // createHistoryStream
+	s.master.Register(rawread.NewRXLog(s.ReceiveLog))                               // createLogStream
+	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver)) // createLogStream
+	s.master.Register(hist)                                                         // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
@@ -446,11 +456,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		h:    manifestHandler(manifestBlob),
 		name: "manifest"}
 	s.master.Register(mh)
-
-	var bytypePlug bytype.Plugin
-	bytypePlug.WantRootLog(s.ReceiveLog)
-	bytypePlug.UseMultiLog(s.ByType)
-	s.master.Register(bytypePlug)
 
 	var tplug tangles.Plugin
 	tplug.WantRootLog(s.ReceiveLog)
