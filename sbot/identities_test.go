@@ -17,7 +17,6 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
@@ -67,7 +66,6 @@ func XTestMultipleIdentities(t *testing.T) {
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)

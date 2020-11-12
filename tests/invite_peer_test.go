@@ -15,15 +15,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/message/legacy"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/sbot"
 )
 
 // first js creates an invite
@@ -38,10 +34,7 @@ func XTestPeerInviteJSCreate(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot(
-		sbot.LateOption(sbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
-		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)),
-	)
+	ts.startGoBot()
 	bob := ts.gobot
 
 	wrappedAddr := bob.Network.GetListenAddr()

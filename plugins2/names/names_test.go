@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// +build ignore
+
 package names
 
 import (

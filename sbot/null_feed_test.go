@@ -18,7 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
@@ -63,7 +62,6 @@ func TestNullFeed(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "main")),
 		WithHops(2),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)

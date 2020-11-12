@@ -42,7 +42,7 @@ func TestEncodeList(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.out, encodeList(nil, tc.in))
+			require.Equal(t, tc.out, EncodeSLP(nil, tc.in...))
 		})
 	}
 }

@@ -108,7 +108,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 			kv.Value = *msg.ValueContent()
 			b, err := json.Marshal(kv)
 			if err != nil {
-				return errors.Errorf("failed to encode json: %w", err)
+				return fmt.Errorf("failed to encode json: %w", err)
 			}
 			err = snk.Pour(ctx, json.RawMessage(b))
 			if err != nil {

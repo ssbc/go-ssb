@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+// TODO: move these into the sbot package
+
+// +build ignore
+
 package names_test
 
 import (
@@ -22,8 +26,6 @@ import (
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
-
-// TODO: move these into the sbot package
 
 func TestAboutNames(t *testing.T) {
 	// defer leakcheck.Check(t) TODO: add closer to plugin so that they can free their resources properly
