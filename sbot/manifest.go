@@ -37,22 +37,11 @@ func (h manifestHandler) HandleCall(ctx context.Context, req *muxrpc.Request, ed
 // this is a very simple hardcoded manifest.json dump which oasis' ssb-client expects to do it's magic.
 const manifestBlob = `
 {
-	"auth": "async",
-	"address": "sync",
 	"manifest": "sync",
 
-	"multiserverNet": {},
 	"get": "async",
 	"createFeedStream": "source",
 	"createUserStream": "source",
-	"createWriteStream": "sink",
-	"links": "source",
-
-	"add": "async",
-
-	"getLatest": "async",
-	"latest": "source",
-	"latestSequence": "async",
 
 	"createSequenceStream": "source",
 	"createLogStream": "source",
