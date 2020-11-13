@@ -18,6 +18,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -145,11 +146,11 @@ func XTestMultipleIdentities(t *testing.T) {
 	pl, ok := mainbot.GetMultiLog("privLogs")
 	r.True(ok, "no privLogs")
 
-	arnies, err := pl.Get(kpArny.Id.StoredAddr())
+	arnies, err := pl.Get(storedrefs.Feed(kpArny.Id))
 	r.NoError(err)
-	berts, err := pl.Get(kpBert.Id.StoredAddr())
+	berts, err := pl.Get(storedrefs.Feed(kpBert.Id))
 	r.NoError(err)
-	cloes, err := pl.Get(kpCloe.Id.StoredAddr())
+	cloes, err := pl.Get(storedrefs.Feed(kpCloe.Id))
 	r.NoError(err)
 
 	// 0 indexed

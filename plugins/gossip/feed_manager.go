@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	refs "go.mindeco.de/ssb-refs"
@@ -204,7 +205,7 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Errorf("bad request: missing id argument")
 	}
 	// check what we got
-	userLog, err := m.UserFeeds.Get(arg.ID.StoredAddr())
+	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}

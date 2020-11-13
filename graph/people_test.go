@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -257,7 +258,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		r.NoError(err, "failed to build graph for debugging")
 		g.Lock()
 		for nick, pub := range state.peers {
-			newKey := pub.key.Id.StoredAddr()
+			newKey := storedrefs.Feed(pub.key.Id)
 			node, ok := g.lookup[newKey]
 			if !a.True(ok, "did not find peer %s in graph lookup table (len:%d)", nick, len(g.lookup)) {
 				continue

@@ -31,6 +31,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	mksbot "go.cryptoscope.co/ssb/sbot"
@@ -385,7 +386,7 @@ func runSbot() error {
 		}
 
 		for _, blocked := range lst {
-			isStored, err := multilog.Has(uf, blocked.StoredAddr())
+			isStored, err := multilog.Has(uf, storedrefs.Feed(blocked))
 			if err != nil {
 				return errors.Wrap(err, "blocked lookup in multilog")
 			}

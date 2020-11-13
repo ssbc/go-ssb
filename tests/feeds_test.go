@@ -14,6 +14,7 @@ import (
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/sbot"
 )
 
@@ -60,7 +61,7 @@ func TestFeedFromJS(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -224,7 +225,7 @@ func TestFeedFromGo(t *testing.T) {
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
@@ -246,7 +247,7 @@ func TestFeedFromGo(t *testing.T) {
 
 	ml, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err = ml.Get(alice.StoredAddr())
+	aliceLog, err = ml.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	aseq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -258,7 +259,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(storedMsg.Seq(), 2)
 
-	bobLog, err := ml.Get(s.KeyPair.Id.StoredAddr())
+	bobLog, err := ml.Get(storedrefs.Feed(s.KeyPair.Id))
 	r.NoError(err)
 	bseq, err := bobLog.Seq().Value()
 	r.NoError(err)
@@ -366,7 +367,7 @@ func XTestFeedFromGoLive(t *testing.T) {
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))

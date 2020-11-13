@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
@@ -52,7 +53,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		return
 	}
 
-	kvKey := []byte(guestRef.StoredAddr())
+	kvKey := []byte(storedrefs.Feed(guestRef))
 
 	has, err := h.service.kv.Get(nil, kvKey)
 	if err != nil {

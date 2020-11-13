@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -59,7 +60,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	start := time.Now()
 
 	// re-sync _our_ feed if we don't have it yet (re-onboarding of an existing feed)
-	hasSelf, err := multilog.Has(g.UserFeeds, g.Id.StoredAddr())
+	hasSelf, err := multilog.Has(g.UserFeeds, storedrefs.Feed(g.Id))
 	if err != nil {
 		info.Log("handleConnect", "multilog.Has(self)", "err", err)
 		return
@@ -75,7 +76,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	}
 
 	if g.promisc {
-		hasCallee, err := multilog.Has(g.UserFeeds, remoteRef.StoredAddr())
+		hasCallee, err := multilog.Has(g.UserFeeds, storedrefs.Feed(remoteRef))
 		if err != nil {
 			info.Log("handleConnect", "multilog.Has(callee)", "err", err)
 			return

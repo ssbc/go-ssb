@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -69,7 +70,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	}
 
-	workSet, err := h.feeds.LoadInternalBitmap(feed.StoredAddr())
+	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(feed))
 	if err != nil {
 		// TODO actual assert not found error.
 		// errors.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())

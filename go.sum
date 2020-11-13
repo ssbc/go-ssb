@@ -416,6 +416,8 @@ go.mindeco.de/ssb-refs v0.0.0-20200615115708-7b8437f55cef/go.mod h1:u3EqvzDljgzr
 go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
 go.mindeco.de/ssb-refs v0.0.0-20201012085128-c5a76b42eacc h1:NmGAN17v9hDOSx4zIwAL42O9oX8m7Bk+n0lovlEqL5E=
 go.mindeco.de/ssb-refs v0.0.0-20201012085128-c5a76b42eacc/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
+go.mindeco.de/ssb-refs v0.0.0-20201114101049-bcafb38ada11 h1:tlMHTgFsb0O8r5mgn4Ywwxvf9xW/wB/MEGVpS2WquzA=
+go.mindeco.de/ssb-refs v0.0.0-20201114101049-bcafb38ada11/go.mod h1:OnBnV02ux4lLsZ39LID6yYLqSDp+dqTHb/3miYPkQFs=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=

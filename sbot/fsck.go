@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -145,12 +146,8 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 	}
 
 	for _, author := range feeds {
-		var sr refs.StorageRef
-		err := sr.Unmarshal([]byte(author))
-		if err != nil {
-			return err
-		}
-		authorRef, err := sr.FeedRef()
+		var sr tfk.Feed
+		err := sr.UnmarshalBinary([]byte(author))
 		if err != nil {
 			return err
 		}
@@ -185,7 +182,7 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 		// margaret indexes are 0-based, therefore +1
 		if msg.Seq() != currentSeqFromIndex.Seq()+1 {
 			return ssb.ErrWrongSequence{
-				Ref:     authorRef,
+				Ref:     sr.Feed(),
 				Stored:  currentSeqFromIndex,
 				Logical: msg,
 			}

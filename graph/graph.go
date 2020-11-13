@@ -9,6 +9,7 @@ import (
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -33,11 +34,11 @@ func NewGraph() *Graph {
 func (g *Graph) getEdge(from, to *refs.FeedRef) (graph.WeightedEdge, bool) {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()
-	nFrom, has := g.lookup[from.StoredAddr()]
+	nFrom, has := g.lookup[storedrefs.Feed(from)]
 	if !has {
 		return nil, false
 	}
-	nTo, has := g.lookup[to.StoredAddr()]
+	nTo, has := g.lookup[storedrefs.Feed(to)]
 	if !has {
 		return nil, false
 	}
@@ -68,7 +69,7 @@ func (g *Graph) BlockedList(from *refs.FeedRef) *ssb.StrFeedSet {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()
 	blocked := ssb.NewFeedSet(0)
-	nFrom, has := g.lookup[from.StoredAddr()]
+	nFrom, has := g.lookup[storedrefs.Feed(from)]
 	if !has {
 		return blocked
 	}
@@ -89,7 +90,7 @@ func (g *Graph) BlockedList(from *refs.FeedRef) *ssb.StrFeedSet {
 func (g *Graph) MakeDijkstra(from *refs.FeedRef) (*Lookup, error) {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()
-	nFrom, has := g.lookup[from.StoredAddr()]
+	nFrom, has := g.lookup[storedrefs.Feed(from)]
 	if !has {
 		return nil, ErrNoSuchFrom{Who: from}
 	}

@@ -25,6 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -360,7 +361,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// private
 	// TODO: box2
-	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + s.KeyPair.Id.StoredAddr())
+	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(s.KeyPair.Id))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}

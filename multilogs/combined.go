@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
@@ -117,7 +118,7 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	author := abstractMsg.Author()
 
-	authorLog, err := slog.users.Get(author.StoredAddr())
+	authorLog, err := slog.users.Get(storedrefs.Feed(author))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -258,7 +259,7 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 			idxAddr = librarian.Addr("notForUs:box1")
 			retErr = errSkip
 		} else {
-			idxAddr = librarian.Addr("box1:") + slog.self.StoredAddr()
+			idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
 			cleartext = content
 		}
 	} else if box2 != nil {
@@ -269,7 +270,7 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 		} else {
 			// instead by group root? could be PM... hmm
 			// would be nice to keep multi-keypair support here but might need rething of the gorups manager
-			idxAddr = librarian.Addr("box2:") + slog.self.StoredAddr()
+			idxAddr = librarian.Addr("box2:") + storedrefs.Feed(slog.self)
 			cleartext = content
 		}
 	} else {

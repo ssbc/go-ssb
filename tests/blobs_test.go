@@ -15,6 +15,7 @@ import (
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 
 	"github.com/stretchr/testify/require"
@@ -163,7 +164,7 @@ func TestBlobWithHop(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	gotMessage := make(chan struct{})
@@ -326,7 +327,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
 
-	jsFeedSeqs, err := uf.Get(jsBot.StoredAddr())
+	jsFeedSeqs, err := uf.Get(storedrefs.Feed(jsBot))
 	r.NoError(err)
 	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10

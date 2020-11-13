@@ -9,6 +9,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type Publisher interface {
@@ -107,17 +108,12 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 	var feedsWithSeqs []interface{}
 
 	for i, author := range storedFeeds {
-		var sr refs.StorageRef
-		err := sr.Unmarshal([]byte(author))
+		var sr tfk.Feed
+		err := sr.UnmarshalBinary([]byte(author))
 		if err != nil {
 			return nil, errors.Wrapf(err, "feedSrc(%d): invalid storage ref", i)
-
 		}
-		authorRef, err := sr.FeedRef()
-		if err != nil {
-			return nil, errors.Wrapf(err, "feedSrc(%d): stored ref not a feed?", i)
-
-		}
+		authorRef := sr.Feed()
 
 		subLog, err := feedIndex.Get(author)
 		if err != nil {

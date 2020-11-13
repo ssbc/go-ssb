@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -112,7 +113,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	demoLog, err := uf.Get(aliceAsGabby.StoredAddr())
+	demoLog, err := uf.Get(storedrefs.Feed(&aliceAsGabby))
 	r.NoError(err)
 
 	demoLogSeq, err := demoLog.Seq().Value()

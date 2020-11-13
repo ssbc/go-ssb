@@ -9,6 +9,7 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret/multilog"
 	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -48,10 +49,11 @@ func main() {
 	if len(os.Args) > 2 {
 		ref, err := refs.ParseFeedRef(os.Args[2])
 		check(err)
-		has, err := multilog.Has(mlog, ref.StoredAddr())
+
+		has, err := multilog.Has(mlog, storedrefs.Feed(ref))
 		log.Log("mlog", "has", "addr", ref.Ref(), "has?", has, "hasErr", err)
 
-		bmap, err := mlog.LoadInternalBitmap(ref.StoredAddr())
+		bmap, err := mlog.LoadInternalBitmap(storedrefs.Feed(ref))
 		check(err)
 		fmt.Println(bmap.GetCardinality())
 		fmt.Println(bmap.String())

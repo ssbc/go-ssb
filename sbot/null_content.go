@@ -14,6 +14,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
@@ -31,7 +32,7 @@ func (s *Sbot) NullContent(fr *refs.FeedRef, seq uint) error {
 		return errors.Errorf("userFeeds mlog not present")
 	}
 
-	userLog, err := uf.Get(fr.StoredAddr())
+	userLog, err := uf.Get(storedrefs.Feed(fr))
 	if err != nil {
 		return errors.Wrap(err, "nullContent: unable to load feed")
 	}
@@ -95,7 +96,7 @@ func (cdr *dropContentTrigger) consume() {
 	evtLog := kitlog.With(cdr.logger, "event", "null content trigger")
 	for evt := range cdr.check {
 
-		feed, err := cdr.feeds.Get(evt.author.StoredAddr())
+		feed, err := cdr.feeds.Get(storedrefs.Feed(evt.author))
 		if err != nil {
 			level.Warn(evtLog).Log("msg", "no such feed?", "err", err)
 			continue

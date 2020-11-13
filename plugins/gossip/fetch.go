@@ -23,6 +23,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/neterr"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 )
 
@@ -93,7 +94,7 @@ func (h *handler) makeWorker(work <-chan *refs.FeedRef, ctx context.Context, edp
 
 func isIn(list []librarian.Addr, a *refs.FeedRef) bool {
 	for _, el := range list {
-		if bytes.Equal([]byte(a.StoredAddr()), []byte(el)) {
+		if bytes.Equal([]byte(storedrefs.Feed(a)), []byte(el)) {
 			return true
 		}
 	}
@@ -113,7 +114,7 @@ func (g *handler) fetchFeed(
 	default:
 	}
 	// check our latest
-	frAddr := fr.StoredAddr()
+	frAddr := storedrefs.Feed(fr)
 	addr := string(frAddr)
 	g.activeLock.Lock()
 	_, ok := g.activeFetch[addr]

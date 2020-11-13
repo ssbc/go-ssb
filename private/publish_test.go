@@ -19,6 +19,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
@@ -101,7 +102,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
 		r.True(ok)
 
-		userPrivs, err := pl.Get(librarian.Addr("box1:") + srv.KeyPair.Id.StoredAddr())
+		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.Id))
 		r.NoError(err)
 
 		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)

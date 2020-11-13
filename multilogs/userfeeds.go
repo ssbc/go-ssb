@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -40,7 +41,7 @@ func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, m
 		return errors.Errorf("nil author on message?! %v (%d)", value, seq.Seq())
 	}
 
-	authorLog, err := mlog.Get(author.StoredAddr())
+	authorLog, err := mlog.Get(storedrefs.Feed(author))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}

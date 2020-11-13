@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -160,12 +161,12 @@ func TestGroupsFullCircle(t *testing.T) {
 	// some length checks
 	srhsFeeds, ok := srh.GetMultiLog("userFeeds")
 	r.True(ok)
-	srhsCopyOfTal, err := srhsFeeds.Get(tal.KeyPair.Id.StoredAddr())
+	srhsCopyOfTal, err := srhsFeeds.Get(storedrefs.Feed(tal.KeyPair.Id))
 	r.NoError(err)
 
 	talsFeeds, ok := tal.GetMultiLog("userFeeds")
 	r.True(ok)
-	talsCopyOfSrh, err := talsFeeds.Get(srh.KeyPair.Id.StoredAddr())
+	talsCopyOfSrh, err := talsFeeds.Get(storedrefs.Feed(srh.KeyPair.Id))
 	r.NoError(err)
 
 	// did we get the expected number of messages?
@@ -223,7 +224,7 @@ func TestGroupsFullCircle(t *testing.T) {
 
 	replyContent, err := srh.Groups.DecryptBox2(getCiphertext(replyMsg), replyMsg.Author(), replyMsg.Previous())
 	r.NoError(err)
-	t.Log(string(replyContent))
+	t.Log("decrypted reply:", string(replyContent))
 
 	// indexed?
 	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
@@ -247,17 +248,18 @@ func TestGroupsFullCircle(t *testing.T) {
 	chkCount(tal.ByType)("test", 2)
 	chkCount(tal.ByType)("post", 1) // TODO: reindex
 
-	addr := librarian.Addr("box2:") + srh.KeyPair.Id.StoredAddr()
+	addr := librarian.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
 	chkCount(srh.Private)(addr, 3)
 
-	addr = librarian.Addr("box2:") + tal.KeyPair.Id.StoredAddr()
+	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
 	chkCount(tal.Private)(addr, 2) // TODO: reindex
 
-	t.Log("srh")
-	streamLog(t, srh.ReceiveLog)
-
-	t.Log("tal")
-	streamLog(t, tal.ReceiveLog)
+	/*
+		t.Log("srh")
+		streamLog(t, srh.ReceiveLog)
+		t.Log("tal")
+		streamLog(t, tal.ReceiveLog)
+	*/
 
 	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
 	r.NoError(err)
@@ -304,11 +306,15 @@ func streamLog(t *testing.T, l margaret.Log) {
 		mm, ok := v.(refs.Message)
 		r.True(ok, "%T", v)
 
-		t.Log(i, mm.Key().ShortRef())
-		t.Log(mm.Author().ShortRef(), mm.Seq())
+		t.Logf("log seq: %d - %s:%d (%s)",
+			i,
+			mm.Author().ShortRef(),
+			mm.Seq(),
+			mm.Key().ShortRef())
 
 		b := mm.ContentBytes()
-		if len(b) > 128 {
+		if n := len(b); n > 128 {
+			t.Log("truncating", n, " to last 32 bytes")
 			b = b[len(b)-32:]
 		}
 		t.Logf("\n%s", hex.Dump(b))

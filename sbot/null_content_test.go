@@ -22,6 +22,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -112,7 +113,7 @@ func XTestNullContentRequest(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		checkLogSeq(l, seq)
@@ -129,7 +130,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.True(ok, "userFeeds mlog not present")
 
 	// try to request on arnies feed fails because the formt doesn't support it
-	arniesLog, err := uf.Get(kpArny.Id.StoredAddr())
+	arniesLog, err := uf.Get(storedrefs.Feed(kpArny.Id))
 	r.NoError(err)
 
 	arniesLog = mutil.Indirect(mainbot.ReceiveLog, arniesLog)
@@ -137,7 +138,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.False(dcr.Valid(arniesLog))
 
 	// bert is in gg format so it works
-	bertLog, err := uf.Get(kpBert.Id.StoredAddr())
+	bertLog, err := uf.Get(storedrefs.Feed(kpBert.Id))
 	r.NoError(err)
 
 	bertLog = mutil.Indirect(mainbot.ReceiveLog, bertLog)
@@ -262,7 +263,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		v, err := l.Seq().Value()
@@ -277,7 +278,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		userLog, err := uf.Get(kp.Id.StoredAddr())
+		userLog, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
