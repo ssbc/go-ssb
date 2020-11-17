@@ -1,8 +1,6 @@
 package tests
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -12,8 +10,10 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/box2"
 	refs "go.mindeco.de/ssb-refs"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -129,20 +129,10 @@ func TestGroupsJSCreate(t *testing.T) {
 	r.EqualValues(2, inviteMsg.Seq(), "not from alice?!")
 
 	// TODO:
-	suffix := []byte(".box2\"")
-	getCiphertext := func(m refs.Message) []byte {
-		content := m.ContentBytes()
+	ctxt, err := box2.GetCiphertextFromMessage(inviteMsg)
+	r.NoError(err)
 
-		r.True(bytes.HasSuffix(content, suffix), "%q", content)
-
-		n := base64.StdEncoding.DecodedLen(len(content))
-		ctxt := make([]byte, n)
-		decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, suffix)[1:])
-		r.NoError(err)
-		return ctxt[:decn]
-	}
-
-	decr, err := bob.Groups.DecryptBox2(getCiphertext(inviteMsg), inviteMsg.Author(), inviteMsg.Previous())
+	decr, err := bob.Groups.DecryptBox2(ctxt, inviteMsg.Author(), inviteMsg.Previous())
 	r.NoError(err)
 	t.Log("decrypted invite:", string(decr))
 
@@ -150,6 +140,7 @@ func TestGroupsJSCreate(t *testing.T) {
 	err = json.Unmarshal(decr, &ga)
 	r.NoError(err)
 	t.Logf("group key:%x", ga.GroupKey)
+	t.Log("\n", spew.Sdump(ga.GroupKey))
 	t.Log(ga.Type)
 	t.Log(ga.Recps)
 

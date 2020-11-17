@@ -1,13 +1,10 @@
 package box2
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"os"
 
-	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -55,12 +52,6 @@ func DeriveTo(out, key []byte, infos ...[]byte) error {
 		return fmt.Errorf("box2: expected 32b as output argument, got %d", n)
 	}
 	slp := EncodeSLP(nil, infos...)
-	if bytes.Equal(infos[0], []byte("cloaked_msg_id")) {
-		fmt.Fprintln(os.Stderr, "[Go] read_key")
-		spew.Dump(key)
-		fmt.Fprintln(os.Stderr, "[Go] SLP")
-		spew.Dump(slp)
-	}
 	r := hkdf.Expand(sha256.New, key, slp)
 	nout, err := r.Read(out)
 	if err != nil {

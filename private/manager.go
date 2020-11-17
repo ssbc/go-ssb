@@ -26,7 +26,8 @@ import (
 
 // Manager is in charge of storing and retriving keys with the help of keymgr, can de- and encrypt messages and publish them.
 type Manager struct {
-	receiveLog margaret.Log
+	receiveLog   margaret.Log
+	receiveByRef ssb.Getter
 
 	publog  ssb.Publisher
 	tangles multilog.MultiLog
@@ -38,12 +39,15 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager
-func NewManager(author *ssb.KeyPair, publishLog ssb.Publisher, km *keys.Store, tangles multilog.MultiLog) *Manager {
+func NewManager(author *ssb.KeyPair, publishLog ssb.Publisher, km *keys.Store, rxlog margaret.Log, getter ssb.Getter, tangles multilog.MultiLog) *Manager {
 	return &Manager{
-		tangles: tangles,
+		receiveLog:   rxlog,
+		receiveByRef: getter,
 
 		author: author,
 		publog: publishLog,
+
+		tangles: tangles,
 
 		keymgr: km,
 		rand:   rand.Reader,

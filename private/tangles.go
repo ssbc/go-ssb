@@ -76,6 +76,7 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 
 	}
 	sorter := refs.ByPrevious{Items: tps, TangleName: tname}
+	sorter.FillLookup()
 	sort.Sort(sorter)
 
 	fmt.Println(len(tps), "message in tangle")

@@ -64,6 +64,7 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 
 // Join is called with a groupKey and the tangle root for the group.
 // It adds the key to the keystore so that messages to this group can be decrypted.
+// It returns the cloaked message reference or an error.
 func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageRef, error) {
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
@@ -97,12 +98,28 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 		panic("groupRoot nil")
 	}
 
+	// TODO: might find a way without this 2nd roundtrip of getting the message.
+	initMsg, err := mgr.receiveByRef.Get(*k.Metadata.GroupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	ctxt, err := box2.GetCiphertextFromMessage(initMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), initMsg.Previous(), keys.Recipients{k})
+	if err != nil {
+		return nil, err
+	}
+
 	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	err = box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), rootAsTFK)
+	err = box2.DeriveTo(cloakedID.Hash, readKey, []byte("cloaked_msg_id"), rootAsTFK)
 	if err != nil {
 		return nil, err
 	}

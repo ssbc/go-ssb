@@ -1,6 +1,8 @@
 package box2
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	stderr "errors"
 	"fmt"
@@ -198,16 +200,28 @@ func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []
 	return slotKeys, info, nil
 }
 
-// TODO: Maybe return entire decrypted message?
-func (bxr *Boxer) Decrypt(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) GetReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+	_, readKey, _, err := bxr.getReadKey(ctxt, author, prev, candidates)
+	if err != nil {
+		return nil, err
+	}
+	return readKey[:], nil
+}
+
+func (bxr *Boxer) getReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) (
+	[]byte,
+	[KeySize]byte,
+	makeHKDFContextList,
+	error) {
 	slotKeys, info, err := deriveMessageKey(author, prev, candidates)
 	if err != nil {
-		return nil, errors.Wrap(err, "error constructing keying information")
+		err = errors.Wrap(err, "error constructing keying information")
+		return nil, [KeySize]byte{}, nil, err
 	}
 	var (
 		hdr               = make([]byte, 16)
 		msgKey, headerKey [KeySize]byte
-		readKey, bodyKey  [KeySize]byte
+		readKey           [KeySize]byte
 		slot              []byte
 		ok                bool
 		i, j, k           int
@@ -228,11 +242,11 @@ OUTER:
 
 			err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
 			if err != nil {
-				return nil, err
+				return nil, [KeySize]byte{}, nil, err
 			}
 			err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
 			if err != nil {
-				return nil, err
+				return nil, [KeySize]byte{}, nil, err
 			}
 
 			hdr, ok = secretbox.Open(hdr[:0], headerbox, &zero24, &headerKey)
@@ -242,12 +256,26 @@ OUTER:
 		}
 	}
 	if !ok {
-		return nil, ErrCouldNotDecrypt
+		err = ErrCouldNotDecrypt
+		return nil, [KeySize]byte{}, nil, err
+	}
+
+	return hdr, readKey, info, nil
+}
+
+// Decrypt takes the ciphertext, it's auther and the previous hash of the message and some canddiates to try to decrypt with.
+// It returns the decrypted cleartext or an error.
+func (bxr *Boxer) Decrypt(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+	// TODO
+	hdr, readKey, info, err := bxr.getReadKey(ctxt, author, prev, candidates)
+	if err != nil {
+		return nil, err
 	}
 
 	var (
 		bodyOffset = int(binary.LittleEndian.Uint16(hdr))
 		plain      = make([]byte, 0, len(ctxt)-bodyOffset-secretbox.Overhead)
+		bodyKey    [KeySize]byte
 	)
 
 	// decrypt body
@@ -255,7 +283,7 @@ OUTER:
 	if err != nil {
 		return nil, err
 	}
-	plain, ok = secretbox.Open(plain, ctxt[bodyOffset:], &zero24, &bodyKey)
+	plain, ok := secretbox.Open(plain, ctxt[bodyOffset:], &zero24, &bodyKey)
 	if !ok {
 		return nil, ErrInvalid
 	}
@@ -264,6 +292,26 @@ OUTER:
 }
 
 // utils
+// func (mgr *Manager)
+
+var box2Suffix = []byte(".box2\"")
+
+func GetCiphertextFromMessage(m refs.Message) ([]byte, error) {
+	content := m.ContentBytes()
+
+	if !bytes.HasSuffix(content, box2Suffix) {
+		return nil, fmt.Errorf("message does not have .box2 suffix")
+	}
+
+	n := base64.StdEncoding.DecodedLen(len(content))
+	ctxt := make([]byte, n)
+	decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, box2Suffix)[1:])
+	if err != nil {
+		return nil, err
+	}
+	return ctxt[:decn], nil
+}
+
 func clear(buf []byte) {
 	for i := range buf {
 		buf[i] = 0

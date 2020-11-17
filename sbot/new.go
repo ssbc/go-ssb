@@ -195,7 +195,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(idx)
 
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
