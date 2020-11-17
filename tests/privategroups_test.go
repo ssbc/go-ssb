@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"go.cryptoscope.co/ssb"
-
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/private"
@@ -21,7 +19,7 @@ import (
 func TestGroupsJSCreate(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
-	const n = 24 + 3 // m*spam + (create, contact, invite, hint)
+	const n = 24 + 4 // m*spam + (create, 2*contact, invite, hint)
 
 	ts := newRandomSession(t)
 
@@ -29,10 +27,10 @@ func TestGroupsJSCreate(t *testing.T) {
 	bob := ts.gobot
 
 	// just for keygen, needed later
-	claireKp, err := ssb.NewKeyPair(nil)
-	r.NoError(err)
-	claire := claireKp.Id
-	// claire := ts.startJSBotWithName("claire", `exit()`, "")
+	// claireKp, err := ssb.NewKeyPair(nil)
+	// r.NoError(err)
+	// claire := claireKp.Id
+	claire := ts.startJSBotWithName("claire", `exit()`, "")
 
 	alice := ts.startJSBot(fmt.Sprintf(`
 	let claireRef = %q
@@ -52,6 +50,7 @@ func TestGroupsJSCreate(t *testing.T) {
 		msgs.push(mkMsg({type:"test", text:"foo", i:i, "recps": [groupId]}))
 	}
 	msgs.push(mkMsg({type: 'contact', contact: claireRef, following: true}))
+	msgs.push(mkMsg({type: 'contact', contact: testBob, following: true}))
 	
 	let welcome = {
 		text: 'this is a test group'
@@ -75,7 +74,12 @@ func TestGroupsJSCreate(t *testing.T) {
 
 `, claire.Ref()), ``)
 
+	bob.PublishLog.Publish(refs.NewContactFollow(alice))
+	bob.PublishLog.Publish(refs.NewContactFollow(claire))
+
 	bob.Replicate(alice)
+	bob.Replicate(claire)
+
 	dmKey, err := bob.Groups.GetOrDeriveKeyFor(alice)
 	r.NoError(err)
 	r.Len(dmKey, 1)
@@ -94,7 +98,7 @@ func TestGroupsJSCreate(t *testing.T) {
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(n), seq)
 
-	bob.Network.Close()
+	bob.Network.GetConnTracker().CloseAll()
 
 	// testutils.StreamLog(t, bob.ReceiveLog)
 
@@ -134,9 +138,52 @@ func TestGroupsJSCreate(t *testing.T) {
 	err = json.Unmarshal(decr, &ga)
 	r.NoError(err)
 
+	// use the add to join the group
 	cloaked, err := bob.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
 	assert.Equal(t, hintContent.GroupID, cloaked.Ref(), "wrong derived cloaked id")
+
+	// reply after joining
+	helloGroup, err := bob.Groups.PublishPostTo(cloaked, "hello test group!")
+	r.NoError(err)
+
+	// now start claire and let her read bobs hello.
+	ts.startJSBotWithName("claire", fmt.Sprintf(`
+	let testAlice = %q
+	let helloGroup = %q
+
+	pull(
+		sbot.createLogStream({
+			keys:true,
+			live:true,
+			private:true
+		}),
+		pull.drain((msg) => {
+			if (msg.sync) return
+			if (typeof msg.value.content === "string") return
+
+			if (msg.value.content.type == "group/add-member") {
+				console.warn(JSON.stringify(msg, null, 2))
+			}
+		})
+	)
+	sbot.replicate.request(testAlice, true)
+	sbot.replicate.request(testBob, true)
+	run() // triggers connect and after block
+
+	// check if we got the stuff once bob disconnects
+	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
+		sbot.get({private: true, id: helloGroup}, (err, msg) => {
+			t.error(err, "got hello group msg")
+			console.warn(JSON.stringify(msg, null, 2))
+			exit()
+		})
+	}))
+
+
+`, alice.Ref(), helloGroup.Ref()), ``)
+
+	bob.Network.GetConnTracker().CloseAll()
 
 	ts.wait()
 }

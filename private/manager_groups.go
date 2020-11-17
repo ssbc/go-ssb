@@ -91,11 +91,11 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 	cloakedID.Hash = make([]byte, 32)
 
 	if k.Key == nil {
-		panic("nil recipient key")
+		return nil, fmt.Errorf("deriveCloaked: nil recipient key")
 	}
 
 	if k.Metadata.GroupRoot == nil {
-		panic("groupRoot nil")
+		return nil, fmt.Errorf("deriveCloaked: groupRoot nil")
 	}
 
 	// TODO: might find a way without this 2nd roundtrip of getting the message.
