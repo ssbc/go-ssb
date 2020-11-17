@@ -27,9 +27,6 @@ func TestGroupsJSCreate(t *testing.T) {
 	bob := ts.gobot
 
 	// just for keygen, needed later
-	// claireKp, err := ssb.NewKeyPair(nil)
-	// r.NoError(err)
-	// claire := claireKp.Id
 	claire := ts.startJSBotWithName("claire", `exit()`, "")
 
 	alice := ts.startJSBot(fmt.Sprintf(`
@@ -90,9 +87,7 @@ func TestGroupsJSCreate(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := bob.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(storedrefs.Feed(alice))
+	aliceLog, err := bob.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -116,6 +111,7 @@ func TestGroupsJSCreate(t *testing.T) {
 
 	testHint := testHintV.(refs.Message)
 
+	// this is a public message which just tells the go-side whice one the invite is
 	var hintContent struct {
 		Invite  *refs.MessageRef
 		GroupID string
@@ -179,11 +175,62 @@ func TestGroupsJSCreate(t *testing.T) {
 			exit()
 		})
 	}))
-
-
 `, alice.Ref(), helloGroup.Ref()), ``)
 
 	bob.Network.GetConnTracker().CloseAll()
+
+	ts.wait()
+}
+
+func TestGroupsGoCreate(t *testing.T) {
+	// defer leakcheck.Check(t)
+	r := require.New(t)
+
+	ts := newRandomSession(t)
+
+	ts.startGoBot()
+	bob := ts.gobot
+
+	// just for keygen, needed later
+	alice := ts.startJSBotWithName("alice", `exit()`, "")
+
+	bob.Replicate(alice)
+
+	// TODO: fix first message empty bug
+	bob.PublishLog.Publish(map[string]string{
+		"type":  "needed",
+		"hello": "world"})
+
+	groupID, _, err := bob.Groups.Create("yet another test group")
+	r.NoError(err)
+
+	for i := 7; i > 0; i-- {
+		jsonContent := fmt.Sprintf(`{"type":"test", "count":%d}`, i)
+		spam, err := bob.Groups.PublishTo(groupID, []byte(jsonContent))
+		r.NoError(err)
+		t.Logf("%d: spam %s", i, spam.Ref())
+	}
+
+	inviteRef, err := bob.Groups.AddMember(groupID, alice, "what's up alice?")
+	r.NoError(err)
+
+	ts.startJSBotWithName("alice", fmt.Sprintf(`
+
+	let inviteMsg = %q
+	sbot.replicate.request(testBob, true)
+	run() // triggers connect and after block
+
+	// check if we got the stuff once bob disconnects
+	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
+		sbot.get({private: true, id: inviteMsg}, (err, msg) => {
+			t.error(err, "got hello group msg")
+			t.true(msg.meta.private, 'did decrypt')
+			t.equal("what's up alice?", msg.content.text, 'has the right welcome text')
+			// console.warn(JSON.stringify(msg, null, 2))
+			exit()
+		})
+	}))
+`, inviteRef.Ref()), ``)
 
 	ts.wait()
 }

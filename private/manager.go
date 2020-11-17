@@ -3,10 +3,8 @@ package private
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -105,13 +103,13 @@ func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, err
 
 		var bs = bytesSlice{
 			// PSEUDO TFK
+			// TODO: add proper type 3 for these curve keys
 			append(append([]byte{03, 00}, myCurvePub[:]...), tfkMy...),
 			append(append([]byte{03, 00}, otherCurvePub[:]...), tfkOther...),
 		}
 		sort.Sort(bs)
-		// spew.Dump(bs)
+
 		slpInfo := box2.EncodeSLP(nil, infoContext, bs[0], bs[1])
-		// spew.Dump(slpInfo)
 		n, err := hkdf.New(sha256.New, keyInput[:], dmSalt, slpInfo).Read(messageShared)
 		if err != nil {
 			return nil, err
@@ -119,8 +117,6 @@ func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, err
 		if n != 32 {
 			return nil, fmt.Errorf("box2: expected 32bytes from hkdf, got %d", n)
 		}
-
-		fmt.Fprintln(os.Stderr, "go-ssb derived: ", hex.EncodeToString(messageShared))
 
 		r := keys.Recipient{
 			Scheme: scheme,
