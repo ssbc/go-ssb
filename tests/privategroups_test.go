@@ -10,10 +10,8 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/private/box2"
 	refs "go.mindeco.de/ssb-refs"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -128,26 +126,17 @@ func TestGroupsJSCreate(t *testing.T) {
 	r.True(inviteMsg.Author().Equal(alice), "not from alice?!")
 	r.EqualValues(2, inviteMsg.Seq(), "not from alice?!")
 
-	// TODO:
-	ctxt, err := box2.GetCiphertextFromMessage(inviteMsg)
-	r.NoError(err)
-
-	decr, err := bob.Groups.DecryptBox2(ctxt, inviteMsg.Author(), inviteMsg.Previous())
+	decr, err := bob.Groups.DecryptBox2Message(inviteMsg)
 	r.NoError(err)
 	t.Log("decrypted invite:", string(decr))
 
 	var ga private.GroupAddMember
 	err = json.Unmarshal(decr, &ga)
 	r.NoError(err)
-	t.Logf("group key:%x", ga.GroupKey)
-	t.Log("\n", spew.Sdump(ga.GroupKey))
-	t.Log(ga.Type)
-	t.Log(ga.Recps)
 
 	cloaked, err := bob.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
 	assert.Equal(t, hintContent.GroupID, cloaked.Ref(), "wrong derived cloaked id")
-	t.Log("group id:", cloaked)
 
 	ts.wait()
 }

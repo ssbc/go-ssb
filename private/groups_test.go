@@ -3,7 +3,6 @@ package private_test
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -76,26 +75,14 @@ func TestGroupsFullCircle(t *testing.T) {
 
 	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
 
-	// helper function, closured to wrap the r-helper
 	suffix := []byte(".box2\"")
-	getCiphertext := func(m refs.Message) []byte {
-		content := m.ContentBytes()
-
-		r.True(bytes.HasSuffix(content, suffix), "%q", content)
-
-		n := base64.StdEncoding.DecodedLen(len(content))
-		ctxt := make([]byte, n)
-		decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, suffix)[1:])
-		r.NoError(err)
-		return ctxt[:decn]
-	}
 
 	// make sure this is an encrypted message
 	msg, err := srh.Get(*groupTangleRoot)
 	r.NoError(err)
 
 	// can we decrypt it?
-	clear, err := srh.Groups.DecryptBox2(getCiphertext(msg), srh.KeyPair.Id, msg.Previous())
+	clear, err := srh.Groups.DecryptBox2Message(msg)
 	r.NoError(err)
 	t.Log(string(clear))
 
@@ -188,7 +175,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 	t.Log(string(content))
 
-	decr, err := tal.Groups.DecryptBox2(getCiphertext(addMsgCopy), addMsgCopy.Author(), addMsgCopy.Previous())
+	decr, err := tal.Groups.DecryptBox2Message(addMsgCopy)
 	r.NoError(err)
 	t.Log(string(decr))
 
@@ -220,7 +207,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	replyMsg, err := srh.Get(*reply)
 	r.NoError(err)
 
-	replyContent, err := srh.Groups.DecryptBox2(getCiphertext(replyMsg), replyMsg.Author(), replyMsg.Previous())
+	replyContent, err := srh.Groups.DecryptBox2Message(replyMsg)
 	r.NoError(err)
 	t.Log("decrypted reply:", string(replyContent))
 

@@ -233,3 +233,12 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.Me
 	plain, err := bxr.Decrypt([]byte(ctxt), author, prev, allKeys)
 	return plain, err
 }
+
+func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
+	ctxt, err := box2.GetCiphertextFromMessage(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr.DecryptBox2(ctxt, m.Author(), m.Previous())
+}
