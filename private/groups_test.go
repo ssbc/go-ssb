@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"golang.org/x/sync/errgroup"
@@ -199,7 +197,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 	t.Logf("%x", ga.GroupKey)
 
-	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.InitialMessage)
+	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
 	r.Equal(cloaked.Hash, cloaked2.Hash, "cloaked ID not equal")
 
@@ -256,9 +254,9 @@ func TestGroupsFullCircle(t *testing.T) {
 
 	/*
 		t.Log("srh")
-		streamLog(t, srh.ReceiveLog)
+		testutils.StreamLog(t, srh.ReceiveLog)
 		t.Log("tal")
-		streamLog(t, tal.ReceiveLog)
+		testutils.StreamLog(t, tal.ReceiveLog)
 	*/
 
 	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
@@ -289,37 +287,4 @@ func (bs botServer) Serve(s *sbot.Sbot) func() error {
 		}
 		return err
 	}
-}
-
-func streamLog(t *testing.T, l margaret.Log) {
-
-	r := require.New(t)
-	src, err := l.Query()
-	r.NoError(err)
-	i := 0
-	for {
-		v, err := src.Next(context.TODO())
-		if luigi.IsEOS(err) {
-			break
-		}
-
-		mm, ok := v.(refs.Message)
-		r.True(ok, "%T", v)
-
-		t.Logf("log seq: %d - %s:%d (%s)",
-			i,
-			mm.Author().ShortRef(),
-			mm.Seq(),
-			mm.Key().ShortRef())
-
-		b := mm.ContentBytes()
-		if n := len(b); n > 128 {
-			t.Log("truncating", n, " to last 32 bytes")
-			b = b[len(b)-32:]
-		}
-		t.Logf("\n%s", hex.Dump(b))
-
-		i++
-	}
-
 }

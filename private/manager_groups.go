@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.mindeco.de/ssb-refs/tfk"
+
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/private/box2"
 
@@ -87,7 +89,20 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 	cloakedID.Algo = refs.RefAlgoCloakedGroup
 	cloakedID.Hash = make([]byte, 32)
 
-	err := box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), k.Metadata.GroupRoot.Hash)
+	if k.Key == nil {
+		panic("nil recipient key")
+	}
+
+	if k.Metadata.GroupRoot == nil {
+		panic("groupRoot nil")
+	}
+
+	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), rootAsTFK)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +128,8 @@ type GroupAddMember struct {
 
 	Version string `json:"version"`
 
-	GroupKey       keys.Base64String `json:"groupKey"`
-	InitialMessage *refs.MessageRef  `json:"initialMsg"`
+	GroupKey keys.Base64String `json:"groupKey"`
+	Root     *refs.MessageRef  `json:"root"` // initial message
 
 	Recps []string `json:"recps"`
 
@@ -150,7 +165,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 
 	ga.GroupKey = keys.Base64String(gskey[0].Key)
 	groupRoot := gskey[0].Metadata.GroupRoot
-	ga.InitialMessage = groupRoot
+	ga.Root = groupRoot
 
 	ga.Recps = []string{groupID.Ref(), r.Ref()}
 
