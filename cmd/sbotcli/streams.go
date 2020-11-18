@@ -27,6 +27,32 @@ var streamFlags = []cli.Flag{
 	&cli.BoolFlag{Name: "live"},
 	&cli.BoolFlag{Name: "keys", Value: false},
 	&cli.BoolFlag{Name: "values", Value: false},
+	&cli.BoolFlag{Name: "private", Value: false},
+}
+
+func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
+	var ref *refs.FeedRef
+	if id := ctx.String("id"); id != "" {
+		var err error
+		ref, err = refs.ParseFeedRef(id)
+		if err != nil {
+			panic(err)
+		}
+	}
+	args := message.CreateHistArgs{
+		ID:     ref,
+		Seq:    ctx.Int64("seq"),
+		AsJSON: ctx.Bool("asJSON"),
+	}
+	args.Limit = ctx.Int64("limit")
+	args.Gt = ctx.Int64("gt")
+	args.Lt = ctx.Int64("lt")
+	args.Reverse = ctx.Bool("reverse")
+	args.Live = ctx.Bool("live")
+	args.Keys = ctx.Bool("keys")
+	args.Values = ctx.Bool("values")
+	args.Private = ctx.Bool("private")
+	return args
 }
 
 type mapMsg map[string]interface{}

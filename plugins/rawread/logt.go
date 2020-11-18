@@ -9,6 +9,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/cryptix/go/encodedTime"
+
+	"go.cryptoscope.co/luigi/mfr"
+
+	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -16,28 +21,51 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 )
 
 type Plugin struct {
 	root  margaret.Log
 	types *roaring.MultiLog
-	res   *repo.SequenceResolver
+	priv  *roaring.MultiLog
+
+	unboxer *private.Manager
+
+	res *repo.SequenceResolver
+
+	isSelf ssb.Authorizer
 
 	h muxrpc.Handler
 }
 
-func NewByTypePlugin(log log.Logger, rootLog margaret.Log, ml *roaring.MultiLog, res *repo.SequenceResolver) ssb.Plugin {
+func NewByTypePlugin(
+	log log.Logger,
+	rootLog margaret.Log,
+	ml *roaring.MultiLog,
+	pl *roaring.MultiLog,
+	pm *private.Manager,
+	res *repo.SequenceResolver,
+	isSelf ssb.Authorizer,
+) ssb.Plugin {
 	plug := &Plugin{
 		root:  rootLog,
 		types: ml,
-		res:   res,
+
+		priv: pl,
+
+		unboxer: pm,
+
+		res: res,
+
+		isSelf: isSelf,
 	}
 
 	h := muxmux.New(log)
@@ -47,16 +75,11 @@ func NewByTypePlugin(log log.Logger, rootLog margaret.Log, ml *roaring.MultiLog,
 	return plug
 }
 
-func (lt Plugin) Name() string { return "msgTypes" }
+func (lt Plugin) Name() string            { return "msgTypes" }
+func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType"} }
+func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
-func (Plugin) Method() muxrpc.Method {
-	return muxrpc.Method{"messagesByType"}
-}
-func (lt Plugin) Handler() muxrpc.Handler {
-	return lt.h
-}
-
-func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 	if len(args) < 1 {
 		return errors.Errorf("invalid arguments")
@@ -88,6 +111,16 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 		return errors.Errorf("invalid argument type %T", args[0])
 	}
 
+	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	if err != nil {
+		return errors.Wrap(err, "failed to establish remote")
+	}
+
+	isSelf := g.isSelf.Authorize(remote)
+	if qry.Private && isSelf != nil {
+		return fmt.Errorf("not authroized")
+	}
+
 	start := time.Now()
 
 	snk = transform.NewKeyValueWrapper(req.Stream, qry.Keys)
@@ -95,15 +128,22 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	snk = newSinkCounter(&cnt, snk)
 
 	if qry.Live {
+		if qry.Private {
+			return fmt.Errorf("TODO: fix live && private")
+		}
 		typed, err := g.types.Get(librarian.Addr(qry.Type))
 		if err != nil {
 			return errors.Wrap(err, "failed to load typed log")
 		}
 
-		src, err := mutil.Indirect(g.root, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
+		src, err := mutil.Indirect(g.root, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
 		if err != nil {
 			return errors.Wrap(err, "logT: failed to qry tipe")
 		}
+
+		// if qry.Private { TODO
+		// 	src = g.unboxedSrc(src)
+		// }
 
 		err = luigi.Pump(ctx, snk, src)
 		if err != nil {
@@ -115,9 +155,60 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	}
 
 	// not live
-	typed, err := g.types.LoadInternalBitmap(librarian.Addr(qry.Type))
+	typed, err := g.types.LoadInternalBitmap(librarian.Addr("string:" + qry.Type))
 	if err != nil {
 		return errors.Wrap(err, "failed to load typed log")
+	}
+	// fmt.Println("typed:", typed.String())
+
+	if qry.Private {
+		snk = mfr.SinkMap(snk, func(_ context.Context, v interface{}) (interface{}, error) {
+			msg, ok := v.(refs.Message)
+			if !ok {
+				return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
+			}
+			// TODO: add box1
+
+			ctxt, err := g.unboxer.DecryptBox2Message(msg)
+			if err != nil {
+				return v, nil
+			}
+
+			var rv refs.KeyValueRaw
+			rv.Key_ = msg.Key()
+			rv.Value.Author = *msg.Author()
+			rv.Value.Previous = msg.Previous()
+			rv.Value.Sequence = margaret.BaseSeq(msg.Seq())
+			rv.Value.Timestamp = encodedTime.NewMillisecs(msg.Claimed().Unix())
+			rv.Value.Signature = "reboxed"
+
+			rv.Value.Content = ctxt
+
+			// TODO: add meta.private = true
+
+			return rv, nil
+		})
+	} else {
+		// filter all boxed messages from the stream
+		box1, err := g.types.LoadInternalBitmap(librarian.Addr("special:box1"))
+		if err != nil {
+			// TODO: compare not found
+			// return errors.Wrap(err, "failed to load bmap for box1")
+			box1 = bmap.New()
+		}
+
+		box2, err := g.types.LoadInternalBitmap(librarian.Addr("special:box2"))
+		if err != nil {
+			// TODO: compare not found
+			// return errors.Wrap(err, "failed to load bmap for box2")
+			box2 = bmap.New()
+		}
+
+		box1.Or(box2) // all the boxed messages
+		// fmt.Println("allboxed:", box1.String())
+
+		typed.AndNot(box1)
+		// fmt.Println("andNot-ed:", typed.String())
 	}
 
 	// TODO: set _all_ correctly if gt=0 && lt=0

@@ -54,7 +54,7 @@ func (lt sortedPlug) Handler() muxrpc.Handler {
 	return lt.h
 }
 
-func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	start := time.Now()
 	var qry message.CreateLogArgs
 	if len(req.Args()) == 1 {

@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -443,7 +444,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// raw log plugins
 
-	s.master.Register(rawread.NewByTypePlugin(s.info, s.ReceiveLog, s.ByType, s.SeqResolver))
+	sc := selfChecker{*s.KeyPair.Id}
+	s.master.Register(rawread.NewByTypePlugin(
+		s.info,
+		s.ReceiveLog,
+		s.ByType,
+		s.Private,
+		s.Groups,
+		s.SeqResolver,
+		sc))
 	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
 	s.master.Register(rawread.NewRXLog(s.ReceiveLog))                               // createLogStream
 	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver)) // createLogStream
@@ -540,4 +549,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(status.New(s))
 
 	return s, nil
+}
+
+type selfChecker struct {
+	me refs.FeedRef
+}
+
+func (sc selfChecker) Authorize(remote *refs.FeedRef) error {
+	if sc.me.Equal(remote) {
+		return nil
+	}
+	return fmt.Errorf("not authorized")
 }

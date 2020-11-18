@@ -30,7 +30,6 @@ import (
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
 	ssbClient "go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/message"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
 	cli "gopkg.in/urfave/cli.v2"
@@ -183,30 +182,6 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	}
 	log.Log("init", "done")
 	return client, nil
-}
-
-func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
-	var ref *refs.FeedRef
-	if id := ctx.String("id"); id != "" {
-		var err error
-		ref, err = refs.ParseFeedRef(id)
-		if err != nil {
-			panic(err)
-		}
-	}
-	args := message.CreateHistArgs{
-		ID:     ref,
-		Seq:    ctx.Int64("seq"),
-		AsJSON: ctx.Bool("asJSON"),
-	}
-	args.Limit = ctx.Int64("limit")
-	args.Gt = ctx.Int64("gt")
-	args.Lt = ctx.Int64("lt")
-	args.Reverse = ctx.Bool("reverse")
-	args.Live = ctx.Bool("live")
-	args.Keys = ctx.Bool("keys")
-	args.Values = ctx.Bool("values")
-	return args
 }
 
 var callCmd = &cli.Command{

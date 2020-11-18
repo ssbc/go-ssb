@@ -167,7 +167,7 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return fmt.Errorf("ssb: untyped message")
 	}
 
-	typedLog, err := slog.byType.Get(librarian.Addr(typeStr))
+	typedLog, err := slog.byType.Get(librarian.Addr("string:" + typeStr))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -251,28 +251,49 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 	var (
 		cleartext []byte
 		idxAddr   librarian.Addr
-		retErr    error
 	)
+
+	/* as a help for re-indexing, keep track of all box1 and box2 messages.
+
+	later we can get the set of messages we might need to re-index by
+	1) taking type:special:box2
+	2) ANDing it with the one of the author
+	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
+	*/
+	if box1 != nil {
+		idxAddr = librarian.Addr("special:box1")
+	} else {
+		idxAddr = librarian.Addr("special:box2")
+	}
+
+	boxTyped, err := slog.byType.Get(idxAddr)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := boxTyped.Append(rxSeq.Seq()); err != nil {
+		return nil, errors.Wrapf(err, "private: error marking type:box")
+	}
+
+	// try decrypt and pass on the clear text
 	if box1 != nil {
 		content, err := slog.boxer.DecryptBox1(box1)
 		if err != nil {
-			idxAddr = librarian.Addr("notForUs:box1")
-			retErr = errSkip
-		} else {
-			idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
-			cleartext = content
+			return nil, errSkip
 		}
+
+		idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
+		cleartext = content
 	} else if box2 != nil {
 		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), msg.Previous())
 		if err != nil {
-			idxAddr = librarian.Addr("notForUs:box2")
-			retErr = errSkip
-		} else {
-			// instead by group root? could be PM... hmm
-			// would be nice to keep multi-keypair support here but might need rething of the gorups manager
-			idxAddr = librarian.Addr("box2:") + storedrefs.Feed(slog.self)
-			cleartext = content
+			return nil, errSkip
 		}
+
+		// instead by group root? could be PM... hmm
+		// would be nice to keep multi-keypair support here
+		// but might need to rethink the group manager
+		idxAddr = librarian.Addr("box2:") + storedrefs.Feed(slog.self)
+		cleartext = content
 	} else {
 		return nil, fmt.Errorf("tryDecrypt: not skipped but also not valid content")
 	}
@@ -285,11 +306,11 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 		return nil, errors.Wrapf(err, "private/readidx: error appending PM")
 	}
 
-	return cleartext, retErr
+	return cleartext, nil
 }
 
 var (
-	errSkip     = fmt.Errorf("ssb: skip  - not for us")
+	errSkip     = fmt.Errorf("ssb: skip - not for us")
 	errSkipBox1 = fmt.Errorf("ssb: skip box1 message")
 	errSkipBox2 = fmt.Errorf("ssb: skip box2 message")
 )

@@ -19,7 +19,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 	var qry CreateHistArgs
 	for k, v := range argMap {
 		switch k = strings.ToLower(k); k {
-		case "live", "keys", "values", "reverse", "asjson":
+		case "live", "keys", "values", "reverse", "asjson", "private":
 			b, ok := v.(bool)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
@@ -35,6 +35,8 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.Reverse = b
 			case "asjson":
 				qry.AsJSON = b
+			case "private":
+				qry.Private = b
 			}
 
 		case "type", "id":
@@ -80,15 +82,17 @@ type CommonArgs struct {
 	Values bool `json:"values,omitempty"`
 	Live   bool `json:"live,omitempty"`
 
-	// Raw ???
-	Raw   bool `json:"raw"`
-	Seqs  bool `json:"seqs"`
-	Cache bool `json:"cache"`
+	// flume-stub experiments
+	// Raw bool `json:"raw"`
+	// Seqs  bool `json:"seqs"`
+	// Cache bool `json:"cache"`
 
 	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
 	// for instance, it could be json.RawMessage or a map or a struct
 	// TODO: find a nice way to have a default here
 	MarshalType interface{} `json:"-"`
+
+	Private bool `json:"private,omitempty"`
 }
 
 type StreamArgs struct {
@@ -129,5 +133,10 @@ type MessagesByTypeArgs struct {
 type TanglesArgs struct {
 	CommonArgs
 	StreamArgs
+
 	Root refs.MessageRef `json:"root"`
+
+	// indicate the v2 subtangle (group, ...)
+	// empty string for v1 tangle
+	Name string `json:"name"`
 }

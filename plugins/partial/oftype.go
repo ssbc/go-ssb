@@ -22,7 +22,7 @@ type getMessagesOfTypeHandler struct {
 	bytype *roaring.MultiLog
 }
 
-func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
 		return errors.Errorf("invalid arguments")
 	}
