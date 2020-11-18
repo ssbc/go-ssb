@@ -172,9 +172,9 @@ func TestGroupsJSCreate(t *testing.T) {
 	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
 		setTimeout(() => {
 			sbot.get({private: true, id: helloGroup}, (err, msg) => {
-				t.error(err, "got hello group msg")
+				t.error(err, "received and read hello group msg")
 				t.true(gotInvite, "got the add-member msg")
-				t.equal(msg.content.text, "hello test group!")
+				t.equal(msg.content.text, "hello test group!", "correct text on group reply from bob")
 				exit()
 			})
 		}, 2000)
@@ -223,7 +223,7 @@ func TestGroupsGoCreate(t *testing.T) {
 
 	let inviteMsg = %q
 	sbot.replicate.request(testBob, true)
-	run()
+	run() // connect to the go side (which already published it's group messages)
 
 	// check if we got the stuff once bob disconnects
 	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
@@ -235,7 +235,7 @@ func TestGroupsGoCreate(t *testing.T) {
 				// console.warn(JSON.stringify(msg, null, 2))
 				exit()
 			})
-		},5000) // was getting the error below
+		},10000) // was getting the error below
 	}))
 `, inviteRef.Ref()), ``)
 

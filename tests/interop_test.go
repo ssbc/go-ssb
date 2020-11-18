@@ -198,12 +198,12 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	ts.backgroundErrs = append(ts.backgroundErrs, errc)
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
-	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
+	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be %s pubkey/id", name)
 
-	alice, err := refs.ParseFeedRef(pubScanner.Text())
-	r.NoError(err, "failed to get alice key from JS process")
-	ts.t.Logf("JS alice: %d  %s", jsBotCnt, alice.Ref())
-	return alice
+	jsBotRef, err := refs.ParseFeedRef(pubScanner.Text())
+	r.NoError(err, "failed to get %s key from JS process")
+	ts.t.Logf("JS %s:%d %s", name, jsBotCnt, jsBotRef.Ref())
+	return jsBotRef
 }
 
 func (ts *testSession) wait() {
