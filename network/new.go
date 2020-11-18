@@ -64,10 +64,13 @@ type node struct {
 
 	log log.Logger
 
-	lisClose sync.Once
+	listening chan struct{}
+
+	listenerLock sync.Mutex
+	lisClose     sync.Once
+	lis          net.Listener
 
 	dialer        netwrap.Dialer
-	l             net.Listener
 	localDiscovRx *Discoverer
 	localDiscovTx *Advertiser
 	secretServer  *secretstream.Server
@@ -76,8 +79,6 @@ type node struct {
 
 	beforeCryptoConnWrappers []netwrap.ConnWrapper
 	afterSecureConnWrappers  []netwrap.ConnWrapper
-
-	listening chan struct{}
 
 	remotesLock sync.Mutex
 	remotes     map[string]muxrpc.Endpoint
@@ -332,17 +333,22 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(n.opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
 	var err error
 
-	n.l, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
+	n.listenerLock.Lock()
+	n.lis, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
 	if err != nil {
-
+		n.listenerLock.Unlock()
 		return errors.Wrap(err, "error creating listener")
 	}
 	n.lisClose = sync.Once{} // reset once
 	close(n.listening)
+	n.listenerLock.Unlock()
 
-	defer func() {
+	defer func() { // refresh listener to re-call
 		n.lisClose.Do(func() {
-			n.l.Close()
+			n.listenerLock.Lock()
+			n.lis.Close()
+			n.lis = nil
+			n.listenerLock.Unlock()
 		})
 		n.listening = make(chan struct{})
 	}()
@@ -385,7 +391,13 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	go func() {
 		defer close(newConn)
 		for {
-			conn, err := n.l.Accept()
+			n.listenerLock.Lock()
+			if n.lis == nil {
+				n.listenerLock.Unlock()
+				return
+			}
+			n.listenerLock.Unlock()
+			conn, err := n.lis.Accept()
 			if err != nil {
 				if strings.Contains(err.Error(), "use of closed network connection") {
 					// yikes way of handling this
@@ -462,7 +474,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 func (n *node) GetListenAddr() net.Addr {
 	_, ok := <-n.listening
 	if !ok {
-		return n.l.Addr()
+		return n.lis.Addr()
 	}
 	level.Error(n.log).Log("msg", "listener not ready")
 	return nil
@@ -490,11 +502,12 @@ func (n *node) Close() error {
 			return errors.Wrap(err, "ssb: failed to close http listener")
 		}
 	}
-
-	if n.l != nil {
+	n.listenerLock.Lock()
+	defer n.listenerLock.Unlock()
+	if n.lis != nil {
 		var closeErr error
 		n.lisClose.Do(func() {
-			closeErr = n.l.Close()
+			closeErr = n.lis.Close()
 		})
 		if closeErr != nil && !strings.Contains(errors.Cause(closeErr).Error(), "use of closed network connection") {
 			return errors.Wrap(closeErr, "ssb: network node failed to close it's listener")
