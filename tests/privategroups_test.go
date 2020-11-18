@@ -36,33 +36,32 @@ func TestGroupsJSCreate(t *testing.T) {
 		const { groupId } = data
 		t.comment(groupId)
 
-	function mkMsg(msg) {
-		return function(cb) {
-			sbot.publish(msg, cb)
+		function mkMsg(msg) {
+			return function(cb) {
+				sbot.publish(msg, cb)
+			}
 		}
-	}
-	n = 24 
-	let msgs = []
-	for (var i = n; i>0; i--) {
-		msgs.push(mkMsg({type:"test", text:"foo", i:i, "recps": [groupId]}))
-	}
-	msgs.push(mkMsg({type: 'contact', contact: claireRef, following: true}))
-	msgs.push(mkMsg({type: 'contact', contact: testBob, following: true}))
-	
-	let welcome = {
-		text: 'this is a test group'
-	}
-	sbot.tribes.invite(groupId, [testBob, claireRef], welcome, (err, msg) => {
-		t.error(err, 'invite worked')
-		msgs.push(mkMsg({type: 'test-hint', invite: msg.key, groupId}))
-		parallel(msgs, function(err, results) {
-			t.error(err, "parallel of publish")
-			t.equal(msgs.length, results.length, "message count")
-			run() // triggers connect and after block
+		n = 24 
+		let msgs = []
+		for (var i = n; i>0; i--) {
+			msgs.push(mkMsg({type:"test", text:"foo", i:i, "recps": [groupId]}))
+		}
+		msgs.push(mkMsg({type: 'contact', contact: claireRef, following: true}))
+		msgs.push(mkMsg({type: 'contact', contact: testBob, following: true}))
+		
+		let welcome = {
+			text: 'this is a test group'
+		}
+		sbot.tribes.invite(groupId, [testBob, claireRef], welcome, (err, msg) => {
+			t.error(err, 'invite worked')
+			msgs.push(mkMsg({type: 'test-hint', invite: msg.key, groupId}))
+			parallel(msgs, function(err, results) {
+				t.error(err, "parallel of publish")
+				t.equal(msgs.length, results.length, "message count")
+				run()
+			})
 		})
-	})
-
-}) // tribes.create
+	}) // tribes.create
 
 
 	// be done when the other party is done
@@ -148,6 +147,7 @@ func TestGroupsJSCreate(t *testing.T) {
 	let testAlice = %q
 	let helloGroup = %q
 
+	let gotInvite = false
 	pull(
 		sbot.createLogStream({
 			keys:true,
@@ -159,21 +159,25 @@ func TestGroupsJSCreate(t *testing.T) {
 			if (typeof msg.value.content === "string") return
 
 			if (msg.value.content.type == "group/add-member") {
-				console.warn(JSON.stringify(msg, null, 2))
+				gotInvite = true
 			}
 		})
 	)
+	
 	sbot.replicate.request(testAlice, true)
 	sbot.replicate.request(testBob, true)
-	run() // triggers connect and after block
+	run()
 
 	// check if we got the stuff once bob disconnects
 	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
-		sbot.get({private: true, id: helloGroup}, (err, msg) => {
-			t.error(err, "got hello group msg")
-			console.warn(JSON.stringify(msg, null, 2))
-			exit()
-		})
+		setTimeout(() => {
+			sbot.get({private: true, id: helloGroup}, (err, msg) => {
+				t.error(err, "got hello group msg")
+				t.true(gotInvite, "got the add-member msg")
+				t.equal(msg.content.text, "hello test group!")
+				exit()
+			})
+		}, 2000)
 	}))
 `, alice.Ref(), helloGroup.Ref()), ``)
 
@@ -192,11 +196,12 @@ func TestGroupsGoCreate(t *testing.T) {
 	bob := ts.gobot
 
 	// just for keygen, needed later
+	// or fix live-streaming
 	alice := ts.startJSBotWithName("alice", `exit()`, "")
 
 	bob.Replicate(alice)
 
-	// TODO: fix first message empty bug
+	// TODO: fix first message bug
 	bob.PublishLog.Publish(map[string]string{
 		"type":  "needed",
 		"hello": "world"})
@@ -218,19 +223,45 @@ func TestGroupsGoCreate(t *testing.T) {
 
 	let inviteMsg = %q
 	sbot.replicate.request(testBob, true)
-	run() // triggers connect and after block
+	run()
 
 	// check if we got the stuff once bob disconnects
 	sbot.on('rpc:connect', rpc => rpc.on('closed', () => {
-		sbot.get({private: true, id: inviteMsg}, (err, msg) => {
-			t.error(err, "got hello group msg")
-			t.true(msg.meta.private, 'did decrypt')
-			t.equal("what's up alice?", msg.content.text, 'has the right welcome text')
-			// console.warn(JSON.stringify(msg, null, 2))
-			exit()
-		})
+		setTimeout(() => {
+			sbot.get({private: true, id: inviteMsg}, (err, msg) => {
+				t.error(err, "got hello group msg")
+				t.true(msg.meta.private, 'did decrypt')
+				t.equal("what's up alice?", msg.content.text, 'has the right welcome text')
+				// console.warn(JSON.stringify(msg, null, 2))
+				exit()
+			})
+		},5000) // was getting the error below
 	}))
 `, inviteRef.Ref()), ``)
 
 	ts.wait()
 }
+
+/*
+not ok 3 got hello group msg
+  ---
+    operator: error
+    at: <anonymous> (/home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/create.js:70:25)
+    stack: |-
+      TypeError: flumeview-level.get: index for: %x+5CduWrrxQFvNoViY7v8r2In/9v9aIOR1Q97/7pcNM=.sha256pointed at:18247but log error
+          at /home/cryptix/go-repos/ssb/tests/node_modules/flumeview-level/index.js:170:17
+          at /home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/minimal.js:54:7
+          at /home/cryptix/go-repos/ssb/tests/node_modules/flumelog-offset/frame/recoverable.js:48:11
+        TypeError: Cannot read property 'private' of undefined
+          at eval (eval at <anonymous> (/home/cryptix/go-repos/ssb/tests/sbot.js:98:3), <anonymous>:11:20)
+          at /home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/create.js:85:14
+          at /home/cryptix/go-repos/ssb/tests/node_modules/flumeview-level/index.js:180:15
+          at /home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/minimal.js:52:7
+          at /home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/minimal.js:41:35
+          at AsyncJobQueue.runAll (/home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/util.js:197:32)
+          at Array.<anonymous> (/home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/minimal.js:41:22)
+          at chainMaps (/home/cryptix/go-repos/ssb/tests/node_modules/ssb-db/minimal.js:61:14)
+          at /home/cryptix/go-repos/ssb/tests/node_modules/flumedb/index.js:119:14
+          at /home/cryptix/go-repos/ssb/tests/node_modules/flumelog-offset/inject.js:93:9
+  ...
+*/
