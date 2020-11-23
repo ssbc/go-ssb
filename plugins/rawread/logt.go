@@ -158,7 +158,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	// not live
 	typed, err := g.types.LoadInternalBitmap(idxAddr)
 	if err != nil {
-		return errors.Wrap(err, "failed to load typed log")
+		return snk.Close()
+		//		return errors.Wrap(err, "failed to load typed log")
 	}
 
 	if qry.Private {
@@ -234,7 +235,6 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 	return func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
-			fmt.Println("weird", err)
 			return err
 		}
 
