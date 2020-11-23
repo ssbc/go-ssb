@@ -182,17 +182,26 @@ var typeStreamCmd = &cli.Command{
 	},
 }
 
-var privateReadCmd = &cli.Command{
-	Name:  "read",
-	Flags: streamFlags,
+var repliesStreamCmd = &cli.Command{
+	Name:  "replies",
+	Flags: append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
 			return err
 		}
 
-		var args = getStreamArgs(ctx)
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"private", "read"}, args)
+		var targs message.TanglesArgs
+		arg := getStreamArgs(ctx)
+		targs.CommonArgs = arg.CommonArgs
+		targs.StreamArgs = arg.StreamArgs
+		targs.Root, err = refs.ParseMessageRef(ctx.Args().First())
+		if err != nil {
+			return err
+		}
+		targs.Name = ctx.String("tname")
+
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"tangles", "read"}, targs)
 		if err != nil {
 			return errors.Wrap(err, "source stream call failed")
 		}
@@ -209,7 +218,6 @@ var replicateUptoCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
 		if err != nil {

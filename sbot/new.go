@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -35,6 +36,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/groups"
 	"go.cryptoscope.co/ssb/plugins/legacyinvites"
 	"go.cryptoscope.co/ssb/plugins/partial"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
@@ -42,15 +44,13 @@ import (
 	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/status"
+	"go.cryptoscope.co/ssb/plugins/tangles"
 	"go.cryptoscope.co/ssb/plugins/whoami"
 	"go.cryptoscope.co/ssb/plugins2/names"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/private/keys"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
-
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
 // Close closes the bot by stopping network connections and closing the internal databases
@@ -228,7 +228,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	*/
 
 	// contact/follow graph
-	contactLog, err := s.ByType.Get(librarian.Addr("contact"))
+	contactLog, err := s.ByType.Get(librarian.Addr("string:contact"))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
 	}
@@ -254,7 +254,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// abouts
-	aboutSeqs, err := s.ByType.Get(librarian.Addr("about"))
+	aboutSeqs, err := s.ByType.Get(librarian.Addr("string:about"))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message about sublog")
 	}
@@ -442,6 +442,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.public.Register(plug)
 	s.master.Register(plug)
 
+	// group managment
+	s.master.Register(groups.New(s.info, s.Groups))
+
 	// raw log plugins
 
 	sc := selfChecker{*s.KeyPair.Id}
@@ -467,9 +470,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		name: "manifest"}
 	s.master.Register(mh)
 
-	var tplug tangles.Plugin
-	tplug.WantRootLog(s.ReceiveLog)
-	tplug.UseMultiLog(s.Tangles)
+	var tplug = tangles.NewPlugin(s.ReceiveLog, s.Tangles, s.Private, s.Groups, sc)
 	s.master.Register(tplug)
 
 	// tcp+shs

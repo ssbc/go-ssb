@@ -33,7 +33,22 @@ func (ts SortedSeqSlice) Swap(i int, j int) {
 	ts[i], ts[j] = ts[j], ts[i]
 }
 
-//func (ts SortedSeqSlice) WrapLog(log margaret.Log) margaret.Log {}
+func (ts SortedSeqSlice) AsLuigiSource() luigi.Source {
+	return &sortedSource{
+		elems: ts,
+	}
+}
+
+type sortedSource struct{ elems SortedSeqSlice }
+
+func (ss *sortedSource) Next(_ context.Context) (interface{}, error) {
+	if len(ss.elems) == 0 {
+		return nil, luigi.EOS{}
+	}
+	next := ss.elems[0]
+	ss.elems = ss.elems[1:]
+	return next, nil
+}
 
 // SortedAscending wraps around SortedSeqSlice to give it a Less that sorts values from small to large.
 type SortedAscending struct{ SortedSeqSlice }

@@ -1,13 +1,19 @@
 package private
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"sort"
 
+	"github.com/cryptix/go/encodedTime"
 	"github.com/pkg/errors"
+	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"golang.org/x/crypto/curve25519"
@@ -230,6 +236,37 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.Me
 	return plain, err
 }
 
+func (mgr *Manager) DecryptMessage(m refs.Message) ([]byte, error) {
+
+	if ctxt, err := mgr.DecryptBox2Message(m); err == nil {
+		return ctxt, nil
+	}
+
+	if ctxt, err := mgr.DecryptBox1Message(m); err == nil {
+		return ctxt, nil
+	}
+
+	return nil, fmt.Errorf("private: not a boxed message")
+}
+
+func (mgr *Manager) DecryptBox1Message(m refs.Message) ([]byte, error) {
+	ciphtext := m.ContentBytes()
+
+	box1Suffix := []byte(".box\"")
+	if !bytes.HasSuffix(ciphtext, box1Suffix) {
+		return nil, fmt.Errorf("private: not a box1 message")
+	}
+
+	b64data := bytes.TrimSuffix(ciphtext[1:], []byte(".box\""))
+	boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(ciphtext)-6))
+	n, err := base64.StdEncoding.Decode(boxedData, b64data)
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr.DecryptBox1(boxedData[:n])
+}
+
 func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
 	ctxt, err := box2.GetCiphertextFromMessage(m)
 	if err != nil {
@@ -237,4 +274,33 @@ func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
 	}
 
 	return mgr.DecryptBox2(ctxt, m.Author(), m.Previous())
+}
+
+func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
+	return mfr.SinkMap(snk, func(_ context.Context, v interface{}) (interface{}, error) {
+		msg, ok := v.(refs.Message)
+		if !ok {
+			return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
+		}
+
+		cleartxt, err := mgr.DecryptMessage(msg)
+		if err != nil {
+			return v, nil
+		}
+
+		var rv refs.KeyValueRaw
+		rv.Key_ = msg.Key()
+		rv.Value.Author = *msg.Author()
+		rv.Value.Previous = msg.Previous()
+		rv.Value.Sequence = margaret.BaseSeq(msg.Seq())
+		rv.Value.Timestamp = encodedTime.NewMillisecs(msg.Claimed().Unix())
+		rv.Value.Signature = "reboxed"
+
+		rv.Value.Content = cleartxt
+
+		rv.Meta = make(map[string]interface{})
+		rv.Meta["private"] = true
+
+		return rv, nil
+	})
 }

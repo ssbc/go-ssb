@@ -336,7 +336,7 @@ func (c Client) MessagesByType(opts message.MessagesByTypeArgs) (luigi.Source, e
 }
 
 func (c Client) Tangles(o message.TanglesArgs) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"tangles"}, o)
+	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"tangles", "replies"}, o)
 	return src, errors.Wrap(err, "ssbClient/tangles: failed to create stream")
 }
 

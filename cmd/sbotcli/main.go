@@ -86,11 +86,12 @@ var app = cli.App{
 		historyStreamCmd,
 		partialStreamCmd,
 		replicateUptoCmd,
+		repliesStreamCmd,
 		callCmd,
 		connectCmd,
 		queryCmd,
-		privateCmd,
 		publishCmd,
+		groupsCmd,
 	},
 }
 
@@ -300,9 +301,87 @@ var queryCmd = &cli.Command{
 	Action: todo, //query,
 }
 
-var privateCmd = &cli.Command{
-	Name: "private",
+var groupsCmd = &cli.Command{
+	Name:  "groups",
+	Usage: "group managment (create, invite, publishTo, etc.)",
 	Subcommands: []*cli.Command{
-		privateReadCmd,
+		groupsCreateCmd,
+		groupsInviteCmd,
+		groupsPublishToCmd,
+		groupsJoinCmd,
 	},
+}
+
+var groupsCreateCmd = &cli.Command{
+	Name:  "create",
+	Usage: "create a new empty group",
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		name := ctx.Args().First()
+		if name == "" {
+			return fmt.Errorf("group name can't be empty")
+		}
+
+		var val interface{}
+		val, err = client.Async(longctx, val, muxrpc.Method{"groups", "create"}, struct {
+			Name string `json:"name"`
+		}{name})
+		if err != nil {
+			return err
+		}
+		log.Log("event", "group created")
+		goon.Dump(val)
+		return nil
+	},
+}
+
+var groupsInviteCmd = &cli.Command{
+	Name:   "invite",
+	Usage:  "add people to a group",
+	Action: todo,
+}
+
+var groupsPublishToCmd = &cli.Command{
+	Name:  "publishTo",
+	Usage: "publish a handcrafted JSON blob to a group",
+	Action: func(ctx *cli.Context) error {
+		var content interface{}
+		err := json.NewDecoder(os.Stdin).Decode(&content)
+		if err != nil {
+			return errors.Wrapf(err, "publish/raw: invalid json input from stdin")
+		}
+
+		groupID, err := refs.ParseMessageRef(ctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("groupID needs to be a valid message ref: %w", err)
+		}
+
+		if groupID.Algo != refs.RefAlgoCloakedGroup {
+			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var reply interface{}
+		v, err := client.Async(longctx, reply, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
+		if err != nil {
+			return errors.Wrapf(err, "publish call failed.")
+		}
+		log.Log("event", "publishTo", "type", "raw")
+		goon.Dump(v)
+		return nil
+	},
+}
+
+var groupsJoinCmd = &cli.Command{
+	Name:   "join",
+	Usage:  "manually join a group by adding the group key",
+	Action: todo,
 }

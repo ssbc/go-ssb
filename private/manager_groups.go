@@ -204,12 +204,32 @@ func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.M
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
 	}
-	r, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	rs, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	if err != nil {
+		return nil, err
+	}
+	if nr := len(rs); nr != 1 {
+		return nil, fmt.Errorf("expected 1 key for group, got %d", nr)
+	}
+	r := rs[0]
+
+	// assign group tangle
+	var decodedContent map[string]interface{}
+	err = json.Unmarshal(content, &decodedContent)
 	if err != nil {
 		return nil, err
 	}
 
-	return mgr.encryptAndPublish(content, r)
+	var groupState = map[string]refs.TanglePoint{}
+	groupState["group"] = mgr.getTangleState(r.Metadata.GroupRoot, "group")
+	decodedContent["tangles"] = groupState
+
+	updatedContent, err := json.Marshal(decodedContent)
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr.encryptAndPublish(updatedContent, rs)
 }
 
 // PublishPostTo publishes a new post to a group.

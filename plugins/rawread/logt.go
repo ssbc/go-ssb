@@ -7,13 +7,9 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"time"
-
-	"github.com/cryptix/go/encodedTime"
-
-	"go.cryptoscope.co/luigi/mfr"
 
 	bmap "github.com/RoaringBitmap/roaring"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -21,7 +17,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
@@ -33,15 +28,14 @@ import (
 )
 
 type Plugin struct {
-	root  margaret.Log
+	rxlog margaret.Log
 	types *roaring.MultiLog
-	priv  *roaring.MultiLog
 
+	priv    *roaring.MultiLog
+	isSelf  ssb.Authorizer
 	unboxer *private.Manager
 
 	res *repo.SequenceResolver
-
-	isSelf ssb.Authorizer
 
 	h muxrpc.Handler
 }
@@ -56,7 +50,7 @@ func NewByTypePlugin(
 	isSelf ssb.Authorizer,
 ) ssb.Plugin {
 	plug := &Plugin{
-		root:  rootLog,
+		rxlog: rootLog,
 		types: ml,
 
 		priv: pl,
@@ -121,22 +115,24 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 		return fmt.Errorf("not authroized")
 	}
 
-	start := time.Now()
-
+	// create toJSON sink
 	snk = transform.NewKeyValueWrapper(req.Stream, qry.Keys)
+
+	// wrap it into a counter for debugging
 	var cnt int
 	snk = newSinkCounter(&cnt, snk)
 
+	idxAddr := librarian.Addr("string:" + qry.Type)
 	if qry.Live {
 		if qry.Private {
 			return fmt.Errorf("TODO: fix live && private")
 		}
-		typed, err := g.types.Get(librarian.Addr(qry.Type))
+		typed, err := g.types.Get(idxAddr)
 		if err != nil {
 			return errors.Wrap(err, "failed to load typed log")
 		}
 
-		src, err := mutil.Indirect(g.root, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
+		src, err := mutil.Indirect(g.rxlog, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
 		if err != nil {
 			return errors.Wrap(err, "logT: failed to qry tipe")
 		}
@@ -150,54 +146,33 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 			return errors.Wrap(err, "logT: failed to pump msgs")
 		}
 
-		fmt.Println("bytype", qry.Type, cnt)
 		return snk.Close()
 	}
 
+	/* TODO: i'm skipping a fairly big refactor here to find out what works first.
+	   ideallly the live and not-live code would just be the same, somehow shoving it into Query(...).
+	   Same goes for timestamp sorting and private.
+	   Private is at least orthogonal, whereas sorting and live don't go well together.
+	*/
+
 	// not live
-	typed, err := g.types.LoadInternalBitmap(librarian.Addr("string:" + qry.Type))
+	typed, err := g.types.LoadInternalBitmap(idxAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to load typed log")
 	}
-	// fmt.Println("typed:", typed.String())
 
 	if qry.Private {
-		snk = mfr.SinkMap(snk, func(_ context.Context, v interface{}) (interface{}, error) {
-			msg, ok := v.(refs.Message)
-			if !ok {
-				return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
-			}
-			// TODO: add box1
-
-			ctxt, err := g.unboxer.DecryptBox2Message(msg)
-			if err != nil {
-				return v, nil
-			}
-
-			var rv refs.KeyValueRaw
-			rv.Key_ = msg.Key()
-			rv.Value.Author = *msg.Author()
-			rv.Value.Previous = msg.Previous()
-			rv.Value.Sequence = margaret.BaseSeq(msg.Seq())
-			rv.Value.Timestamp = encodedTime.NewMillisecs(msg.Claimed().Unix())
-			rv.Value.Signature = "reboxed"
-
-			rv.Value.Content = ctxt
-
-			// TODO: add meta.private = true
-
-			return rv, nil
-		})
+		snk = g.unboxer.WrappedUnboxingSink(snk)
 	} else {
 		// filter all boxed messages from the stream
-		box1, err := g.types.LoadInternalBitmap(librarian.Addr("special:box1"))
+		box1, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box1"))
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box1")
 			box1 = bmap.New()
 		}
 
-		box2, err := g.types.LoadInternalBitmap(librarian.Addr("special:box2"))
+		box2, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box2"))
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box2")
@@ -205,16 +180,17 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 		}
 
 		box1.Or(box2) // all the boxed messages
-		// fmt.Println("allboxed:", box1.String())
 
+		// remove all the boxed ones from the type we are looking up
 		typed.AndNot(box1)
-		// fmt.Println("andNot-ed:", typed.String())
 	}
 
 	// TODO: set _all_ correctly if gt=0 && lt=0
 	if qry.Lt == 0 {
 		qry.Lt = math.MaxInt64
 	}
+
+	spew.Dump(qry)
 
 	var filter = func(ts int64) bool {
 		isGreater := ts > qry.Gt
@@ -228,16 +204,19 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	}
 
 	for _, res := range sort {
-		v, err := g.root.Get(margaret.BaseSeq(res.Seq))
+		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err, "after:", time.Since(start))
+			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err)
 			continue
 		}
 
-		// TODO: skip nulled
+		// skip nulled
+		if verr, ok := v.(error); ok && margaret.IsErrNulled(verr) {
+			continue
+		}
 
 		if err := snk.Pour(ctx, v); err != nil {
-			fmt.Fprintln(os.Stderr, "messagesByType failed send:", res.Seq, " with:", err, "after:", time.Since(start))
+			fmt.Fprintln(os.Stderr, "messagesByType failed send:", res.Seq, " with:", err)
 			break
 		}
 
@@ -248,7 +227,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 			}
 		}
 	}
-	fmt.Println("bytype", qry.Type, cnt)
+	fmt.Println("streamed", cnt, " for type:", qry.Type)
 	return snk.Close()
 }
 

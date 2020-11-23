@@ -227,11 +227,11 @@ func TestGroupsFullCircle(t *testing.T) {
 		}
 	}
 
-	chkCount(srh.ByType)("test", 2)
-	chkCount(srh.ByType)("post", 2)
+	chkCount(srh.ByType)("string:test", 2)
+	chkCount(srh.ByType)("string:post", 2)
 
-	chkCount(tal.ByType)("test", 2)
-	chkCount(tal.ByType)("post", 1) // TODO: reindex
+	chkCount(tal.ByType)("string:test", 2)
+	chkCount(tal.ByType)("string:post", 1) // TODO: reindex
 
 	addr := librarian.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
 	chkCount(srh.Private)(addr, 3)
@@ -246,9 +246,21 @@ func TestGroupsFullCircle(t *testing.T) {
 		testutils.StreamLog(t, tal.ReceiveLog)
 	*/
 
-	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
+	addr = librarian.Addr("meta:box2")
+	allBoxed, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
-	t.Log("stillBoxed:", stillBoxed.String())
+	t.Log("all boxed:", allBoxed.String())
+
+	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	readable, err := tal.Private.LoadInternalBitmap(addr)
+	r.NoError(err)
+
+	allBoxed.AndNot(readable)
+
+	if n := allBoxed.GetCardinality(); n > 0 {
+		t.Errorf("still have boxed messages that are not indexed: %d", n)
+		t.Log("still boxed:", allBoxed.String())
+	}
 
 	tal.Shutdown()
 	srh.Shutdown()

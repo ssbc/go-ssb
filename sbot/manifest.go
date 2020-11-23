@@ -57,10 +57,13 @@ const manifestBlob = `
 
 
 "private": {
-"read":"source"
+  "read":"source"
 },
 
-	"tangles": "source",
+	"tangles": {
+      "replies": "source"
+    },
+
     "names": {
         "get": "async",
         "getImageFor": "async",
@@ -82,6 +85,11 @@ const manifestBlob = `
 	"replicate": {
 	  "upto": "source"
 	},
+
+    "groups": {
+      "create":"async",
+      "publishTo":"async"
+    },
 
 	"blobs": {
 	  "get": "source",

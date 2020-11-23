@@ -7,10 +7,10 @@ import (
 	"os"
 
 	"github.com/cryptix/go/logging"
+	"github.com/pkg/errors"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
-	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
 var check = logging.CheckFatal
@@ -25,35 +25,29 @@ func main() {
 
 	dir := os.Args[1]
 
-	mlog, err := multimkv.NewMultiLog(dir)
+	mlog, err := multifs.NewMultiLog(dir)
 	check(err)
 
-	/*
-		addrs, err := mlog.List()
-		check(errors.Wrap(err, "error listing multilog"))
-		log.Log("mlog", "opened", "list#", len(addrs))
-		for i, a := range addrs {
-			var sr ssb.StorageRef
-			err := sr.Unmarshal([]byte(a))
-			check(err)
+	addrs, err := mlog.List()
+	check(errors.Wrap(err, "error listing multilog"))
+	log.Log("mlog", "opened", "list#", len(addrs))
+	for i, a := range addrs {
 
-			sublog, err := mlog.Get(a)
-			check(err)
-			seqv, err := sublog.Seq().Value()
-			check(err)
-			log.Log("i", i, "addr", sr.Ref(), "seq", seqv)
-		}
-	*/
+		sublog, err := mlog.Get(a)
+		check(err)
+		seqv, err := sublog.Seq().Value()
+		check(err)
+		log.Log("i", i, "addr", string(a), "seq", seqv)
+	}
 
 	// check has
 	if len(os.Args) > 2 {
-		ref, err := refs.ParseFeedRef(os.Args[2])
-		check(err)
+		addr := librarian.Addr(os.Args[2])
 
-		has, err := multilog.Has(mlog, storedrefs.Feed(ref))
-		log.Log("mlog", "has", "addr", ref.Ref(), "has?", has, "hasErr", err)
+		has, err := multilog.Has(mlog, addr)
+		log.Log("mlog", "has", "addr", string(addr), "has?", has, "hasErr", err)
 
-		bmap, err := mlog.LoadInternalBitmap(storedrefs.Feed(ref))
+		bmap, err := mlog.LoadInternalBitmap(addr)
 		check(err)
 		fmt.Println(bmap.GetCardinality())
 		fmt.Println(bmap.String())

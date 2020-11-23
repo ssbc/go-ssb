@@ -23,8 +23,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/network"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -450,7 +448,6 @@ func TestTangles(t *testing.T) {
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -492,7 +489,7 @@ func TestTangles(t *testing.T) {
 	r.NotNil(rep2Ref)
 
 	opts := message.TanglesArgs{}
-	opts.Root = *rootRef
+	opts.Root = rootRef
 	opts.Limit = 2
 	opts.Keys = true
 	opts.MarshalType = refs.KeyValueRaw{}

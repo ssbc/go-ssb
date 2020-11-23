@@ -2,17 +2,20 @@
 
 // +build ignore
 
+// TODO: mutli-author refactor
+
 package tangles
 
 import (
-	"context"
-	"io/ioutil"
+	"crypto/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/repo"
 )
 

@@ -16,7 +16,6 @@ import (
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
@@ -209,8 +208,6 @@ func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, libraria
 		return nil, nil, errors.Wrap(err, "error getting about index")
 	}
 
-	// TODO: hook serve to close db
-
 	plug.about = aboutStore{db}
 
 	return idx, update, err
@@ -228,13 +225,12 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	var aboutMSG refs.About
 	err := json.Unmarshal(msg.ContentBytes(), &aboutMSG)
 	if err != nil {
-		// fmt.Println("msg", "skipped contact message", "reason", err)
+		// nothing to do with this message
+		// TODO: git repos and gathering use about messages for their names
 		return nil
-		// debugging
-		if ssb.IsMessageUnusable(err) {
-			return nil
-		}
 	}
+
+	//	fmt.Println("msg", "decoded", "seq", seq.Seq())
 
 	// about:from:field
 	addr := aboutMSG.About.Ref()

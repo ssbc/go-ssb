@@ -79,7 +79,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	}
 
-	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr(tipe))
+	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + tipe))
 	if err != nil {
 		// return errors.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
 		snk.Close()

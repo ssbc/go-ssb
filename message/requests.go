@@ -134,7 +134,7 @@ type TanglesArgs struct {
 	CommonArgs
 	StreamArgs
 
-	Root refs.MessageRef `json:"root"`
+	Root *refs.MessageRef `json:"root"`
 
 	// indicate the v2 subtangle (group, ...)
 	// empty string for v1 tangle

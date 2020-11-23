@@ -134,14 +134,16 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		cleartext, err := slog.tryDecrypt(abstractMsg, seq)
 		if err != nil {
 			if err == errSkip {
+				// yes it's a boxed message but we can't read it (yet)
 				return nil
 			}
+			// something went horribly wrong
 			return err
 		}
 		content = cleartext
 	}
 
-	// by type:...
+	// by type:...  and tangles (v1 & v2)
 	var jsonContent struct {
 		Type    string
 		Root    *refs.MessageRef
@@ -191,6 +193,9 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	}
 
 	for tname, tip := range jsonContent.Tangles {
+		if tname == "" {
+			continue
+		}
 		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
@@ -256,17 +261,17 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 	/* as a help for re-indexing, keep track of all box1 and box2 messages.
 
 	later we can get the set of messages we might need to re-index by
-	1) taking type:special:box2
-	2) ANDing it with the one of the author
+	1) taking meta:box2
+	2) ANDing it with the one of the author (intersection)
 	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
 	*/
 	if box1 != nil {
-		idxAddr = librarian.Addr("special:box1")
+		idxAddr = librarian.Addr("meta:box1")
 	} else {
-		idxAddr = librarian.Addr("special:box2")
+		idxAddr = librarian.Addr("meta:box2")
 	}
 
-	boxTyped, err := slog.byType.Get(idxAddr)
+	boxTyped, err := slog.private.Get(idxAddr)
 	if err != nil {
 		return nil, err
 	}

@@ -67,7 +67,7 @@ func TestAutomaticUnboxing(t *testing.T) {
 	_ = hello2
 
 	targs := message.TanglesArgs{
-		Root: *root,
+		Root: root,
 		Name: "group",
 	}
 	targs.Private = false
