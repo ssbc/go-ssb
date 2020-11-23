@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -63,7 +63,6 @@ func TestNullFeed(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "main")),
 		WithHops(2),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
@@ -106,7 +105,7 @@ func TestNullFeed(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		return l
@@ -118,7 +117,7 @@ func TestNullFeed(t *testing.T) {
 		checkLogSeq(l, seq)
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 1)
@@ -256,7 +255,7 @@ func TestNullFetched(t *testing.T) {
 	aliUF, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
 
-	alisVersionOfBobsLog, err := aliUF.Get(bob.KeyPair.Id.StoredAddr())
+	alisVersionOfBobsLog, err := aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
@@ -289,7 +288,7 @@ func TestNullFetched(t *testing.T) {
 	r.NoError(err)
 
 	mainLog.Log("msg", "get a fresh view (shoild be empty now)")
-	alisVersionOfBobsLog, err = aliUF.Get(bob.KeyPair.Id.StoredAddr())
+	alisVersionOfBobsLog, err = aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "sync should give us the messages again")

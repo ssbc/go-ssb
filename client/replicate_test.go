@@ -58,17 +58,18 @@ func TestReplicateUpTo(t *testing.T) {
 			kp.Id.Algo = refs.RefAlgoFeedGabby
 		}
 
-		publish, err := message.OpenPublishLog(srv.RootLog, uf, kp)
+		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)
 
 		testKeyPairs[kp.Id.Ref()] = i
 		for n := i; n > 0; n-- {
 
 			ref, err := publish.Publish(struct {
+				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
-			}{true, n, kp.Id.Ref()})
+			}{"test", true, n, kp.Id.Ref()})
 			r.NoError(err)
 			t.Log(ref.Ref())
 		}

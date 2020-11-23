@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	refs "go.mindeco.de/ssb-refs"
@@ -29,9 +30,9 @@ import (
 type FeedManager struct {
 	rootCtx context.Context
 
-	RootLog   margaret.Log
-	UserFeeds multilog.MultiLog
-	logger    logging.Interface
+	ReceiveLog margaret.Log
+	UserFeeds  multilog.MultiLog
+	logger     logging.Interface
 
 	liveFeeds    map[string]*multiSink
 	liveFeedsMut sync.Mutex
@@ -45,20 +46,20 @@ type FeedManager struct {
 // Feeds.
 func NewFeedManager(
 	ctx context.Context,
-	rootLog margaret.Log,
+	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	info logging.Interface,
 	sysGauge metrics.Gauge,
 	sysCtr metrics.Counter,
 ) *FeedManager {
 	fm := &FeedManager{
-		RootLog:   rootLog,
-		UserFeeds: userFeeds,
-		logger:    info,
-		rootCtx:   ctx,
-		sysCtr:    sysCtr,
-		sysGauge:  sysGauge,
-		liveFeeds: make(map[string]*multiSink),
+		ReceiveLog: rxlog,
+		UserFeeds:  userFeeds,
+		logger:     info,
+		rootCtx:    ctx,
+		sysCtr:     sysCtr,
+		sysGauge:   sysGauge,
+		liveFeeds:  make(map[string]*multiSink),
 	}
 	// QUESTION: How should the error case be handled?
 	go fm.serveLiveFeeds()
@@ -86,13 +87,13 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 }
 
 func (m *FeedManager) serveLiveFeeds() {
-	seqv, err := m.RootLog.Seq().Value()
+	seqv, err := m.ReceiveLog.Seq().Value()
 	if err != nil {
 		err = errors.Wrap(err, "failed to get root log sequence")
 		panic(err)
 	}
 
-	src, err := m.RootLog.Query(
+	src, err := m.ReceiveLog.Query(
 		margaret.Gt(seqv.(margaret.BaseSeq)),
 		margaret.Live(true),
 		margaret.SeqWrap(true),
@@ -204,7 +205,7 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Errorf("bad request: missing id argument")
 	}
 	// check what we got
-	userLog, err := m.UserFeeds.Get(arg.ID.StoredAddr())
+	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
 	}
@@ -225,12 +226,25 @@ func (m *FeedManager) CreateStreamHistory(
 
 	// Make query
 	limit := nonliveLimit(arg, latest)
-	resolved := mutil.Indirect(m.RootLog, userLog)
-	src, err := resolved.Query(
-		margaret.Gte(margaret.BaseSeq(arg.Seq)),
+	qryArgs := []margaret.QuerySpec{
 		margaret.Limit(int(limit)),
 		margaret.Reverse(arg.Reverse),
-	)
+	}
+
+	if arg.Seq > 0 {
+		qryArgs = append(qryArgs, margaret.Gte(margaret.BaseSeq(arg.Seq)))
+	}
+
+	if arg.Lt > 0 {
+		qryArgs = append(qryArgs, margaret.Lt(margaret.BaseSeq(arg.Lt)))
+	}
+
+	if arg.Gt > 0 {
+		qryArgs = append(qryArgs, margaret.Gt(margaret.BaseSeq(arg.Gt)))
+	}
+
+	resolved := mutil.Indirect(m.ReceiveLog, userLog)
+	src, err := resolved.Query(qryArgs...)
 	if err != nil {
 		return errors.Wrapf(err, "invalid user log query")
 	}

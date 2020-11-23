@@ -17,8 +17,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -67,7 +67,6 @@ func XTestMultipleIdentities(t *testing.T) {
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)
@@ -121,9 +120,9 @@ func XTestMultipleIdentities(t *testing.T) {
 		r.EqualValues(seq, v.(margaret.Seq).Seq())
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
-	src, err := mainbot.RootLog.Query()
+	src, err := mainbot.ReceiveLog.Query()
 	r.NoError(err)
 
 	ctx := context.Background()
@@ -147,11 +146,11 @@ func XTestMultipleIdentities(t *testing.T) {
 	pl, ok := mainbot.GetMultiLog("privLogs")
 	r.True(ok, "no privLogs")
 
-	arnies, err := pl.Get(kpArny.Id.StoredAddr())
+	arnies, err := pl.Get(storedrefs.Feed(kpArny.Id))
 	r.NoError(err)
-	berts, err := pl.Get(kpBert.Id.StoredAddr())
+	berts, err := pl.Get(storedrefs.Feed(kpBert.Id))
 	r.NoError(err)
-	cloes, err := pl.Get(kpCloe.Id.StoredAddr())
+	cloes, err := pl.Get(storedrefs.Feed(kpCloe.Id))
 	r.NoError(err)
 
 	// 0 indexed

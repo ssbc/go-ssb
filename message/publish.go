@@ -17,6 +17,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 )
 
@@ -132,7 +133,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
 func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
-	authorLog, err := sublogs.Get(kp.Id.StoredAddr())
+	authorLog, err := sublogs.Get(storedrefs.Feed(kp.Id))
 	if err != nil {
 		return nil, errors.Wrap(err, "publish: failed to open sublog for author")
 	}

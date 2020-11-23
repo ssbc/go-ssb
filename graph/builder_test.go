@@ -21,10 +21,8 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -80,7 +78,7 @@ func TestBadger(t *testing.T) {
 
 func makeTypedLog(t *testing.T) testStore {
 	r := require.New(t)
-	info := testutils.NewRelativeTimeLogger(nil)
+	// info := testutils.NewRelativeTimeLogger(nil)
 
 	tRepoPath, err := ioutil.TempDir("", "test_mlog")
 	r.NoError(err)
@@ -99,23 +97,25 @@ func makeTypedLog(t *testing.T) testStore {
 	tc.root = tRootLog
 	tc.userLogs = uf
 
-	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
-	r.NoError(err, "sbot: failed to open message type sublogs")
-	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT, true)
+	panic("TODO: plugin refactor")
+	/*
+		mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
+		r.NoError(err, "sbot: failed to open message type sublogs")
+		mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT, true)
 
-	contactLog, err := mt.Get(librarian.Addr("contact"))
-	r.NoError(err, "sbot: failed to open message contact sublog")
+		contactLog, err := mt.Get(librarian.Addr("contact"))
+		r.NoError(err, "sbot: failed to open message contact sublog")
 
-	directedContactLog := mutil.Indirect(tRootLog, contactLog)
-	tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
-	r.NoError(err, "sbot: NewLogBuilder failed")
-
+		directedContactLog := mutil.Indirect(tRootLog, contactLog)
+		tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
+		r.NoError(err, "sbot: NewLogBuilder failed")
+	*/
 	tc.close = func() {
 		r.NoError(uf.Close())
-		r.NoError(mt.Close())
+		// r.NoError(mt.Close())
 		cancel()
 
-		for err := range mergedErrors(ufErrc, mtErrc) {
+		for err := range mergedErrors(ufErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")

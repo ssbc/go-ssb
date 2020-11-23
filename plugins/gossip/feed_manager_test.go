@@ -20,6 +20,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -152,7 +153,7 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			create(t, userFeedLen, "prefill")
 			t.Log("created prefil")
-			log, err := userFeeds.Get(keyPair.Id.StoredAddr())
+			log, err := userFeeds.Get(storedrefs.Feed(keyPair.Id))
 			r.NoError(err)
 			seqv, err := log.Seq().Value()
 			r.NoError(err)

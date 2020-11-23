@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+// TODO: move these into the sbot package
+
+// +build ignore
+
 package names_test
 
 import (
@@ -61,7 +65,7 @@ func TestAboutNames(t *testing.T) {
 	_, err = ali.PublishLog.Publish(newName)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

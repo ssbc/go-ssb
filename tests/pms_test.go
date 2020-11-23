@@ -12,6 +12,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private/box"
 )
 
@@ -112,12 +113,12 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	aliceLog, err := s.Users.Get(alice.StoredAddr())
+	aliceLog, err := s.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
-	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -174,7 +175,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -187,7 +188,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		r.NoError(err)
 		r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
-		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := bob.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		absMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)

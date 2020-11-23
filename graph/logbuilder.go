@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -129,35 +130,18 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 		return nil
 	}
 
-	bfrom := author.StoredAddr()
+	bfrom := storedrefs.Feed(author)
 	nFrom, has := b.current.lookup[bfrom]
 	if !has {
-		// stupid copy
-		sr, err := refs.NewStorageRef(author)
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		fr, err := sr.FeedRef()
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		nFrom = &contactNode{dg.NewNode(), fr, ""}
+		nFrom = &contactNode{dg.NewNode(), author.Copy(), ""}
 		dg.AddNode(nFrom)
 		b.current.lookup[bfrom] = nFrom
 	}
 
-	bto := contact.StoredAddr()
+	bto := storedrefs.Feed(contact)
 	nTo, has := b.current.lookup[bto]
 	if !has {
-		sr, err := refs.NewStorageRef(contact)
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for contact")
-		}
-		fr, err := sr.FeedRef()
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		nTo = &contactNode{dg.NewNode(), fr, ""}
+		nTo = &contactNode{dg.NewNode(), contact.Copy(), ""}
 		dg.AddNode(nTo)
 		b.current.lookup[bto] = nTo
 	}
@@ -188,7 +172,7 @@ func (b *logBuilder) Follows(from *refs.FeedRef) (*ssb.StrFeedSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "follows: couldn't build graph")
 	}
-	fb := from.StoredAddr()
+	fb := storedrefs.Feed(from)
 	nFrom, has := g.lookup[fb]
 	if !has {
 		return nil, ErrNoSuchFrom{from}
@@ -218,7 +202,7 @@ func (b *logBuilder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
 	}
 	b.current.Lock()
 	defer b.current.Unlock()
-	fb := from.StoredAddr()
+	fb := storedrefs.Feed(from)
 	nFrom, has := g.lookup[fb]
 	if !has {
 		fs := ssb.NewFeedSet(1)

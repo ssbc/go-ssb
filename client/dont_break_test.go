@@ -67,7 +67,10 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var msgs []*refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
-		ref, err := c.Publish(struct{ I int }{i})
+		ref, err := c.Publish(struct {
+			Type string `json:"type"`
+			Test int
+		}{"test", i})
 		r.NoError(err)
 		r.NotNil(ref)
 		msgs = append(msgs, ref)
@@ -117,7 +120,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 		msg, ok := v.(refs.Message)
 		r.True(ok, "%d: wrong type: %T", i, v)
 
-		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
 	r.Equal(msgCount, i, "did not get all messages")

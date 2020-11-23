@@ -16,14 +16,14 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestPrivatePublish(t *testing.T) {
@@ -53,8 +53,8 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
 			sbot.LateOption(sbot.WithUNIXSocket()),
-			sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 		)
+		r.NoError(err, "failed to init sbot")
 
 		const n = 32
 		for i := n; i > 0; i-- {
@@ -102,10 +102,10 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
 		r.True(ok)
 
-		userPrivs, err := pl.Get(librarian.Addr("box1:") + srv.KeyPair.Id.StoredAddr())
+		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.Id))
 		r.NoError(err)
 
-		unboxlog := private.NewUnboxerLog(srv.RootLog, userPrivs, srv.KeyPair)
+		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)
 
 		src, err = unboxlog.Query(margaret.SeqWrap(true))
 		r.NoError(err)

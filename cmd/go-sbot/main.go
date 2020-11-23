@@ -31,6 +31,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
 	mksbot "go.cryptoscope.co/ssb/sbot"
@@ -346,7 +347,7 @@ func runSbot() error {
 	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	rseq, err := sbot.RootLog.Seq().Value()
+	rseq, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
 		return errors.Wrap(err, "could not get root log sequence number")
 	}
@@ -385,7 +386,7 @@ func runSbot() error {
 		}
 
 		for _, blocked := range lst {
-			isStored, err := multilog.Has(uf, blocked.StoredAddr())
+			isStored, err := multilog.Has(uf, storedrefs.Feed(blocked))
 			if err != nil {
 				return errors.Wrap(err, "blocked lookup in multilog")
 			}
@@ -414,7 +415,8 @@ func runSbot() error {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
-			return nil
+			err := sbot.Close()
+			return err
 		default:
 		}
 	}

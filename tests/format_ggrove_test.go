@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -100,7 +101,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 			}
 			return err
 		}
-		_, err = s.RootLog.Append(val)
+		_, err = s.ReceiveLog.Append(val)
 		return errors.Wrap(err, "failed to append verified message to rootLog")
 	})
 	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
@@ -112,7 +113,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	demoLog, err := uf.Get(aliceAsGabby.StoredAddr())
+	demoLog, err := uf.Get(storedrefs.Feed(&aliceAsGabby))
 	r.NoError(err)
 
 	demoLogSeq, err := demoLog.Seq().Value()
@@ -122,7 +123,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	for demoFeedSeq := margaret.BaseSeq(1); demoFeedSeq < 3; demoFeedSeq++ {
 		seqMsg, err := demoLog.Get(demoFeedSeq - 1)
 		r.NoError(err)
-		msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)

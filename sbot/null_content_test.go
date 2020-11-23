@@ -20,9 +20,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -66,7 +66,6 @@ func XTestNullContentRequest(t *testing.T) {
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		DisableNetworkNode(),
 	)
 	r.NoError(err)
@@ -114,13 +113,13 @@ func XTestNullContentRequest(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		checkLogSeq(l, seq)
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 2)
@@ -131,18 +130,18 @@ func XTestNullContentRequest(t *testing.T) {
 	r.True(ok, "userFeeds mlog not present")
 
 	// try to request on arnies feed fails because the formt doesn't support it
-	arniesLog, err := uf.Get(kpArny.Id.StoredAddr())
+	arniesLog, err := uf.Get(storedrefs.Feed(kpArny.Id))
 	r.NoError(err)
 
-	arniesLog = mutil.Indirect(mainbot.RootLog, arniesLog)
+	arniesLog = mutil.Indirect(mainbot.ReceiveLog, arniesLog)
 	dcr := refs.NewDropContentRequest(1, allMessages[0])
 	r.False(dcr.Valid(arniesLog))
 
 	// bert is in gg format so it works
-	bertLog, err := uf.Get(kpBert.Id.StoredAddr())
+	bertLog, err := uf.Get(storedrefs.Feed(kpBert.Id))
 	r.NoError(err)
 
-	bertLog = mutil.Indirect(mainbot.RootLog, bertLog)
+	bertLog = mutil.Indirect(mainbot.ReceiveLog, bertLog)
 	msgv, err := bertLog.Get(margaret.BaseSeq(2)) // 0-indexed
 	r.NoError(err)
 	msg, ok := msgv.(refs.Message)
@@ -264,7 +263,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		v, err := l.Seq().Value()
@@ -279,10 +278,10 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		userLog, err := uf.Get(kp.Id.StoredAddr())
+		userLog, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
-		msgv, err := mutil.Indirect(bot.RootLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
+		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
 		r.NoError(err)
 
 		msg, ok := msgv.(refs.Message)
@@ -396,7 +395,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		t.Log(sw.Seq().Seq(), string(msg.ContentBytes()))
 		return err
 	})
-	src, err := otherBot.RootLog.Query(margaret.SeqWrap(true))
+	src, err := otherBot.ReceiveLog.Query(margaret.SeqWrap(true))
 	r.NoError(err)
 	luigi.Pump(context.Background(), printSink, src)
 

@@ -61,7 +61,7 @@ func (hm *HandlerMux) RegisterAsync(m muxrpc.Method, h AsyncHandler) {
 // RegisterSource registers a 'source' call for name method
 func (hm *HandlerMux) RegisterSource(m muxrpc.Method, h SourceHandler) {
 	hm.handlers[m.String()] = sourceStub{
-		logger: hm.logger,
-		h:      h,
+		// logger: hm.logger,
+		h: h,
 	}
 }

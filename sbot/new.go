@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc"
 
 	"go.cryptoscope.co/ssb"
@@ -25,7 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/keys"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -34,6 +36,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.cryptoscope.co/ssb/plugins/groups"
 	"go.cryptoscope.co/ssb/plugins/legacyinvites"
 	"go.cryptoscope.co/ssb/plugins/partial"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
@@ -41,17 +44,16 @@ import (
 	"go.cryptoscope.co/ssb/plugins/rawread"
 	"go.cryptoscope.co/ssb/plugins/replicate"
 	"go.cryptoscope.co/ssb/plugins/status"
+	"go.cryptoscope.co/ssb/plugins/tangles"
 	"go.cryptoscope.co/ssb/plugins/whoami"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/plugins2/names"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/private/keys"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
-
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 )
 
+// Close closes the bot by stopping network connections and closing the internal databases
 func (s *Sbot) Close() error {
 	s.closedMu.Lock()
 	defer s.closedMu.Unlock()
@@ -97,11 +99,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	r := repo.New(s.repoPath)
 
 	// optionize?!
-	s.RootLog, err = repo.OpenLog(r)
+	s.ReceiveLog, err = repo.OpenLog(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
 	}
-	s.closers.addCloser(s.RootLog.(io.Closer))
+	s.closers.addCloser(s.ReceiveLog.(io.Closer))
 
 	if s.BlobStore == nil { // load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
@@ -126,6 +128,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	s.SeqResolver, err = repo.NewSequenceResolver(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening sequence resolver")
+	}
+	s.closers.addCloser(s.SeqResolver)
+
+	// default multilogs
 	var mlogs = []struct {
 		Name string
 		Mlog **roaring.MultiLog
@@ -152,6 +161,23 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		*index.Mlog = ml
 	}
 
+	// publish
+	var pubopts = []message.PublishOption{
+		message.UseNowTimestamps(true),
+	}
+	if s.signHMACsecret != nil {
+		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
+	}
+	s.PublishLog, err = message.OpenPublishLog(s.ReceiveLog, s.Users, s.KeyPair, pubopts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+	}
+
+	err = MountSimpleIndex("get", indexes.OpenGet)(s)
+	if err != nil {
+		return nil, err
+	}
+
 	// groups2
 	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
 	err = os.MkdirAll(pth, 0700)
@@ -170,12 +196,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(idx)
 
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.Tangles)
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
 		s.KeyPair.Id,
+		s.SeqResolver,
 		s.Users,
 		s.Private,
 		s.ByType,
@@ -184,12 +211,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
 	s.serveIndex("combined", combIdx)
+	s.closers.addCloser(combIdx)
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
 		var dcrTrigger dropContentTrigger
 		dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
-		dcrTrigger.root = s.RootLog
+		dcrTrigger.root = s.ReceiveLog
 		dcrTrigger.feeds = uf
 		dcrTrigger.nuller = s
 		err = MountSimpleIndex("content-delete-requests", dcrTrigger.MakeSimpleIndex)(s)
@@ -199,24 +227,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	*/
 
-	// publish
-	var pubopts = []message.PublishOption{
-		message.UseNowTimestamps(true),
-	}
-	if s.signHMACsecret != nil {
-		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))
-	}
-	s.PublishLog, err = message.OpenPublishLog(s.RootLog, s.Users, s.KeyPair, pubopts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create publish log")
-	}
-
 	// contact/follow graph
-	contactLog, err := s.ByType.Get(librarian.Addr("contact"))
+	contactLog, err := s.ByType.Get(librarian.Addr("string:contact"))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
 	}
-	justContacts := mutil.Indirect(s.RootLog, contactLog)
+	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
 	// LogBuilder doesn't fully work yet
 	if false {
@@ -238,11 +254,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// abouts
-	aboutSeqs, err := s.ByType.Get(librarian.Addr("about"))
+	aboutSeqs, err := s.ByType.Get(librarian.Addr("string:about"))
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open message about sublog")
 	}
-	aboutsOnly := mutil.Indirect(s.RootLog, aboutSeqs)
+	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
 	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
@@ -268,7 +284,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
 	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
-	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.RootLog, s.PublishLog)
+	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
 	// 	s.public.Register(peerPlug)
 	// 	_, peerServ, err := peerPlug.OpenIndex(r)
 	// 	if err != nil {
@@ -341,18 +357,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
-	//
-	err = MountSimpleIndex("get", indexes.OpenGet)(s)
-	if err != nil {
-		return nil, err
-	}
-
 	// publish
-	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.RootLog))
+	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.ReceiveLog))
 
 	// private
 	// TODO: box2
-	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + s.KeyPair.Id.StoredAddr())
+	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(s.KeyPair.Id))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}
@@ -361,7 +371,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.Groups,
 		s.PublishLog,
-		private.NewUnboxerLog(s.RootLog, userPrivs, s.KeyPair)))
+		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
 	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
@@ -395,7 +405,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	fm := gossip.NewFeedManager(
 		ctx,
-		s.RootLog,
+		s.ReceiveLog,
 		s.Users,
 		kitlog.With(log, "feedmanager"),
 		s.systemGauge,
@@ -403,21 +413,21 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	)
 	s.public.Register(gossip.New(ctx,
 		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
 		kitlog.With(log, "plugin", "gossip/hist"),
 		s.KeyPair.Id,
-		s.RootLog, s.Users,
+		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
 		fm,
 		histOpts...)
 	s.public.Register(hist)
 
 	// get idx muxrpc handler
-	s.master.Register(get.New(s, s.RootLog))
+	s.master.Register(get.New(s, s.ReceiveLog))
 
 	//
 	s.master.Register(namesPlug)
@@ -428,14 +438,28 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.Users,
 		s.ByType,
 		s.Tangles,
-		s.RootLog, s)
+		s.ReceiveLog, s)
 	s.public.Register(plug)
 	s.master.Register(plug)
 
+	// group managment
+	s.master.Register(groups.New(s.info, s.Groups))
+
 	// raw log plugins
-	s.master.Register(rawread.NewSequenceStream(s.RootLog))
-	s.master.Register(rawread.NewRXLog(s.RootLog)) // createLogStream
-	s.master.Register(hist)                        // createHistoryStream
+
+	sc := selfChecker{*s.KeyPair.Id}
+	s.master.Register(rawread.NewByTypePlugin(
+		s.info,
+		s.ReceiveLog,
+		s.ByType,
+		s.Private,
+		s.Groups,
+		s.SeqResolver,
+		sc))
+	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
+	s.master.Register(rawread.NewRXLog(s.ReceiveLog))                               // createLogStream
+	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver)) // createLogStream
+	s.master.Register(hist)                                                         // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
@@ -446,14 +470,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		name: "manifest"}
 	s.master.Register(mh)
 
-	var bytypePlug bytype.Plugin
-	bytypePlug.WantRootLog(s.RootLog)
-	bytypePlug.UseMultiLog(s.ByType)
-	s.master.Register(bytypePlug)
-
-	var tplug tangles.Plugin
-	tplug.WantRootLog(s.RootLog)
-	tplug.UseMultiLog(s.Tangles)
+	var tplug = tangles.NewPlugin(s.ReceiveLog, s.Tangles, s.Private, s.Groups, sc)
 	s.master.Register(tplug)
 
 	// tcp+shs
@@ -521,7 +538,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.Network,
 		s.PublishLog,
-		s.RootLog,
+		s.ReceiveLog,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open legacy invites plugin")
@@ -533,4 +550,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(status.New(s))
 
 	return s, nil
+}
+
+type selfChecker struct {
+	me refs.FeedRef
+}
+
+func (sc selfChecker) Authorize(remote *refs.FeedRef) error {
+	if sc.me.Equal(remote) {
+		return nil
+	}
+	return fmt.Errorf("not authorized")
 }

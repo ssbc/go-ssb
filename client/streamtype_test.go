@@ -54,28 +54,23 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.RootLog.Seq().Value()
+	seqv, err := srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
-	type testMsg struct {
-		Foo string
-		Bar int
-	}
 	var wantRefs []string
 	for i := 0; i < 10; i++ {
-
-		msg := testMsg{"hello", 23}
+		msg := testMsg{"test", "hello", 23}
 		ref, err := c.Publish(msg)
 		r.NoError(err, "failed to call publish")
 		r.NotNil(ref)
 
 		// get stored message from the log
-		seqv, err = srv.RootLog.Seq().Value()
+		seqv, err = srv.ReceiveLog.Seq().Value()
 		r.NoError(err, "failed to get root log sequence")
 		wantSeq := margaret.BaseSeq(i)
 		a.Equal(wantSeq, seqv)
-		msgv, err := srv.RootLog.Get(wantSeq)
+		msgv, err := srv.ReceiveLog.Get(wantSeq)
 		r.NoError(err)
 		newMsg, ok := msgv.(refs.Message)
 		r.True(ok)

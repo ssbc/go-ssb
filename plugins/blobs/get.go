@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -64,7 +63,6 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	sz, err := h.bs.Size(wantedRef)
 	if err != nil {
 		req.Stream.CloseWithError(errors.New("do not have blob"))
-		checkAndLog(errLog, errors.Wrap(err, "error closing stream with error"))
 		return
 	}
 
@@ -74,16 +72,13 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	}
 
 	logger = log.With(logger, "blob", wantedRef.ShortRef())
-	info := level.Info(logger)
 	errLog = level.Error(logger)
 
 	r, err := h.bs.Get(wantedRef)
 	if err != nil {
-		err = req.Stream.CloseWithError(errors.New("do not have blob"))
-		checkAndLog(errLog, errors.Wrap(err, "error closing stream with error"))
+		req.Stream.CloseWithError(errors.New("do not have blob"))
 		return
 	}
-	start := time.Now()
 
 	w := muxrpc.NewSinkWriter(req.Stream)
 	_, err = io.Copy(w, r)
@@ -91,7 +86,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	err = w.Close()
 	checkAndLog(errLog, errors.Wrap(err, "error closing blob output"))
-	if err == nil {
-		info.Log("event", "transmission successfull", "took", time.Since(start))
-	}
+	// if err == nil {
+	// 	info.Log("event", "transmission successfull", "took", time.Since(start))
+	// }
 }

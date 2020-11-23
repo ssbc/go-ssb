@@ -102,9 +102,10 @@ func TestRecoverFromCrash(t *testing.T) {
 			}
 
 			ref, err := c.Publish(struct {
+				Type   string `json:"type"`
 				Test   string
 				Try, I int
-			}{"working!", try, i})
+			}{"test", "working!", try, i})
 			r.NoError(err)
 			t.Logf("%d:connection established (i:%d) %s", try, i, ref.Ref())
 

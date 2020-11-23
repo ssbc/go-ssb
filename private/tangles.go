@@ -1,12 +1,9 @@
 package private
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -16,18 +13,20 @@ import (
 )
 
 func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
-	addr := librarian.Addr(append(root.Hash, []byte(tname)...)) // TODO: fill tangle
+	addr := librarian.Addr(append([]byte("v2:"+tname+":"), root.Hash...))
 	thandle, err := mgr.tangles.Get(addr)
 	if err != nil {
 		return refs.TanglePoint{Root: root, Previous: []*refs.MessageRef{root}}
 	}
 
-	prev, err := mgr.getLooseEnds(thandle, tname)
+	heads, err := mgr.getLooseEnds(thandle, tname)
 	if err != nil {
 		panic(err)
 	}
-
-	return refs.TanglePoint{Root: root, Previous: append(prev, root)}
+	if len(heads) == 0 {
+		heads = refs.MessageRefs{root}
+	}
+	return refs.TanglePoint{Root: root, Previous: heads}
 }
 
 func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs, error) {
@@ -51,15 +50,9 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 			return nil, fmt.Errorf("not a mesg %T", src)
 		}
 
-		// decrypt message
-		ctxt := mgr.getCiphertext(msg)
-		if ctxt == nil {
-			continue
-		}
-
-		content, err := mgr.DecryptBox2(ctxt, msg.Author(), msg.Previous())
+		content, err := mgr.DecryptBox2Message(msg)
 		if err != nil {
-			fmt.Println("not for us?", err)
+			// fmt.Println("not for us?", err) // or deleted key?
 			continue
 		}
 
@@ -76,34 +69,11 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 
 	}
 	sorter := refs.ByPrevious{Items: tps, TangleName: tname}
-	sort.Sort(sorter)
+	sorter.FillLookup()
+	// sort.Sort(sorter) // not required for Heads()
 
-	fmt.Println(len(tps), "message in tangle")
-	var refs = make(refs.MessageRefs, len(tps))
-	for i, post := range tps {
-		fmt.Println("ref:", post.Key().Ref())
-		refs[i] = post.Key()
-	}
-
-	return refs, nil
-}
-
-var boxSuffix = []byte(".box2\"")
-
-func (mgr *Manager) getCiphertext(m refs.Message) []byte {
-	content := m.ContentBytes()
-
-	if !bytes.HasSuffix(content, boxSuffix) {
-		return nil
-	}
-
-	n := base64.StdEncoding.DecodedLen(len(content))
-	ctxt := make([]byte, n)
-	decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, boxSuffix)[1:])
-	if err != nil {
-		return nil
-	}
-	return ctxt[:decn]
+	h := sorter.Heads()
+	return h, nil
 }
 
 type tangledPost struct {

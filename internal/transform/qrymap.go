@@ -5,6 +5,7 @@ package transform
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/cryptix/go/encodedTime"
 	"github.com/pkg/errors"
@@ -58,6 +59,8 @@ func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
 			if !ok {
 				return nil, errors.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
 			}
+		default:
+			return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
 		}
 
 		if !keyWrap {

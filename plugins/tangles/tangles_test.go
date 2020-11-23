@@ -1,58 +1,64 @@
 // SPDX-License-Identifier: MIT
 
-package bytype
+// +build ignore
+
+// TODO: mutli-author refactor
+
+package tangles
 
 import (
-	"context"
-	"io/ioutil"
+	"crypto/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
-
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/asynctesting"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
+	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func TestMessageTypes(t *testing.T) {
-	// > test boilerplate
-	// TODO: abstract serving and error channel handling
-	// Meta TODO: close handling and status of indexing
+func TestTangles(t *testing.T) {
 	r := require.New(t)
 
-	tRepoPath, err := ioutil.TempDir("", t.Name())
-	r.NoError(err)
+	hk := make([]byte, 32)
+	n, err := rand.Read(hk)
+	r.Equal(32, n)
 
-	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
 
 	tRepo := repo.New(tRepoPath)
-	tRootLog, err := repo.OpenLog(tRepo)
-	r.NoError(err)
 
-	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
-	r.NoError(err)
-	ufErrc := asynctesting.ServeLog(ctx, "user feeds", tRootLog, serveUF, true)
+	// make three new keypairs with nicknames
+	n2kp := make(map[string]*ssb.KeyPair)
 
-	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", IndexUpdate)
+	kpArny, err := repo.NewKeyPair(tRepo, "arny", ssb.RefAlgoFeedSSB1)
 	r.NoError(err)
-	mtErrc := asynctesting.ServeLog(ctx, "message types", tRootLog, serveMT, true)
+	n2kp["arny"] = kpArny
 
-	alice, err := ssb.NewKeyPair(nil)
+	kpBert, err := repo.NewKeyPair(tRepo, "bert", ssb.RefAlgoFeedGabby)
 	r.NoError(err)
-	alicePublish, err := message.OpenPublishLog(tRootLog, mt, alice)
-	r.NoError(err)
+	n2kp["bert"] = kpBert
 
-	bob, err := ssb.NewKeyPair(nil)
+	kpCloe, err := repo.NewKeyPair(tRepo, "cloe", ssb.RefAlgoFeedSSB1)
 	r.NoError(err)
-	bobPublish, err := message.OpenPublishLog(tRootLog, mt, bob)
-	r.NoError(err)
+	n2kp["cloe"] = kpCloe
 
-	claire, err := ssb.NewKeyPair(nil)
+	kps, err := repo.AllKeyPairs(tRepo)
 	r.NoError(err)
-	clairePublish, err := message.OpenPublishLog(tRootLog, mt, claire)
+	r.Len(kps, 3)
+
+	// make the bot
+	logger := log.NewLogfmtLogger(os.Stderr)
+	mainbot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		WithHMACSigning(hk),
+		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
+		DisableNetworkNode(),
+	)
 	r.NoError(err)
 
 	// > create contacts
@@ -82,10 +88,6 @@ func TestMessageTypes(t *testing.T) {
 		r.NotNil(newSeq)
 	}
 
-	asynctesting.CheckTypes(t, "contact", []string{"alice1"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "post", []string{"alice2"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "about", []string{"alice3"}, tRootLog, mt)
-
 	var bobsMsgs = []interface{}{
 		map[string]interface{}{
 			"type":      "contact",
@@ -111,10 +113,6 @@ func TestMessageTypes(t *testing.T) {
 		r.NoError(err, "failed to publish test message %d", i)
 		r.NotNil(newSeq)
 	}
-
-	asynctesting.CheckTypes(t, "contact", []string{"alice1", "bob1"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "about", []string{"alice3", "bob2"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "post", []string{"alice2", "bob3"}, tRootLog, mt)
 
 	var clairesMsgs = []interface{}{
 		"1923u1310310.nobox",
@@ -142,15 +140,18 @@ func TestMessageTypes(t *testing.T) {
 		r.NotNil(newSeq)
 	}
 
-	asynctesting.CheckTypes(t, "contact", []string{"alice1", "bob1", "claire2"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "about", []string{"alice3", "bob2", "claire3"}, tRootLog, mt)
-	asynctesting.CheckTypes(t, "post", []string{"alice2", "bob3", "claire1"}, tRootLog, mt)
+	t.Fail()
+	/* TODO: update to same roots
+	checkTypes(t, "contact", []string{"alice1", "bob1", "claire2"}, tRootLog, mt)
+	checkTypes(t, "about", []string{"alice3", "bob2", "claire3"}, tRootLog, mt)
+	checkTypes(t, "post", []string{"alice2", "bob3", "claire1"}, tRootLog, mt)
+	*/
 
 	mt.Close()
 	uf.Close()
 	cancel()
 
-	for err := range asynctesting.MergedErrors(mtErrc, ufErrc) {
+	for err := range mergedErrors(mtErrc, ufErrc) {
 		r.NoError(err, "from chan")
 	}
 }

@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 
+	"go.cryptoscope.co/ssb/message"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc"
@@ -19,15 +21,43 @@ import (
 var streamFlags = []cli.Flag{
 	&cli.IntFlag{Name: "limit", Value: -1},
 	&cli.IntFlag{Name: "seq", Value: 0},
+	&cli.IntFlag{Name: "gt"},
+	&cli.IntFlag{Name: "lt"},
 	&cli.BoolFlag{Name: "reverse"},
 	&cli.BoolFlag{Name: "live"},
 	&cli.BoolFlag{Name: "keys", Value: false},
 	&cli.BoolFlag{Name: "values", Value: false},
+	&cli.BoolFlag{Name: "private", Value: false},
+}
+
+func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
+	var ref *refs.FeedRef
+	if id := ctx.String("id"); id != "" {
+		var err error
+		ref, err = refs.ParseFeedRef(id)
+		if err != nil {
+			panic(err)
+		}
+	}
+	args := message.CreateHistArgs{
+		ID:     ref,
+		Seq:    ctx.Int64("seq"),
+		AsJSON: ctx.Bool("asJSON"),
+	}
+	args.Limit = ctx.Int64("limit")
+	args.Gt = ctx.Int64("gt")
+	args.Lt = ctx.Int64("lt")
+	args.Reverse = ctx.Bool("reverse")
+	args.Live = ctx.Bool("live")
+	args.Keys = ctx.Bool("keys")
+	args.Values = ctx.Bool("values")
+	args.Private = ctx.Bool("private")
+	return args
 }
 
 type mapMsg map[string]interface{}
 
-var typeStreamCmd = &cli.Command{
+var partialStreamCmd = &cli.Command{
 	Name:  "partial",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
@@ -111,8 +141,8 @@ var logStreamCmd = &cli.Command{
 	},
 }
 
-var privateReadCmd = &cli.Command{
-	Name:  "read",
+var sortedStreamCmd = &cli.Command{
+	Name:  "sorted",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -121,7 +151,57 @@ var privateReadCmd = &cli.Command{
 		}
 
 		var args = getStreamArgs(ctx)
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"private", "read"}, args)
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createFeedStream"}, args)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "log failed")
+	},
+}
+
+var typeStreamCmd = &cli.Command{
+	Name:  "bytype",
+	Flags: streamFlags,
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+		var targs message.MessagesByTypeArgs
+		arg := getStreamArgs(ctx)
+		targs.CommonArgs = arg.CommonArgs
+		targs.StreamArgs = arg.StreamArgs
+		targs.Type = ctx.Args().First()
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, targs)
+		if err != nil {
+			return errors.Wrap(err, "source stream call failed")
+		}
+		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		return errors.Wrap(err, "byType failed")
+	},
+}
+
+var repliesStreamCmd = &cli.Command{
+	Name:  "replies",
+	Flags: append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var targs message.TanglesArgs
+		arg := getStreamArgs(ctx)
+		targs.CommonArgs = arg.CommonArgs
+		targs.StreamArgs = arg.StreamArgs
+		targs.Root, err = refs.ParseMessageRef(ctx.Args().First())
+		if err != nil {
+			return err
+		}
+		targs.Name = ctx.String("tname")
+
+		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"tangles", "read"}, targs)
 		if err != nil {
 			return errors.Wrap(err, "source stream call failed")
 		}
@@ -138,7 +218,6 @@ var replicateUptoCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
 		if err != nil {

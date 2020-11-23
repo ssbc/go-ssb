@@ -20,7 +20,7 @@ type blocksSrc struct {
 	builder graph.Builder
 }
 
-func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	type argT struct {
 		Who refs.FeedRef
 	}
@@ -68,7 +68,7 @@ type HopsArgs struct {
 	Max   uint          `json:"max"`
 }
 
-func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	var args []HopsArgs
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
 		return fmt.Errorf("invalid argument on isFollowing call: %w", err)

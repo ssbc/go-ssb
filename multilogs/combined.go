@@ -10,12 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/keks/persist"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
@@ -27,8 +29,9 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, u, p, bt, tan *roaring.MultiLog) (librarian.SinkIndex, error) {
-	statePath := repo.New(repoPath).GetPath(repo.PrefixMultiLog, "combined-state.json")
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*combinedIndex, error) {
+	r := repo.New(repoPath)
+	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE
@@ -48,11 +51,15 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 		byType:  bt,
 		tangles: tan,
 
+		seqresolver: res,
+
 		file: idxStateFile,
 		l:    &sync.Mutex{},
 	}
 	return idx, nil
 }
+
+var _ librarian.SinkIndex = (*combinedIndex)(nil)
 
 type combinedIndex struct {
 	self  *refs.FeedRef
@@ -62,6 +69,8 @@ type combinedIndex struct {
 	private *roaring.MultiLog
 	byType  *roaring.MultiLog
 	tangles *roaring.MultiLog
+
+	seqresolver *repo.SequenceResolver
 
 	file *os.File
 	l    *sync.Mutex
@@ -88,6 +97,10 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	if isNulled, ok := v.(error); ok {
 		if margaret.IsErrNulled(isNulled) {
+			err = slog.seqresolver.Append(seq.Seq(), 0, time.Now(), time.Now())
+			if err != nil {
+				return errors.Wrap(err, "error updating sequence resolver (nulled message)")
+			}
 			return nil
 		}
 		return isNulled
@@ -98,9 +111,14 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return errors.Errorf("error casting message. got type %T", v)
 	}
 
+	err = slog.seqresolver.Append(seq.Seq(), abstractMsg.Seq(), abstractMsg.Claimed(), abstractMsg.Received())
+	if err != nil {
+		return errors.Wrap(err, "error updating sequence resolver")
+	}
+
 	author := abstractMsg.Author()
 
-	authorLog, err := slog.users.Get(author.StoredAddr())
+	authorLog, err := slog.users.Get(storedrefs.Feed(author))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -116,14 +134,16 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		cleartext, err := slog.tryDecrypt(abstractMsg, seq)
 		if err != nil {
 			if err == errSkip {
+				// yes it's a boxed message but we can't read it (yet)
 				return nil
 			}
+			// something went horribly wrong
 			return err
 		}
 		content = cleartext
 	}
 
-	// by type:...
+	// by type:...  and tangles (v1 & v2)
 	var jsonContent struct {
 		Type    string
 		Root    *refs.MessageRef
@@ -149,7 +169,7 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return fmt.Errorf("ssb: untyped message")
 	}
 
-	typedLog, err := slog.byType.Get(librarian.Addr(typeStr))
+	typedLog, err := slog.byType.Get(librarian.Addr("string:" + typeStr))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
@@ -173,6 +193,9 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	}
 
 	for tname, tip := range jsonContent.Tangles {
+		if tname == "" {
+			continue
+		}
 		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
@@ -188,7 +211,9 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 }
 
 // Close does nothing.
-func (slog *combinedIndex) Close() error { return nil }
+func (slog *combinedIndex) Close() error {
+	return nil
+}
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
 func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
@@ -203,6 +228,11 @@ func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
 		}
 
 		seq = margaret.SeqEmpty
+	}
+
+	if resN := slog.seqresolver.Seq() - 1; resN != seq.Seq() {
+		err := fmt.Errorf("combined idx (has:%d, will: %d)", resN, seq.Seq())
+		return margaret.ErrorQuerySpec(err)
 	}
 
 	return margaret.MergeQuerySpec(
@@ -226,28 +256,49 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 	var (
 		cleartext []byte
 		idxAddr   librarian.Addr
-		retErr    error
 	)
+
+	/* as a help for re-indexing, keep track of all box1 and box2 messages.
+
+	later we can get the set of messages we might need to re-index by
+	1) taking meta:box2
+	2) ANDing it with the one of the author (intersection)
+	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
+	*/
+	if box1 != nil {
+		idxAddr = librarian.Addr("meta:box1")
+	} else {
+		idxAddr = librarian.Addr("meta:box2")
+	}
+
+	boxTyped, err := slog.private.Get(idxAddr)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := boxTyped.Append(rxSeq.Seq()); err != nil {
+		return nil, errors.Wrapf(err, "private: error marking type:box")
+	}
+
+	// try decrypt and pass on the clear text
 	if box1 != nil {
 		content, err := slog.boxer.DecryptBox1(box1)
 		if err != nil {
-			idxAddr = librarian.Addr("notForUs:box1")
-			retErr = errSkip
-		} else {
-			idxAddr = librarian.Addr("box1:") + slog.self.StoredAddr()
-			cleartext = content
+			return nil, errSkip
 		}
+
+		idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
+		cleartext = content
 	} else if box2 != nil {
 		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), msg.Previous())
 		if err != nil {
-			idxAddr = librarian.Addr("notForUs:box2")
-			retErr = errSkip
-		} else {
-			// instead by group root? could be PM... hmm
-			// would be nice to keep multi-keypair support here but might need rething of the gorups manager
-			idxAddr = librarian.Addr("box2:") + slog.self.StoredAddr()
-			cleartext = content
+			return nil, errSkip
 		}
+
+		// instead by group root? could be PM... hmm
+		// would be nice to keep multi-keypair support here
+		// but might need to rethink the group manager
+		idxAddr = librarian.Addr("box2:") + storedrefs.Feed(slog.self)
+		cleartext = content
 	} else {
 		return nil, fmt.Errorf("tryDecrypt: not skipped but also not valid content")
 	}
@@ -260,11 +311,11 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 		return nil, errors.Wrapf(err, "private/readidx: error appending PM")
 	}
 
-	return cleartext, retErr
+	return cleartext, nil
 }
 
 var (
-	errSkip     = fmt.Errorf("ssb: skip  - not for us")
+	errSkip     = fmt.Errorf("ssb: skip - not for us")
 	errSkipBox1 = fmt.Errorf("ssb: skip box1 message")
 	errSkipBox2 = fmt.Errorf("ssb: skip box2 message")
 )

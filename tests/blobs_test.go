@@ -15,6 +15,7 @@ import (
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 
 	"github.com/stretchr/testify/require"
@@ -163,7 +164,7 @@ func TestBlobWithHop(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	gotMessage := make(chan struct{})
@@ -184,7 +185,7 @@ func TestBlobWithHop(t *testing.T) {
 
 	var wantBlob *refs.BlobRef
 
-	msg, err := mutil.Indirect(bob.RootLog, aliceLog).Get(margaret.BaseSeq(0))
+	msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(margaret.BaseSeq(0))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -326,9 +327,9 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
 
-	jsFeedSeqs, err := uf.Get(jsBot.StoredAddr())
+	jsFeedSeqs, err := uf.Get(storedrefs.Feed(jsBot))
 	r.NoError(err)
-	jsFeed := mutil.Indirect(s.RootLog, jsFeedSeqs)
+	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10
 	var testData struct {
 		Type  string        `json:"test-data"`

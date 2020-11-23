@@ -15,6 +15,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -59,7 +60,7 @@ func TestFormatsSimple(t *testing.T) {
 			r.NoError(err)
 			testAuthor.Id.Algo = tc.ff
 
-			authorLog, err := userFeeds.Get(testAuthor.Id.StoredAddr())
+			authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.Id))
 			r.NoError(err)
 
 			w, err := OpenPublishLog(rl, userFeeds, testAuthor)

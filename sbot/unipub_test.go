@@ -36,7 +36,6 @@ func TestPublishUnicode(t *testing.T) {
 		WithInfo(mainLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -60,7 +59,7 @@ func TestPublishUnicode(t *testing.T) {
 	_, err = ali.PublishLog.Append(newMsg)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

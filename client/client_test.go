@@ -23,8 +23,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/network"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -58,7 +56,10 @@ func TestUnixSock(t *testing.T) {
 	var msgs []*refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
-		ref, err := c.Publish(struct{ I int }{i})
+		ref, err := c.Publish(struct {
+			Type string `json:"type"`
+			Test int
+		}{"test", i})
 		r.NoError(err)
 		r.NotNil(ref)
 		msgs = append(msgs, ref)
@@ -88,7 +89,7 @@ func TestUnixSock(t *testing.T) {
 		msg, ok := v.(refs.Message)
 		r.True(ok, "%d: wrong type: %T", i, v)
 
-		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
 	r.Equal(msgCount, i, "did not get all messages")
@@ -319,7 +320,10 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		for i := 25; i > 0; i-- {
 			time.Sleep(500 * time.Millisecond)
-			ref, err := c.Publish(struct{ Test int }{i})
+			ref, err := c.Publish(struct {
+				Type string `json:"type"`
+				Test int
+			}{"test", i})
 			r.NoError(err, "publish %d errored", i)
 			r.NotNil(ref)
 
@@ -339,13 +343,19 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		a.GreaterOrEqual(statusCalls, uint32(1000), "expected more status calls")
 
-		v, err := srv.RootLog.Seq().Value()
+		v, err := srv.ReceiveLog.Seq().Value()
 		r.NoError(err)
 		r.EqualValues(24, v)
 
 		srv.Shutdown()
 		r.NoError(srv.Close())
 	}
+}
+
+type testMsg struct {
+	Type string `json:"type"`
+	Foo  string
+	Bar  int
 }
 
 func TestPublish(t *testing.T) {
@@ -381,25 +391,21 @@ func TestPublish(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.RootLog.Seq().Value()
+	seqv, err := srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
-	type testMsg struct {
-		Foo string
-		Bar int
-	}
-	msg := testMsg{"hello", 23}
+	msg := testMsg{"test", "hello", 23}
 	ref, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(ref)
 
 	// get stored message from the log
-	seqv, err = srv.RootLog.Seq().Value()
+	seqv, err = srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	wantSeq := margaret.BaseSeq(0)
 	a.Equal(wantSeq, seqv)
-	msgv, err := srv.RootLog.Get(wantSeq)
+	msgv, err := srv.ReceiveLog.Get(wantSeq)
 	r.NoError(err)
 	newMsg, ok := msgv.(refs.Message)
 	r.True(ok)
@@ -442,7 +448,6 @@ func TestTangles(t *testing.T) {
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -464,26 +469,27 @@ func TestTangles(t *testing.T) {
 	// end test boilerplate
 
 	type testMsg struct {
+		Type string `json:"type"`
 		Foo  string
 		Bar  int
 		Root *refs.MessageRef `json:"root,omitempty"`
 	}
-	msg := testMsg{"hello", 23, nil}
+	msg := testMsg{"test", "hello", 23, nil}
 	rootRef, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rootRef)
 
-	rep1 := testMsg{"reply", 1, rootRef}
+	rep1 := testMsg{"test", "reply", 1, rootRef}
 	rep1Ref, err := c.Publish(rep1)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep1Ref)
-	rep2 := testMsg{"reply", 2, rootRef}
+	rep2 := testMsg{"test", "reply", 2, rootRef}
 	rep2Ref, err := c.Publish(rep2)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep2Ref)
 
 	opts := message.TanglesArgs{}
-	opts.Root = *rootRef
+	opts.Root = rootRef
 	opts.Limit = 2
 	opts.Keys = true
 	opts.MarshalType = refs.KeyValueRaw{}

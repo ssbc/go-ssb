@@ -8,12 +8,15 @@ import (
 	"math"
 	"sync"
 
+	"go.mindeco.de/ssb-refs/tfk"
+
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
@@ -92,8 +95,8 @@ func (b *builder) indexUpdateFunc(ctx context.Context, seq margaret.Seq, val int
 		return nil
 	}
 
-	addr := abs.Author().StoredAddr()
-	addr += c.Contact.StoredAddr()
+	addr := storedrefs.Feed(abs.Author())
+	addr += storedrefs.Feed(c.Contact)
 	switch {
 	case c.Following:
 		err = idx.Set(ctx, addr, 1)
@@ -130,7 +133,7 @@ func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(who.StoredAddr())
+		prefix := []byte(storedrefs.Feed(who))
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 
@@ -169,33 +172,30 @@ func (b *builder) Build() (*Graph, error) {
 		for iter.Rewind(); iter.Valid(); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if len(k) != 66 {
+			if len(k) != 68 {
 				continue
 			}
 
-			rawFrom := k[:33]
-			rawTo := k[33:]
+			rawFrom := k[:34]
+			rawTo := k[34:]
 
 			if bytes.Equal(rawFrom, rawTo) {
 				// contact self?!
 				continue
 			}
 
-			var to, from refs.StorageRef
-			if err := from.Unmarshal(rawFrom); err != nil {
+			var to, from tfk.Feed
+			if err := from.UnmarshalBinary(rawFrom); err != nil {
 				return errors.Wrapf(err, "builder: couldnt idx key value (from)")
 			}
-			if err := to.Unmarshal(rawTo); err != nil {
+			if err := to.UnmarshalBinary(rawTo); err != nil {
 				return errors.Wrap(err, "builder: couldnt idx key value (to)")
 			}
 
 			bfrom := librarian.Addr(rawFrom)
 			nFrom, has := dg.lookup[bfrom]
 			if !has {
-				fromRef, err := from.FeedRef()
-				if err != nil {
-					return err
-				}
+				fromRef := from.Feed()
 
 				nFrom = &contactNode{dg.NewNode(), fromRef.Copy(), ""}
 				dg.AddNode(nFrom)
@@ -205,10 +205,7 @@ func (b *builder) Build() (*Graph, error) {
 			bto := librarian.Addr(rawTo)
 			nTo, has := dg.lookup[bto]
 			if !has {
-				toRef, err := to.FeedRef()
-				if err != nil {
-					return err
-				}
+				toRef := to.Feed()
 				nTo = &contactNode{dg.NewNode(), toRef.Copy(), ""}
 				dg.AddNode(nTo)
 				dg.lookup[bto] = nTo
@@ -260,7 +257,7 @@ type Lookup struct {
 }
 
 func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
-	bto := to.StoredAddr()
+	bto := storedrefs.Feed(to)
 	nTo, has := l.lookup[bto]
 	if !has {
 		return nil, math.Inf(-1)
@@ -277,7 +274,7 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(forRef.StoredAddr())
+		prefix := []byte(storedrefs.Feed(forRef))
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -286,12 +283,12 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 				if len(v) >= 1 && v[0] == '1' {
 					// extract 2nd feed ref out of db key
 					// TODO: use compact StoredAddr
-					var sr refs.StorageRef
-					err := sr.Unmarshal(k[33:])
+					var sr tfk.Feed
+					err := sr.UnmarshalBinary(k[34:])
 					if err != nil {
 						return errors.Wrapf(err, "follows(%s): invalid ref entry in db for feed", forRef.Ref())
 					}
-					if err := fs.AddStored(&sr); err != nil {
+					if err := fs.AddRef(sr.Feed()); err != nil {
 						return errors.Wrapf(err, "follows(%s): couldn't add parsed ref feed", forRef.Ref())
 					}
 				}

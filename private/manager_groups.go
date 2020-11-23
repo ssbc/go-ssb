@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.mindeco.de/ssb-refs/tfk"
+
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/private/box2"
 
-	"go.cryptoscope.co/ssb/keys"
+	"go.cryptoscope.co/ssb/private/keys"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -60,6 +62,9 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 	return cloakedID, publicRoot, nil
 }
 
+// Join is called with a groupKey and the tangle root for the group.
+// It adds the key to the keystore so that messages to this group can be decrypted.
+// It returns the cloaked message reference or an error.
 func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageRef, error) {
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
@@ -85,7 +90,36 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 	cloakedID.Algo = refs.RefAlgoCloakedGroup
 	cloakedID.Hash = make([]byte, 32)
 
-	err := box2.DeriveTo(cloakedID.Hash, k.Key, []byte("cloaked_msg_id"), k.Metadata.GroupRoot.Hash)
+	if k.Key == nil {
+		return nil, fmt.Errorf("deriveCloaked: nil recipient key")
+	}
+
+	if k.Metadata.GroupRoot == nil {
+		return nil, fmt.Errorf("deriveCloaked: groupRoot nil")
+	}
+
+	// TODO: might find a way without this 2nd roundtrip of getting the message.
+	initMsg, err := mgr.receiveByRef.Get(*k.Metadata.GroupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	ctxt, err := box2.GetCiphertextFromMessage(initMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), initMsg.Previous(), keys.Recipients{k})
+	if err != nil {
+		return nil, err
+	}
+
+	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = box2.DeriveTo(cloakedID.Hash, readKey, []byte("cloaked_msg_id"), rootAsTFK)
 	if err != nil {
 		return nil, err
 	}
@@ -103,49 +137,23 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.Message
 	return &cloakedID, nil
 }
 
-/*
-{
-	type: 'group/add-member',
-	version: 'v1',
-	groupKey: '3YUat1ylIUVGaCjotAvof09DhyFxE8iGbF6QxLlCWWc=',
-	initialMsg: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-	text: 'welcome keks!',                                      // optional
-	recps: [
-	  '%vof09Dhy3YUat1ylIUVGaCjotAFxE8iGbF6QxLlCWWc=.cloaked',  // group_id
-	  '@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519'   // feed_id (for new person)
-	],
-	tangles: {
-	  group: {
-		root: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-		previous: [
-		  '%Sp294oBk7OJxizvPOlm6Sqk3fFJA2EQFiyJ1MS/BZ9E=.sha256'
-		]
-	  },
-	  members: {
-		root: '%THxjTGPuXvvxnbnAV7xVuVXdhDcmoNtDDN0j3UTxcd8=.sha256',
-		previous: [
-		  '%lm6Sqk3fFJA2EQFiyJ1MSASDASDASDASDASDAS/BZ9E=.sha256',
-		  '%Sp294oBk7OJxizvPOlm6Sqk3fFJA2EQFiyJ1MS/BZ9E=.sha256'
-		]
-	  }
-	}
-}
-*/
-
+// GroupAddMember is a JSON serialization helper.
+// See https://github.com/ssbc/private-group-spec/tree/master/group/add-member for more.
 type GroupAddMember struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 
 	Version string `json:"version"`
 
-	GroupKey       keys.Base64String `json:"groupKey"`
-	InitialMessage *refs.MessageRef  `json:"initialMsg"`
+	GroupKey keys.Base64String `json:"groupKey"`
+	Root     *refs.MessageRef  `json:"root"` // initial message
 
 	Recps []string `json:"recps"`
 
 	Tangles refs.Tangles `json:"tangles"`
 }
 
+// AddMember creates, encrypts and publishes a GroupAddMember message.
 func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome string) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
@@ -174,7 +182,7 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 
 	ga.GroupKey = keys.Base64String(gskey[0].Key)
 	groupRoot := gskey[0].Metadata.GroupRoot
-	ga.InitialMessage = groupRoot
+	ga.Root = groupRoot
 
 	ga.Recps = []string{groupID.Ref(), r.Ref()}
 
@@ -191,18 +199,41 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 	return mgr.encryptAndPublish(jsonContent, gskey)
 }
 
+// PublishTo encrypts and publishes a json blob as content to a group.
 func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
 	}
-	r, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	rs, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	if err != nil {
+		return nil, err
+	}
+	if nr := len(rs); nr != 1 {
+		return nil, fmt.Errorf("expected 1 key for group, got %d", nr)
+	}
+	r := rs[0]
+
+	// assign group tangle
+	var decodedContent map[string]interface{}
+	err = json.Unmarshal(content, &decodedContent)
 	if err != nil {
 		return nil, err
 	}
 
-	return mgr.encryptAndPublish(content, r)
+	var groupState = map[string]refs.TanglePoint{}
+	groupState["group"] = mgr.getTangleState(r.Metadata.GroupRoot, "group")
+	decodedContent["tangles"] = groupState
+
+	updatedContent, err := json.Marshal(decodedContent)
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr.encryptAndPublish(updatedContent, rs)
 }
 
+// PublishPostTo publishes a new post to a group.
+// TODO: reply root?
 func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.MessageRef, error) {
 	if groupID.Algo != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("not a group")
@@ -236,6 +267,10 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 
 // TODO: protect against race of changing previous
 func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (*refs.MessageRef, error) {
+	if !json.Valid(c) {
+		return nil, fmt.Errorf("box2 manager: passed content is not valid JSON")
+	}
+
 	prev, err := mgr.getPrevious()
 	if err != nil {
 		return nil, err

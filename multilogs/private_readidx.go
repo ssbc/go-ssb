@@ -17,6 +17,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/repo"
@@ -117,7 +118,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 		if _, err := pr.boxer.Decrypt(kp, boxedContent); err != nil {
 			continue
 		}
-		userPrivs, err := mlog.Get(kp.Id.StoredAddr())
+		userPrivs, err := mlog.Get(storedrefs.Feed(kp.Id))
 		if err != nil {
 			return errors.Wrapf(err, "private/readidx: error opening priv sublog for %s", kp.Id.Ref())
 		}

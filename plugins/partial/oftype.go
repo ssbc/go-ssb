@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -21,7 +22,7 @@ type getMessagesOfTypeHandler struct {
 	bytype *roaring.MultiLog
 }
 
-func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
 		return errors.Errorf("invalid arguments")
 	}
@@ -69,7 +70,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	}
 
-	workSet, err := h.feeds.LoadInternalBitmap(feed.StoredAddr())
+	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(feed))
 	if err != nil {
 		// TODO actual assert not found error.
 		// errors.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
@@ -78,7 +79,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	}
 
-	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr(tipe))
+	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + tipe))
 	if err != nil {
 		// return errors.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
 		snk.Close()
@@ -108,7 +109,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 			kv.Value = *msg.ValueContent()
 			b, err := json.Marshal(kv)
 			if err != nil {
-				return errors.Errorf("failed to encode json: %w", err)
+				return fmt.Errorf("failed to encode json: %w", err)
 			}
 			err = snk.Pour(ctx, json.RawMessage(b))
 			if err != nil {

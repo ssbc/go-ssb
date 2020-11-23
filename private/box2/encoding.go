@@ -49,16 +49,17 @@ func EncodeSLP(out []byte, list ...[]byte) []byte {
 
 func DeriveTo(out, key []byte, infos ...[]byte) error {
 	if n := len(out); n != 32 {
-		return fmt.Errorf("box2: expected 32bytes as output argument, got %d", n)
+		return fmt.Errorf("box2: expected 32b as output argument, got %d", n)
 	}
-	r := hkdf.Expand(sha256.New, key, EncodeSLP(nil, infos...))
+	slp := EncodeSLP(nil, infos...)
+	r := hkdf.Expand(sha256.New, key, slp)
 	nout, err := r.Read(out)
 	if err != nil {
 		return fmt.Errorf("box2: failed to derive key: %w", err)
 	}
 
 	if nout != 32 {
-		return fmt.Errorf("box2: expected to read 32bytes into output, got %d", nout)
+		return fmt.Errorf("box2: expected to read 32b into output, got %d", nout)
 	}
 
 	return nil

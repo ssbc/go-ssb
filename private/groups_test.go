@@ -3,8 +3,6 @@ package private_test
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,13 +15,12 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -63,7 +60,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
-		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
@@ -79,26 +75,14 @@ func TestGroupsFullCircle(t *testing.T) {
 
 	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
 
-	// helper function, closured to wrap the r-helper
 	suffix := []byte(".box2\"")
-	getCiphertext := func(m refs.Message) []byte {
-		content := m.ContentBytes()
-
-		r.True(bytes.HasSuffix(content, suffix), "%q", content)
-
-		n := base64.StdEncoding.DecodedLen(len(content))
-		ctxt := make([]byte, n)
-		decn, err := base64.StdEncoding.Decode(ctxt, bytes.TrimSuffix(content, suffix)[1:])
-		r.NoError(err)
-		return ctxt[:decn]
-	}
 
 	// make sure this is an encrypted message
 	msg, err := srh.Get(*groupTangleRoot)
 	r.NoError(err)
 
 	// can we decrypt it?
-	clear, err := srh.Groups.DecryptBox2(getCiphertext(msg), srh.KeyPair.Id, msg.Previous())
+	clear, err := srh.Groups.DecryptBox2Message(msg)
 	r.NoError(err)
 	t.Log(string(clear))
 
@@ -120,7 +104,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
 		sbot.WithListenAddr(":0"),
 		sbot.LateOption(sbot.WithUNIXSocket()),
-		sbot.LateOption(sbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
@@ -163,12 +146,12 @@ func TestGroupsFullCircle(t *testing.T) {
 	// some length checks
 	srhsFeeds, ok := srh.GetMultiLog("userFeeds")
 	r.True(ok)
-	srhsCopyOfTal, err := srhsFeeds.Get(tal.KeyPair.Id.StoredAddr())
+	srhsCopyOfTal, err := srhsFeeds.Get(storedrefs.Feed(tal.KeyPair.Id))
 	r.NoError(err)
 
 	talsFeeds, ok := tal.GetMultiLog("userFeeds")
 	r.True(ok)
-	talsCopyOfSrh, err := talsFeeds.Get(srh.KeyPair.Id.StoredAddr())
+	talsCopyOfSrh, err := talsFeeds.Get(storedrefs.Feed(srh.KeyPair.Id))
 	r.NoError(err)
 
 	// did we get the expected number of messages?
@@ -192,7 +175,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 	t.Log(string(content))
 
-	decr, err := tal.Groups.DecryptBox2(getCiphertext(addMsgCopy), addMsgCopy.Author(), addMsgCopy.Previous())
+	decr, err := tal.Groups.DecryptBox2Message(addMsgCopy)
 	r.NoError(err)
 	t.Log(string(decr))
 
@@ -201,7 +184,7 @@ func TestGroupsFullCircle(t *testing.T) {
 	r.NoError(err)
 	t.Logf("%x", ga.GroupKey)
 
-	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.InitialMessage)
+	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
 	r.Equal(cloaked.Hash, cloaked2.Hash, "cloaked ID not equal")
 
@@ -224,9 +207,9 @@ func TestGroupsFullCircle(t *testing.T) {
 	replyMsg, err := srh.Get(*reply)
 	r.NoError(err)
 
-	replyContent, err := srh.Groups.DecryptBox2(getCiphertext(replyMsg), replyMsg.Author(), replyMsg.Previous())
+	replyContent, err := srh.Groups.DecryptBox2Message(replyMsg)
 	r.NoError(err)
-	t.Log(string(replyContent))
+	t.Log("decrypted reply:", string(replyContent))
 
 	// indexed?
 	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
@@ -244,27 +227,40 @@ func TestGroupsFullCircle(t *testing.T) {
 		}
 	}
 
-	chkCount(srh.ByType)("test", 2)
-	chkCount(srh.ByType)("post", 2)
+	chkCount(srh.ByType)("string:test", 2)
+	chkCount(srh.ByType)("string:post", 2)
 
-	chkCount(tal.ByType)("test", 2)
-	chkCount(tal.ByType)("post", 1) // TODO: reindex
+	chkCount(tal.ByType)("string:test", 2)
+	chkCount(tal.ByType)("string:post", 1) // TODO: reindex
 
-	addr := librarian.Addr("box2:") + srh.KeyPair.Id.StoredAddr()
+	addr := librarian.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
 	chkCount(srh.Private)(addr, 3)
 
-	addr = librarian.Addr("box2:") + tal.KeyPair.Id.StoredAddr()
+	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
 	chkCount(tal.Private)(addr, 2) // TODO: reindex
 
-	t.Log("srh")
-	streamLog(t, srh.RootLog)
+	/*
+		t.Log("srh")
+		testutils.StreamLog(t, srh.ReceiveLog)
+		t.Log("tal")
+		testutils.StreamLog(t, tal.ReceiveLog)
+	*/
 
-	t.Log("tal")
-	streamLog(t, tal.RootLog)
-
-	stillBoxed, err := tal.Private.LoadInternalBitmap(librarian.Addr("notForUs:box2"))
+	addr = librarian.Addr("meta:box2")
+	allBoxed, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
-	t.Log("stillBoxed:", stillBoxed.String())
+	t.Log("all boxed:", allBoxed.String())
+
+	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	readable, err := tal.Private.LoadInternalBitmap(addr)
+	r.NoError(err)
+
+	allBoxed.AndNot(readable)
+
+	if n := allBoxed.GetCardinality(); n > 0 {
+		t.Errorf("still have boxed messages that are not indexed: %d", n)
+		t.Log("still boxed:", allBoxed.String())
+	}
 
 	tal.Shutdown()
 	srh.Shutdown()
@@ -290,33 +286,4 @@ func (bs botServer) Serve(s *sbot.Sbot) func() error {
 		}
 		return err
 	}
-}
-
-func streamLog(t *testing.T, l margaret.Log) {
-
-	r := require.New(t)
-	src, err := l.Query()
-	r.NoError(err)
-	i := 0
-	for {
-		v, err := src.Next(context.TODO())
-		if luigi.IsEOS(err) {
-			break
-		}
-
-		mm, ok := v.(refs.Message)
-		r.True(ok, "%T", v)
-
-		t.Log(i, mm.Key().ShortRef())
-		t.Log(mm.Author().ShortRef(), mm.Seq())
-
-		b := mm.ContentBytes()
-		if len(b) > 128 {
-			b = b[len(b)-32:]
-		}
-		t.Logf("\n%s", hex.Dump(b))
-
-		i++
-	}
-
 }

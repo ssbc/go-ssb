@@ -17,7 +17,7 @@ type getFeedHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 
 	if len(args) < 1 {
@@ -52,7 +52,7 @@ type getFeedReverseHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
+func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 
 	if len(args) < 1 {

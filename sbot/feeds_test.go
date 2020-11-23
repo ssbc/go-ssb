@@ -19,6 +19,7 @@ import (
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
@@ -97,7 +98,7 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	alisLog, err := uf.Get(ali.KeyPair.Id.StoredAddr())
+	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
 	r.NoError(err)
 
 	for i := 0; i < 50; i++ {

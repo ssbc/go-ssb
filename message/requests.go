@@ -19,7 +19,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 	var qry CreateHistArgs
 	for k, v := range argMap {
 		switch k = strings.ToLower(k); k {
-		case "live", "keys", "values", "reverse", "asjson":
+		case "live", "keys", "values", "reverse", "asjson", "private":
 			b, ok := v.(bool)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
@@ -35,6 +35,8 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.Reverse = b
 			case "asjson":
 				qry.AsJSON = b
+			case "private":
+				qry.Private = b
 			}
 
 		case "type", "id":
@@ -49,12 +51,8 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				if err != nil {
 					return nil, errors.Wrapf(err, "ssb/message: not a feed ref")
 				}
-
-				// TODO:
-				// case "type":
-				// qry.Type = val
 			}
-		case "seq", "limit":
+		case "seq", "limit", "gt", "lt":
 			n, ok := v.(float64)
 			if !ok {
 				return nil, errors.Errorf("ssb/message: not a float64(%T) for %s", v, k)
@@ -64,6 +62,10 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 				qry.Seq = int64(n)
 			case "limit":
 				qry.Limit = int64(n)
+			case "gt":
+				qry.Gt = int64(n)
+			case "lt":
+				qry.Lt = int64(n)
 			}
 		}
 	}
@@ -80,21 +82,24 @@ type CommonArgs struct {
 	Values bool `json:"values,omitempty"`
 	Live   bool `json:"live,omitempty"`
 
-	// Raw ???
-	Raw   bool `json:"raw"`
-	Seqs  bool `json:"seqs"`
-	Cache bool `json:"cache"`
+	// flume-stub experiments
+	// Raw bool `json:"raw"`
+	// Seqs  bool `json:"seqs"`
+	// Cache bool `json:"cache"`
 
 	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
 	// for instance, it could be json.RawMessage or a map or a struct
 	// TODO: find a nice way to have a default here
 	MarshalType interface{} `json:"-"`
+
+	Private bool `json:"private,omitempty"`
 }
 
 type StreamArgs struct {
 	Limit int64 `json:"limit,omitempty"`
 
-	Gt int64 `json:"gt"`
+	Gt int64 `json:"gt,omitempty"`
+	Lt int64 `json:"lt,omitempty"`
 
 	Reverse bool `json:"reverse,omitempty"`
 }
@@ -128,5 +133,10 @@ type MessagesByTypeArgs struct {
 type TanglesArgs struct {
 	CommonArgs
 	StreamArgs
-	Root refs.MessageRef `json:"root"`
+
+	Root *refs.MessageRef `json:"root"`
+
+	// indicate the v2 subtangle (group, ...)
+	// empty string for v1 tangle
+	Name string `json:"name"`
 }

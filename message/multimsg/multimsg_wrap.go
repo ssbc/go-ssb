@@ -41,19 +41,6 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 
 	var mm MultiMessage
 
-	if osm, ok := val.(legacy.OldStoredMessage); ok {
-		mm.tipe = Legacy
-		mm.Message = &legacy.StoredMessage{
-			Author_:    osm.Author,
-			Previous_:  osm.Previous,
-			Key_:       osm.Key,
-			Sequence_:  osm.Sequence,
-			Timestamp_: osm.Timestamp,
-			Raw_:       osm.Raw,
-		}
-		return wl.AlterableLog.Append(mm)
-	}
-
 	abs, ok := val.(refs.Message)
 	if !ok {
 		return margaret.SeqEmpty, errors.Errorf("wrappedLog: not a refs.Message: %T", val)

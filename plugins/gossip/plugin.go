@@ -26,7 +26,7 @@ func New(
 	ctx context.Context,
 	log logging.Interface,
 	id *refs.FeedRef,
-	rootLog margaret.Log,
+	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	fm *FeedManager,
 	wantList ssb.ReplicationLister,
@@ -35,7 +35,7 @@ func New(
 	h := &handler{
 		Id: id,
 
-		RootLog:     rootLog,
+		ReceiveLog:  rxlog,
 		UserFeeds:   userFeeds,
 		feedManager: fm,
 		WantList:    wantList,
@@ -74,7 +74,7 @@ func NewHist(
 	ctx context.Context,
 	log logging.Interface,
 	id *refs.FeedRef,
-	rootLog margaret.Log,
+	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	wantList ssb.ReplicationLister,
 	fm *FeedManager,
@@ -83,7 +83,7 @@ func NewHist(
 	h := &handler{
 		Id: id,
 
-		RootLog:     rootLog,
+		ReceiveLog:  rxlog,
 		UserFeeds:   userFeeds,
 		feedManager: fm,
 		WantList:    wantList,

@@ -5,8 +5,11 @@ package ssb
 import (
 	"sync"
 
+	"go.mindeco.de/ssb-refs/tfk"
+
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -24,33 +27,20 @@ func NewFeedSet(size int) *StrFeedSet {
 	}
 }
 
-func (fs *StrFeedSet) AddStored(r *refs.StorageRef) error {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	b, err := r.Marshal()
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal stored ref")
-	}
-
-	fs.set[librarian.Addr(b)] = struct{}{}
-	return nil
-}
-
 func (fs *StrFeedSet) AddRef(ref *refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	copied := ref.Copy()
 
-	fs.set[copied.StoredAddr()] = struct{}{}
+	fs.set[storedrefs.Feed(copied)] = struct{}{}
 	return nil
 }
 
 func (fs *StrFeedSet) Delete(ref *refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	delete(fs.set, ref.StoredAddr())
+	delete(fs.set, storedrefs.Feed(ref))
 	return nil
 }
 
@@ -68,17 +58,13 @@ func (fs StrFeedSet) List() ([]*refs.FeedRef, error) {
 	i := 0
 
 	for feed := range fs.set {
-		var sr refs.StorageRef
-		err := sr.Unmarshal([]byte(feed))
+		var sr tfk.Feed
+		err := sr.UnmarshalBinary([]byte(feed))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode map entry")
 		}
-		got, err := sr.FeedRef()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to make ref from map entry")
-		}
 		// log.Printf("dbg List(%d) %s", i, ref.Ref())
-		lst[i] = got.Copy()
+		lst[i] = sr.Feed().Copy()
 		i++
 	}
 	return lst, nil
@@ -87,6 +73,6 @@ func (fs StrFeedSet) List() ([]*refs.FeedRef, error) {
 func (fs StrFeedSet) Has(ref *refs.FeedRef) bool {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	_, has := fs.set[ref.StoredAddr()]
+	_, has := fs.set[storedrefs.Feed(ref)]
 	return has
 }

@@ -16,6 +16,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -29,7 +30,7 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		return errors.Errorf("NullFeed: failed to open multilog")
 	}
 
-	feedAddr := ref.StoredAddr()
+	feedAddr := storedrefs.Feed(ref)
 	userSeqs, err := uf.Get(feedAddr)
 	if err != nil {
 		return errors.Wrap(err, "NullFeed: failed to open log for feed argument")
@@ -52,7 +53,7 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		if !ok {
 			return errors.Errorf("NullFeed: not a sequence from userlog query")
 		}
-		err = s.RootLog.Null(seq)
+		err = s.ReceiveLog.Null(seq)
 		if err != nil {
 			return err
 		}

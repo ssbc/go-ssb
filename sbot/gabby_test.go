@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
@@ -88,7 +89,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	// sanity, check bob has his shit together
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	bobsOwnLog, err := uf.Get(bob.KeyPair.Id.StoredAddr())
+	bobsOwnLog, err := uf.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	seqv, err := bobsOwnLog.Seq().Value()
@@ -107,14 +108,14 @@ func TestFeedsGabbySync(t *testing.T) {
 	// check that bobs messages got to ali
 	auf, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
-	bosLogAtAli, err := auf.Get(bob.KeyPair.Id.StoredAddr())
+	bosLogAtAli, err := auf.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	seqv, err = bosLogAtAli.Seq().Value()
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(8), seqv)
 
-	src, err := mutil.Indirect(ali.RootLog, bosLogAtAli).Query()
+	src, err := mutil.Indirect(ali.ReceiveLog, bosLogAtAli).Query()
 	r.NoError(err)
 	for {
 		v, err := src.Next(ctx)
