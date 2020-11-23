@@ -179,7 +179,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
+	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
 	err = os.MkdirAll(pth, 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "openIndex: error making index directory")
@@ -212,6 +212,22 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.serveIndex("combined", combIdx)
 	s.closers.addCloser(combIdx)
+
+	// groups re-indexing
+
+	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open group membership index")
+	}
+	s.closers.addCloser(members)
+	s.closers.addCloser(membersSnk)
+
+	addMemberSeqs, err := s.ByType.Get(librarian.Addr("string:group/add-member"))
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+	}
+	justAddMemberMsgs := mutil.Indirect(s.ReceiveLog, addMemberSeqs)
+	s.serveIndexFrom("group-members", membersSnk, justAddMemberMsgs)
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {

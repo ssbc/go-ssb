@@ -29,7 +29,7 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*combinedIndex, error) {
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
 	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
@@ -42,7 +42,7 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 		return nil, errors.Wrap(err, "error opening state file")
 	}
 
-	idx := &combinedIndex{
+	idx := &CombinedIndex{
 		self:  self,
 		boxer: box,
 
@@ -59,11 +59,13 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 	return idx, nil
 }
 
-var _ librarian.SinkIndex = (*combinedIndex)(nil)
+var _ librarian.SinkIndex = (*CombinedIndex)(nil)
 
-type combinedIndex struct {
+type CombinedIndex struct {
 	self  *refs.FeedRef
 	boxer *private.Manager
+
+	rxlog margaret.Log
 
 	users   *roaring.MultiLog
 	private *roaring.MultiLog
@@ -76,8 +78,65 @@ type combinedIndex struct {
 	l    *sync.Mutex
 }
 
+// Box2Reindex takes advantage of the other bitmap indexes to reindex just the messages from the passed author that are box2 but not yet readable by us.
+//	1) taking private:meta:box2
+//	2) ANDing it with the one of the author (intersection)
+//	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
+func (slog *CombinedIndex) Box2Reindex(author *refs.FeedRef) error {
+	slog.l.Lock()
+	defer slog.l.Unlock()
+
+	allBox2, err := slog.private.LoadInternalBitmap(librarian.Addr("meta:box2"))
+	if err != nil {
+		return errors.Wrap(err, "error getting all box2 messages")
+	}
+	fmt.Println("DEBUG: all box2:", allBox2.String())
+
+	fromAuthor, err := slog.users.LoadInternalBitmap(storedrefs.Feed(author))
+	if err != nil {
+		return errors.Wrap(err, "error getting all from author")
+	}
+	fmt.Println("DEBUG: from author:", fromAuthor.String())
+
+	fromAuthor.And(allBox2)
+	fmt.Println("DEBUG: author&&box2:", fromAuthor.String())
+
+	myReadableAddr := librarian.Addr("box2:") + storedrefs.Feed(slog.self)
+	myReadable, err := slog.private.LoadInternalBitmap(myReadableAddr)
+	if err != nil {
+		return errors.Wrap(err, "error getting my readable")
+	}
+	fmt.Println("DEBUG: my readable:", myReadable.String())
+
+	fromAuthor.AndNot(myReadable)
+	fmt.Println("DEBUG: reindexing:", fromAuthor.String())
+
+	it := fromAuthor.Iterator()
+
+	for it.HasNext() {
+		rxSeq := it.Next()
+
+		msgv, err := slog.rxlog.Get(margaret.BaseSeq(rxSeq))
+		if err != nil {
+			return err
+		}
+
+		msg, ok := msgv.(refs.Message)
+		if !ok {
+			return fmt.Errorf("not a message: %T", msgv)
+		}
+
+		err = slog.update(int64(rxSeq), msg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Pour calls the processing function to add a value to a sublog.
-func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
+func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
@@ -106,32 +165,39 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return isNulled
 	}
 
-	abstractMsg, ok := v.(refs.Message)
+	msg, ok := v.(refs.Message)
 	if !ok {
 		return errors.Errorf("error casting message. got type %T", v)
 	}
 
-	err = slog.seqresolver.Append(seq.Seq(), abstractMsg.Seq(), abstractMsg.Claimed(), abstractMsg.Received())
+	return slog.update(seq.Seq(), msg)
+}
+
+func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
+	err := slog.seqresolver.Append(seq, msg.Seq(), msg.Claimed(), msg.Received())
 	if err != nil {
 		return errors.Wrap(err, "error updating sequence resolver")
 	}
 
-	author := abstractMsg.Author()
+	author := msg.Author()
 
-	authorLog, err := slog.users.Get(storedrefs.Feed(author))
+	authorAddr := storedrefs.Feed(author)
+	authorLog, err := slog.users.Get(authorAddr)
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}
-	_, err = authorLog.Append(seq.Seq())
+	_, err = authorLog.Append(margaret.BaseSeq(seq))
 	if err != nil {
 		return errors.Wrap(err, "error updating author sublog")
 	}
 
+	fmt.Printf("IDX DEBUG: %d (%s:%d) (%x)\n", seq, author.ShortRef(), msg.Seq(), authorAddr)
+
 	// decrypt box 1 & 2
-	content := abstractMsg.ContentBytes()
+	content := msg.ContentBytes()
 	// TODO: gabby grove
 	if content[0] != '{' { // assuming all other content is json objects
-		cleartext, err := slog.tryDecrypt(abstractMsg, seq)
+		cleartext, err := slog.tryDecrypt(msg, seq)
 		if err != nil {
 			if err == errSkip {
 				// yes it's a boxed message but we can't read it (yet)
@@ -149,7 +215,6 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		Root    *refs.MessageRef
 		Tangles refs.Tangles
 	}
-
 	err = json.Unmarshal(content, &jsonContent)
 	if err != nil {
 		// fmt.Errorf("ssb: combined idx failed to unmarshal json content of %s: %w", abstractMsg.Key().Ref(), err)
@@ -211,12 +276,12 @@ func (slog *combinedIndex) Pour(ctx context.Context, swv interface{}) error {
 }
 
 // Close does nothing.
-func (slog *combinedIndex) Close() error {
+func (slog *CombinedIndex) Close() error {
 	return nil
 }
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
-func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
+func (slog *CombinedIndex) QuerySpec() margaret.QuerySpec {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
@@ -241,7 +306,7 @@ func (slog *combinedIndex) QuerySpec() margaret.QuerySpec {
 	)
 }
 
-func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]byte, error) {
+func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, error) {
 	box1, box2, err := getBoxedContent(msg)
 	if err != nil {
 		// not super sure what the idea with the different skip errors was
@@ -258,13 +323,7 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 		idxAddr   librarian.Addr
 	)
 
-	/* as a help for re-indexing, keep track of all box1 and box2 messages.
-
-	later we can get the set of messages we might need to re-index by
-	1) taking meta:box2
-	2) ANDing it with the one of the author (intersection)
-	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
-	*/
+	// as a help for re-indexing, keep track of all box1 and box2 messages.
 	if box1 != nil {
 		idxAddr = librarian.Addr("meta:box1")
 	} else {
@@ -275,7 +334,7 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 	if err != nil {
 		return nil, err
 	}
-	if _, err := boxTyped.Append(rxSeq.Seq()); err != nil {
+	if _, err := boxTyped.Append(margaret.BaseSeq(rxSeq)); err != nil {
 		return nil, errors.Wrapf(err, "private: error marking type:box")
 	}
 
@@ -307,7 +366,7 @@ func (slog *combinedIndex) tryDecrypt(msg refs.Message, rxSeq margaret.Seq) ([]b
 	if err != nil {
 		return nil, errors.Wrapf(err, "private/readidx: error opening priv sublog for")
 	}
-	if _, err := userPrivs.Append(rxSeq.Seq()); err != nil {
+	if _, err := userPrivs.Append(margaret.BaseSeq(rxSeq)); err != nil {
 		return nil, errors.Wrapf(err, "private/readidx: error appending PM")
 	}
 

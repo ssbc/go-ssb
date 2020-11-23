@@ -301,6 +301,13 @@ func (sr *SequenceResolver) Append(seq int64, feed int64, claimed, received time
 	}
 
 	if has := int64(len(sr.seq2claimed)); has != seq {
+		if seq < has {
+			// assuming reindex - value wouldnt change
+			// TODO: maybe received? but not really...
+			// could be  a side-channel for _new messages_
+			// but it's a dirty hack - rather use _readable index_ message count
+			return nil
+		}
 		return fmt.Errorf("seq resolver: would break const (has:%d, will: %d)", has, seq)
 	}
 

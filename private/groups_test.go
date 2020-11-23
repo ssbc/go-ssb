@@ -31,7 +31,7 @@ import (
 before that, the indexing re-write needs to happen.
 */
 
-func TestGroupsFullCircle(t *testing.T) {
+func TestGroupsManualDecrypt(t *testing.T) {
 	r := require.New(t)
 	// a := assert.New(t)
 
@@ -59,7 +59,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithInfo(log.With(srvLog, "peer", "srh")),
 		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
@@ -103,7 +102,6 @@ func TestGroupsFullCircle(t *testing.T) {
 		sbot.WithInfo(log.With(srvLog, "peer", "tal")),
 		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
@@ -262,6 +260,7 @@ func TestGroupsFullCircle(t *testing.T) {
 		t.Log("still boxed:", allBoxed.String())
 	}
 
+	time.Sleep(10 * time.Second)
 	tal.Shutdown()
 	srh.Shutdown()
 
@@ -286,4 +285,109 @@ func (bs botServer) Serve(s *sbot.Sbot) func() error {
 		}
 		return err
 	}
+}
+
+func TestGroupsReindex(t *testing.T) {
+	r := require.New(t)
+
+	// cleanup previous run
+	testRepo := filepath.Join("testrun", t.Name())
+	os.RemoveAll(testRepo)
+
+	// bot hosting and logging boilerplate
+	srvLog := kitlog.NewNopLogger()
+	if testing.Verbose() {
+		srvLog = kitlog.NewLogfmtLogger(os.Stderr)
+	}
+	todoCtx := context.TODO()
+	botgroup, ctx := errgroup.WithContext(todoCtx)
+	bs := botServer{todoCtx, srvLog}
+
+	// create one bot
+	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)))
+	r.NoError(err)
+
+	srh, err := sbot.New(
+		sbot.WithContext(ctx),
+		sbot.WithKeyPair(srhKey),
+		sbot.WithInfo(srvLog),
+		sbot.WithInfo(log.With(srvLog, "peer", "srh")),
+		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
+		sbot.WithListenAddr(":0"),
+	)
+	r.NoError(err)
+	botgroup.Go(bs.Serve(srh))
+
+	// just a simple paintext message
+	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
+	r.NoError(err)
+
+	// create a new group
+	cloaked, groupTangleRoot, err := srh.Groups.Create("hello, my group")
+	r.NoError(err)
+	r.NotNil(groupTangleRoot)
+
+	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
+
+	// publish a message to the group
+	for i := 10; i > 0; i-- {
+		postRef, err := srh.Groups.PublishPostTo(cloaked, fmt.Sprintf("some test spam %d", i))
+		r.NoError(err)
+		t.Logf("pre-invite spam %d: %s", i, postRef.ShortRef())
+	}
+
+	// create a 2nd bot
+	tal, err := sbot.New(
+		sbot.WithContext(ctx),
+		sbot.WithInfo(log.With(srvLog, "peer", "tal")),
+		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
+		sbot.WithListenAddr(":0"),
+	)
+	r.NoError(err)
+	botgroup.Go(bs.Serve(tal))
+
+	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	r.NoError(err)
+	r.Len(dmKey, 1)
+	//	r.Equal(dmKey[0].Key, dmKey2[0].Key)
+
+	// now invite tal now that we have some content to reindex BEFORE the invite
+	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome tal!")
+	r.NoError(err)
+	t.Log("invite:", invref.ShortRef())
+
+	// now replicate a bit
+	srh.Replicate(tal.KeyPair.Id)
+	tal.Replicate(srh.KeyPair.Id)
+
+	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
+	r.NoError(err)
+
+	time.Sleep(20 * time.Second) // TODO: preferably remove me
+
+	// indexed?
+	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
+		return func(tipe librarian.Addr, cnt int) {
+			posts, err := ml.Get(tipe)
+			r.NoError(err)
+
+			pv, err := posts.Seq().Value()
+			r.NoError(err)
+			r.EqualValues(cnt-1, pv, "expected more messages in multilog")
+
+			bmap, err := ml.LoadInternalBitmap(tipe)
+			r.NoError(err)
+			t.Logf("%q: %s", tipe, bmap.String())
+		}
+	}
+
+	chkCount(srh.ByType)("string:post", 10)
+	chkCount(tal.ByType)("string:post", 10)
+
+	tal.Shutdown()
+	srh.Shutdown()
+
+	r.NoError(tal.Close())
+	r.NoError(srh.Close())
+	r.NoError(botgroup.Wait())
 }
