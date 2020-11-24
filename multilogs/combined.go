@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
@@ -29,7 +30,7 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, rxlog margaret.Log, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*CombinedIndex, error) {
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, rxlog margaret.Log, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog, oh multilog.MultiLog) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
 	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
@@ -46,14 +47,18 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 		self:  self,
 		boxer: box,
 
-		rxlog: rxlog,
-
+		// application multilogs
 		users:   u,
 		private: p,
 		byType:  bt,
 		tangles: tan,
 
+		// timestamp sorting
 		seqresolver: res,
+
+		// groups reindexing
+		rxlog:        rxlog,
+		orderdHelper: oh,
 
 		file: idxStateFile,
 		l:    &sync.Mutex{},
@@ -73,6 +78,8 @@ type CombinedIndex struct {
 	private *roaring.MultiLog
 	byType  *roaring.MultiLog
 	tangles *roaring.MultiLog
+
+	orderdHelper multilog.MultiLog
 
 	seqresolver *repo.SequenceResolver
 
@@ -233,12 +240,22 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	if typeStr == "" {
 		return fmt.Errorf("ssb: untyped message")
 	}
+	typeIdxAddr := librarian.Addr("string:" + typeStr)
 
 	if typeStr == "group/add-member" {
 		fmt.Printf("\n=======>\n%s %d\n\t=======>\nadd member message from %s:%d\n", slog.self.Ref(), seq, author.Ref(), msg.Seq())
+		slog, err := slog.orderdHelper.Get(typeIdxAddr)
+		if err != nil {
+			return err
+		}
+		sublogSeq, err := slog.Append(seq)
+		if err != nil {
+			return err
+		}
+		fmt.Println("\n!!!!!!!!!!!!!!!\nindexed", seq, "as ", sublogSeq, "in helper sublog")
 	}
 
-	typedLog, err := slog.byType.Get(librarian.Addr("string:" + typeStr))
+	typedLog, err := slog.byType.Get(typeIdxAddr)
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
 	}

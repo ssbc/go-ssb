@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -17,6 +18,8 @@ import (
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc"
@@ -198,6 +201,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
+	updateHelper := func(ctx context.Context, seq margaret.Seq, v interface{}, mlog multilog.MultiLog) error {
+		return nil
+	}
+	groupsHelperMlog, _, err := repo.OpenBadgerMultiLog(r, "group-member-helper", updateHelper)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+	}
+	s.closers.addCloser(groupsHelperMlog)
+
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
@@ -207,7 +219,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.Users,
 		s.Private,
 		s.ByType,
-		s.Tangles)
+		s.Tangles,
+		groupsHelperMlog,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
@@ -222,11 +236,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.addCloser(members)
 	s.closers.addCloser(membersSnk)
 
-	addMemberSeqs, err := s.ByType.Get(librarian.Addr("string:group/add-member"))
+	addMemberIdxAddr := librarian.Addr("string:group/add-member")
+
+	addMemberSeqs, err := groupsHelperMlog.Get(addMemberIdxAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
 	}
 	justAddMemberMsgs := mutil.Indirect(s.ReceiveLog, addMemberSeqs)
+
 	s.serveIndexFrom("group-members", membersSnk, justAddMemberMsgs)
 
 	/* TODO: fix deadlock in index update locking
