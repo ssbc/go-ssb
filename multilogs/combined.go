@@ -29,7 +29,7 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*CombinedIndex, error) {
+func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, rxlog margaret.Log, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
 	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
@@ -45,6 +45,8 @@ func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef,
 	idx := &CombinedIndex{
 		self:  self,
 		boxer: box,
+
+		rxlog: rxlog,
 
 		users:   u,
 		private: p,
@@ -190,8 +192,6 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "error updating author sublog")
 	}
-
-	fmt.Printf("IDX DEBUG: %d (%s:%d) (%x)\n", seq, author.ShortRef(), msg.Seq(), authorAddr)
 
 	// decrypt box 1 & 2
 	content := msg.ContentBytes()

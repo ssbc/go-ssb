@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
@@ -19,18 +18,17 @@ import (
 
 type Members map[string]bool
 
+// MembershipStore isn't strictly a multilog but putting it in package private gave cyclic import
 type MembershipStore struct {
-	idx librarian.SeqSetterIndex
-
-	self *refs.FeedRef
-
-	unboxer *private.Manager
-
+	idx         librarian.SeqSetterIndex
+	self        *refs.FeedRef
+	unboxer     *private.Manager
 	combinedidx *CombinedIndex
 }
 
 var _ io.Closer = (*MembershipStore)(nil)
 
+// NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
 func NewMembershipIndex(r repo.Interface, self *refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
 
 	pth := r.GetPath(repo.PrefixIndex, "groups", "members", "mkv")
@@ -44,12 +42,9 @@ func NewMembershipIndex(r repo.Interface, self *refs.FeedRef, unboxer *private.M
 		return nil, nil, errors.Wrap(err, "openIndex: failed to open MKV database")
 	}
 	var store = MembershipStore{
-		idx: libmkv.NewIndex(db, Members{}),
-
-		self: self,
-
-		unboxer: unboxer,
-
+		idx:         libmkv.NewIndex(db, Members{}),
+		self:        self,
+		unboxer:     unboxer,
 		combinedidx: comb,
 	}
 
@@ -107,8 +102,6 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		return nil // invalid message
 	}
 
-	// TODO: are we addded? call Join() to save the key
-
 	/* TODO? not really required but would fit into the existing scheme
 	   then again, we would need to allocate a value in tfk for this...
 
@@ -144,17 +137,21 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		if !indexed {
 			whoToIndex := nm
 			if nm.Equal(mc.self) {
+				// if the invite is for us, we need to add the new group key
+				cloakedGroupID, err := mc.unboxer.Join(addMemberMsg.GroupKey, addMemberMsg.Root)
+				if err != nil {
+					return err
+				}
+				fmt.Println("joined group:", cloakedGroupID.Ref())
+
 				// if we are invited, we need to index the sending author
 				whoToIndex = msg.Author()
 			}
 
-			go func(f *refs.FeedRef) {
-				time.Sleep(7 * time.Second)
-				err = mc.combinedidx.Box2Reindex(f)
-				if err != nil {
-					panic(err)
-				}
-			}(whoToIndex)
+			err = mc.combinedidx.Box2Reindex(whoToIndex)
+			if err != nil {
+				return err
+			}
 
 			// mark as indexed
 			currentMembers[nm.Ref()] = true

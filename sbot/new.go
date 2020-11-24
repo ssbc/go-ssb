@@ -202,6 +202,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.repoPath,
 		s.Groups,
 		s.KeyPair.Id,
+		s.ReceiveLog,
 		s.SeqResolver,
 		s.Users,
 		s.Private,
@@ -214,7 +215,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.addCloser(combIdx)
 
 	// groups re-indexing
-
 	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open group membership index")

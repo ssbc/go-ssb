@@ -363,7 +363,7 @@ func TestGroupsReindex(t *testing.T) {
 	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
 	r.NoError(err)
 
-	time.Sleep(20 * time.Second) // TODO: preferably remove me
+	time.Sleep(2 * time.Second) // let them sync
 
 	// indexed?
 	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
