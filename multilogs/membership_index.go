@@ -73,7 +73,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		return nil // invalid message
 	}
 
-	fmt.Println("new add member message:", msg.Key().Ref())
+	fmt.Printf("\n######## %s\nnew add member message: %s\n", mc.self.Ref(), msg.Key().Ref())
 	fmt.Println(string(cleartext))
 
 	var addMemberMsg private.GroupAddMember
@@ -154,7 +154,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 			}
 
 			// mark as indexed
-			currentMembers[nm.Ref()] = true
+			currentMembers[whoToIndex.Ref()] = true
 		}
 	}
 

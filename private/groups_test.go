@@ -317,6 +317,7 @@ func TestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
+	t.Log("srh is:", srh.KeyPair.Id.Ref())
 
 	// just a simple paintext message
 	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
@@ -345,6 +346,7 @@ func TestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
+	t.Log("tal is:", tal.KeyPair.Id.Ref())
 
 	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
 	r.NoError(err)
@@ -354,7 +356,7 @@ func TestGroupsReindex(t *testing.T) {
 	// now invite tal now that we have some content to reindex BEFORE the invite
 	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome tal!")
 	r.NoError(err)
-	t.Log("invite:", invref.ShortRef())
+	t.Log("inviteed tal:", invref.ShortRef())
 
 	// now replicate a bit
 	srh.Replicate(tal.KeyPair.Id)
@@ -384,10 +386,57 @@ func TestGroupsReindex(t *testing.T) {
 	chkCount(srh.ByType)("string:post", 10)
 	chkCount(tal.ByType)("string:post", 10)
 
+	// create some more msgs at tal, so that raz needs to re-index both
+	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.Id))
+	for i := 10; i > 0; i-- {
+		txt := fmt.Sprintf("WOHOOO thanks for having me %d", i)
+		postRef, err := tal.Groups.PublishPostTo(cloaked, txt)
+		r.NoError(err)
+		t.Logf("post-invite spam %d: %s", i, postRef.ShortRef())
+	}
+
+	err = tal.Network.Connect(ctx, srh.Network.GetListenAddr())
+	r.NoError(err)
+	time.Sleep(2 * time.Second) // let them sync
+
+	raz, err := sbot.New(
+		sbot.WithContext(ctx),
+		sbot.WithInfo(log.With(srvLog, "peer", "raz")),
+		sbot.WithRepoPath(filepath.Join(testRepo, "raz")),
+		sbot.WithListenAddr(":0"),
+	)
+	r.NoError(err)
+	botgroup.Go(bs.Serve(raz))
+	t.Log("raz is:", raz.KeyPair.Id.Ref())
+
+	srh.Replicate(raz.KeyPair.Id)
+	raz.Replicate(srh.KeyPair.Id)
+	raz.Replicate(tal.KeyPair.Id)
+
+	// TODO: do we want direct message keys with everyone that we follow?!
+	dmKey, err = raz.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	r.NoError(err)
+	r.Len(dmKey, 1)
+
+	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.Id, "welcome razi!")
+	r.NoError(err)
+	t.Log("invited raz:", invref2.Ref())
+
+	err = srh.Network.Connect(ctx, raz.Network.GetListenAddr())
+	r.NoError(err)
+
+	time.Sleep(10 * time.Second) // let them sync
+
+	chkCount(srh.ByType)("string:post", 20)
+	chkCount(raz.ByType)("string:post", 20)
+
+	// done, cleaning up
 	tal.Shutdown()
 	srh.Shutdown()
+	raz.Shutdown()
 
 	r.NoError(tal.Close())
 	r.NoError(srh.Close())
+	r.NoError(raz.Close())
 	r.NoError(botgroup.Wait())
 }

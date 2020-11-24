@@ -234,6 +234,10 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		return fmt.Errorf("ssb: untyped message")
 	}
 
+	if typeStr == "group/add-member" {
+		fmt.Printf("\n=======>\n%s %d\n\t=======>\nadd member message from %s:%d\n", slog.self.Ref(), seq, author.Ref(), msg.Seq())
+	}
+
 	typedLog, err := slog.byType.Get(librarian.Addr("string:" + typeStr))
 	if err != nil {
 		return errors.Wrap(err, "error opening sublog")
