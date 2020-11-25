@@ -340,9 +340,38 @@ var groupsCreateCmd = &cli.Command{
 }
 
 var groupsInviteCmd = &cli.Command{
-	Name:   "invite",
-	Usage:  "add people to a group",
-	Action: todo,
+	Name:  "invite",
+	Usage: "add people to a group",
+	Action: func(ctx *cli.Context) error {
+		args := ctx.Args()
+		groupID, err := refs.ParseMessageRef(args.First())
+		if err != nil {
+			return fmt.Errorf("groupID needs to be a valid message ref: %w", err)
+		}
+
+		if groupID.Algo != refs.RefAlgoCloakedGroup {
+			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+		}
+
+		member, err := refs.ParseFeedRef(args.Get(1))
+		if err != nil {
+			return err
+		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var reply interface{}
+		v, err := client.Async(longctx, reply, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Ref())
+		if err != nil {
+			return errors.Wrapf(err, "invite call failed")
+		}
+		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Ref())
+		goon.Dump(v)
+		return nil
+	},
 }
 
 var groupsPublishToCmd = &cli.Command{

@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -17,6 +18,8 @@ import (
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc"
@@ -179,7 +182,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups-keys", "mkv")
+	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
 	err = os.MkdirAll(pth, 0700)
 	if err != nil {
 		return nil, errors.Wrap(err, "openIndex: error making index directory")
@@ -198,20 +201,50 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
+	updateHelper := func(ctx context.Context, seq margaret.Seq, v interface{}, mlog multilog.MultiLog) error {
+		return nil
+	}
+	groupsHelperMlog, _, err := repo.OpenBadgerMultiLog(r, "group-member-helper", updateHelper)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+	}
+	s.closers.addCloser(groupsHelperMlog)
+
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
 		s.KeyPair.Id,
+		s.ReceiveLog,
 		s.SeqResolver,
 		s.Users,
 		s.Private,
 		s.ByType,
-		s.Tangles)
+		s.Tangles,
+		groupsHelperMlog,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
 	}
 	s.serveIndex("combined", combIdx)
 	s.closers.addCloser(combIdx)
+
+	// groups re-indexing
+	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open group membership index")
+	}
+	s.closers.addCloser(members)
+	s.closers.addCloser(membersSnk)
+
+	addMemberIdxAddr := librarian.Addr("string:group/add-member")
+
+	addMemberSeqs, err := groupsHelperMlog.Get(addMemberIdxAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+	}
+	justAddMemberMsgs := mutil.Indirect(s.ReceiveLog, addMemberSeqs)
+
+	s.serveIndexFrom("group-members", membersSnk, justAddMemberMsgs)
 
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
@@ -358,7 +391,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// publish
-	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.ReceiveLog))
+	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.ReceiveLog))
 
 	// private
 	// TODO: box2
@@ -367,19 +400,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}
 	s.master.Register(privplug.NewPlug(
-		kitlog.With(log, "plugin", "private"),
+		kitlog.With(log, "unit", "private"),
 		s.KeyPair.Id,
 		s.Groups,
 		s.PublishLog,
 		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
-	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
+	whoami := whoami.New(kitlog.With(log, "unit", "whoami"), s.KeyPair.Id)
 	s.public.Register(whoami)
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
+	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -407,18 +440,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		ctx,
 		s.ReceiveLog,
 		s.Users,
-		kitlog.With(log, "feedmanager"),
+		kitlog.With(log, "unit", "gossip"),
 		s.systemGauge,
 		s.eventCounter,
 	)
 	s.public.Register(gossip.New(ctx,
-		kitlog.With(log, "plugin", "gossip"),
+		kitlog.With(log, "unit", "gossip"),
 		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
-		kitlog.With(log, "plugin", "gossip/hist"),
+		kitlog.With(log, "unit", "gossip/hist"),
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
@@ -533,7 +566,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.Network.HandleHTTP(h)
 
 	inviteService, err = legacyinvites.New(
-		kitlog.With(log, "plugin", "legacyInvites"),
+		kitlog.With(log, "unit", "legacyInvites"),
 		r,
 		s.KeyPair.Id,
 		s.Network,
@@ -546,7 +579,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network, s))
+	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), s.Network, s))
 	s.master.Register(status.New(s))
 
 	return s, nil

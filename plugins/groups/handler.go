@@ -44,31 +44,10 @@ func New(log logging.Interface, groups *private.Manager) ssb.Plugin {
 		groups: groups,
 	})
 
-	/*
-		rootHdlr.RegisterAsync(muxrpc.Method{"friends", "isBlocking"}, isBlockingH{
-			log:     log,
-			builder: b,
-			self:    self,
-		})
-
-		rootHdlr.RegisterSource(muxrpc.Method{"friends", "blocks"}, blocksSrc{
-			log:     log,
-			builder: b,
-			self:    self,
-		})
-
-		rootHdlr.RegisterSource(muxrpc.Method{"friends", "hops"}, hopsSrc{
-			log:     log,
-			builder: b,
-			self:    self,
-		})
-
-		rootHdlr.RegisterAsync(muxrpc.Method{"friends", "plotsvg"}, plotSVGHandler{
-			log:     log,
-			builder: b,
-			self:    self,
-		})
-	*/
+	rootHdlr.RegisterAsync(append(method, "invite"), invite{
+		log:    log,
+		groups: groups,
+	})
 
 	return plugin{
 		h:   &rootHdlr,
