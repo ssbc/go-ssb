@@ -290,6 +290,22 @@ func (bs botServer) Serve(s *sbot.Sbot) func() error {
 func TestGroupsReindex(t *testing.T) {
 	r := require.New(t)
 
+	// indexed?
+	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
+		return func(tipe librarian.Addr, cnt int) {
+			posts, err := ml.Get(tipe)
+			r.NoError(err)
+
+			bmap, err := ml.LoadInternalBitmap(tipe)
+			r.NoError(err)
+			t.Logf("%q: %s", tipe, bmap.String())
+
+			pv, err := posts.Seq().Value()
+			r.NoError(err)
+			r.EqualValues(cnt-1, pv, "expected more messages in multilog %q", tipe)
+		}
+	}
+
 	// cleanup previous run
 	testRepo := filepath.Join("testrun", t.Name())
 	os.RemoveAll(testRepo)
@@ -303,10 +319,15 @@ func TestGroupsReindex(t *testing.T) {
 	botgroup, ctx := errgroup.WithContext(todoCtx)
 	bs := botServer{todoCtx, srvLog}
 
-	// create one bot
+	// make the keys deterministic (helps to know who is who in the console output)
 	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)))
 	r.NoError(err)
+	talKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("tal0"), 8)))
+	r.NoError(err)
+	razKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("raziel"), 8)))
+	r.NoError(err)
 
+	// create the first bot
 	srh, err := sbot.New(
 		sbot.WithContext(ctx),
 		sbot.WithKeyPair(srhKey),
@@ -340,6 +361,7 @@ func TestGroupsReindex(t *testing.T) {
 	// create a 2nd bot
 	tal, err := sbot.New(
 		sbot.WithContext(ctx),
+		sbot.WithKeyPair(talKey),
 		sbot.WithInfo(log.With(srvLog, "peer", "tal")),
 		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
 		sbot.WithListenAddr(":0"),
@@ -351,7 +373,6 @@ func TestGroupsReindex(t *testing.T) {
 	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
 	r.NoError(err)
 	r.Len(dmKey, 1)
-	//	r.Equal(dmKey[0].Key, dmKey2[0].Key)
 
 	// now invite tal now that we have some content to reindex BEFORE the invite
 	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome tal!")
@@ -367,22 +388,6 @@ func TestGroupsReindex(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // let them sync
 
-	// indexed?
-	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
-		return func(tipe librarian.Addr, cnt int) {
-			posts, err := ml.Get(tipe)
-			r.NoError(err)
-
-			pv, err := posts.Seq().Value()
-			r.NoError(err)
-			r.EqualValues(cnt-1, pv, "expected more messages in multilog")
-
-			bmap, err := ml.LoadInternalBitmap(tipe)
-			r.NoError(err)
-			t.Logf("%q: %s", tipe, bmap.String())
-		}
-	}
-
 	chkCount(srh.ByType)("string:post", 10)
 	chkCount(tal.ByType)("string:post", 10)
 
@@ -395,12 +400,18 @@ func TestGroupsReindex(t *testing.T) {
 		t.Logf("post-invite spam %d: %s", i, postRef.ShortRef())
 	}
 
+	// we dont have live streaming yet
+	t.Log("reconnecting tal<>srh")
+	srh.Network.GetConnTracker().CloseAll()
 	err = tal.Network.Connect(ctx, srh.Network.GetListenAddr())
 	r.NoError(err)
 	time.Sleep(2 * time.Second) // let them sync
 
+	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
+
 	raz, err := sbot.New(
 		sbot.WithContext(ctx),
+		sbot.WithKeyPair(razKey),
 		sbot.WithInfo(log.With(srvLog, "peer", "raz")),
 		sbot.WithRepoPath(filepath.Join(testRepo, "raz")),
 		sbot.WithListenAddr(":0"),
@@ -409,7 +420,11 @@ func TestGroupsReindex(t *testing.T) {
 	botgroup.Go(bs.Serve(raz))
 	t.Log("raz is:", raz.KeyPair.Id.Ref())
 
+	_, err = raz.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
+	r.NoError(err)
+
 	srh.Replicate(raz.KeyPair.Id)
+	tal.Replicate(raz.KeyPair.Id)
 	raz.Replicate(srh.KeyPair.Id)
 	raz.Replicate(tal.KeyPair.Id)
 
@@ -422,10 +437,40 @@ func TestGroupsReindex(t *testing.T) {
 	r.NoError(err)
 	t.Log("invited raz:", invref2.Ref())
 
-	err = srh.Network.Connect(ctx, raz.Network.GetListenAddr())
+	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.Id))
 	r.NoError(err)
 
-	time.Sleep(10 * time.Second) // let them sync
+	// TODO: stupid hack because somehow we dont get the feed every time.... :'(
+	// related to the syncing logic, not the reindexing.
+	i := 5
+	for i > 0 {
+		t.Log("try", i)
+
+		err = raz.Network.Connect(ctx, srh.Network.GetListenAddr())
+		r.NoError(err)
+		err = raz.Network.Connect(ctx, tal.Network.GetListenAddr())
+		r.NoError(err)
+
+		time.Sleep(3 * time.Second) // let them sync
+		//	raz.Network.GetConnTracker().CloseAll()
+
+		// how many messages does raz have from tal?
+		v, err := talsLog.Seq().Value()
+		r.NoError(err)
+		seq, ok := v.(margaret.Seq)
+		r.True(ok)
+
+		if seq.Seq() == 10 {
+			t.Log("received all of tal's messages")
+			break
+		}
+
+		i--
+	}
+	r.NotEqual(0, i, "did not get the feed in %d tries", 5)
+
+	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
+	chkCount(raz.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
 
 	chkCount(srh.ByType)("string:post", 20)
 	chkCount(raz.ByType)("string:post", 20)

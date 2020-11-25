@@ -73,9 +73,6 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		return nil // invalid message
 	}
 
-	fmt.Printf("\n######## %s\nnew add member message: %s\n", mc.self.Ref(), msg.Key().Ref())
-	fmt.Println(string(cleartext))
-
 	var addMemberMsg private.GroupAddMember
 	err = json.Unmarshal(cleartext, &addMemberMsg)
 	if err != nil {
@@ -134,28 +131,31 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 
 	for _, nm := range newMembers {
 		_, indexed := currentMembers[nm.Ref()]
-		if !indexed {
-			whoToIndex := nm
-			if nm.Equal(mc.self) {
-				// if the invite is for us, we need to add the new group key
-				cloakedGroupID, err := mc.unboxer.Join(addMemberMsg.GroupKey, addMemberMsg.Root)
-				if err != nil {
-					return err
-				}
-				fmt.Println("joined group:", cloakedGroupID.Ref())
+		if indexed {
+			// already processed
+			continue
+		}
 
-				// if we are invited, we need to index the sending author
-				whoToIndex = msg.Author()
-			}
-
-			err = mc.combinedidx.Box2Reindex(whoToIndex)
+		whoToIndex := nm
+		if nm.Equal(mc.self) {
+			// if the invite is for us, we need to add the new group key
+			cloakedGroupID, err := mc.unboxer.Join(addMemberMsg.GroupKey, addMemberMsg.Root)
 			if err != nil {
 				return err
 			}
+			fmt.Println("joined group:", cloakedGroupID.Ref())
 
-			// mark as indexed
-			currentMembers[whoToIndex.Ref()] = true
+			// if we are invited, we need to index the sending author
+			whoToIndex = msg.Author()
 		}
+
+		err = mc.combinedidx.Box2Reindex(whoToIndex)
+		if err != nil {
+			return err
+		}
+
+		// mark as indexed
+		currentMembers[whoToIndex.Ref()] = true
 	}
 
 	err = mc.idx.Set(ctx, idxAddr, currentMembers)

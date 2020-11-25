@@ -30,7 +30,15 @@ import (
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
 // while also being able to index private massages by tangle and type.
-func NewCombinedIndex(repoPath string, box *private.Manager, self *refs.FeedRef, rxlog margaret.Log, res *repo.SequenceResolver, u, p, bt, tan *roaring.MultiLog, oh multilog.MultiLog) (*CombinedIndex, error) {
+func NewCombinedIndex(
+	repoPath string,
+	box *private.Manager,
+	self *refs.FeedRef,
+	rxlog margaret.Log,
+	res *repo.SequenceResolver,
+	u, p, bt, tan *roaring.MultiLog,
+	oh multilog.MultiLog,
+) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
 	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
@@ -95,33 +103,34 @@ func (slog *CombinedIndex) Box2Reindex(author *refs.FeedRef) error {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
+	// 1) all messages in boxed2 format
 	allBox2, err := slog.private.LoadInternalBitmap(librarian.Addr("meta:box2"))
 	if err != nil {
 		return errors.Wrap(err, "error getting all box2 messages")
 	}
-	fmt.Println("DEBUG: all box2:", allBox2.String())
 
+	// 2) all messages by the author we should re-index
 	fromAuthor, err := slog.users.LoadInternalBitmap(storedrefs.Feed(author))
 	if err != nil {
 		return errors.Wrap(err, "error getting all from author")
 	}
-	fmt.Println("DEBUG: from author:", fromAuthor.String())
 
+	// 2) intersection between the two
 	fromAuthor.And(allBox2)
-	fmt.Println("DEBUG: author&&box2:", fromAuthor.String())
 
+	// 3) all messages we can already decrypt
 	myReadableAddr := librarian.Addr("box2:") + storedrefs.Feed(slog.self)
 	myReadable, err := slog.private.LoadInternalBitmap(myReadableAddr)
 	if err != nil {
 		return errors.Wrap(err, "error getting my readable")
 	}
-	fmt.Println("DEBUG: my readable:", myReadable.String())
 
+	// 3) subtract those from 2)
 	fromAuthor.AndNot(myReadable)
-	fmt.Println("DEBUG: reindexing:", fromAuthor.String())
 
 	it := fromAuthor.Iterator()
 
+	// iterate over those and reindex them
 	for it.HasNext() {
 		rxSeq := it.Next()
 
@@ -242,17 +251,16 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	}
 	typeIdxAddr := librarian.Addr("string:" + typeStr)
 
+	// we need to keep the order intact for these
 	if typeStr == "group/add-member" {
-		fmt.Printf("\n=======>\n%s %d\n\t=======>\nadd member message from %s:%d\n", slog.self.Ref(), seq, author.Ref(), msg.Seq())
-		slog, err := slog.orderdHelper.Get(typeIdxAddr)
+		sl, err := slog.orderdHelper.Get(typeIdxAddr)
 		if err != nil {
 			return err
 		}
-		sublogSeq, err := slog.Append(seq)
+		_, err = sl.Append(seq)
 		if err != nil {
 			return err
 		}
-		fmt.Println("\n!!!!!!!!!!!!!!!\nindexed", seq, "as ", sublogSeq, "in helper sublog")
 	}
 
 	typedLog, err := slog.byType.Get(typeIdxAddr)
