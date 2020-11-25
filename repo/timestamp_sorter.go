@@ -90,11 +90,10 @@ func NewSequenceResolver(r Interface) (*SequenceResolver, error) {
 	var sr SequenceResolver
 	sr.repo = r
 
-	n, err := sr.Load()
+	_, err := sr.Load()
 	if err != nil {
 		return nil, fmt.Errorf("seq resolver: failed to load: %w", err)
 	}
-	fmt.Printf("sr: has %d entries\n", n)
 
 	return &sr, nil
 }

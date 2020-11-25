@@ -391,7 +391,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// publish
-	s.master.Register(publish.NewPlug(kitlog.With(log, "plugin", "publish"), s.PublishLog, s.ReceiveLog))
+	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.ReceiveLog))
 
 	// private
 	// TODO: box2
@@ -400,19 +400,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, errors.Wrap(err, "failed to open user private index")
 	}
 	s.master.Register(privplug.NewPlug(
-		kitlog.With(log, "plugin", "private"),
+		kitlog.With(log, "unit", "private"),
 		s.KeyPair.Id,
 		s.Groups,
 		s.PublishLog,
 		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
-	whoami := whoami.New(kitlog.With(log, "plugin", "whoami"), s.KeyPair.Id)
+	whoami := whoami.New(kitlog.With(log, "unit", "whoami"), s.KeyPair.Id)
 	s.public.Register(whoami)
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "plugin", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
+	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -440,18 +440,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		ctx,
 		s.ReceiveLog,
 		s.Users,
-		kitlog.With(log, "feedmanager"),
+		kitlog.With(log, "unit", "gossip"),
 		s.systemGauge,
 		s.eventCounter,
 	)
 	s.public.Register(gossip.New(ctx,
-		kitlog.With(log, "plugin", "gossip"),
+		kitlog.With(log, "unit", "gossip"),
 		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewHist(ctx,
-		kitlog.With(log, "plugin", "gossip/hist"),
+		kitlog.With(log, "unit", "gossip/hist"),
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
@@ -566,7 +566,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.Network.HandleHTTP(h)
 
 	inviteService, err = legacyinvites.New(
-		kitlog.With(log, "plugin", "legacyInvites"),
+		kitlog.With(log, "unit", "legacyInvites"),
 		r,
 		s.KeyPair.Id,
 		s.Network,
@@ -579,7 +579,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "plugin", "ctrl"), s.Network, s))
+	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), s.Network, s))
 	s.master.Register(status.New(s))
 
 	return s, nil
