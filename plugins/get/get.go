@@ -19,17 +19,9 @@ type plugin struct {
 	h muxrpc.Handler
 }
 
-func (p plugin) Name() string {
-	return "get"
-}
-
-func (p plugin) Method() muxrpc.Method {
-	return muxrpc.Method{"get"}
-}
-
-func (p plugin) Handler() muxrpc.Handler {
-	return p.h
-}
+func (p plugin) Name() string            { return "get" }
+func (p plugin) Method() muxrpc.Method   { return muxrpc.Method{"get"} }
+func (p plugin) Handler() muxrpc.Handler { return p.h }
 
 func New(g ssb.Getter, rxlog margaret.Log, unboxer *private.Manager) ssb.Plugin {
 	return plugin{
@@ -100,15 +92,15 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 	if unboxPrivate {
 		cleartext, err := h.unboxer.DecryptMessage(msg)
-		if err != nil {
+		if err == nil {
+			kv.Value.Meta = make(map[string]interface{}, 1)
+			kv.Value.Meta["private"] = true
+
+			kv.Value.Content = cleartext
+		} else if err != private.ErrNotBoxed {
 			req.CloseWithError(errors.Wrap(err, "failed to decrypt message"))
 			return
 		}
-
-		kv.Meta = make(map[string]interface{}, 1)
-		kv.Meta["private"] = true
-
-		kv.Value.Content = cleartext
 	}
 
 	err = req.Return(ctx, kv)

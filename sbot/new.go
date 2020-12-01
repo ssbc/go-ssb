@@ -148,7 +148,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		{"tangles", &s.Tangles},
 	}
 	for _, index := range mlogs {
-		mlogPath := r.GetPath(repo.PrefixMultiLog, index.Name, "fs-bitmaps")
+		mlogPath := r.GetPath(repo.PrefixMultiLog, "combined", index.Name, "fs-bitmaps")
 
 		ml, err := multifs.NewMultiLog(mlogPath)
 		if err != nil {

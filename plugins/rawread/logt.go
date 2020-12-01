@@ -207,12 +207,10 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	for _, res := range sort {
 		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
 		if err != nil {
+			if margaret.IsErrNulled(err) {
+				continue
+			}
 			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err)
-			continue
-		}
-
-		// skip nulled
-		if verr, ok := v.(error); ok && margaret.IsErrNulled(verr) {
 			continue
 		}
 
