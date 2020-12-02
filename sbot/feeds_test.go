@@ -12,12 +12,14 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -59,7 +61,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
 		}
-		if err == context.Canceled {
+		if errors.Cause(err) == ssb.ErrShuttingDown {
 			return nil
 		}
 		return err
@@ -75,7 +77,6 @@ func TestFeedsOneByOne(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -84,20 +85,31 @@ func TestFeedsOneByOne(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
 		}
-		if err == context.Canceled {
+		if errors.Cause(err) == ssb.ErrShuttingDown {
 			return nil
 		}
 		return err
 	})
 
 	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.Id))
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(0), seq)
 
-	ali.PublishLog.Publish(newPost("hello, world"))
-	bob.PublishLog.Publish(newPost("hello, world"))
+	bob.Replicate(ali.KeyPair.Id)
+	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.Id))
+	r.NoError(err)
+
+	ali.PublishLog.Publish(refs.NewPost("hello, world"))
+	bob.PublishLog.Publish(refs.NewPost("hello, world"))
+	g, err := bob.GraphBuilder.Build()
+	r.NoError(err)
+	time.Sleep(250 * time.Millisecond)
+	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
+
 	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
 	r.NoError(err)
 
@@ -119,8 +131,10 @@ func TestFeedsOneByOne(t *testing.T) {
 		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
 	}
 
-	r.NoError(ali.FSCK())
-	r.NoError(bob.FSCK())
+	err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
+	a.NoError(err, "fsck on A failed")
+	err = bob.FSCK(FSCKWithMode(FSCKModeSequences))
+	a.NoError(err, "fsck on B failed")
 
 	cancel()
 	ali.Shutdown()
@@ -130,11 +144,4 @@ func TestFeedsOneByOne(t *testing.T) {
 	r.NoError(bob.Close())
 
 	r.NoError(botgroup.Wait())
-}
-
-func newPost(txt string) refs.Post {
-	return refs.Post{
-		Type: "post",
-		Text: txt,
-	}
 }

@@ -56,6 +56,12 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// ShutdownContext returns a context that returns ssb.ErrShuttingDown when canceld.
+// The server internals use this error to cleanly shut down index processing.
+func ShutdownContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return ctxutils.WithError(ctx, ssb.ErrShuttingDown)
+}
+
 // Close closes the bot by stopping network connections and closing the internal databases
 func (s *Sbot) Close() error {
 	s.closedMu.Lock()

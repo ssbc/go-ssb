@@ -187,6 +187,7 @@ func (g *handler) fetchFeed(
 		Seq:        int64(latestSeq + 1),
 		StreamArgs: message.StreamArgs{Limit: -1},
 	}
+	q.Live = true
 
 	toLong, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer func() {

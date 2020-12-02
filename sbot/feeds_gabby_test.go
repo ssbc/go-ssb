@@ -10,27 +10,26 @@ import (
 	"testing"
 	"time"
 
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	refs "go.mindeco.de/ssb-refs"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	refs "go.mindeco.de/ssb-refs"
+	"golang.org/x/sync/errgroup"
+
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
 func TestFeedsGabbySync(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
-	// a := assert.New(t)
-	ctx, cancel := context.WithCancel(context.TODO())
 
+	ctx, cancel := ShutdownContext(context.Background())
 	botgroup, ctx := errgroup.WithContext(ctx)
 
 	info := testutils.NewRelativeTimeLogger(nil)
@@ -51,6 +50,7 @@ func TestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -68,6 +68,7 @@ func TestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
+		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -77,13 +78,21 @@ func TestFeedsGabbySync(t *testing.T) {
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
+	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.Id))
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(0), seq)
+
+	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.Id))
+	r.NoError(err)
+	r.Equal(margaret.BaseSeq(0), seq)
+
 	for i := 0; i < 9; i++ {
 		seq, err := bob.PublishLog.Append(map[string]interface{}{
 			"type": "test",
 			"test": i,
 		})
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(i), seq)
+		r.Equal(margaret.BaseSeq(i+1), seq)
 	}
 
 	// sanity, check bob has his shit together
@@ -94,7 +103,7 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	seqv, err := bobsOwnLog.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(8), seqv, "bob doesn't have his own log!")
+	r.Equal(margaret.BaseSeq(9), seqv, "bob doesn't have his own log!")
 
 	// dial
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -113,7 +122,7 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	seqv, err = bosLogAtAli.Seq().Value()
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(8), seqv)
+	r.Equal(margaret.BaseSeq(9), seqv)
 
 	src, err := mutil.Indirect(ali.ReceiveLog, bosLogAtAli).Query()
 	r.NoError(err)

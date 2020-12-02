@@ -19,6 +19,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/luigiutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
@@ -34,7 +35,7 @@ type FeedManager struct {
 	UserFeeds  multilog.MultiLog
 	logger     logging.Interface
 
-	liveFeeds    map[string]*multiSink
+	liveFeeds    map[string]*luigiutils.MultiSink
 	liveFeedsMut sync.Mutex
 
 	// metrics
@@ -59,7 +60,7 @@ func NewFeedManager(
 		rootCtx:    ctx,
 		sysCtr:     sysCtr,
 		sysGauge:   sysGauge,
-		liveFeeds:  make(map[string]*multiSink),
+		liveFeeds:  make(map[string]*luigiutils.MultiSink),
 	}
 	// QUESTION: How should the error case be handled?
 	go fm.serveLiveFeeds()
@@ -123,7 +124,7 @@ func (m *FeedManager) addLiveFeed(
 
 	liveFeed, ok := m.liveFeeds[ssbID]
 	if !ok {
-		m.liveFeeds[ssbID] = newMultiSink(seq)
+		m.liveFeeds[ssbID] = luigiutils.NewMultiSink(seq)
 		liveFeed = m.liveFeeds[ssbID]
 	}
 
@@ -258,14 +259,14 @@ func (m *FeedManager) CreateStreamHistory(
 		case arg.AsJSON:
 			sink = transform.NewKeyValueWrapper(sink, arg.Keys)
 		default:
-			sink = gabbyStreamSink(sink)
+			sink = luigiutils.NewGabbyStreamSink(sink)
 		}
 	default:
 		return errors.Errorf("unsupported feed format.")
 	}
 
 	sent := 0
-	err = luigi.Pump(ctx, newSinkCounter(&sent, sink), src)
+	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, sink), src)
 
 	// track number of messages sent
 	if m.sysCtr != nil {
@@ -285,13 +286,13 @@ func (m *FeedManager) CreateStreamHistory(
 
 	// cryptix: this seems to produce some hangs
 	// TODO: make tests with leaving and joining peers while messages are published
-	//if arg.Live {
-	//	return m.addLiveFeed(
-	//		ctx, sink,
-	//		arg.ID,
-	//		latest,
-	//		liveLimit(arg, latest),
-	//	)
-	//}
+	if arg.Live {
+		return m.addLiveFeed(
+			ctx, sink,
+			arg.ID.Ref(),
+			latest,
+			liveLimit(arg, latest),
+		)
+	}
 	return sink.Close()
 }
