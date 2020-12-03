@@ -108,6 +108,7 @@ func (m *FeedManager) serveLiveFeeds() {
 		err = errors.Wrap(err, "error while serving live feed")
 		panic(err)
 	}
+	level.Warn(m.logger).Log("event", "live qry on rxlog exited")
 }
 
 func (m *FeedManager) addLiveFeed(
@@ -287,6 +288,7 @@ func (m *FeedManager) CreateStreamHistory(
 	// cryptix: this seems to produce some hangs
 	// TODO: make tests with leaving and joining peers while messages are published
 	if arg.Live {
+		level.Warn(m.logger).Log("event", "adding live query", "for", arg.ID.ShortRef())
 		return m.addLiveFeed(
 			ctx, sink,
 			arg.ID.Ref(),

@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"runtime"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/neterr"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/repo"
 )
 
 func (h *handler) fetchAll(
@@ -115,28 +118,31 @@ func (g *handler) fetchFeed(
 	}
 	// check our latest
 	frAddr := storedrefs.Feed(fr)
-	addr := string(frAddr)
-	g.activeLock.Lock()
-	_, ok := g.activeFetch[addr]
-	if ok {
-		//level.Debug(g.logger).Log("fetchFeed", "crawl active", "addr", fr.ShortRef())
-		g.activeLock.Unlock()
-		return nil
-	}
-	if g.sysGauge != nil {
-		g.sysGauge.With("part", "fetches").Add(1)
-	}
-
-	g.activeFetch[addr] = struct{}{}
-	g.activeLock.Unlock()
-	defer func() {
+	/*
+		addr := string(frAddr)
 		g.activeLock.Lock()
-		delete(g.activeFetch, addr)
-		g.activeLock.Unlock()
-		if g.sysGauge != nil {
-			g.sysGauge.With("part", "fetches").Add(-1)
+		_, ok := g.activeFetch[addr]
+		if ok {
+			level.Debug(g.Info).Log("fetchFeed", "crawl active", "addr", fr.ShortRef())
+			g.activeLock.Unlock()
+			return nil
 		}
-	}()
+
+		if g.sysGauge != nil {
+			g.sysGauge.With("part", "fetches").Add(1)
+		}
+
+			g.activeFetch[addr] = struct{}{}
+			g.activeLock.Unlock()
+			defer func() {
+				g.activeLock.Lock()
+				delete(g.activeFetch, addr)
+				g.activeLock.Unlock()
+				if g.sysGauge != nil {
+					g.sysGauge.With("part", "fetches").Add(-1)
+				}
+			}()
+	*/
 	userLog, err := g.UserFeeds.Get(frAddr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open sublog for user")
@@ -205,16 +211,48 @@ func (g *handler) fetchFeed(
 
 	method := muxrpc.Method{"createHistoryStream"}
 
+	feedTempNick := fmt.Sprintf("feed-%x-*", fr.ID[:8])
+	fillMe, err := ioutil.TempFile("", feedTempNick) // side-channel
+	if err != nil {
+		return err
+	}
+	nick := fillMe.Name()
+	tmpFillLogger := log.With(info, "fn", nick)
+	level.Debug(tmpFillLogger).Log("event", "new tempfile")
+	defer fillMe.Close()
+
+	tmpLog, err := repo.OpenLog(g.repo, "tmpfeeds", nick)
+	if err != nil {
+		return errors.Wrapf(err, "fetch: failed to open temp log for %s")
+	}
+	var lastTmpSeq margaret.Seq
 	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
 		if err != nil {
+			tcerr := tmpLog.Close()
+			tmpfcerr := fillMe.Close()
+			level.Info(tmpFillLogger).Log("event", "closed verify sink", "seq", lastTmpSeq,
+				"tcerr", tcerr,
+				"tmpferr", tmpfcerr,
+				"err", err,
+			)
 			if luigi.IsEOS(err) {
 				return nil
+
 			}
 			return err
 		}
-		_, err = g.ReceiveLog.Append(val)
+
+		lastTmpSeq, err = tmpLog.Append(val)
+		if err != nil {
+			return errors.Wrap(err, "failed to append verified message to rootLog")
+		}
+
+		msg := val.(refs.Message)
+		fillMe.Write(msg.ValueContentJSON())
+		//_, err = g.ReceiveLog.Append(val)
 		return errors.Wrap(err, "failed to append verified message to rootLog")
 	})
+	defer store.Close()
 
 	var (
 		src luigi.Source
@@ -237,7 +275,7 @@ func (g *handler) fetchFeed(
 		return val, nil
 	})
 
-	// info.Log("starting", "fetch")
+	//	info.Log("starting", "fetch")
 	err = luigi.Pump(toLong, snk, src)
 	return errors.Wrap(err, "gossip pump failed")
 }

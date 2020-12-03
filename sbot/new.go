@@ -454,13 +454,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.systemGauge,
 		s.eventCounter,
 	)
-	s.public.Register(gossip.New(ctx,
+	s.public.Register(gossip.NewFetcher(ctx,
 		kitlog.With(log, "unit", "gossip"),
+		r,
 		s.KeyPair.Id, s.ReceiveLog, s.Users, fm, s.Replicator.Lister(),
 		histOpts...))
 
 	// incoming createHistoryStream handler
-	hist := gossip.NewHist(ctx,
+	hist := gossip.NewServer(ctx,
 		kitlog.With(log, "unit", "gossip/hist"),
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,

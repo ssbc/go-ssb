@@ -20,10 +20,13 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 type handler struct {
+	repo repo.Interface
+
 	Id         *refs.FeedRef
 	ReceiveLog margaret.Log
 	UserFeeds  multilog.MultiLog

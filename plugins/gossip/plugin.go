@@ -5,14 +5,15 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -22,9 +23,11 @@ type HopCount int
 
 type Promisc bool
 
-func New(
+// NewFetcher returns a muxrpc handler plugin which requests and verifies feeds, based on the passed replication lister.
+func NewFetcher(
 	ctx context.Context,
 	log logging.Interface,
+	r repo.Interface,
 	id *refs.FeedRef,
 	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
@@ -33,6 +36,8 @@ func New(
 	opts ...interface{},
 ) *plugin {
 	h := &handler{
+		repo: r,
+
 		Id: id,
 
 		ReceiveLog:  rxlog,
@@ -42,9 +47,6 @@ func New(
 
 		Info:    log,
 		rootCtx: ctx,
-
-		activeLock:  &sync.Mutex{},
-		activeFetch: make(map[string]struct{}),
 	}
 
 	for i, o := range opts {
@@ -60,7 +62,7 @@ func New(
 		case Promisc:
 			h.promisc = bool(v)
 		default:
-			log.Log("warning", "unhandled option", "i", i, "type", fmt.Sprintf("%T", o))
+			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
 	}
 	if h.hopCount == 0 {
@@ -70,7 +72,8 @@ func New(
 	return &plugin{h}
 }
 
-func NewHist(
+// NewServer just handles the "supplying" side of gossip replication.
+func NewServer(
 	ctx context.Context,
 	log logging.Interface,
 	id *refs.FeedRef,
@@ -90,10 +93,6 @@ func NewHist(
 
 		Info:    log,
 		rootCtx: ctx,
-
-		// not using fetch here
-		activeLock:  nil,
-		activeFetch: nil,
 	}
 
 	for i, o := range opts {
@@ -109,7 +108,7 @@ func NewHist(
 		case HMACSecret:
 			h.hmacSec = v
 		default:
-			log.Log("warning", "unhandled hist option", "i", i, "type", fmt.Sprintf("%T", o))
+			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
 	}
 
