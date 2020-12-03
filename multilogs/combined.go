@@ -442,7 +442,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			}
 			return nil, boxedData[:n], nil
 		} else {
-			return nil, nil, errors.Errorf("private/ssb1: unknown content type: %q", input[len(input)-5:])
+			return nil, nil, errors.Errorf("private/ssb1: unknown content type: %q", input[len(input)-10:])
 		}
 
 		// gg supports pure binary data

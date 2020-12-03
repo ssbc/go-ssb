@@ -160,8 +160,6 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	_, err = botD.PublishLog.Append(refs.NewContactFollow(botC.KeyPair.Id))
 	r.NoError(err)
 
-	time.Sleep(time.Second * 15)
-
 	var msgCnt = 4 * 3
 
 	msgCnt += testMessageCount

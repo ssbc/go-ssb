@@ -95,7 +95,7 @@ var app = cli.App{
 	},
 }
 
-// Color by level
+// Color by error type
 func colorFn(keyvals ...interface{}) term.FgBgColor {
 	for i := 1; i < len(keyvals); i += 2 {
 		if _, ok := keyvals[i].(error); ok {
