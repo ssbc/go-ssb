@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"time"
 
@@ -181,6 +182,8 @@ func (g *handler) fetchFeed(
 				return ssb.ErrWrongSequence{Ref: fr, Stored: latestMsg, Logical: latestSeq}
 			}
 		}
+	default:
+		return errors.Errorf("unexpected return value from index: %T", latest)
 	}
 
 	startSeq := latestSeq
@@ -211,6 +214,10 @@ func (g *handler) fetchFeed(
 
 	method := muxrpc.Method{"createHistoryStream"}
 
+	// write new (and verified) feed messages to a tmplog
+	// for controlled ingestion by the receivelog and its indexes
+	// problem: how do we detect staleness on live queries?
+
 	feedTempNick := fmt.Sprintf("feed-%x-*", fr.ID[:8])
 	fillMe, err := ioutil.TempFile("", feedTempNick) // side-channel
 	if err != nil {
@@ -225,19 +232,21 @@ func (g *handler) fetchFeed(
 	if err != nil {
 		return errors.Wrapf(err, "fetch: failed to open temp log for %s")
 	}
-	var lastTmpSeq margaret.Seq
+	var lastTmpSeq margaret.Seq = margaret.BaseSeq(-1)
 	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
 		if err != nil {
 			tcerr := tmpLog.Close()
 			tmpfcerr := fillMe.Close()
-			level.Info(tmpFillLogger).Log("event", "closed verify sink", "seq", lastTmpSeq,
-				"tcerr", tcerr,
-				"tmpferr", tmpfcerr,
-				"err", err,
-			)
+			if lastTmpSeq.Seq() != -1 {
+				level.Info(tmpFillLogger).Log("event", "closed verify sink", "seq", lastTmpSeq,
+					"tcerr", tcerr,
+					"tmpferr", tmpfcerr,
+					"err", err,
+				)
+			}
+			os.Remove(nick)
 			if luigi.IsEOS(err) {
 				return nil
-
 			}
 			return err
 		}

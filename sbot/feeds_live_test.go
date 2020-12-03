@@ -570,7 +570,7 @@ initialSync:
 				t.Log("initsync done")
 				break initialSync
 			}
-			t.Log("continuing initialSync..")
+			t.Log("continuing initialSync..", z)
 		}
 	}
 

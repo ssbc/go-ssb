@@ -139,6 +139,7 @@ func (ld streamDrain) Close() error { return ld.storage.Close() }
 // ValidateNext checks the author stays the same across the feed,
 // that he previous hash is correct and that the sequence number is increasing correctly
 // TODO: move all the message's publish and drains to it's own package
+// TODO2: get skip-next implementation from other branch
 func ValidateNext(current, next refs.Message) error {
 	if current != nil {
 		author := current.Author()

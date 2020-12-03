@@ -326,7 +326,7 @@ func WithInfo(log kitlog.Logger) Option {
 // Canceling the context also shuts down indexing. If no context is passed sbot.Shutdown() can be used.
 func WithContext(ctx context.Context) Option {
 	return func(s *Sbot) error {
-		s.rootCtx = ctx
+		s.rootCtx, s.Shutdown = ShutdownContext(ctx)
 		return nil
 	}
 }
@@ -507,7 +507,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	if s.rootCtx == nil {
-		s.rootCtx = context.TODO()
+		s.rootCtx, s.Shutdown = ShutdownContext(context.Background())
 	}
 
 	r := repo.New(s.repoPath)
