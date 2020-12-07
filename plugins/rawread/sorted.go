@@ -45,14 +45,9 @@ func NewSortedStream(log log.Logger, rootLog margaret.Log, res *repo.SequenceRes
 	return plug
 }
 
-func (lt sortedPlug) Name() string { return "createFeedStream" }
-
-func (sortedPlug) Method() muxrpc.Method {
-	return muxrpc.Method{"createFeedStream"}
-}
-func (lt sortedPlug) Handler() muxrpc.Handler {
-	return lt.h
-}
+func (lt sortedPlug) Name() string            { return "createFeedStream" }
+func (sortedPlug) Method() muxrpc.Method      { return muxrpc.Method{"createFeedStream"} }
+func (lt sortedPlug) Handler() muxrpc.Handler { return lt.h }
 
 func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
 	start := time.Now()

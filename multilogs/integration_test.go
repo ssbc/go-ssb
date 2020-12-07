@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb/repo"
@@ -201,11 +202,13 @@ func TestStaticRepos(t *testing.T) {
 			a.Equal(len(tc.HeadCount), len(addrs))
 
 			for i, addr := range addrs {
-				var sr refs.StorageRef
-				err := sr.Unmarshal([]byte(addr))
+				var sr tfk.Feed
+				err := sr.UnmarshalBinary([]byte(addr))
 				r.NoError(err, "ref %d invalid", i)
 
-				seq, has := tc.HeadCount[sr.Ref()]
+				fr := sr.Feed().Ref()
+				seq, has := tc.HeadCount[fr]
+				r.True(has, "feed not found:%s", fr)
 
 				sublog, err := ml.Get(addr)
 				r.NoError(err)
@@ -214,9 +217,9 @@ func TestStaticRepos(t *testing.T) {
 				r.NoError(err)
 				sublogSeq := sv.(margaret.Seq).Seq()
 
-				if a.True(has, "ref %s not in set (has:%d)", sr.Ref(), sublogSeq) {
-
-					a.EqualValues(seq, sublogSeq, "%s: sublog %s has wrong number of messages", tc.Name, sr.Ref())
+				if a.True(has, "ref %s not in set (has:%d)", fr, sublogSeq) {
+					a.EqualValues(seq, sublogSeq,
+						"%s: sublog %s has wrong number of messages", tc.Name, fr)
 				}
 			}
 			r.NoError(ml.Close())

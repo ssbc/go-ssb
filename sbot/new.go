@@ -148,7 +148,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		{"tangles", &s.Tangles},
 	}
 	for _, index := range mlogs {
-		mlogPath := r.GetPath(repo.PrefixMultiLog, index.Name, "fs-bitmaps")
+		mlogPath := r.GetPath(repo.PrefixMultiLog, "combined", index.Name, "fs-bitmaps")
 
 		ml, err := multifs.NewMultiLog(mlogPath)
 		if err != nil {
@@ -391,7 +391,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	// publish
-	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.ReceiveLog))
+	authorLog, err := s.Users.Get(storedrefs.Feed(s.KeyPair.Id))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open user private index")
+	}
+	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.Groups, authorLog))
 
 	// private
 	// TODO: box2
@@ -460,7 +464,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.public.Register(hist)
 
 	// get idx muxrpc handler
-	s.master.Register(get.New(s, s.ReceiveLog))
+	s.master.Register(get.New(s, s.ReceiveLog, s.Groups))
 
 	//
 	s.master.Register(namesPlug)

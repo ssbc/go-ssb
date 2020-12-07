@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -33,6 +34,8 @@ func (ts SortedSeqSlice) Swap(i int, j int) {
 	ts[i], ts[j] = ts[j], ts[i]
 }
 
+// AsLuigiSource returns a luigi.Source to iterate over the sorted array.
+// Helpful for retrofitting into existing margaret code.
 func (ts SortedSeqSlice) AsLuigiSource() luigi.Source {
 	return &sortedSource{
 		elems: ts,
@@ -338,7 +341,7 @@ func (sr *SequenceResolver) Load() (int64, error) {
 	}
 
 	for _, idx := range idxes {
-		f, err := os.Open(sr.repo.GetPath("seqmaps", idx.name))
+		f, err := os.Open(sr.indexPath(idx.name))
 		if err != nil {
 			if os.IsNotExist(err) {
 				return 0, nil
@@ -371,13 +374,17 @@ func (sr *SequenceResolver) Load() (int64, error) {
 	return int64(len(sr.seq2claimed)), nil
 }
 
+func (sr *SequenceResolver) indexPath(name string) string {
+	return sr.repo.GetPath(PrefixMultiLog, "combined", "seqmaps", name)
+}
+
 // Serialize does the reverse from Load. It saves the three domains to disk.
 func (sr *SequenceResolver) Serialize() error {
 	if err := sr.checkConsistency(); err != nil {
 		return err
 	}
 
-	os.MkdirAll(sr.repo.GetPath("seqmaps"), 0700)
+	os.MkdirAll(filepath.Dir(sr.indexPath("create.dir")), 0700)
 
 	var idxes = []struct {
 		name string
@@ -404,7 +411,7 @@ func (sr *SequenceResolver) Serialize() error {
 			return fmt.Errorf("seq resolver: failed to close temfile for %s: %w", idx.name, err)
 		}
 
-		err = moveFile(f.Name(), sr.repo.GetPath("seqmaps", idx.name))
+		err = moveFile(f.Name(), sr.indexPath(idx.name))
 		if err != nil {
 			return fmt.Errorf("seq resolver: failed to move updated file in place %s: %w", idx.name, err)
 		}

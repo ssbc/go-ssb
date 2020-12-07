@@ -8,10 +8,10 @@ import (
 	"log"
 
 	"github.com/pkg/errors"
-	"github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -19,27 +19,24 @@ type plugin struct {
 	h muxrpc.Handler
 }
 
-func (p plugin) Name() string {
-	return "get"
-}
+func (p plugin) Name() string            { return "get" }
+func (p plugin) Method() muxrpc.Method   { return muxrpc.Method{"get"} }
+func (p plugin) Handler() muxrpc.Handler { return p.h }
 
-func (p plugin) Method() muxrpc.Method {
-	return muxrpc.Method{"get"}
-}
-
-func (p plugin) Handler() muxrpc.Handler {
-	return p.h
-}
-
-func New(g ssb.Getter, rl margaret.Log) ssb.Plugin {
+func New(g ssb.Getter, rxlog margaret.Log, unboxer *private.Manager) ssb.Plugin {
 	return plugin{
-		h: handler{g: g, rl: rl},
+		h: handler{
+			get:     g,
+			rxlog:   rxlog,
+			unboxer: unboxer,
+		},
 	}
 }
 
 type handler struct {
-	g  ssb.Getter
-	rl margaret.Log
+	get     ssb.Getter
+	rxlog   margaret.Log
+	unboxer *private.Manager
 }
 
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
@@ -53,18 +50,26 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		input  string
 		parsed *refs.MessageRef
 		err    error
+
+		// decrypt a private message
+		unboxPrivate bool
 	)
 	switch v := req.Args()[0].(type) {
 	case string:
 		input = v
 	case map[string]interface{}:
-		goon.Dump(v)
 		refV, ok := v["id"]
 		if !ok {
 			req.CloseWithError(errors.Errorf("invalid argument - missing 'id' in map"))
 			return
 		}
 		input = refV.(string)
+
+		if v, has := v["private"]; has {
+			if yes, isBool := v.(bool); isBool {
+				unboxPrivate = yes
+			}
+		}
 	default:
 		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
 		return
@@ -76,15 +81,27 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		return
 	}
 
-	msg, err := h.g.Get(*parsed)
+	msg, err := h.get.Get(*parsed)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "failed to load message"))
 		return
 	}
-
 	var kv refs.KeyValueRaw
 	kv.Key_ = msg.Key()
 	kv.Value = *msg.ValueContent()
+
+	if unboxPrivate {
+		cleartext, err := h.unboxer.DecryptMessage(msg)
+		if err == nil {
+			kv.Value.Meta = make(map[string]interface{}, 1)
+			kv.Value.Meta["private"] = true
+
+			kv.Value.Content = cleartext
+		} else if err != private.ErrNotBoxed {
+			req.CloseWithError(errors.Wrap(err, "failed to decrypt message"))
+			return
+		}
+	}
 
 	err = req.Return(ctx, kv)
 	if err != nil {

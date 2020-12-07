@@ -236,6 +236,8 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.Me
 	return plain, err
 }
 
+var ErrNotBoxed = fmt.Errorf("private: not a boxed message")
+
 func (mgr *Manager) DecryptMessage(m refs.Message) ([]byte, error) {
 
 	if ctxt, err := mgr.DecryptBox2Message(m); err == nil {
@@ -246,7 +248,7 @@ func (mgr *Manager) DecryptMessage(m refs.Message) ([]byte, error) {
 		return ctxt, nil
 	}
 
-	return nil, fmt.Errorf("private: not a boxed message")
+	return nil, ErrNotBoxed
 }
 
 func (mgr *Manager) DecryptBox1Message(m refs.Message) ([]byte, error) {
@@ -285,7 +287,10 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 
 		cleartxt, err := mgr.DecryptMessage(msg)
 		if err != nil {
-			return v, nil
+			if errors.Cause(err) == ErrNotBoxed {
+				return v, nil
+			}
+			return nil, err
 		}
 
 		var rv refs.KeyValueRaw
@@ -298,8 +303,8 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 
 		rv.Value.Content = cleartxt
 
-		rv.Meta = make(map[string]interface{})
-		rv.Meta["private"] = true
+		rv.Value.Meta = make(map[string]interface{})
+		rv.Value.Meta["private"] = true
 
 		return rv, nil
 	})

@@ -88,8 +88,8 @@ var app = cli.App{
 		replicateUptoCmd,
 		repliesStreamCmd,
 		callCmd,
+		getCmd,
 		connectCmd,
-		queryCmd,
 		publishCmd,
 		groupsCmd,
 	},
@@ -236,6 +236,38 @@ CAVEAT: only one argument...
 	},
 }
 
+var getCmd = &cli.Command{
+	Name:  "get",
+	Usage: "get a signle message from the database by key (%...)",
+	Flags: []cli.Flag{&cli.BoolFlag{Name: "private"}},
+	Action: func(ctx *cli.Context) error {
+		key, err := refs.ParseMessageRef(ctx.Args().First())
+		if err != nil {
+			return fmt.Errorf("failed to validate message ref: %w", err)
+		}
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		arg := struct {
+			ID      *refs.MessageRef `json:"id"`
+			Private bool             `json:"private"`
+		}{key, ctx.Bool("private")}
+
+		var val interface{}
+		val, err = client.Async(longctx, val, muxrpc.Method{"get"}, arg)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "get reply")
+		jsonDrain(os.Stdout).Pour(longctx, val)
+		return nil
+
+	},
+}
+
 var connectCmd = &cli.Command{
 	Name:  "connect",
 	Usage: "connect to a remote peer",
@@ -253,6 +285,8 @@ var connectCmd = &cli.Command{
 		var val interface{}
 		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
 		if err != nil {
+			level.Warn(log).Log("event", "connect command failed", "err", err)
+
 			// js fallback (our mux doesnt support authed namespaces)
 			val, err = client.Async(longctx, val, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
@@ -309,6 +343,10 @@ var groupsCmd = &cli.Command{
 		groupsInviteCmd,
 		groupsPublishToCmd,
 		groupsJoinCmd,
+		/* TODO:
+		groupsListCmd,
+		groupsMembersCmd,
+		*/
 	},
 }
 

@@ -4,32 +4,41 @@
 package publish
 
 import (
+	"sync"
+
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/muxmux"
+	"go.cryptoscope.co/ssb/private"
 )
 
-type publishPlug struct {
-	h muxrpc.Handler
+type publishPlug struct{ h muxrpc.Handler }
+
+func NewPlug(
+	i logging.Interface,
+	publish ssb.Publisher,
+	boxer *private.Manager,
+	authorLog margaret.Log,
+) ssb.Plugin {
+	mux := muxmux.New(i)
+	p := publishPlug{h: &mux}
+
+	var publishMu sync.Mutex
+
+	mux.RegisterAsync(p.Method(), &handler{
+		info: i,
+
+		publishMu: &publishMu,
+		publish:   publish,
+		authorLog: authorLog,
+
+		boxer: boxer,
+	})
+	return p
 }
 
-func NewPlug(i logging.Interface, publish ssb.Publisher, rootLog margaret.Log) ssb.Plugin {
-	return &publishPlug{h: handler{
-		publish: publish,
-		rootLog: rootLog,
-		info:    i,
-	}}
-}
-
-func (p publishPlug) Name() string {
-	return "publish"
-}
-
-func (p publishPlug) Method() muxrpc.Method {
-	return muxrpc.Method{"publish"}
-}
-
-func (p publishPlug) Handler() muxrpc.Handler {
-	return p.h
-}
+func (p publishPlug) Name() string            { return "publish" }
+func (p publishPlug) Method() muxrpc.Method   { return muxrpc.Method{"publish"} }
+func (p publishPlug) Handler() muxrpc.Handler { return p.h }
