@@ -35,7 +35,7 @@ var (
 	// a running tally of how many times makeNamedTestBot() was called
 	// is also used to alternate between feed formats per bot
 	botCnt byte = 0
-)
+) //
 
 func init() {
 	// shifts the keypair order around each time
@@ -46,7 +46,7 @@ func init() {
 func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 	r := require.New(t)
 	if testing.Short() {
-		testMessageCount = 25
+		testMessageCount = 15
 	}
 
 	testPath := filepath.Join("testrun", t.Name(), "bot-"+name)
@@ -100,20 +100,25 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 	netOpts := []Option{
 		WithAppKey(appKey),
+		WithContext(ctx),
 		WithHMACSigning(hmacKey),
 	}
 
 	botA := makeNamedTestBot(t, "A", netOpts)
 	botgroup.Go(bs.Serve(botA))
+	t.Log("botA:", botA.KeyPair.Id.ShortRef())
 
 	botB := makeNamedTestBot(t, "B", netOpts)
 	botgroup.Go(bs.Serve(botB))
+	t.Log("botB:", botB.KeyPair.Id.ShortRef())
 
 	botC := makeNamedTestBot(t, "C", netOpts)
 	botgroup.Go(bs.Serve(botC))
+	t.Log("botC:", botC.KeyPair.Id.ShortRef())
 
 	botD := makeNamedTestBot(t, "D", netOpts)
 	botgroup.Go(bs.Serve(botD))
+	t.Log("botD:", botD.KeyPair.Id.ShortRef())
 
 	// be-friend the network
 	botA.Replicate(botB.KeyPair.Id)
@@ -183,6 +188,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	theBots := []*Sbot{botA, botB, botC, botD}
 	initialSync(t, theBots, msgCnt)
 
+	t.Log("connecting the chain")
 	// dial up A->B, B->C, C->D
 	err = botA.Network.Connect(ctx, botB.Network.GetListenAddr())
 	r.NoError(err)
@@ -203,7 +209,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 	r.EqualValues(wantSeq, seqv, "after connect check on bot B")
 
-	// should now have 5 msgs now (the two contact messages from C on A + 3 tests)
+	// should now have N  msgs now (the two contact messages from C on A + 3 tests)
 	seqv, err = feedOfBotD.Seq().Value()
 	r.NoError(err)
 	r.EqualValues(wantSeq, seqv, "should have all of C's messages")
@@ -221,8 +227,8 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 	t.Log("starting live test")
 
-	// now publish on C and let them bubble to A, live without reconnect
-
+	// now publish on D and let them bubble to A, live without reconnect
+	timeouts := 0
 	for i := 0; i < testMessageCount; i++ {
 		rxSeq, err := botD.PublishLog.Append(refs.NewPost("some test msg"))
 		r.NoError(err)
@@ -233,12 +239,14 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		select {
 		case <-time.After(time.Second / 2):
 			t.Errorf("timeout %d....", i)
+			timeouts++
 		case msg, ok := <-gotMsg:
 			r.True(ok, "%d: gotMsg closed", i)
 			a.EqualValues(margaret.BaseSeq(testMessageCount+4+i), msg.Seq(), "wrong seq on try %d", i)
 			delayHist.Add(time.Since(published).Seconds())
 		}
 	}
+	a.EqualValues(0, timeouts, "too many timeouts")
 
 	cancel()
 	time.Sleep(1 * time.Second)
@@ -370,6 +378,10 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 			a.EqualValues(margaret.BaseSeq(2+i), seq.Seq(), "wrong seq")
 		}
 	}
+
+	final, err := alisLog.Seq().Value()
+	r.NoError(err)
+	a.EqualValues(margaret.BaseSeq(testMessageCount), final.(margaret.Seq).Seq(), "wrong seq")
 
 	// cleanup
 	err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
@@ -581,7 +593,10 @@ initialSync:
 		a.EqualValues(expectedMsgCount-1, sv.(margaret.Seq).Seq(), "wrong rxSeq on bot %d", i)
 		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		r.NoError(err, "FSCK error on bot %d", i)
-		bot.Network.GetConnTracker().CloseAll()
+		ct := bot.Network.GetConnTracker()
+		ct.CloseAll()
+		time.Sleep(1 * time.Second)
+		r.EqualValues(ct.Count(), 0, "%d still has connectons", i)
 	}
 
 }

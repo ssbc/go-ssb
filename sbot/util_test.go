@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+
+	"go.cryptoscope.co/ssb"
 )
 
 type botServer struct {
@@ -20,7 +22,7 @@ func (bs botServer) Serve(s *Sbot) func() error {
 	return func() error {
 		err := s.Network.Serve(bs.ctx)
 		if err != nil {
-			if err == context.Canceled {
+			if err == ssb.ErrShuttingDown {
 				return nil
 			}
 			level.Warn(bs.log).Log("event", "bot serve exited", "err", err)

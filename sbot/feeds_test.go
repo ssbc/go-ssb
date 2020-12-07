@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
@@ -29,7 +28,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
 	a := assert.New(t)
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := ShutdownContext(context.TODO())
 
 	os.RemoveAll("testrun")
 
@@ -92,20 +91,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	})
 
 	ali.Replicate(bob.KeyPair.Id)
-	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.Id))
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
-
 	bob.Replicate(ali.KeyPair.Id)
-	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.Id))
-	r.NoError(err)
-
-	ali.PublishLog.Publish(refs.NewPost("hello, world"))
-	bob.PublishLog.Publish(refs.NewPost("hello, world"))
-	g, err := bob.GraphBuilder.Build()
-	r.NoError(err)
-	time.Sleep(250 * time.Millisecond)
-	r.True(g.Follows(bob.KeyPair.Id, ali.KeyPair.Id))
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
@@ -113,18 +99,24 @@ func TestFeedsOneByOne(t *testing.T) {
 	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
 	r.NoError(err)
 
-	for i := 0; i < 50; i++ {
-		t.Logf("runniung connect %d", i)
-		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
-		r.NoError(err)
-		time.Sleep(100 * time.Millisecond)
-		bob.Network.GetConnTracker().CloseAll()
+	n := 50
+	if testing.Short() {
+		n = 3
+	}
 
-		_, err := ali.PublishLog.Append(map[string]interface{}{
+	for i := 0; i < n; i++ {
+		newSeq, err := ali.PublishLog.Append(map[string]interface{}{
 			"type": "test-value",
 			"test": i,
 		})
 		r.NoError(err)
+		t.Log("published", newSeq)
+
+		t.Logf("connecting (%d)", i)
+		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+		r.NoError(err)
+		time.Sleep(250 * time.Millisecond)
+		bob.Network.GetConnTracker().CloseAll()
 
 		seqv, err := alisLog.Seq().Value()
 		r.NoError(err)

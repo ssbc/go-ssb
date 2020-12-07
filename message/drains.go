@@ -4,9 +4,9 @@
 package message
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -18,12 +18,17 @@ import (
 	"go.cryptoscope.co/ssb/message/legacy"
 )
 
+type SequencedSink interface {
+	margaret.Seq
+	luigi.Sink
+}
+
 // NewVerifySink returns a sink that does message verification and appends corret messages to the passed log.
 // it has to be used on a feed by feed bases, the feed format is decided by the passed feed reference.
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, snk luigi.Sink, hmacKey *[32]byte) luigi.Sink {
+func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, snk luigi.Sink, hmacKey *[32]byte) SequencedSink {
 
 	sd := &streamDrain{
 		who:       who,
@@ -85,6 +90,7 @@ func (gv gabbyVerify) Verify(v interface{}) (msg refs.Message, err error) {
 	}
 
 	defer func() {
+		// TODO: change cbor encoder in gg
 		if r := recover(); r != nil {
 			if panicErr, ok := r.(error); ok {
 				err = errors.Wrap(panicErr, "gabbyVerify: recovered from panic")
@@ -107,26 +113,39 @@ type streamDrain struct {
 	who *refs.FeedRef // which feed is pulled
 
 	// holds onto the current/newest method (for sequence check and prev hash compare)
+	mu        sync.Mutex
 	latestSeq margaret.BaseSeq
 	latestMsg refs.Message
 
-	storage luigi.Sink
+	storage luigi.Sink // TODO: change to margaret.Log
+}
+
+func (ld *streamDrain) Seq() int64 {
+	ld.mu.Lock()
+	defer ld.mu.Unlock()
+	return int64(ld.latestSeq)
 }
 
 func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
+	ld.mu.Lock()
+	defer ld.mu.Unlock()
+
 	next, err := ld.verify.Verify(v)
 	if err != nil {
-		return errors.Wrapf(err, "muxDrain(%s:%d) verify failed", ld.who.ShortRef(), ld.latestSeq.Seq())
+		return errors.Wrapf(err, "message(%s:%d) verify failed", ld.who.ShortRef(), ld.latestSeq.Seq())
 	}
 
 	err = ValidateNext(ld.latestMsg, next)
 	if err != nil {
+		if err == errSkip {
+			return nil
+		}
 		return err
 	}
 
 	err = ld.storage.Pour(ctx, next)
 	if err != nil {
-		return errors.Wrapf(err, "muxDrain(%s): failed to append message(%s:%d)", ld.who.ShortRef(), next.Key().Ref(), next.Seq())
+		return errors.Wrapf(err, "message(%s): failed to append message(%s:%d)", ld.who.ShortRef(), next.Key().Ref(), next.Seq())
 	}
 
 	ld.latestSeq = margaret.BaseSeq(next.Seq())
@@ -134,37 +153,46 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 	return nil
 }
 
-func (ld streamDrain) Close() error { return ld.storage.Close() }
+func (ld streamDrain) Close() error { return nil } //ld.storage.Close() }
+
+var errSkip = errors.New("ValidateNext: already got message")
 
 // ValidateNext checks the author stays the same across the feed,
 // that he previous hash is correct and that the sequence number is increasing correctly
 // TODO: move all the message's publish and drains to it's own package
-// TODO2: get skip-next implementation from other branch
 func ValidateNext(current, next refs.Message) error {
-	if current != nil {
-		author := current.Author()
+	nextSeq := next.Seq()
+	currSeq := current.Seq()
+	shouldSkip := next.Seq() > currSeq+1
 
-		if !author.Equal(next.Author()) {
-			return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
-		}
+	author := current.Author()
+	if !author.Equal(next.Author()) {
+		return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
+	}
 
-		if bytes.Compare(current.Key().Hash, next.Previous().Hash) != 0 {
-			return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
-				author.Ref(),
-				current.Seq(),
-				current.Key().Ref(),
-				next.Previous().Ref(),
-			)
-		}
-		if current.Seq()+1 != next.Seq() {
-			return errors.Errorf("ValidateNext(%s:%d): next.seq != curr.seq+1", author.ShortRef(), current.Seq())
-		}
-
-	} else { // first message
-		nextSeq := next.Seq()
+	if currSeq == 0 {
 		if nextSeq != 1 {
-			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1", next.Author().ShortRef(), nextSeq)
+			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1, got %d", next.Author().ShortRef(), currSeq, nextSeq)
 		}
+		return nil
+	}
+
+	currKey := current.Key()
+
+	if currSeq+1 != nextSeq {
+		if shouldSkip {
+			return errSkip
+		}
+		return errors.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1", author.ShortRef(), currSeq, nextSeq)
+	}
+
+	if !currKey.Equal(next.Previous()) {
+		return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%v",
+			author.Ref(),
+			currSeq,
+			current.Key().Ref(),
+			next.Previous(),
+		)
 	}
 
 	return nil

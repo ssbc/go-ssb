@@ -6,9 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
 	"runtime"
 	"time"
 
@@ -17,18 +14,16 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/muxrpc/codec"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/luigiutils"
 	"go.cryptoscope.co/ssb/internal/neterr"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/repo"
 )
 
 func (h *handler) fetchAll(
@@ -117,79 +112,16 @@ func (g *handler) fetchFeed(
 		return ctx.Err()
 	default:
 	}
-	// check our latest
-	frAddr := storedrefs.Feed(fr)
-	/*
-		addr := string(frAddr)
-		g.activeLock.Lock()
-		_, ok := g.activeFetch[addr]
-		if ok {
-			level.Debug(g.Info).Log("fetchFeed", "crawl active", "addr", fr.ShortRef())
-			g.activeLock.Unlock()
-			return nil
-		}
 
-		if g.sysGauge != nil {
-			g.sysGauge.With("part", "fetches").Add(1)
-		}
-
-			g.activeFetch[addr] = struct{}{}
-			g.activeLock.Unlock()
-			defer func() {
-				g.activeLock.Lock()
-				delete(g.activeFetch, addr)
-				g.activeLock.Unlock()
-				if g.sysGauge != nil {
-					g.sysGauge.With("part", "fetches").Add(-1)
-				}
-			}()
-	*/
-	userLog, err := g.UserFeeds.Get(frAddr)
+	snk, err := g.verifySinks.GetSink(fr)
 	if err != nil {
-		return errors.Wrapf(err, "failed to open sublog for user")
+		return errors.Wrapf(err, "failed to get verify sink for feed")
 	}
-	latest, err := userLog.Seq().Value()
-	if err != nil {
-		return errors.Wrapf(err, "failed to observe latest")
-	}
-	var (
-		latestSeq margaret.BaseSeq
-		latestMsg refs.Message
-	)
-	switch v := latest.(type) {
-	case librarian.UnsetValue:
-		// nothing stored, fetch from zero
-	case margaret.BaseSeq:
-		latestSeq = v + 1 // sublog is 0-init while ssb chains start at 1
-		if v >= 0 {
-			rootLogValue, err := userLog.Get(v)
-			if err != nil {
-				return errors.Wrapf(err, "failed to look up root seq for latest user sublog")
-			}
-			msgV, err := g.ReceiveLog.Get(rootLogValue.(margaret.Seq))
-			if err != nil {
-				return errors.Wrapf(err, "failed retreive stored message")
-			}
-
-			var ok bool
-			latestMsg, ok = msgV.(refs.Message)
-			if !ok {
-				return errors.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
-			}
-
-			// make sure our house is in order
-			if hasSeq := latestMsg.Seq(); hasSeq != latestSeq.Seq() {
-				return ssb.ErrWrongSequence{Ref: fr, Stored: latestMsg, Logical: latestSeq}
-			}
-		}
-	default:
-		return errors.Errorf("unexpected return value from index: %T", latest)
-	}
-
+	var latestSeq = int(snk.Seq())
 	startSeq := latestSeq
 	info := log.With(g.Info, "event", "gossiprx",
 		"fr", fr.ShortRef(),
-		"latest", startSeq) // , "me", g.Id.ShortRef())
+		"starting", latestSeq) // , "me", g.Id.ShortRef())
 
 	var q = message.CreateHistArgs{
 		ID:         fr,
@@ -198,9 +130,7 @@ func (g *handler) fetchFeed(
 	}
 	q.Live = true
 
-	toLong, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer func() {
-		cancel()
 		if n := latestSeq - startSeq; n > 0 {
 			if g.sysGauge != nil {
 				g.sysGauge.With("part", "msgs").Add(float64(n))
@@ -214,77 +144,18 @@ func (g *handler) fetchFeed(
 
 	method := muxrpc.Method{"createHistoryStream"}
 
-	// write new (and verified) feed messages to a tmplog
-	// for controlled ingestion by the receivelog and its indexes
-	// problem: how do we detect staleness on live queries?
-
-	feedTempNick := fmt.Sprintf("feed-%x-*", fr.ID[:8])
-	fillMe, err := ioutil.TempFile("", feedTempNick) // side-channel
-	if err != nil {
-		return err
-	}
-	nick := fillMe.Name()
-	tmpFillLogger := log.With(info, "fn", nick)
-	level.Debug(tmpFillLogger).Log("event", "new tempfile")
-	defer fillMe.Close()
-
-	tmpLog, err := repo.OpenLog(g.repo, "tmpfeeds", nick)
-	if err != nil {
-		return errors.Wrapf(err, "fetch: failed to open temp log for %s")
-	}
-	var lastTmpSeq margaret.Seq = margaret.BaseSeq(-1)
-	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if err != nil {
-			tcerr := tmpLog.Close()
-			tmpfcerr := fillMe.Close()
-			if lastTmpSeq.Seq() != -1 {
-				level.Info(tmpFillLogger).Log("event", "closed verify sink", "seq", lastTmpSeq,
-					"tcerr", tcerr,
-					"tmpferr", tmpfcerr,
-					"err", err,
-				)
-			}
-			os.Remove(nick)
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-
-		lastTmpSeq, err = tmpLog.Append(val)
-		if err != nil {
-			return errors.Wrap(err, "failed to append verified message to rootLog")
-		}
-
-		msg := val.(refs.Message)
-		fillMe.Write(msg.ValueContentJSON())
-		//_, err = g.ReceiveLog.Append(val)
-		return errors.Wrap(err, "failed to append verified message to rootLog")
-	})
-	defer store.Close()
-
-	var (
-		src luigi.Source
-		snk luigi.Sink = message.NewVerifySink(fr, latestSeq, latestMsg, store, g.hmacSec)
-	)
-
+	var src luigi.Source
 	switch fr.Algo {
 	case refs.RefAlgoFeedSSB1:
-		src, err = edp.Source(toLong, json.RawMessage{}, method, q)
+		src, err = edp.Source(ctx, json.RawMessage{}, method, q)
 	case refs.RefAlgoFeedGabby:
-		src, err = edp.Source(toLong, codec.Body{}, method, q)
+		src, err = edp.Source(ctx, codec.Body{}, method, q)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
 
-	// count the received messages
-	snk = mfr.SinkMap(snk, func(_ context.Context, val interface{}) (interface{}, error) {
-		latestSeq++
-		return val, nil
-	})
-
-	//	info.Log("starting", "fetch")
-	err = luigi.Pump(toLong, snk, src)
+	// level.Info(info).Log("starting", "fetch")
+	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&latestSeq, snk), src)
 	return errors.Wrap(err, "gossip pump failed")
 }

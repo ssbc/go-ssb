@@ -13,13 +13,12 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 type HMACSecret *[32]byte
-
-type HopCount int
 
 type Promisc bool
 
@@ -55,8 +54,6 @@ func NewFetcher(
 			h.sysGauge = v
 		case metrics.Counter:
 			h.sysCtr = v
-		case HopCount:
-			h.hopCount = int(v)
 		case HMACSecret:
 			h.hmacSec = v
 		case Promisc:
@@ -65,9 +62,12 @@ func NewFetcher(
 			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
 	}
-	if h.hopCount == 0 {
-		h.hopCount = 1
+
+	snk, err := message.NewVerificationSinker(h.ReceiveLog, h.UserFeeds, h.hmacSec)
+	if err != nil {
+		panic(err)
 	}
+	h.verifySinks = snk
 
 	return &plugin{h}
 }
@@ -103,17 +103,11 @@ func NewServer(
 			h.sysCtr = v
 		case Promisc:
 			h.promisc = bool(v)
-		case HopCount:
-			h.hopCount = int(v)
 		case HMACSecret:
 			h.hmacSec = v
 		default:
 			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
-	}
-
-	if h.hopCount == 0 {
-		h.hopCount = 1
 	}
 
 	return histPlugin{h}

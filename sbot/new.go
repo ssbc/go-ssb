@@ -428,7 +428,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
-		gossip.HopCount(s.hopCount),
 		gossip.Promisc(s.promisc),
 	}
 

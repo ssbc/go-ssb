@@ -5,6 +5,7 @@ package gossip
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -33,9 +34,9 @@ type handler struct {
 	WantList   ssb.ReplicationLister
 	Info       logging.Interface
 
-	hmacSec  HMACSecret
-	hopCount int
-	promisc  bool // ask for remote feed even if it's not on owns fetch list
+	hmacSec HMACSecret
+
+	promisc bool // ask for remote feed even if it's not on owns fetch list
 
 	activeLock  *sync.Mutex
 	activeFetch map[string]struct{}
@@ -44,6 +45,8 @@ type handler struct {
 	sysCtr   metrics.Counter
 
 	feedManager *FeedManager
+
+	verifySinks *message.VerifySink
 
 	rootCtx context.Context
 }
@@ -62,22 +65,6 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	info := log.With(g.Info, "remote", remoteRef.ShortRef(), "event", "gossiprx")
 	start := time.Now()
 
-	// re-sync _our_ feed if we don't have it yet (re-onboarding of an existing feed)
-	hasSelf, err := multilog.Has(g.UserFeeds, storedrefs.Feed(g.Id))
-	if err != nil {
-		info.Log("handleConnect", "multilog.Has(self)", "err", err)
-		return
-	}
-
-	if !hasSelf {
-		info.Log("handleConnect", "oops - dont have my own feed. requesting...")
-		if err := g.fetchFeed(ctx, g.Id, e, time.Now()); err != nil {
-			info.Log("handleConnect", "fetchFeed self failed", "err", err)
-			return
-		}
-		info.Log("msg", "done fetching self")
-	}
-
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, storedrefs.Feed(remoteRef))
 		if err != nil {
@@ -94,10 +81,6 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			info.Log("msg", "done fetching callee")
 		}
 	}
-	if err := g.fetchFeed(ctx, g.Id, e, time.Now()); err != nil {
-		info.Log("handleConnect", "fetchFeed self failed", "err", err)
-		return
-	}
 
 	feeds := g.WantList.ReplicationList()
 	if feeds != nil {
@@ -107,28 +90,7 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 			return
 		}
 	}
-	level.Debug(info).Log("msg", "hops fetch done", "count", feeds.Count(), "took", time.Since(start))
-
-	tick := time.NewTicker(5 * time.Minute)
-	for {
-		start = time.Now()
-		select {
-		case <-ctx.Done():
-			tick.Stop()
-			return
-		case <-tick.C:
-		}
-		start := time.Now()
-		feeds := g.WantList.ReplicationList()
-		if feeds != nil {
-			err := g.fetchAll(ctx, e, feeds)
-			if err != nil {
-				level.Error(info).Log("msg", "hops failed", "err", err)
-				return
-			}
-		}
-		level.Debug(info).Log("msg", "timer fetch done", "count", feeds.Count(), "took", time.Since(start))
-	}
+	level.Info(info).Log("msg", "hops fetch done", "count", feeds.Count(), "took", time.Since(start))
 }
 
 func (g *handler) HandleCall(
@@ -142,7 +104,6 @@ func (g *handler) HandleCall(
 
 	hlog := log.With(g.Info, "event", "gossiptx")
 	errLog := level.Error(hlog)
-	dbgLog := level.Debug(hlog)
 
 	closeIfErr := func(err error) {
 		if err != nil {
@@ -155,11 +116,13 @@ func (g *handler) HandleCall(
 
 	switch req.Method.String() {
 
+	//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
 	case "createHistoryStream":
-		//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
-		args := req.Args()
-		if req.Type != "source" {
-			closeIfErr(errors.Errorf("wrong tipe. %s", req.Type))
+
+		var args []json.RawMessage
+		err := json.Unmarshal(req.RawArgs, &args)
+		if err != nil {
+			closeIfErr(errors.Wrap(err, "bad argumentss"))
 			return
 		}
 		if len(args) < 1 {
@@ -167,13 +130,9 @@ func (g *handler) HandleCall(
 			closeIfErr(err)
 			return
 		}
-		argMap, ok := args[0].(map[string]interface{})
-		if !ok {
-			err := errors.Errorf("ssb/message: not the right map - %T", args[0])
-			closeIfErr(err)
-			return
-		}
-		query, err := message.NewCreateHistArgsFromMap(argMap)
+
+		var query message.CreateHistArgs
+		err = json.Unmarshal(args[0], &query)
 		if err != nil {
 			closeIfErr(errors.Wrap(err, "bad request"))
 			return
@@ -185,7 +144,7 @@ func (g *handler) HandleCall(
 			return
 		}
 
-		// hlog = log.With(hlog, "fr", query.ID.ShortRef(), "remote", remote.ShortRef())
+		hlog = log.With(hlog, "fr", query.ID.ShortRef(), "remote", remote.ShortRef())
 		// dbgLog = level.Warn(hlog)
 
 		// skip this check for self/master or in promisc mode (talk to everyone)
@@ -193,7 +152,7 @@ func (g *handler) HandleCall(
 			blocks := g.WantList.BlockList()
 
 			if blocks.Has(query.ID) {
-				dbgLog.Log("msg", "feed blocked")
+				// dbgLog.Log("msg", "feed blocked")
 				req.Stream.Close()
 				return
 			}
@@ -225,14 +184,14 @@ func (g *handler) HandleCall(
 			// dbgLog.Log("msg", "feed access granted")
 		}
 
-		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, query)
+		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, &query)
 		if err != nil {
 			if luigi.IsEOS(err) {
 				req.Stream.Close()
 				return
 			}
 			err = errors.Wrap(err, "createHistoryStream failed")
-			level.Error(hlog).Log("err", err)
+			errLog.Log("err", err)
 			req.Stream.CloseWithError(err)
 			return
 		}
