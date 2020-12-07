@@ -83,7 +83,6 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 		for has := range wmgr.available {
 			sz, _ := wmgr.bs.Size(has.Want.Ref)
 			if sz > 0 {
-				level.Debug(wmgr.info).Log("msg", "skipping already stored blob")
 				continue
 			}
 
@@ -104,6 +103,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 				err := wmgr.getBlob(proc.rootCtx, proc.edp, has.Want.Ref)
 				if err == nil {
+					wmgr.l.Unlock()
 					continue workChan
 				}
 			}
@@ -468,7 +468,6 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
 				if uint(w.Dist) > proc.wmgr.maxSize {
-					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.ShortRef(), "diff", uint(w.Dist)-proc.wmgr.maxSize)
 					proc.wmgr.l.Lock()
 					delete(proc.wmgr.wants, w.Ref.Ref())
 					proc.wmgr.l.Unlock()

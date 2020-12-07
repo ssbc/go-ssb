@@ -6,8 +6,11 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
+
+	"github.com/go-kit/kit/log"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
@@ -71,20 +74,27 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 	m.liveFeedsMut.Lock()
 	defer m.liveFeedsMut.Unlock()
 
+	logger := log.With(m.logger, "event", "live-pour")
+
 	if err != nil {
 		if luigi.IsEOS(err) {
 			return nil
 		}
-		level.Error(m.logger).Log("event", "pour failed", "err", err)
+		level.Error(logger).Log("msg", "pour failed", "err", err)
 		return err
 	}
 
-	author := val.(margaret.SeqWrapper).Value().(refs.Message).Author()
+	msg := val.(margaret.SeqWrapper).Value().(refs.Message)
+	author := msg.Author()
+	logger = log.With(logger, "a", author.ShortRef(), "msg-seq", msg.Seq())
 	sink, ok := m.liveFeeds[author.Ref()]
 	if !ok {
+		// level.Warn(logger).Log("msg", "no sink for author")
 		return nil
 	}
-	return sink.Pour(ctx, val)
+	err = sink.Pour(ctx, val)
+	// level.Debug(logger).Log("msg", "poured message", "err", err)
+	return err
 }
 
 func (m *FeedManager) serveLiveFeeds() {
@@ -206,6 +216,8 @@ func (m *FeedManager) CreateStreamHistory(
 	if arg.ID == nil {
 		return errors.Errorf("bad request: missing id argument")
 	}
+	feedLogger := log.With(m.logger, "fr", fmt.Sprintf("%x", arg.ID.ID[:5]))
+
 	// check what we got
 	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))
 	if err != nil {
@@ -268,13 +280,14 @@ func (m *FeedManager) CreateStreamHistory(
 
 	sent := 0
 	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, sink), src)
+	// level.Error(feedLogger).Log("event", "feed pump returned", "err", err)
 
 	// track number of messages sent
 	if m.sysCtr != nil {
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
 		if sent > 0 {
-			level.Debug(m.logger).Log("event", "gossiptx", "n", sent, "fr", arg.ID.ShortRef())
+			level.Debug(feedLogger).Log("event", "gossiptx", "n", sent)
 		}
 	}
 

@@ -182,13 +182,12 @@ type countSink struct {
 }
 
 func (cs *countSink) Pour(ctx context.Context, val interface{}) error {
-	cs.info.Log("countSink", "got", "cnt", cs.cnt, "val", val)
+	cs.info.Log("countSink", "got", "cnt", cs.cnt) //, "val", fmt.Sprintf("%s (%T)", val, val))
 	cs.cnt++
 	return nil
 }
 
 func (cs *countSink) Close() error {
-	cs.info.Log(
-		"countSink", "closed")
+	cs.info.Log("countSink", "closed")
 	return nil
 }

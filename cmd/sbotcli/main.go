@@ -58,7 +58,7 @@ func init() {
 	keyFileFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "secret")
 	unixSockFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "socket")
 
-	log = term.NewColorLogger(os.Stdout, kitlog.NewLogfmtLogger, colorFn)
+	log = term.NewColorLogger(os.Stderr, kitlog.NewLogfmtLogger, colorFn)
 }
 
 var app = cli.App{
@@ -226,7 +226,7 @@ CAVEAT: only one argument...
 		if err != nil {
 			return errors.Wrapf(err, "%s: call failed.", cmd)
 		}
-		log.Log("event", "call reply")
+		level.Debug(log).Log("event", "call reply")
 		jsonReply, err := json.MarshalIndent(val, "", "  ")
 		if err != nil {
 			return errors.Wrapf(err, "%s: call failed.", cmd)
