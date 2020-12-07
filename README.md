@@ -336,4 +336,4 @@ badger failed to open: Mmap value log file. Path=C:\\some\\where\\.ssb-go\\index
 Either post to the #go-ssb channel on the mainnet or mention us individually:
 
 * cryptix: `@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519`
-* keks: `@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed2551`
+* keks: `@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519`
