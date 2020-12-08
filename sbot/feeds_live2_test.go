@@ -254,19 +254,23 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	botgroup.Go(makeChanWaiter(ctx, seqSrc, gotMsg))
 
 	// now publish on C and let them bubble to A, live without reconnect
+	timeouts := 0
 	for i := 0; i < testMessageCount; i++ {
 		rxSeq, err := botC.PublishLog.Append(refs.NewPost("some test msg"))
 		r.NoError(err)
 		r.Equal(margaret.BaseSeq(6+i), rxSeq)
+		//t.Log(rxSeq)
 
 		// received new message?
 		select {
 		case <-time.After(2 * time.Second):
 			t.Errorf("timeout %d....", i)
+			timeouts++
 		case msg := <-gotMsg:
 			a.EqualValues(margaret.BaseSeq(3+i), msg.Seq(), "wrong message seq")
 		}
 	}
+	a.Equal(0, timeouts, "expected no timeouts")
 
 	// cleanup
 	cancel()

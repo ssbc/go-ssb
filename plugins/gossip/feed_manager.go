@@ -2,17 +2,13 @@
 
 package gossip
 
-// TODO: Fetch streams concurrently.
-
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 
-	"github.com/go-kit/kit/log"
-
 	"github.com/cryptix/go/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/pkg/errors"
@@ -21,6 +17,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/luigiutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
@@ -84,16 +81,13 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 		return err
 	}
 
-	msg := val.(margaret.SeqWrapper).Value().(refs.Message)
+	msg := val.(refs.Message)
 	author := msg.Author()
-	logger = log.With(logger, "a", author.ShortRef(), "msg-seq", msg.Seq())
 	sink, ok := m.liveFeeds[author.Ref()]
 	if !ok {
-		// level.Warn(logger).Log("msg", "no sink for author")
 		return nil
 	}
-	err = sink.Pour(ctx, val)
-	// level.Debug(logger).Log("msg", "poured message", "err", err)
+	err = sink.Pour(ctx, msg.ValueContentJSON())
 	return err
 }
 
@@ -107,7 +101,6 @@ func (m *FeedManager) serveLiveFeeds() {
 	src, err := m.ReceiveLog.Query(
 		margaret.Gt(seqv.(margaret.BaseSeq)),
 		margaret.Live(true),
-		margaret.SeqWrap(true),
 	)
 	if err != nil {
 		panic(err)
@@ -216,7 +209,7 @@ func (m *FeedManager) CreateStreamHistory(
 	if arg.ID == nil {
 		return errors.Errorf("bad request: missing id argument")
 	}
-	feedLogger := log.With(m.logger, "fr", fmt.Sprintf("%x", arg.ID.ID[:5]))
+	feedLogger := log.With(m.logger, "fr", arg.ID.ShortRef())
 
 	// check what we got
 	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))
@@ -231,6 +224,14 @@ func (m *FeedManager) CreateStreamHistory(
 	if arg.Seq != 0 {
 		arg.Seq--             // our idx is 0 ed
 		if arg.Seq > latest { // more than we got
+			if arg.Live {
+				return m.addLiveFeed(
+					ctx, sink,
+					arg.ID.Ref(),
+					latest,
+					liveLimit(arg, latest),
+				)
+			}
 			return errors.Wrap(sink.Close(), "pour: failed to close")
 		}
 	}
@@ -274,13 +275,13 @@ func (m *FeedManager) CreateStreamHistory(
 		default:
 			sink = luigiutils.NewGabbyStreamSink(sink)
 		}
+
 	default:
 		return errors.Errorf("unsupported feed format.")
 	}
 
 	sent := 0
 	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, sink), src)
-	// level.Error(feedLogger).Log("event", "feed pump returned", "err", err)
 
 	// track number of messages sent
 	if m.sysCtr != nil {
@@ -301,7 +302,6 @@ func (m *FeedManager) CreateStreamHistory(
 	// cryptix: this seems to produce some hangs
 	// TODO: make tests with leaving and joining peers while messages are published
 	if arg.Live {
-		level.Warn(m.logger).Log("event", "adding live query", "for", arg.ID.ShortRef())
 		return m.addLiveFeed(
 			ctx, sink,
 			arg.ID.Ref(),

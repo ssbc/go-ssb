@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -26,6 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/network"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 var (
@@ -120,105 +120,46 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	botgroup.Go(bs.Serve(botD))
 	t.Log("botD:", botD.KeyPair.Id.ShortRef())
 
-	// be-friend the network
+	// replicate the network
 	botA.Replicate(botB.KeyPair.Id)
 	botA.Replicate(botC.KeyPair.Id)
 	botA.Replicate(botD.KeyPair.Id)
-
-	_, err := botA.PublishLog.Append(refs.NewContactFollow(botB.KeyPair.Id))
-	r.NoError(err)
-	_, err = botA.PublishLog.Append(refs.NewContactFollow(botC.KeyPair.Id))
-	r.NoError(err)
-	_, err = botA.PublishLog.Append(refs.NewContactFollow(botD.KeyPair.Id))
-	r.NoError(err)
 
 	botB.Replicate(botA.KeyPair.Id)
 	botB.Replicate(botC.KeyPair.Id)
 	botB.Replicate(botD.KeyPair.Id)
 
-	_, err = botB.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
-	r.NoError(err)
-	_, err = botB.PublishLog.Append(refs.NewContactFollow(botC.KeyPair.Id))
-	r.NoError(err)
-	_, err = botB.PublishLog.Append(refs.NewContactFollow(botD.KeyPair.Id))
-	r.NoError(err)
-
 	botC.Replicate(botA.KeyPair.Id)
 	botC.Replicate(botB.KeyPair.Id)
 	botC.Replicate(botD.KeyPair.Id)
-
-	_, err = botC.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
-	r.NoError(err)
-	_, err = botC.PublishLog.Append(refs.NewContactFollow(botB.KeyPair.Id))
-	r.NoError(err)
-	_, err = botC.PublishLog.Append(refs.NewContactFollow(botD.KeyPair.Id))
-	r.NoError(err)
 
 	botD.Replicate(botA.KeyPair.Id)
 	botD.Replicate(botB.KeyPair.Id)
 	botD.Replicate(botC.KeyPair.Id)
 
-	_, err = botD.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
-	r.NoError(err)
-	_, err = botD.PublishLog.Append(refs.NewContactFollow(botB.KeyPair.Id))
-	r.NoError(err)
-	_, err = botD.PublishLog.Append(refs.NewContactFollow(botC.KeyPair.Id))
-	r.NoError(err)
+	theBots := []*Sbot{botA, botB, botC, botD}
 
-	var msgCnt = 4 * 3
-
-	msgCnt += testMessageCount
-	for n := testMessageCount; n > 0; n-- {
-		tMsg := refs.NewPost(fmt.Sprintf("some pre-setup msg %d", n))
-		_, err := botD.PublishLog.Append(tMsg)
-		r.NoError(err)
-	}
-
-	// check feed of C is empty on bot A
 	uf, ok := botA.GetMultiLog("userFeeds")
 	r.True(ok)
 	feedOfBotD, err := uf.Get(storedrefs.Feed(botD.KeyPair.Id))
 	r.NoError(err)
 
-	seqv, err := feedOfBotD.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(margaret.BaseSeq(-1), seqv, "before connect check")
-
-	// initial sync
-	theBots := []*Sbot{botA, botB, botC, botD}
-	initialSync(t, theBots, msgCnt)
-
 	t.Log("connecting the chain")
 	// dial up A->B, B->C, C->D
 	err = botA.Network.Connect(ctx, botB.Network.GetListenAddr())
 	r.NoError(err)
+	time.Sleep(1 * time.Second)
 	err = botB.Network.Connect(ctx, botC.Network.GetListenAddr())
 	r.NoError(err)
+	time.Sleep(1 * time.Second)
 	err = botC.Network.Connect(ctx, botD.Network.GetListenAddr())
 	r.NoError(err)
-
-	// did B get feed C?
-	ufOfBotB, ok := botB.GetMultiLog("userFeeds")
-	r.True(ok)
-	feedOfBotDAtB, err := ufOfBotB.Get(storedrefs.Feed(botD.KeyPair.Id))
-	r.NoError(err)
-	seqv, err = feedOfBotDAtB.Seq().Value()
-	r.NoError(err)
-
-	wantSeq := margaret.BaseSeq(testMessageCount + 2)
-
-	r.EqualValues(wantSeq, seqv, "after connect check on bot B")
-
-	// should now have N  msgs now (the two contact messages from C on A + 3 tests)
-	seqv, err = feedOfBotD.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(wantSeq, seqv, "should have all of C's messages")
+	time.Sleep(1 * time.Second)
 
 	// setup live listener
 	gotMsg := make(chan refs.Message)
 
 	seqSrc, err := mutil.Indirect(botA.ReceiveLog, feedOfBotD).Query(
-		margaret.Gt(wantSeq),
 		margaret.Live(true),
 	)
 	r.NoError(err)
@@ -233,7 +174,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		rxSeq, err := botD.PublishLog.Append(refs.NewPost("some test msg"))
 		r.NoError(err)
 		published := time.Now()
-		r.Equal(margaret.BaseSeq(testMessageCount+12+i), rxSeq)
+		r.Equal(margaret.BaseSeq(i), rxSeq)
 
 		// received new message?
 		select {
@@ -241,8 +182,8 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 			t.Errorf("timeout %d....", i)
 			timeouts++
 		case msg, ok := <-gotMsg:
-			r.True(ok, "%d: gotMsg closed", i)
-			a.EqualValues(margaret.BaseSeq(testMessageCount+4+i), msg.Seq(), "wrong seq on try %d", i)
+			r.True(ok, "%d: got msg", i)
+			a.EqualValues(margaret.BaseSeq(i+1), msg.Seq(), "wrong seq on try %d", i)
 			delayHist.Add(time.Since(published).Seconds())
 		}
 	}

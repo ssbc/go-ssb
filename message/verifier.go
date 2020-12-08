@@ -21,6 +21,7 @@ func NewVerificationSinker(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec 
 		rxlog: rxlog,
 		feeds: feeds,
 
+		mu:    new(sync.Mutex),
 		sinks: make(verifyFanIn),
 	}, nil
 }
@@ -33,7 +34,7 @@ type VerifySink struct {
 
 	hmacSec *[32]byte
 
-	mu    sync.Mutex
+	mu    *sync.Mutex
 	sinks verifyFanIn
 }
 
@@ -44,7 +45,6 @@ func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
 	// do we have an open sink for this feed already?
 	snk, has := vs.sinks[ref.Ref()]
 	if has {
-
 		return snk, nil
 	}
 

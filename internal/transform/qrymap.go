@@ -48,6 +48,8 @@ func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
 
 		var abs refs.Message
 		switch tv := v.(type) {
+		case json.RawMessage:
+			return tv, nil
 		case refs.Message:
 			abs = tv
 		case margaret.SeqWrapper:
