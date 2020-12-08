@@ -151,6 +151,8 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			return err
 		}
 
+		logger := log.With(s.info, "index", name)
+
 		var ps progressSink
 		ps.backing = snk
 
@@ -159,7 +161,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 		ctx, cancel := context.WithCancel(s.rootCtx)
 		go func() {
 			p := progress.NewTicker(ctx, &ps, totalMessages, 7*time.Second)
-			pinfo := log.With(level.Info(s.info), "index", name, "event", "index-progress")
+			pinfo := log.With(level.Info(logger), "event", "index-progress")
 			for remaining := range p {
 				// how much time until it's done?
 				estDone := remaining.Estimated()
@@ -182,6 +184,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			s.indexStateMu.Lock()
 			s.indexStates[name] = err.Error()
 			s.indexStateMu.Unlock()
+			level.Warn(logger).Log("event", "index stopped", "err", err)
 			return errors.Wrapf(err, "sbot index(%s) update of backlog failed", name)
 		}
 		s.idxInSync.Done()
@@ -204,6 +207,10 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			return nil
 		}
 		if err != nil {
+			s.indexStateMu.Lock()
+			s.indexStates[name] = err.Error()
+			s.indexStateMu.Unlock()
+			level.Warn(logger).Log("event", "index stopped", "err", err)
 			return errors.Wrapf(err, "sbot index(%s) live update failed", name)
 		}
 		return nil
