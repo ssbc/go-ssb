@@ -31,16 +31,6 @@ func (h *handler) fetchAll(
 	if err != nil {
 		return err
 	}
-	// we don't just want them all parallel right nw
-	// this kind of concurrency is way to harsh on the runtime
-	// we need some kind of FeedManager, similar to Blobs
-	// which we can ask for which feeds aren't in transit,
-	// due for a (probabilistic) update
-	// and manage live feeds more granularly across open connections
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	fetchGroup, ctx := errgroup.WithContext(ctx)
 
 	// TODO: warning unbound parallellism ahead.
 	// since we don't have a way yet to handoff a feed
@@ -49,6 +39,14 @@ func (h *handler) fetchAll(
 	// this is very bad if you have a lot of them.
 	//
 	// ebt will make this better
+	// we need some kind of pull feed manager, similar to Blobs
+	// which we can ask for which feeds aren't in transit,
+	// due for a (probabilistic) update
+	// and manage live feeds more granularly across open connections
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	fetchGroup, ctx := errgroup.WithContext(ctx)
 
 	for _, r := range lst {
 		fetchGroup.Go(h.workFeed(ctx, e, r))
