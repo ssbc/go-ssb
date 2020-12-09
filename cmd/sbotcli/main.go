@@ -73,6 +73,8 @@ var app = cli.App{
 		&keyFileFlag,
 		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
+
+		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a durration (like 3s or 5m) after which it times out, empty string to disable"},
 	},
 
 	Before: initClient,
@@ -127,8 +129,17 @@ func todo(ctx *cli.Context) error {
 }
 
 func initClient(ctx *cli.Context) error {
-	longctx = context.Background()
-	longctx, shutdownFunc = context.WithTimeout(longctx, 45*time.Second)
+	dstr := ctx.String("timeout")
+	if dstr != "" {
+		d, err := time.ParseDuration(dstr)
+		if err != nil {
+			return err
+		}
+		longctx, shutdownFunc = context.WithTimeout(context.Background(), d)
+	} else {
+		longctx, shutdownFunc = context.WithCancel(context.Background())
+	}
+
 	signalc := make(chan os.Signal)
 	signal.Notify(signalc, os.Interrupt, syscall.SIGTERM)
 	go func() {
