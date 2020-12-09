@@ -21,6 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -38,6 +39,7 @@ var (
 ) //
 
 func init() {
+
 	// shifts the keypair order around each time
 	// so the order is shifted sometimes (botA is GG format instead of legacy sometimes)
 	botCnt = byte(time.Now().Unix() % 255)
@@ -45,11 +47,11 @@ func init() {
 
 func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 	r := require.New(t)
+	testPath := filepath.Join("testrun", t.Name(), "bot-"+name)
+
 	if testing.Short() {
 		testMessageCount = 15
 	}
-
-	testPath := filepath.Join("testrun", t.Name(), "bot-"+name)
 
 	// bob is the one with the other feed format
 
@@ -65,7 +67,10 @@ func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 	*/
 	botCnt++
 
-	mainLog := testutils.NewRelativeTimeLogger(nil) //ioutil.Discard)
+	mainLog := log.NewNopLogger()
+	if testing.Verbose() {
+		mainLog = testutils.NewRelativeTimeLogger(nil)
+	}
 	botOptions := append(opts,
 		WithKeyPair(botsKey),
 		WithInfo(log.With(mainLog, "bot", name)),
@@ -82,6 +87,8 @@ func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 // This test creates a chain between for peers: A<>B<>C<>D
 // D publishes messages and they need to reach A before
 func TestFeedsLiveSimpleFour(t *testing.T) {
+	defer leakcheck.Check(t)
+
 	r := require.New(t)
 	a := assert.New(t)
 	os.RemoveAll(filepath.Join("testrun", t.Name()))
@@ -206,6 +213,8 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 // setup two bots, connect once and publish afterwards
 func TestFeedsLiveSimpleTwo(t *testing.T) {
+	defer leakcheck.Check(t)
+
 	r := require.New(t)
 	a := assert.New(t)
 
@@ -329,6 +338,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	a.NoError(err, "FSCK error on A")
 	err = bob.FSCK(FSCKWithMode(FSCKModeSequences))
 	a.NoError(err, "FSCK error on B")
+
 	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
@@ -342,6 +352,8 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 // A publishes and is only connected to I
 // B1 to N are connected to I and should get the fan out
 func TestFeedsLiveSimpleStar(t *testing.T) {
+	defer leakcheck.Check(t)
+
 	r := require.New(t)
 	a := assert.New(t)
 	os.RemoveAll(filepath.Join("testrun", t.Name()))
@@ -360,16 +372,18 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 	netOpts := []Option{
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
+		WithContext(ctx),
 	}
 
 	botA := makeNamedTestBot(t, "A", netOpts)
 	botgroup.Go(bs.Serve(botA))
 
+	// intermediary
 	botI := makeNamedTestBot(t, "I", netOpts)
 	botgroup.Go(bs.Serve(botI))
 
 	var bLeafs []*Sbot
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 6; i++ {
 		botBi := makeNamedTestBot(t, fmt.Sprintf("B%0d", i), netOpts)
 		botgroup.Go(bs.Serve(botBi))
 		bLeafs = append(bLeafs, botBi)
@@ -380,36 +394,31 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 
 	// be-friend the network
 	botA.Replicate(botI.KeyPair.Id)
-	_, err := botA.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
-	r.NoError(err)
-
 	botI.Replicate(botA.KeyPair.Id)
-	_, err = botI.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
-	r.NoError(err)
-	var msgCnt = 2
 
-	for i, bot := range bLeafs {
+	for _, bot := range bLeafs {
+
+		// fetch the target
+		bot.Replicate(botA.KeyPair.Id)
+
+		// trust intermediary
 		bot.Replicate(botI.KeyPair.Id)
-		_, err := bot.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
-		r.NoError(err, "follow b%d>I failed", i)
+		botI.Replicate(bot.KeyPair.Id)
 
-		botI.Replicate(bot.KeyPair.Id.Copy())
-		_, err = botI.PublishLog.Append(refs.NewContactFollow(bot.KeyPair.Id))
-		r.NoError(err, "follow I>b%d failed", i)
-		msgCnt += 2
 	}
 
 	var extraTestMessages = testMessageCount
-	msgCnt += extraTestMessages
+
 	for n := extraTestMessages; n > 0; n-- {
 		tMsg := refs.NewPost(fmt.Sprintf("some pre-setup msg %d", n))
 		_, err := botA.PublishLog.Append(tMsg)
 		r.NoError(err)
 	}
 
-	initialSync(t, theBots, msgCnt)
+	// note: assumes all bot's have the same message count
+	initialSync(t, theBots, extraTestMessages)
 
-	seqOfFeedA := margaret.BaseSeq(extraTestMessages) // N pre messages +1 contact (0 indexed)
+	seqOfFeedA := margaret.BaseSeq(extraTestMessages) - 1 // N pre messages -1 for  0-indexed "array"/log
 	var botBreceivedNewMessage []<-chan refs.Message
 	for i, bot := range bLeafs {
 
@@ -442,12 +451,13 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 		r.NoError(err, "connect bot%d>I failed", i)
 	}
 
+	timeouts := 0
 	for i := 0; i < testMessageCount; i++ {
 		tMsg := refs.NewPost(fmt.Sprintf("some fresh msg %d", i))
 		seq, err := botA.PublishLog.Append(tMsg)
 		r.NoError(err)
 		// published := time.Now()
-		r.EqualValues(msgCnt+i, seq, "new msg %d", i)
+		r.EqualValues(extraTestMessages+i, seq, "new msg %d", i)
 
 		// received new message?
 		// TODO: reflect on slice of chans for less sleep
@@ -457,19 +467,21 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 			select {
 			case <-time.After(time.Second):
 				t.Errorf("botB%02d: timeout on %d", bI, wantSeq)
+				timeouts++
 			case msg := <-bChan:
 				a.EqualValues(wantSeq, msg.Seq(), "botB%02d: wrong seq", bI)
 				// t.Log("delay:", time.Since(published))
 			}
 		}
 	}
+	a.Equal(0, timeouts, "expected 0 timeouts")
 
 	// cleanup
 	time.Sleep(1 * time.Second)
 	cancel()
 	time.Sleep(1 * time.Second)
 	for bI, bot := range append(bLeafs, botA, botI) {
-		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
+		err := bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		a.NoError(err, "botB%02d fsck", bI)
 		bot.Shutdown()
 		r.NoError(bot.Close(), "closed botB%02d failed", bI)
@@ -523,6 +535,7 @@ initialSync:
 				t.Log("initsync done")
 				break initialSync
 			}
+			botX.Network.GetConnTracker().CloseAll()
 			t.Log("continuing initialSync..", z)
 		}
 	}
@@ -531,7 +544,7 @@ initialSync:
 	for i, bot := range theBots {
 		sv, err := bot.ReceiveLog.Seq().Value()
 		r.NoError(err)
-		a.EqualValues(expectedMsgCount-1, sv.(margaret.Seq).Seq(), "wrong rxSeq on bot %d", i)
+		a.EqualValues(expectedMsgCount, sv.(margaret.Seq).Seq()+1, "wrong rxSeq on bot %d", i)
 		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		r.NoError(err, "FSCK error on bot %d", i)
 		ct := bot.Network.GetConnTracker()

@@ -47,10 +47,10 @@ func TestFeedsGabbySync(t *testing.T) {
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
+		WithContext(ctx),
 		WithInfo(log.With(mainLog, "unit", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -64,11 +64,11 @@ func TestFeedsGabbySync(t *testing.T) {
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
+		WithContext(ctx),
 		WithKeyPair(bobsKey),
 		WithInfo(log.With(mainLog, "unit", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -141,8 +141,8 @@ func TestFeedsGabbySync(t *testing.T) {
 		// a.True(msg.Author.ProtoChain)
 		// a.NotEmpty(msg.ProtoChain)
 	}
-	cancel()
 
+	cancel()
 	ali.Shutdown()
 	bob.Shutdown()
 	time.Sleep(1 * time.Second)
