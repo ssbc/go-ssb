@@ -264,6 +264,7 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 }
 
 func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...muxrpc.HandlerWrapper) {
+
 	// TODO: overhaul events and logging levels
 	conn, err := n.applyConnWrappers(origConn)
 	if err != nil {
@@ -272,11 +273,19 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		return
 	}
 
+	// TODO: obfuscate the remote address by nulling bytes in it before printing ip and pubkey in full
+	remoteRef, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+	if err != nil {
+		conn.Close()
+		level.Error(n.log).Log("conn", "not shs authorized", "err", err)
+		return
+	}
+	rLogger := log.With(n.log, "peer", remoteRef.ShortRef())
+
 	ok, ctx := n.connTracker.OnAccept(ctx, conn)
 	if !ok {
 		err := conn.Close()
-		// err := origConn.Close()
-		n.log.Log("conn", "ignored", "remote", conn.RemoteAddr(), "err", err)
+		level.Debug(rLogger).Log("conn", "ignored", "err", err)
 		return
 	}
 
@@ -295,7 +304,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
 			return // ignore silently
 		}
-		level.Warn(n.log).Log("conn", "mkHandler", "err", err, "peer", conn.RemoteAddr())
+		level.Debug(rLogger).Log("conn", "mkHandler", "err", err)
 		return
 	}
 
@@ -304,7 +313,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	}
 
 	pkr := muxrpc.NewPacker(conn)
-	filtered := level.NewFilter(n.log, level.AllowInfo())
+	filtered := level.NewFilter(rLogger, level.AllowInfo())
 	edp := muxrpc.HandleWithLogger(pkr, h, filtered)
 
 	if n.edpWrapper != nil {
@@ -319,7 +328,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, hws ...m
 	if err != nil {
 		causeErr := errors.Cause(err)
 		if !neterr.IsConnBrokenErr(causeErr) && causeErr != context.Canceled {
-			level.Debug(n.log).Log("conn", "serve", "err", err)
+			level.Debug(rLogger).Log("conn", "serve exited", "err", err)
 		}
 	}
 	n.removeRemote(edp)

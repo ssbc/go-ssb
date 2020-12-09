@@ -84,8 +84,8 @@ func (g *handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	feeds := g.WantList.ReplicationList()
 	//level.Debug(info).Log("msg", "hops count", "count", feeds.Count())
 	err = g.fetchAll(ctx, e, feeds)
-	if err != nil {
-		level.Debug(info).Log("msg", "hops failed", "err", err)
+	if err != nil && !muxrpc.IsSinkClosed(err) {
+		level.Warn(info).Log("msg", "hops failed", "err", err)
 		return
 	}
 }
