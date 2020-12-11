@@ -6,7 +6,7 @@ package groups
 import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/muxmux"

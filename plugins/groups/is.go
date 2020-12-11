@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
 )

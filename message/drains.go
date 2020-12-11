@@ -4,7 +4,6 @@
 package message
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"sync"
@@ -163,30 +162,19 @@ var errSkip = errors.New("ValidateNext: already got message")
 // TODO: move all the message's publish and drains to it's own package
 func ValidateNext(current, next refs.Message) error {
 	nextSeq := next.Seq()
-	currSeq := current.Seq()
-	author := current.Author()
 
-	if !author.Equal(next.Author()) {
-		return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
-	}
-
-	if currSeq == 0 {
+	if current == nil || current.Seq() == 0 {
 		if nextSeq != 1 {
-			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1, got %d", next.Author().ShortRef(), currSeq, nextSeq)
+			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1, got %d", next.Author().ShortRef(), 0, nextSeq)
 		}
 		return nil
 	}
+	currSeq := current.Seq()
 
-	if bytes.Compare(current.Key().Hash, next.Previous().Hash) != 0 {
-		return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
-			author.Ref(),
-			current.Seq(),
-			current.Key().Ref(),
-			next.Previous().Ref(),
-		)
+	author := current.Author()
+	if !author.Equal(next.Author()) {
+		return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
 	}
-
-	currKey := current.Key()
 
 	if currSeq+1 != nextSeq {
 		shouldSkip := next.Seq() > currSeq+1
@@ -196,6 +184,7 @@ func ValidateNext(current, next refs.Message) error {
 		return errors.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1", author.ShortRef(), currSeq, nextSeq)
 	}
 
+	currKey := current.Key()
 	if !currKey.Equal(next.Previous()) {
 		return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%v",
 			author.Ref(),

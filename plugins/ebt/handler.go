@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -265,7 +266,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 			}
 
 			if their.Receive && ourState.Seq > their.Seq { // we have more for them
-				log, err := h.userFeeds.Get(feed.StoredAddr())
+				log, err := h.userFeeds.Get(storedrefs.Feed(feed))
 				if err != nil {
 					h.check(err)
 					return
@@ -304,7 +305,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 // utils
 
 func (h MUXRPCHandler) currentSequence(feed *refs.FeedRef) (ssb.Note, error) {
-	l, err := h.userFeeds.Get(feed.StoredAddr())
+	l, err := h.userFeeds.Get(storedrefs.Feed(feed))
 	if err != nil {
 		return ssb.Note{}, errors.Wrapf(err, "failed to get user log %s", feed.ShortRef())
 	}

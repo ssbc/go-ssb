@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -148,7 +149,7 @@ func TestEpidemic(t *testing.T) {
 	//  wait until we have all messages from alice?
 	time.Sleep(5 * time.Second)
 
-	alices, err := sbot.Users.Get(alice.StoredAddr())
+	alices, err := sbot.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	sv, err := alices.Seq().Value()
@@ -160,7 +161,7 @@ func TestEpidemic(t *testing.T) {
 
 	seq := sv.(margaret.BaseSeq)
 	r.EqualValues(14, seq)
-	alicesMsgs := mutil.Indirect(sbot.RootLog, alices)
+	alicesMsgs := mutil.Indirect(sbot.ReceiveLog, alices)
 	iv, err := alicesMsgs.Get(seq)
 	r.NoError(err)
 	msg := iv.(refs.Message)

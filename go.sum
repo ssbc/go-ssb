@@ -165,8 +165,6 @@ github.com/hashicorp/consul/api v1.3.0/go.mod h1:MmDNSzIMUjNpY/mQ398R4bk2FnqQLoP
 github.com/hashicorp/consul/sdk v0.3.0/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
-github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
-github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.1/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.3/go.mod h1:ahLV/dePpqEmjfWmKiqvPkv/twdG7iPBM1vqhUKIvfM=
@@ -203,10 +201,6 @@ github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
-github.com/karrick/bufpool v1.2.0 h1:AfhYmVv8A62iOzB31RuJrGLTdHlvBbl0+rh8Gvgvybg=
-github.com/karrick/bufpool v1.2.0/go.mod h1:ZRBxSXJi05b7mfd7kcL1M86UL1x8dTValcwCQp7I7P8=
-github.com/karrick/gopool v1.1.0 h1:b9C9zwnRjgu9RNQPfiGEFmCDm3OdRuLpY7qYIDf8b28=
-github.com/karrick/gopool v1.1.0/go.mod h1:Llf0mwk3WWtY0AIQoodGWVOU+5xfvUWqJKvck2qNwBU=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472 h1:6nrO82kszcc+rcKPCJGgCj5ACTdmq6aNGav8zE5oYm0=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472/go.mod h1:oLLUlGld/axGHThR36o8bADQUHG+TKSUdoKqCvnoQB4=
 github.com/keks/persist v0.0.0-20180731151133-9546f7b3f97e/go.mod h1:KMIOJFEE+0E/mYfYExA9vOpCFDz4TQfzk6mCOtCXR9k=
@@ -415,8 +409,6 @@ go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0 h1:WHRr5lZrBhSfU
 go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0/go.mod h1:Z8xdZJFvYBgp6s7D1ghNIMKa0hNneDMuFxi9D1Ho0rE=
 go.cryptoscope.co/muxrpc v1.5.3 h1:apSA+EqwdzscviQAh+H4YTCGNmxKswAC2iWAwJxKA5E=
 go.cryptoscope.co/muxrpc v1.5.3/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
-go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced h1:L+7/t8fNU3h1ZPtEnoDA4ocw9kAAupQCivy3MT9ZMT8=
-go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNiFSVrw=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
 go.cryptoscope.co/netwrap v0.1.1 h1:JLzzGKEvrUrkKzu3iM0DhpHmt+L/gYqmpcf1lJMUyFs=
 go.cryptoscope.co/netwrap v0.1.1/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
@@ -425,11 +417,6 @@ go.cryptoscope.co/secretstream v1.2.2 h1:kPxsgWrTDFyS9ZklcD0si1KGljPLz6mmPKnFQjG
 go.cryptoscope.co/secretstream v1.2.2/go.mod h1:7nRGZ7fTqSgQAnv2Y4m8xQsS3MFxvB7I0C19reUNlXg=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
-go.mindeco.de v0.0.0-20191122233605-f02621a5bca7 h1:si0O0lnNT3SHzEBwuFfqWBaZlME/FnXWlxyZGdri3D8=
-go.mindeco.de/rumorlog v0.1.0 h1:fLvhyPSnEhTNsAHgMnaizslXMcDBWSyvST4e8NnSEnA=
-go.mindeco.de/rumorlog v0.1.0/go.mod h1:n62UAAkS3O4vxaibqS3MiBOvTR+T1bkI9ip4WOZQrQs=
-go.mindeco.de/rumorlog v1.0.0 h1:VHKBRjR30utaJGlSs+v3dOil5QNcDYwGIGwDzGBrpxg=
-go.mindeco.de/rumorlog v1.0.0/go.mod h1:n62UAAkS3O4vxaibqS3MiBOvTR+T1bkI9ip4WOZQrQs=
 go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398 h1:SAmIyRPH5pBvCh3CfQie37QbPQC17O6rXNGUvohKgVE=
 go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398/go.mod h1:14SS9YOzziQ7aWdBdB30WyL9lEZcxPY3PR5tQxRc7EY=
 go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996 h1:+v2nqtamGeqEgDjSm8p/o3KpuNasynIZOFwRp3XBltc=

@@ -33,7 +33,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/keys"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
@@ -61,7 +60,7 @@ import (
 )
 
 func (sbot *Sbot) Replicate(r *refs.FeedRef) {
-	slog, err := sbot.Users.Get(r.StoredAddr())
+	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {
 		panic(err)
 	}
@@ -79,7 +78,7 @@ func (sbot *Sbot) Replicate(r *refs.FeedRef) {
 }
 
 func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
-	slog, err := sbot.Users.Get(r.StoredAddr())
+	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {
 		panic(err)
 	}
@@ -526,7 +525,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	ebtPlug := ebt.NewPlug(
 		kitlog.With(log, "plugin", "ebt"),
 		s.KeyPair.Id,
-		s.RootLog,
+		s.ReceiveLog,
 		s.Users,
 		s.Replicator.Lister(),
 		nf,
@@ -563,9 +562,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	)
 
 	// unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
-	gossipPlug := gossip.New(ctx,
+	gossipPlug := gossip.NewFetcher(ctx,
 		kitlog.With(log, "plugin", "gossip"),
-		s.KeyPair.Id, s.RootLog, s.Users, fm, s.Replicator.Lister(),
+		r,
+		s.KeyPair.Id,
+		s.ReceiveLog, s.Users,
+		fm, s.Replicator.Lister(),
 		histOpts...)
 
 	rn := negPlugin{replicateNegotiator{
