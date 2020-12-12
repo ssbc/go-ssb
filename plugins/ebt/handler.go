@@ -15,13 +15,13 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/message/legacy"
+	"go.cryptoscope.co/ssb/plugins/gossip"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -32,6 +32,8 @@ type MUXRPCHandler struct {
 	id        *refs.FeedRef
 	rootLog   margaret.Log
 	userFeeds multilog.MultiLog
+
+	livefeeds *gossip.FeedManager
 
 	wantList ssb.ReplicationLister
 
@@ -92,7 +94,6 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 
 	h.Loop(ctx, req.Stream, req.Stream, remote)
 	h.info.Log("debug", "loop exited", "r", remote.ShortRef())
-
 }
 
 func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *refs.FeedRef) error {
@@ -140,46 +141,6 @@ func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *re
 
 func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source, remote *refs.FeedRef) {
 	sentAsJSON := transform.NewKeyValueWrapper(tx, false)
-
-	/*
-		sv, err := h.rootLog.Seq().Value()
-		if err != nil {
-			panic(errors.Wrap(err, "failed to get current rx log sequence"))
-		}
-		newMsgs, err := h.rootLog.Query(margaret.Live(true), margaret.Gt(sv.(margaret.Seq)))
-		if err != nil {
-			panic(errors.Wrap(err, "failed to get current rx log sequence"))
-		}
-
-		updateSink := luigi.FuncSink(func(notifyCtx context.Context, v interface{}, closed error) error {
-			if closed != nil {
-				if luigi.IsEOS(closed) {
-					return nil
-				}
-				level.Error(h.info).Log("newMsg-closed", closed)
-				return closed
-			}
-
-			msg := v.(refs.Message)
-
-			yes, err := h.stateMatrix.WantsFeed(remote, msg.Author(), uint64(msg.Seq()))
-			if err != nil {
-				level.Error(h.info).Log("newMsg-queryerr", err, "seq", msg.Seq())
-				return err
-			}
-			if yes {
-				level.Info(h.info).Log("newMsg", msg.Key().ShortRef(), "seq", msg.Seq())
-				err = sentAsJSON.Pour(ctx, msg)
-				if err != nil {
-					level.Error(h.info).Log("sent-new-err", err, "remote", remote.ShortRef())
-					return nil
-				}
-			}
-
-			return nil
-		})
-		go luigi.Pump(ctx, updateSink, newMsgs)
-	*/
 
 	if err := h.sendState(ctx, tx, remote); err != nil {
 		h.check(err)
@@ -266,32 +227,20 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 			}
 
 			if their.Receive && ourState.Seq > their.Seq { // we have more for them
-				log, err := h.userFeeds.Get(storedrefs.Feed(feed))
-				if err != nil {
-					h.check(err)
-					return
-				}
 
-				src, err := mutil.Indirect(h.rootLog, log).Query(margaret.Gte(margaret.BaseSeq(their.Seq)))
-				if err != nil {
-					h.check(err)
-					return
+				arg := &message.CreateHistArgs{
+					ID:  feed.Copy(),
+					Seq: their.Seq,
 				}
+				arg.Limit = -1
+				arg.Live = true
 
-				err = luigi.Pump(ctx, sentAsJSON, src)
+				err = h.livefeeds.CreateStreamHistory(ctx, sentAsJSON, arg)
 				if err != nil {
 					h.check(err)
 					return
 				}
-				their.Seq = ourState.Seq // we sent all ours. assuming they received it
 			}
-
-			observed = append(observed, statematrix.ObservedFeed{
-				Feed:      feed,
-				Replicate: their.Replicate,
-				Receive:   their.Receive,
-				Len:       uint64(their.Seq),
-			})
 		}
 
 		h.stateMatrix.Fill(remote, observed)

@@ -522,12 +522,22 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}()
 
+	fm := gossip.NewFeedManager(
+		ctx,
+		s.ReceiveLog,
+		s.Users,
+		kitlog.With(log, "unit", "gossip"),
+		s.systemGauge,
+		s.eventCounter,
+	)
+
 	ebtPlug := ebt.NewPlug(
 		kitlog.With(log, "plugin", "ebt"),
 		s.KeyPair.Id,
 		s.ReceiveLog,
 		s.Users,
 		s.Replicator.Lister(),
+		fm,
 		nf,
 		sm,
 	)
@@ -551,15 +561,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		copy(k[:], s.signHMACsecret)
 		histOpts = append(histOpts, gossip.HMACSecret(&k))
 	}
-
-	fm := gossip.NewFeedManager(
-		ctx,
-		s.ReceiveLog,
-		s.Users,
-		kitlog.With(log, "unit", "gossip"),
-		s.systemGauge,
-		s.eventCounter,
-	)
 
 	// unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
 	gossipPlug := gossip.NewFetcher(ctx,

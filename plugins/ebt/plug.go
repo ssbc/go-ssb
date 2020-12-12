@@ -8,6 +8,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
+	"go.cryptoscope.co/ssb/plugins/gossip"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -21,6 +22,7 @@ func NewPlug(
 	rootLog margaret.Log,
 	uf multilog.MultiLog,
 	wl ssb.ReplicationLister,
+	fm *gossip.FeedManager,
 	nf *numberedfeeds.Index,
 	sm *statematrix.StateMatrix,
 ) *Plugin {
@@ -31,6 +33,8 @@ func NewPlug(
 		rootLog:   rootLog,
 		userFeeds: uf,
 		wantList:  wl,
+
+		livefeeds: fm,
 
 		feedNumbers: nf,
 		stateMatrix: sm,
