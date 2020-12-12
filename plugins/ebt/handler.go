@@ -158,8 +158,24 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 			return
 		}
 
-		jsonBody, ok := v.(json.RawMessage)
-		if !ok {
+		var jsonBody []byte
+		switch tv := v.(type) {
+		case json.RawMessage:
+			jsonBody = tv
+		case map[string]interface{}:
+
+			jsonBody, err = json.Marshal(tv)
+			if err != nil {
+				h.check(err)
+				return
+			}
+			fmt.Println("warning: remarshaling json - breaks signtures")
+			bs := string(jsonBody)
+			if len(bs) > 30 {
+				bs = bs[:25] + "..."
+			}
+			fmt.Println(bs)
+		default:
 			panic(fmt.Sprintf("wrong type: %T", v))
 		}
 
