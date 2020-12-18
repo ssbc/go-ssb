@@ -14,9 +14,10 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb/internal/muxmux"
+
 	multiserver "go.mindeco.de/ssb-multiserver"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -37,10 +38,10 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 		repl: r,
 	}
 
-	mux := muxmux.New(i)
+	mux := typemux.New(i)
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, muxmux.AsyncFunc(h.connect))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, muxmux.AsyncFunc(h.disconnect))
+	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, typemux.AsyncFunc(h.connect))
+	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, typemux.AsyncFunc(h.disconnect))
 
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "replicate"}, unmarshalActionMap(h.replicate))
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "block"}, unmarshalActionMap(h.block))
@@ -53,8 +54,8 @@ type actionFn func(context.Context, actionMap) error
 
 // muxrpc always passes an array of option arguments
 // this hack unboxes [{ feed:bool, feed2:bool, ...}] and [feed1,feed2,...] (all implicit true) into an actionMap and passes it to next
-func unmarshalActionMap(next actionFn) muxmux.AsyncFunc {
-	return muxmux.AsyncFunc(func(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
+func unmarshalActionMap(next actionFn) typemux.AsyncFunc {
+	return typemux.AsyncFunc(func(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
 		var refMap actionMap
 		var args []map[string]bool
 		err := json.Unmarshal(r.RawArgs, &args)

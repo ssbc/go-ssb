@@ -192,11 +192,9 @@ func XTestLegacyInviteJSAccept(t *testing.T) {
 	master, err := client.NewTCP(bob.KeyPair, wrappedAddr)
 	r.NoError(err)
 
-	reply, err := master.Async(context.TODO(), "str", muxrpc.Method{"invite", "create"})
+	var invite string
+	err = master.Async(context.TODO(), &invite, muxrpc.TypeString, muxrpc.Method{"invite", "create"})
 	r.NoError(err)
-
-	invite, ok := reply.(string)
-	r.True(ok, "not a string: %T", reply)
 	t.Log(invite)
 
 	acceptInvite := fmt.Sprintf(`

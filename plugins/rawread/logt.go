@@ -18,9 +18,9 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
@@ -62,7 +62,7 @@ func NewByTypePlugin(
 		isSelf: isSelf,
 	}
 
-	h := muxmux.New(log)
+	h := typemux.New(log)
 	h.RegisterSource(muxrpc.Method{"messagesByType"}, plug)
 
 	plug.h = &h
@@ -73,7 +73,7 @@ func (lt Plugin) Name() string            { return "msgTypes" }
 func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType"} }
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
-func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 	if len(args) < 1 {
 		return errors.Errorf("invalid arguments")
@@ -116,7 +116,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi
 	}
 
 	// create toJSON sink
-	snk = transform.NewKeyValueWrapper(req.Stream, qry.Keys)
+	snk := transform.NewKeyValueWrapper(w, qry.Keys)
 
 	// wrap it into a counter for debugging
 	var cnt int

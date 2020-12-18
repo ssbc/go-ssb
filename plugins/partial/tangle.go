@@ -3,12 +3,12 @@ package partial
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/transform"
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
@@ -54,9 +54,10 @@ func (h getTangleHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) 
 	}
 
 	snk := luigi.NewSliceSink(&vals)
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, false), src)
+	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
 		return nil, errors.Wrap(err, "getTangle: failed to pump msgs")
 	}
+	return nil, fmt.Errorf("partial: TODO refactor")
 	return vals, nil
 }

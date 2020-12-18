@@ -18,9 +18,9 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
@@ -32,7 +32,7 @@ type Plugin struct {
 }
 
 func NewPlugin(rxlog margaret.Log, tangles, private *roaring.MultiLog, unboxer *private.Manager, isSelf ssb.Authorizer) *Plugin {
-	mux := muxmux.New(log.NewNopLogger())
+	mux := typemux.New(log.NewNopLogger())
 
 	mux.RegisterSource(muxrpc.Method{"tangles", "replies"}, tangleHandler{
 		rxlog:   rxlog,
@@ -74,7 +74,7 @@ type tangleHandler struct {
 	unboxer *private.Manager
 }
 
-func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
 		return errors.Errorf("invalid arguments")
 	}
@@ -122,7 +122,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 	spew.Dump(qry)
 
 	// create toJSON sink
-	snk = transform.NewKeyValueWrapper(req.Stream, qry.Keys)
+	lsnk := transform.NewKeyValueWrapper(snk, qry.Keys)
 
 	// lookup address depending if we have a name for the tangle or not
 	addr := librarian.Addr(append([]byte("v1:"), qry.Root.Hash...))
@@ -146,7 +146,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 			return errors.Wrap(err, "tangle: failed to create query")
 		}
 
-		err = luigi.Pump(ctx, snk, src)
+		err = luigi.Pump(ctx, lsnk, src)
 		if err != nil {
 			return errors.Wrap(err, "tangle: failed to pump msgs")
 		}
@@ -163,7 +163,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 	}
 
 	if qry.Private {
-		snk = g.unboxer.WrappedUnboxingSink(snk)
+		lsnk = g.unboxer.WrappedUnboxingSink(lsnk)
 	} else {
 		// filter all boxed messages from the stream
 		box1, err := g.private.LoadInternalBitmap(librarian.Addr("meta:box1"))
@@ -203,7 +203,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 			continue
 		}
 
-		if err := snk.Pour(ctx, v); err != nil {
+		if err := lsnk.Pour(ctx, v); err != nil {
 			fmt.Fprintln(os.Stderr, "tangles failed send:", seq, " with:", err)
 			break
 		}
@@ -216,5 +216,5 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 		}
 	}
 
-	return snk.Close()
+	return lsnk.Close()
 }

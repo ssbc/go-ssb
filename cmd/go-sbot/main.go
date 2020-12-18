@@ -407,7 +407,7 @@ func runSbot() error {
 	level.Info(log).Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
 	for {
 		// Note: This is where the serving starts ;)
-		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))
+		err = sbot.Network.Serve(ctx)
 		if err != nil {
 			level.Warn(log).Log("event", "sbot node.Serve returned", "err", err)
 		}

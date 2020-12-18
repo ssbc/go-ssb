@@ -12,6 +12,7 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb/message/multimsg"
 	refs "go.mindeco.de/ssb-refs"
@@ -19,7 +20,7 @@ import (
 
 // NewKeyValueWrapper turns a value into a key-value message.
 // If keyWrap is true, it returns the JSON of a ssb.KeyValueRaw value.
-func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
+func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 
 	noNulled := mfr.FilterFunc(func(ctx context.Context, v interface{}) (bool, error) {
 		switch tv := v.(type) {
@@ -42,7 +43,7 @@ func NewKeyValueWrapper(output luigi.Sink, keyWrap bool) luigi.Sink {
 
 		return true, nil
 	})
-
+	output := mw.AsStream()
 	mapToKV := mfr.SinkMap(output, func(ctx context.Context, v interface{}) (interface{}, error) {
 		var seqWrap margaret.SeqWrapper
 

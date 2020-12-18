@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/go-kit/kit/log"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/graph"
 	refs "go.mindeco.de/ssb-refs"
@@ -20,7 +19,7 @@ type blocksSrc struct {
 	builder graph.Builder
 }
 
-func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	type argT struct {
 		Who refs.FeedRef
 	}
@@ -46,8 +45,12 @@ func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk lu
 	if err != nil {
 		return err
 	}
+
+	snk.SetEncoding(muxrpc.TypeJSON)
+	enc := json.NewEncoder(snk)
+
 	for i, v := range lst {
-		if err := snk.Pour(ctx, v); err != nil {
+		if err := enc.Encode(v); err != nil {
 			return fmt.Errorf("blocks: failed to send item %d: %w", i, err)
 		}
 	}
@@ -68,7 +71,7 @@ type HopsArgs struct {
 	Max   uint          `json:"max"`
 }
 
-func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	var args []HopsArgs
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
 		return fmt.Errorf("invalid argument on isFollowing call: %w", err)
@@ -93,8 +96,12 @@ func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk luig
 	if err != nil {
 		return err
 	}
+
+	snk.SetEncoding(muxrpc.TypeJSON)
+	enc := json.NewEncoder(snk)
+
 	for i, v := range lst {
-		if err := snk.Pour(ctx, v); err != nil {
+		if err := enc.Encode(v); err != nil {
 			return fmt.Errorf("hops: failed to send item %d: %w", i, err)
 		}
 	}

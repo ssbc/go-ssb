@@ -9,8 +9,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 )
 
@@ -38,7 +38,7 @@ func New(log logging.Interface,
 	rxlog margaret.Log,
 	get ssb.Getter,
 ) ssb.Plugin {
-	rootHdlr := muxmux.New(log)
+	rootHdlr := typemux.New(log)
 
 	rootHdlr.RegisterAsync(muxrpc.Method{name, "getTangle"}, getTangleHandler{
 		roots: roots,

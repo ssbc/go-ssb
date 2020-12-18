@@ -10,9 +10,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/codec"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -114,20 +112,34 @@ func (h *LegacyGossip) fetchFeed(
 		}
 	}()
 
+	// level.Info(info).Log("starting", "fetch")
 	method := muxrpc.Method{"createHistoryStream"}
 
-	var src luigi.Source
+	var src *muxrpc.ByteSource
 	switch fr.Algo {
 	case refs.RefAlgoFeedSSB1:
-		src, err = edp.Source(ctx, json.RawMessage{}, method, q)
+		src, err = edp.Source(ctx, muxrpc.TypeJSON, method, q)
 	case refs.RefAlgoFeedGabby:
-		src, err = edp.Source(ctx, codec.Body{}, method, q)
+		src, err = edp.Source(ctx, 0, method, q)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
 	}
 
-	// level.Info(info).Log("starting", "fetch")
-	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&latestSeq, snk), src)
-	return errors.Wrap(err, "gossip pump failed")
+	w := luigiutils.NewSinkCounter(&latestSeq, snk)
+
+	for src.Next(ctx) {
+		bts, err := src.Bytes()
+		if err != nil {
+			return err
+		}
+
+		v := json.RawMessage(bts)
+		err = w.Pour(ctx, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	return errors.Wrap(src.Err(), "gossip pump failed")
 }

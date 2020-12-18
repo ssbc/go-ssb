@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -23,7 +22,7 @@ type getMessagesOfTypeHandler struct {
 	bytype *roaring.MultiLog
 }
 
-func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
 		return errors.Errorf("invalid arguments")
 	}
@@ -112,12 +111,12 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 			if err != nil {
 				return fmt.Errorf("failed to encode json: %w", err)
 			}
-			err = snk.Pour(ctx, json.RawMessage(b))
+			_, err = snk.Write(json.RawMessage(b))
 			if err != nil {
 				return fmt.Errorf("failed to send json data: %w", err)
 			}
 		} else {
-			err = snk.Pour(ctx, msg.ValueContentJSON())
+			_, err = snk.Write(msg.ValueContentJSON())
 			if err != nil {
 				return fmt.Errorf("failed to send json data: %w", err)
 			}

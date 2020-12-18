@@ -111,13 +111,11 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbotOpts = append(sbotOpts, sbot.WithHMACSigning(ts.keyHMAC))
 	}
 
-	if os.Getenv("MUXDBG") != "" {
-		sbotOpts = append(sbotOpts,
-			sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-				return debug.WrapConn(ts.info, conn), nil
-			}),
-		)
-	}
+	sbotOpts = append(sbotOpts,
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join("testrun", ts.t.Name(), "muxdump"), conn)
+		}),
+	)
 
 	sbot, err := sbot.New(sbotOpts...)
 	r.NoError(err, "failed to init test go-sbot")

@@ -159,7 +159,13 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 		return
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		req.CloseWithError(err)
+		return
+	}
+
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
 	if err != nil {
 		req.CloseWithError(errors.Wrap(err, "private/read: message pump failed"))
 		return

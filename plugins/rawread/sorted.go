@@ -9,12 +9,11 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
@@ -36,7 +35,7 @@ func NewSortedStream(log log.Logger, rootLog margaret.Log, res *repo.SequenceRes
 		res:  res,
 	}
 
-	h := muxmux.New(log)
+	h := typemux.New(log)
 
 	h.RegisterSource(muxrpc.Method{"createFeedStream"}, plug)
 
@@ -49,7 +48,7 @@ func (lt sortedPlug) Name() string            { return "createFeedStream" }
 func (sortedPlug) Method() muxrpc.Method      { return muxrpc.Method{"createFeedStream"} }
 func (lt sortedPlug) Handler() muxrpc.Handler { return lt.h }
 
-func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	start := time.Now()
 	var qry message.CreateLogArgs
 	if len(req.Args()) == 1 {
@@ -86,7 +85,7 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk l
 	}
 	fmt.Fprintln(os.Stderr, "createFeedStream sorted seqs:", len(sortedSeqs), "after:", time.Since(start))
 
-	toJSON := transform.NewKeyValueWrapper(req.Stream, qry.Keys)
+	toJSON := transform.NewKeyValueWrapper(snk, qry.Keys)
 
 	for _, res := range sortedSeqs {
 		v, err := g.root.Get(margaret.BaseSeq(res.Seq))

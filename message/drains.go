@@ -20,7 +20,7 @@ import (
 
 type SequencedSink interface {
 	margaret.Seq
-	luigi.Sink
+	luigi.Sink // TODO: de-luigi-fy
 }
 
 // NewVerifySink returns a sink that does message verification and appends corret messages to the passed log.
@@ -29,7 +29,6 @@ type SequencedSink interface {
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
 func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, snk luigi.Sink, hmacKey *[32]byte) SequencedSink {
-
 	sd := &streamDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
@@ -46,18 +45,14 @@ func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, snk 
 }
 
 type verifier interface {
-	Verify(v interface{}) (refs.Message, error)
+	Verify([]byte) (refs.Message, error)
 }
 
 type legacyVerify struct {
 	hmacKey *[32]byte
 }
 
-func (lv legacyVerify) Verify(v interface{}) (refs.Message, error) {
-	rmsg, ok := v.(json.RawMessage)
-	if !ok {
-		return nil, errors.Errorf("legacyVerify: expected %T - got %T", rmsg, v)
-	}
+func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
 	ref, dmsg, err := legacy.Verify(rmsg, lv.hmacKey)
 	if err != nil {
 		return nil, err
@@ -77,12 +72,7 @@ type gabbyVerify struct {
 	hmacKey *[32]byte
 }
 
-func (gv gabbyVerify) Verify(v interface{}) (msg refs.Message, err error) {
-	trBytes, ok := v.([]uint8)
-	if !ok {
-		err = errors.Errorf("gabbyVerify: expected %T - got %T", trBytes, v)
-		return
-	}
+func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 	var tr gabbygrove.Transfer
 	if uErr := tr.UnmarshalCBOR(trBytes); uErr != nil {
 		err = errors.Wrapf(uErr, "gabbyVerify: transfer unmarshal failed")
@@ -126,11 +116,25 @@ func (ld *streamDrain) Seq() int64 {
 	return int64(ld.latestSeq)
 }
 
+// TODO: de-luigify
 func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
 
-	next, err := ld.verify.Verify(v)
+	var msg []byte
+
+	switch tv := v.(type) {
+	case json.RawMessage:
+		msg = tv
+
+	case []uint8:
+		msg = tv
+
+	default:
+		return errors.Errorf("verify: expected %T - got %T", msg, v)
+	}
+
+	next, err := ld.verify.Verify(msg)
 	if err != nil {
 		return errors.Wrapf(err, "message(%s:%d) verify failed", ld.who.ShortRef(), ld.latestSeq.Seq())
 	}

@@ -17,7 +17,7 @@ type getFeedHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 
 	if len(args) < 1 {
@@ -37,7 +37,7 @@ func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 
 	// query.Limit = 50
 	// spew.Dump(query)
-	err = h.fm.CreateStreamHistory(ctx, req.Stream, query)
+	err = h.fm.CreateStreamHistory(ctx, snk, query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()
@@ -52,7 +52,7 @@ type getFeedReverseHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink, edp muxrpc.Endpoint) error {
+func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 
 	if len(args) < 1 {
@@ -73,7 +73,7 @@ func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Req
 
 	// query.Limit = 50
 	// spew.Dump(query)
-	err = h.fm.CreateStreamHistory(ctx, req.Stream, query)
+	err = h.fm.CreateStreamHistory(ctx, snk, query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()

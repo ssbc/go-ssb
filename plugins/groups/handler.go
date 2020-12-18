@@ -9,7 +9,7 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/muxmux"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb/private"
 )
 
@@ -32,7 +32,7 @@ func checkAndLog(log logging.Interface, err error) {
 }
 
 func New(log logging.Interface, groups *private.Manager) ssb.Plugin {
-	rootHdlr := muxmux.New(log)
+	rootHdlr := typemux.New(log)
 
 	rootHdlr.RegisterAsync(append(method, "create"), create{
 		log:    log,

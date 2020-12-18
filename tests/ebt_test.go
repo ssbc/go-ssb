@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"go.cryptoscope.co/muxrpc/v2/debug"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/sbot"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
@@ -26,15 +30,18 @@ func TestEpidemic(t *testing.T) {
 
 	// info := testutils.NewRelativeTimeLogger(nil)
 	ts.startGoBot(
-	// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
-	// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-	// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-	// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
-	// }),
+		// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+			if err != nil {
+				t.Fatal(err)
+			}
+			tpath := filepath.Join("testrun", t.Name(), fr.ShortRef())
+			return debug.WrapDump(tpath, conn)
+		}),
 	)
 	sbot := ts.gobot
 
-	// just for keygen, needed later
 	alice, port := ts.startJSBotAsServer("alice", `
 
 	function mkMsg(msg) {
@@ -105,7 +112,7 @@ func TestEpidemic(t *testing.T) {
 					})
 				)
 			}
-	
+
 		})
 	)
 	sbot.on('rpc:connect', (rpc) => {
@@ -204,7 +211,7 @@ func TestEpidemic(t *testing.T) {
 		})
 	}, 1333)
 	let msgs = []
-	
+
 	const testAlice = %q
 	msgs.push(mkMsg({type:"contact", "contact": testBob, "following": true}))
 	msgs.push(mkMsg({type:"contact", "contact": testAlice, "following": true}))

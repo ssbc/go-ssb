@@ -77,16 +77,14 @@ type endpoint struct {
 }
 
 func (edp endpoint) WhoAmI(ctx context.Context) (refs.FeedRef, error) {
-	type respType struct {
+	var resp struct {
 		ID refs.FeedRef `json:"id"`
 	}
 
-	var tResp respType
-
-	resp, err := edp.edp.Async(ctx, tResp, method)
+	err := edp.edp.Async(ctx, &resp, muxrpc.TypeJSON, method)
 	if err != nil {
 		return refs.FeedRef{}, errors.Wrap(err, "error making async call")
 	}
 
-	return resp.(respType).ID, nil
+	return resp.ID, nil
 }

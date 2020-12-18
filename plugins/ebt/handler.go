@@ -9,7 +9,6 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -18,7 +17,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -49,13 +47,10 @@ func (h *MUXRPCHandler) check(err error) {
 	}
 }
 
-// client side, asking remote for support
-// TODO: we need to coordinate this with legacy gossip
-func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+// HandleConnect does nothing. Feature negotiation is done by sbot
+func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-}
-
-// server side (getting called by client asking for support)
+// HandleCall handles the server side (getting called by client)
 func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	var closed bool
 	checkAndClose := func(err error) {
@@ -74,17 +69,17 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	}()
 
 	if req.Method.String() != "ebt.replicate" {
-		checkAndClose(errors.Errorf("unknown command: %s", req.Method))
+		checkAndClose(fmt.Errorf("unknown command: %s", req.Method))
 		return
 	}
 
 	if req.Type != "duplex" {
-		checkAndClose(errors.Errorf("invalid type: %s", req.Type))
+		checkAndClose(fmt.Errorf("invalid type: %s", req.Type))
 		return
 	}
 
 	// TODO: check protocol version option
-	h.info.Log("debug", "called", "args", fmt.Sprintf("%+v", req.Args))
+	h.info.Log("debug", "called", "args", string(req.RawArgs))
 
 	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
@@ -92,12 +87,23 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 		return
 	}
 
-	h.Loop(ctx, req.Stream, req.Stream, remote)
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		h.info.Log("event", "call replicate", "err", err)
+		return
+	}
+
+	src, err := req.GetResponseSource()
+	if err != nil {
+		h.info.Log("event", "call replicate", "err", err)
+		return
+	}
+
+	h.Loop(ctx, snk, src, remote)
 	h.info.Log("debug", "loop exited", "r", remote.ShortRef())
 }
 
-func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *refs.FeedRef) error {
-
+func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
 	currState, err := h.stateMatrix.Changed(h.id, remote)
 	if err != nil {
 		return errors.Wrap(err, "failed to get changed frontier")
@@ -131,7 +137,7 @@ func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *re
 	fmt.Println("our state")
 	fmt.Println(currState.String())
 
-	err = snk.Pour(ctx, currState)
+	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
 		return errors.Wrapf(err, "failed to send currState: %d", len(currState))
 	}
@@ -139,44 +145,18 @@ func (h MUXRPCHandler) sendState(ctx context.Context, snk luigi.Sink, remote *re
 	return nil
 }
 
-func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source, remote *refs.FeedRef) {
-	sentAsJSON := transform.NewKeyValueWrapper(tx, false)
-
+func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remote *refs.FeedRef) {
 	if err := h.sendState(ctx, tx, remote); err != nil {
 		h.check(err)
 		return
 	}
 
-	for { // read/write loop for messages
+	for rx.Next(ctx) { // read/write loop for messages
 
-		v, err := rx.Next(ctx)
+		jsonBody, err := rx.Bytes()
 		if err != nil {
-			if luigi.IsEOS(err) {
-				break
-			}
 			h.check(err)
 			return
-		}
-
-		var jsonBody []byte
-		switch tv := v.(type) {
-		case json.RawMessage:
-			jsonBody = tv
-		case map[string]interface{}:
-
-			jsonBody, err = json.Marshal(tv)
-			if err != nil {
-				h.check(err)
-				return
-			}
-			fmt.Println("warning: remarshaling json - breaks signtures")
-			bs := string(jsonBody)
-			if len(bs) > 30 {
-				bs = bs[:25] + "..."
-			}
-			fmt.Println(bs)
-		default:
-			panic(fmt.Sprintf("wrong type: %T", v))
 		}
 
 		var nf ssb.NetworkFrontier
@@ -251,7 +231,8 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 				arg.Limit = -1
 				arg.Live = true
 
-				err = h.livefeeds.CreateStreamHistory(ctx, sentAsJSON, arg)
+				// TODO: need to change the fetch code
+				err = h.livefeeds.CreateStreamHistory(ctx, tx, arg)
 				if err != nil {
 					h.check(err)
 					return
@@ -265,6 +246,8 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx luigi.Sink, rx luigi.Source
 			return
 		}
 	}
+
+	h.check(rx.Err())
 }
 
 // utils

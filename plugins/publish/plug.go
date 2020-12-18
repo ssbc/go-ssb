@@ -10,7 +10,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/muxmux"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb/private"
 )
 
@@ -22,7 +22,7 @@ func NewPlug(
 	boxer *private.Manager,
 	authorLog margaret.Log,
 ) ssb.Plugin {
-	mux := muxmux.New(i)
+	mux := typemux.New(i)
 	p := publishPlug{h: &mux}
 
 	var publishMu sync.Mutex

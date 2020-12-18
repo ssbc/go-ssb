@@ -20,21 +20,21 @@ import (
 // TODO(cryptix): cool utility! might want to move it to internal until we find  better place
 type MultiSink struct {
 	seq   int64
-	sinks []luigi.Sink
-	ctxs  map[luigi.Sink]context.Context
-	until map[luigi.Sink]int64
+	sinks []*muxrpc.ByteSink
+	ctxs  map[*muxrpc.ByteSink]context.Context
+	until map[*muxrpc.ByteSink]int64
 
 	isClosed bool
 }
 
-var _ luigi.Sink = (*MultiSink)(nil)
+// var _ luigi.Sink = (*MultiSink)(nil)
 var _ margaret.Seq = (*MultiSink)(nil)
 
 func NewMultiSink(seq int64) *MultiSink {
 	return &MultiSink{
 		seq:   seq,
-		ctxs:  make(map[luigi.Sink]context.Context),
-		until: make(map[luigi.Sink]int64),
+		ctxs:  make(map[*muxrpc.ByteSink]context.Context),
+		until: make(map[*muxrpc.ByteSink]int64),
 	}
 }
 
@@ -45,7 +45,7 @@ func (f *MultiSink) Seq() int64 {
 // Register adds a sink to propagate messages to upto the 'until'th sequence.
 func (f *MultiSink) Register(
 	ctx context.Context,
-	sink luigi.Sink,
+	sink *muxrpc.ByteSink,
 	until int64,
 ) error {
 	f.sinks = append(f.sinks, sink)
@@ -55,7 +55,7 @@ func (f *MultiSink) Register(
 }
 
 func (f *MultiSink) Unregister(
-	sink luigi.Sink,
+	sink *muxrpc.ByteSink,
 ) error {
 	for i, s := range f.sinks {
 		if sink != s {
@@ -79,19 +79,16 @@ func (f *MultiSink) Close() error {
 	return nil
 }
 
-func (f *MultiSink) Pour(
-	_ context.Context,
-	msg interface{},
-) error {
+func (f *MultiSink) Send(_ context.Context, msg []byte) error {
 	if f.isClosed {
 		return luigi.EOS{}
 	}
 	f.seq++
 
-	var deadFeeds []luigi.Sink
+	var deadFeeds []*muxrpc.ByteSink
 
 	for i, s := range f.sinks {
-		err := s.Pour(f.ctxs[s], msg)
+		_, err := s.Write(msg)
 		if err != nil {
 			causeErr := errors.Cause(err)
 			if muxrpc.IsSinkClosed(err) || causeErr == context.Canceled || neterr.IsConnBrokenErr(causeErr) {

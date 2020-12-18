@@ -87,7 +87,7 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 	if !ok {
 		return nil
 	}
-	err = sink.Pour(ctx, msg.ValueContentJSON())
+	err = sink.Send(ctx, msg.ValueContentJSON())
 	return err
 }
 
@@ -116,7 +116,7 @@ func (m *FeedManager) serveLiveFeeds() {
 
 func (m *FeedManager) addLiveFeed(
 	ctx context.Context,
-	sink luigi.Sink,
+	sink *muxrpc.ByteSink,
 	ssbID string,
 	seq, limit int64,
 ) error {
@@ -203,7 +203,7 @@ func getLatestSeq(log margaret.Log) (int64, error) {
 // CreateStreamHistory serves the sink a CreateStreamHistory request to the sink.
 func (m *FeedManager) CreateStreamHistory(
 	ctx context.Context,
-	sink luigi.Sink,
+	sink *muxrpc.ByteSink,
 	arg *message.CreateHistArgs,
 ) error {
 	if arg.ID == nil {
@@ -264,16 +264,17 @@ func (m *FeedManager) CreateStreamHistory(
 		return errors.Wrapf(err, "invalid user log query")
 	}
 
+	var luigiSink luigi.Sink
 	switch arg.ID.Algo {
 	case refs.RefAlgoFeedSSB1:
-		sink = transform.NewKeyValueWrapper(sink, arg.Keys)
+		luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
 
 	case refs.RefAlgoFeedGabby:
 		switch {
 		case arg.AsJSON:
-			sink = transform.NewKeyValueWrapper(sink, arg.Keys)
+			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
 		default:
-			sink = luigiutils.NewGabbyStreamSink(sink)
+			luigiSink = luigiutils.NewGabbyStreamSink(sink)
 		}
 
 	default:
@@ -281,7 +282,7 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	sent := 0
-	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, sink), src)
+	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, luigiSink), src)
 
 	// track number of messages sent
 	if m.sysCtr != nil {

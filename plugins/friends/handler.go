@@ -9,9 +9,9 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 )
 
 /*
@@ -35,7 +35,7 @@ func checkAndLog(log logging.Interface, err error) {
 }
 
 func New(log logging.Interface, self refs.FeedRef, b graph.Builder) ssb.Plugin {
-	rootHdlr := muxmux.New(log)
+	rootHdlr := typemux.New(log)
 
 	rootHdlr.RegisterAsync(muxrpc.Method{"friends", "isFollowing"}, isFollowingH{
 		log:     log,

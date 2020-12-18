@@ -19,7 +19,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
-	mmock "go.cryptoscope.co/muxrpc/mock"
+	mmock "go.cryptoscope.co/muxrpc/v2/mock"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )

@@ -102,12 +102,17 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		return
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		req.CloseWithError(err)
+		return
+	}
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
 		req.CloseWithError(errors.Wrap(err, "logStream: failed to pump msgs"))
 		return
 	}
-	req.Stream.Close()
+	snk.Close()
 	// fmt.Fprintln(os.Stderr, "createLogStream closed:", err, "after:", time.Since(start))
 }

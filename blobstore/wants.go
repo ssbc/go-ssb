@@ -148,7 +148,7 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
-	src, err := edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
+	src, err := edp.Source(ctx, 0, muxrpc.Method{"blobs", "get"}, arg)
 	if err != nil {
 		err = errors.Wrap(err, "blob create source failed")
 		level.Warn(log).Log("err", err)
@@ -203,6 +203,7 @@ func (wmgr *wantManager) promGaugeSet(name string, n int) {
 func (wmgr *wantManager) Close() error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
+	// TODO: wait for wantproce
 	close(wmgr.available)
 	return nil
 }

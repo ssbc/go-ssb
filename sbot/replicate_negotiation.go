@@ -2,7 +2,6 @@ package sbot
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -45,7 +44,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	var opt = map[string]interface{}{"version": 3}
 
 	// initiate ebt channel
-	rx, tx, err := e.Duplex(ctx, json.RawMessage{}, muxrpc.Method{"ebt", "replicate"}, opt)
+	rx, tx, err := e.Duplex(ctx, muxrpc.TypeJSON, muxrpc.Method{"ebt", "replicate"}, opt)
 	if err != nil {
 		level.Debug(rn.logger).Log("event", "no ebt support", "err", err)
 

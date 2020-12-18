@@ -13,7 +13,6 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/codec"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
@@ -88,7 +87,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	r.True(ok, "no endpoint for alice")
 
 	ctx := context.TODO()
-	src, err := aliceEdp.Source(ctx, codec.Body{}, muxrpc.Method{"gabbygrove", "binaryStream"})
+	src, err := aliceEdp.Source(ctx, 0, muxrpc.Method{"gabbygrove", "binaryStream"})
 	r.NoError(err)
 
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
@@ -106,7 +105,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	})
 	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
 
-	err = luigi.Pump(ctx, snk, src)
+	err = luigi.Pump(ctx, snk, src.AsStream())
 	r.NoError(err)
 
 	// test is currently borked because we get fake messages back

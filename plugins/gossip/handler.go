@@ -110,7 +110,7 @@ func (g *LegacyGossip) HandleCall(
 	closeIfErr := func(err error) {
 		if err != nil {
 			errLog.Log("err", err)
-			req.Stream.CloseWithError(err)
+			req.CloseWithError(err)
 			return
 		}
 		req.Stream.Close()
@@ -186,7 +186,13 @@ func (g *LegacyGossip) HandleCall(
 			// dbgLog.Log("msg", "feed access granted")
 		}
 
-		err = g.feedManager.CreateStreamHistory(ctx, req.Stream, &query)
+		snk, err := req.GetResponseSink()
+		if err != nil {
+			errLog.Log("err", err)
+			req.CloseWithError(err)
+			return
+		}
+		err = g.feedManager.CreateStreamHistory(ctx, snk, &query)
 		if err != nil {
 			if luigi.IsEOS(err) {
 				req.Stream.Close()
@@ -194,7 +200,7 @@ func (g *LegacyGossip) HandleCall(
 			}
 			err = errors.Wrap(err, "createHistoryStream failed")
 			errLog.Log("err", err)
-			req.Stream.CloseWithError(err)
+			req.CloseWithError(err)
 			return
 		}
 		// don't close stream (feedManager will pass it on to live processing or close it itself)

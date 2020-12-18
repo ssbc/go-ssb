@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"
@@ -50,9 +52,9 @@ func TestBlobsPair(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(aliLog),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
-		// }),
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join("testrun", t.Name(), "muxdump"), conn)
+		}),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
 	)
@@ -66,9 +68,6 @@ func TestBlobsPair(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(bobLog),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(bobLog, conn), nil
-		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
 	)
@@ -105,7 +104,7 @@ func TestBlobsPair(t *testing.T) {
 		t.Run("noop/"+tc.name, tc.tf)
 	}
 
-	info.Log("block1", "done")
+	info.Log("phase1", "done")
 
 	aliCT := ali.Network.GetConnTracker()
 	bobCT := bob.Network.GetConnTracker()

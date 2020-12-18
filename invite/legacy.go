@@ -35,16 +35,13 @@ func Redeem(ctx context.Context, tok Token, longTerm *refs.FeedRef) error {
 		Feed string `json:"feed"`
 	}{longTerm.Ref()}
 
-	inviteReply, err := inviteClient.Async(ctx, ret, muxrpc.Method{"invite", "use"}, param)
+	err = inviteClient.Async(ctx, &ret, muxrpc.TypeJSON, muxrpc.Method{"invite", "use"}, param)
 	if err != nil {
 		return errors.Wrap(err, "invite: invalid token")
 	}
-	msg, ok := inviteReply.(refs.Message)
-	if !ok {
-		return errors.Errorf("invite: reply was not a message")
-	}
-	if msg.Key() != nil {
-		log.Println("invite redeemed. Peer replied with msg", msg.Key().Ref())
+
+	if ret.Key() != nil {
+		log.Println("invite redeemed. Peer replied with msg", ret.Key().Ref())
 	} else {
 		log.Println("warning: peer replied with empty message")
 	}

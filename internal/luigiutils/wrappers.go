@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2/codec"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
@@ -16,8 +16,8 @@ import (
 // NewGabbyStreamSink expects the values passing through to be of type multimsg.MultiMessage
 // it then unpacks them as gabygrove, reencodes the transfer object to bytes
 // and passes those as muxrpc codec.Body to the wrapped sink
-func NewGabbyStreamSink(stream luigi.Sink) luigi.Sink {
-	wrappedSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
+	return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {
 				return nil
@@ -52,9 +52,9 @@ func NewGabbyStreamSink(stream luigi.Sink) luigi.Sink {
 			return errors.Wrap(err, "gabbyStream: failed to marshal transfer object")
 		}
 
-		return stream.Pour(ctx, codec.Body(trdata))
+		_, err = w.Write(trdata)
+		return err
 	})
-	return &wrappedSink
 }
 
 // NewSinkCounter returns a new Sink which increases the given counter when poured to.

@@ -48,13 +48,16 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		h.log.Log("msg", "got a nil source from the map, ignoring and making new")
 	}
 
-	src, err := edp.Source(ctx, &blobstore.WantMsg{}, muxrpc.Method{"blobs", "createWants"})
+	bSrc, err := edp.Source(ctx, muxrpc.TypeJSON, muxrpc.Method{"blobs", "createWants"})
 	if err != nil {
 		return nil, errors.Wrap(err, "error making source call")
 	}
-	if src == nil {
+	if bSrc == nil {
 		return nil, errors.New("failed to get createWants source from remote")
 	}
+	stream := bSrc.AsStream()
+	stream.WithType(&blobstore.WantMsg{})
+	src = stream
 	h.sources[ref] = src
 	return src, nil
 }
@@ -79,7 +82,7 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
 		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
-		req.Stream.CloseWithError(errors.Wrap(err, "failed to get source"))
+		req.CloseWithError(errors.Wrap(err, "failed to get source"))
 		return
 	}
 	snk := h.wm.CreateWants(ctx, req.Stream, edp)

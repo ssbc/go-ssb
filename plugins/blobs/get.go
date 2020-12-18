@@ -80,7 +80,13 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		return
 	}
 
-	w := muxrpc.NewSinkWriter(req.Stream)
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		req.Stream.CloseWithError(errors.Wrap(err, "no sink for request"))
+		return
+	}
+	w := muxrpc.NewSinkWriter(snk)
+
 	_, err = io.Copy(w, r)
 	checkAndLog(errLog, errors.Wrap(err, "error sending blob"))
 
