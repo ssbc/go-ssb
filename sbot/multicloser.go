@@ -3,11 +3,11 @@
 package sbot
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 )
 
 type multiCloser struct {
@@ -29,7 +29,9 @@ func (mc *multiCloser) Close() error {
 	defer mc.l.Unlock()
 
 	for i, c := range mc.cs {
-		err = multierror.Append(err, errors.Wrapf(c.Close(), "multiCloser: c%d failed", i))
+		if cerr := c.Close(); cerr != nil {
+			err = multierror.Append(err, fmt.Errorf("multiCloser: c%d failed: %w", i, cerr))
+		}
 	}
 
 	me := err.(*multierror.Error)

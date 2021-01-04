@@ -95,8 +95,8 @@ package main
 
 import (
 	"log"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/sbot"
@@ -135,7 +135,7 @@ func main() {
 	}
 	for i, msg := range someMsgs {
 		newSeq, err := publish.Append(msg)
-		check(errors.Wrapf(err, "failed to publish test message %d", i))
+		check(fmt.Errorf("failed to publish test message %d: %w", i, err))
 		log.Println("new message:", newSeq)
 	}
 

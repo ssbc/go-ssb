@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"go.cryptoscope.co/ssb/private/keys"
@@ -123,12 +122,12 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 
 	_, err := bxr.rand.Read(msgKey[:])
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading random data")
+		return nil, fmt.Errorf("error reading random data: %w", err)
 	}
 
 	info, err := makeInfo(author, prev)
 	if err != nil {
-		return nil, errors.Wrap(err, "error constructing keying information")
+		return nil, fmt.Errorf("error constructing keying information: %w", err)
 	}
 
 	err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
@@ -215,7 +214,7 @@ func (bxr *Boxer) getReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.Messa
 	error) {
 	slotKeys, info, err := deriveMessageKey(author, prev, candidates)
 	if err != nil {
-		err = errors.Wrap(err, "error constructing keying information")
+		err = fmt.Errorf("error constructing keying information: %w", err)
 		return nil, [KeySize]byte{}, nil, err
 	}
 	var (

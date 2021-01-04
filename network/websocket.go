@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 )
 
@@ -70,7 +70,7 @@ func websockHandler(n *node) http.HandlerFunc {
 
 		h, err := n.opts.MakeHandler(wc)
 		if err != nil {
-			err = errors.Wrap(err, "unix sock make handler")
+			err = fmt.Errorf("unix sock make handler: %w", err)
 			level.Error(n.log).Log("warn", err)
 			wsConn.Close()
 			return
@@ -118,11 +118,11 @@ func (conn *wrappedConn) Read(data []byte) (int, error) {
 func (wc *wrappedConn) renewReader() error {
 	mt, r, err := wc.wsc.NextReader()
 	if err != nil {
-		return errors.Wrap(err, "wsConn: failed to get reader")
+		return fmt.Errorf("wsConn: failed to get reader: %w", err)
 	}
 
 	if mt != websocket.BinaryMessage {
-		return errors.Errorf("wsConn: not binary message: %v", mt)
+		return fmt.Errorf("wsConn: not binary message: %v", mt)
 
 	}
 	wc.r = r
@@ -132,12 +132,12 @@ func (wc *wrappedConn) renewReader() error {
 func (conn wrappedConn) Write(data []byte) (int, error) {
 	writeCloser, err := conn.wsc.NextWriter(websocket.BinaryMessage)
 	if err != nil {
-		return -1, errors.Wrap(err, "wsConn: failed to create Reader")
+		return -1, fmt.Errorf("wsConn: failed to create Reader: %w", err)
 	}
 
 	n, err := io.Copy(writeCloser, bytes.NewReader(data))
 	if err != nil {
-		return -1, errors.Wrap(err, "wsConn: failed to copy data")
+		return -1, fmt.Errorf("wsConn: failed to copy data: %w", err)
 	}
 	return int(n), writeCloser.Close()
 }

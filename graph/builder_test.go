@@ -4,6 +4,8 @@ package graph
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -11,7 +13,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
@@ -261,14 +262,14 @@ func serveLog(ctx context.Context, name string, l margaret.Log, snk librarian.Si
 		src, err := l.Query(snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
 			log.Println("got err for", name, err)
-			errc <- errors.Wrapf(err, "%s query failed", name)
+			errc <- fmt.Errorf("%s query failed", name, err)
 			return
 		}
 
 		err = luigi.Pump(ctx, snk, src)
-		if err != nil && errors.Cause(err) != ssb.ErrShuttingDown {
+		if err != nil && !errors.Is(err, ssb.ErrShuttingDown) {
 			log.Println("got err for", name, err)
-			errc <- errors.Wrapf(err, "%s serve exited", name)
+			errc <- fmt.Errorf("%s serve exited", name, err)
 		}
 	}()
 	return errc

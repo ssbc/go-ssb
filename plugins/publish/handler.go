@@ -11,7 +11,6 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 
@@ -35,7 +34,7 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 	defer h.publishMu.Unlock()
 
 	if n := req.Method.String(); n != "publish" {
-		return nil, errors.Errorf("publish: bad request name: %s", n)
+		return nil, fmt.Errorf("publish: bad request name: %s", n)
 	}
 
 	var args []json.RawMessage
@@ -44,7 +43,7 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 		return nil, err
 	}
 	if n := len(args); n != 1 {
-		return nil, errors.Errorf("publish: bad request. expected 1 argument got %d", n)
+		return nil, fmt.Errorf("publish: bad request. expected 1 argument got %d", n)
 	}
 
 	// check if we should encrypt the content
@@ -110,7 +109,7 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 
 	ref, err := h.publish.Publish(content)
 	if err != nil {
-		return nil, errors.Wrap(err, "publish: pour failed")
+		return nil, fmt.Errorf("publish: pour failed: %w", err)
 	}
 
 	level.Info(h.info).Log("event", "published message", "refKey", ref.ShortRef())

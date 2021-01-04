@@ -5,6 +5,7 @@ package sbot
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,12 +13,11 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/margaret"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -60,7 +60,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
 		}
-		if errors.Cause(err) == ssb.ErrShuttingDown {
+		if errors.Is(err, ssb.ErrShuttingDown) {
 			return nil
 		}
 		return err
@@ -84,7 +84,7 @@ func TestFeedsOneByOne(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
 		}
-		if errors.Cause(err) == ssb.ErrShuttingDown {
+		if errors.Is(err, ssb.ErrShuttingDown) {
 			return nil
 		}
 		return err

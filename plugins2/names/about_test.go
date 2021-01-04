@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 
@@ -52,7 +51,7 @@ func TestAboutNames(t *testing.T) {
 	go func() {
 		err := ali.Network.Serve(ctx)
 		if err != nil && err != context.Canceled {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
+			aliErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(aliErrc)
 	}()

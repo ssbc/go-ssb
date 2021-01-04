@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
 )
@@ -23,7 +23,7 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	// some functions (like createHistoryStream with keys:true) nest the message on level deeper and this fails
 	matches := signatureRegexp.FindSubmatch(b)
 	if n := len(matches); n != 2 {
-		return nil, "", errors.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
+		return nil, "", fmt.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
 	}
 	sig := Signature(matches[1])
 	out := signatureRegexp.ReplaceAll(b, []byte{})
@@ -41,7 +41,7 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMe
 		if len(raw) > 15 {
 			raw = raw[:15]
 		}
-		return nil, nil, errors.Wrapf(err, "ssb Verify: could not encode message: %q...", raw)
+		return nil, nil, fmt.Errorf("ssb Verify: could not encode message (%q): %w", raw, err)
 	}
 
 	// destroys it for the network layer but makes it easier to access its values
@@ -50,12 +50,12 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMe
 		if len(raw) > 15 {
 			raw = raw[:15]
 		}
-		return nil, nil, errors.Wrapf(err, "ssb Verify: could not json.Unmarshal message: %q...", raw)
+		return nil, nil, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
 
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could not extract signature", dmsg.Author.Ref(), dmsg.Sequence)
+		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 
 	if hmacSecret != nil {
@@ -64,13 +64,13 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMe
 	}
 
 	if err := sig.Verify(woSig, &dmsg.Author); err != nil {
-		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could not verify message", dmsg.Author.Ref(), dmsg.Sequence)
+		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could not verify message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string
 	v8warp, err := InternalV8Binary(enc)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "ssb Verify(%s:%d): could hash convert message", dmsg.Author.Ref(), dmsg.Sequence)
+		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))

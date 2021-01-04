@@ -11,7 +11,6 @@ import (
 
 	"go.cryptoscope.co/ssb/message"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
@@ -61,7 +60,6 @@ var partialStreamCmd = &cli.Command{
 	Name:  "partial",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
-
 		client, err := newClient(ctx)
 		if err != nil {
 			return err
@@ -84,10 +82,13 @@ var partialStreamCmd = &cli.Command{
 			Tipe: ctx.Args().First(),
 		})
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "byType failed")
+		if err != nil {
+			err = fmt.Errorf("byType pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -115,10 +116,13 @@ var historyStreamCmd = &cli.Command{
 		}
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "feed hist failed")
+		if err != nil {
+			err = fmt.Errorf("feed hist pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -134,10 +138,13 @@ var logStreamCmd = &cli.Command{
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createLogStream"}, args)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "log failed")
+		if err != nil {
+			err = fmt.Errorf("message pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -153,10 +160,13 @@ var sortedStreamCmd = &cli.Command{
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createFeedStream"}, args)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "log failed")
+		if err != nil {
+			err = fmt.Errorf("message pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -175,10 +185,13 @@ var typeStreamCmd = &cli.Command{
 		targs.Type = ctx.Args().First()
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, targs)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "byType failed")
+		if err != nil {
+			err = fmt.Errorf("message pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -203,10 +216,13 @@ var repliesStreamCmd = &cli.Command{
 
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"tangles", "read"}, targs)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "private/read failed")
+		if err != nil {
+			err = fmt.Errorf("message pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -221,10 +237,13 @@ var replicateUptoCmd = &cli.Command{
 		var args = getStreamArgs(ctx)
 		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
 		if err != nil {
-			return errors.Wrap(err, "source stream call failed")
+			return fmt.Errorf("source stream call failed: %w", err)
 		}
 		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
-		return errors.Wrap(err, "replicate/upto failed")
+		if err != nil {
+			err = fmt.Errorf("message pump failed: %w", err)
+		}
+		return err
 	},
 }
 
@@ -234,15 +253,15 @@ func jsonDrain(w io.Writer) luigi.Sink {
 		if luigi.IsEOS(err) {
 			return nil
 		} else if err != nil {
-			return errors.Wrapf(err, "jsonDrain: failed to drain message %d", i)
+			return fmt.Errorf("jsonDrain: failed to drain message %d", i, err)
 		}
 		b, err := json.MarshalIndent(val, "", "  ")
 		if err != nil {
-			return errors.Wrapf(err, "jsonDrain: failed to encode msg %d", i)
+			return fmt.Errorf("jsonDrain: failed to encode msg %d", i, err)
 		}
 		_, err = fmt.Fprintln(w, string(b))
 		if err != nil {
-			return errors.Wrapf(err, "jsonDrain: failed to write msg %d", i)
+			return fmt.Errorf("jsonDrain: failed to write msg %d", i, err)
 		}
 		i++
 		return nil
@@ -259,7 +278,7 @@ func query(ctx *cli.Context) error {
 		}
 	}()
 	if err := client.Source("query.read", reply, ctx.Args().Get(0)); err != nil {
-		return errors.Wrap(err, "source stream call failed")
+		return fmt.Errorf("source stream call failed",err)
 	}
 	return client.Close()
 }

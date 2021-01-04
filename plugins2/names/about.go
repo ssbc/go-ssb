@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
@@ -79,7 +78,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 
 			parts := strings.Split(string(k), ":")
 			if len(parts) != 3 {
-				return errors.Errorf("about.All: illegal key:%q", string(k))
+				return fmt.Errorf("about.All: illegal key:%q", string(k))
 			}
 
 			about := parts[0]
@@ -106,7 +105,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 					return nil
 				})
 				if err != nil {
-					return errors.Wrapf(err, "about.All: value of item %q failed", k)
+					return fmt.Errorf("about.All: value of item %q failed: %w", k, err)
 				}
 			}
 
@@ -148,7 +147,7 @@ func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
 
 			c, err := refs.ParseFeedRef(string(splitted[0]))
 			if err != nil {
-				return errors.Wrapf(err, "about: couldnt make author ref from db key: %s", splitted)
+				return fmt.Errorf("about: couldnt make author ref from db key: %s: %w", splitted, err)
 			}
 			err = it.Value(func(v []byte) error {
 				var fieldPtr *AboutAttribute
@@ -184,14 +183,17 @@ func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
 				return nil
 			})
 			if err != nil {
-				return errors.Wrap(err, "about: couldnt get idx value")
+				return fmt.Errorf("about: couldnt get idx value: %w", err)
 			}
 
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("name db lookup failed: %w", err)
+	}
 
-	return &reduced, errors.Wrap(err, "name db lookup failed")
+	return &reduced, nil
 }
 
 const FolderNameAbout = "about"
@@ -205,7 +207,7 @@ func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, libraria
 
 	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error getting about index")
+		return nil, nil, fmt.Errorf("error getting about index: %w", err)
 	}
 
 	plug.about = aboutStore{db}
@@ -242,19 +244,19 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	if aboutMSG.Name != "" {
 		val = aboutMSG.Name
 		if err := idx.Set(ctx, librarian.Addr(addr+"name"), val); err != nil {
-			return errors.Wrap(err, "db/idx about: failed to update field")
+			return fmt.Errorf("db/idx about: failed to update field: %w", err)
 		}
 	}
 	if aboutMSG.Description != "" {
 		val = aboutMSG.Description
 		if err := idx.Set(ctx, librarian.Addr(addr+"description"), val); err != nil {
-			return errors.Wrap(err, "db/idx about: failed to update field")
+			return fmt.Errorf("db/idx about: failed to update field: %w", err)
 		}
 	}
 	if aboutMSG.Image != nil {
 		val = aboutMSG.Image.Ref()
 		if err := idx.Set(ctx, librarian.Addr(addr+"image"), val); err != nil {
-			return errors.Wrap(err, "db/idx about: failed to update field")
+			return fmt.Errorf("db/idx about: failed to update field: %w", err)
 		}
 	}
 

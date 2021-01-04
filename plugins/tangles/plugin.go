@@ -11,7 +11,6 @@ import (
 	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -76,7 +75,7 @@ type tangleHandler struct {
 
 func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
-		return errors.Errorf("invalid arguments")
+		return fmt.Errorf("invalid arguments")
 	}
 
 	var qryarr []message.TanglesArgs
@@ -85,13 +84,13 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 	err := json.Unmarshal(req.RawArgs, &qryarr)
 	if err != nil {
 		if req.RawArgs[0] != '"' {
-			return errors.Wrap(err, "bad request - invalid root")
+			return fmt.Errorf("bad request - invalid root: %w", err)
 		}
 
 		var ref refs.MessageRef
 		err := json.Unmarshal(req.RawArgs, &ref)
 		if err != nil {
-			return errors.Wrap(err, "bad request - invalid root (string?)")
+			return fmt.Errorf("bad request - invalid root (string?): %w", err)
 		}
 		qry.Root = &ref
 		qry.Limit = -1
@@ -110,7 +109,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 
 	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
-		return errors.Wrap(err, "failed to determain remote")
+		return fmt.Errorf("failed to determain remote: %w", err)
 	}
 
 	isSelf := g.isSelf.Authorize(remote)
@@ -138,17 +137,17 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 		}
 		threadLog, err := g.tangles.Get(addr)
 		if err != nil {
-			return errors.Wrap(err, "failed to load thread")
+			return fmt.Errorf("failed to load thread: %w", err)
 		}
 
 		src, err := mutil.Indirect(g.rxlog, threadLog).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live), margaret.Reverse(qry.Reverse))
 		if err != nil {
-			return errors.Wrap(err, "tangle: failed to create query")
+			return fmt.Errorf("tangle: failed to create query: %w", err)
 		}
 
 		err = luigi.Pump(ctx, lsnk, src)
 		if err != nil {
-			return errors.Wrap(err, "tangle: failed to pump msgs")
+			return fmt.Errorf("tangle: failed to pump msgs: %w", err)
 		}
 
 		return snk.Close()
@@ -159,7 +158,7 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 	if err != nil {
 		// TODO: check err == persist: not found
 		return snk.Close()
-		return errors.Wrap(err, "failed to load thread log")
+		return fmt.Errorf("failed to load thread log: %w", err)
 	}
 
 	if qry.Private {

@@ -3,9 +3,9 @@
 package message
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -22,7 +22,7 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 		case "live", "keys", "values", "reverse", "asjson", "private":
 			b, ok := v.(bool)
 			if !ok {
-				return nil, errors.Errorf("ssb/message: not a bool for %s", k)
+				return nil, fmt.Errorf("ssb/message: not a bool for %s", k)
 			}
 			switch k {
 			case "live":
@@ -42,20 +42,20 @@ func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, e
 		case "type", "id":
 			val, ok := v.(string)
 			if !ok {
-				return nil, errors.Errorf("ssb/message: not string (but %T) for %s", v, k)
+				return nil, fmt.Errorf("ssb/message: not string (but %T) for %s", v, k)
 			}
 			switch k {
 			case "id":
 				var err error
 				qry.ID, err = refs.ParseFeedRef(val)
 				if err != nil {
-					return nil, errors.Wrapf(err, "ssb/message: not a feed ref")
+					return nil, fmt.Errorf("ssb/message: not a feed ref: %w", err)
 				}
 			}
 		case "seq", "limit", "gt", "lt":
 			n, ok := v.(float64)
 			if !ok {
-				return nil, errors.Errorf("ssb/message: not a float64(%T) for %s", v, k)
+				return nil, fmt.Errorf("ssb/message: not a float64(%T) for %s", v, k)
 			}
 			switch k {
 			case "seq":

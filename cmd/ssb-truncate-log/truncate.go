@@ -13,7 +13,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/repo"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 )
 
@@ -62,7 +61,7 @@ func main() {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrap(err, "push failed")
+			return fmt.Errorf("push failed: %w", err)
 		}
 
 		if err, ok := v.(error); ok {

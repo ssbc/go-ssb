@@ -5,6 +5,7 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 
@@ -39,7 +39,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 	for i, o := range opts {
 		if err := o(wmgr); err != nil {
-			panic(errors.Wrapf(err, "NewWantManager called with invalid option #%d", i))
+			panic(fmt.Errorf("NewWantManager called with invalid option #%d: %w", i, err))
 		}
 	}
 
@@ -63,7 +63,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 		n, ok := v.(ssb.BlobStoreNotification)
 		if !ok {
-			return errors.Errorf("blob change: unhandled notification type: %T", v)
+			return fmt.Errorf("blob change: unhandled notification type: %T", v)
 		}
 		wmgr.promEvent(n.Op.String(), 1)
 
@@ -150,7 +150,7 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	arg := GetWithSize{ref, wmgr.maxSize}
 	src, err := edp.Source(ctx, 0, muxrpc.Method{"blobs", "get"}, arg)
 	if err != nil {
-		err = errors.Wrap(err, "blob create source failed")
+		err = fmt.Errorf("blob create source failed: %w", err)
 		level.Warn(log).Log("err", err)
 		return err
 	}
@@ -159,7 +159,7 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	r = io.LimitReader(r, int64(wmgr.maxSize))
 	newBr, err := wmgr.bs.Put(r)
 	if err != nil {
-		err = errors.Wrap(err, "blob data piping failed")
+		err = fmt.Errorf("blob data piping failed: %w", err)
 		level.Warn(log).Log("err", err)
 		return err
 	}
@@ -215,7 +215,7 @@ func (wmgr *wantManager) AllWants() []ssb.BlobWant {
 	for ref, dist := range wmgr.wants {
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			panic(errors.Wrap(err, "invalid blob ref in want manager"))
+			panic(fmt.Errorf("invalid blob ref in want manager: %w", err))
 		}
 		bws = append(bws, ssb.BlobWant{
 			Ref:  br,
@@ -262,8 +262,11 @@ func (wmgr *wantManager) WantWithDist(ref *refs.BlobRef, dist int64) error {
 	wmgr.promGaugeSet("nwants", len(wmgr.wants))
 
 	err = wmgr.wantSink.Pour(wmgr.longCtx, ssb.BlobWant{Ref: ref, Dist: dist})
-	err = errors.Wrap(err, "error pouring want to broadcast")
-	return err
+	if err != nil {
+		return fmt.Errorf("error pouring want to broadcast: %w", err)
+	}
+
+	return nil
 }
 
 func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
@@ -346,12 +349,12 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 			return nil
 		}
 		dbg.Log("cause", "update error", "err", err)
-		return errors.Wrap(err, "blobstore broadcast error")
+		return fmt.Errorf("blobstore broadcast error: %w", err)
 	}
 
 	notif, ok := v.(ssb.BlobStoreNotification)
 	if !ok {
-		err = errors.Errorf("wantProc: unhandled notification type: %T", v)
+		err = fmt.Errorf("wantProc: unhandled notification type: %T", v)
 		level.Error(proc.info).Log("warning", "invalid type", "err", err)
 		return err
 	}
@@ -365,14 +368,17 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 
 	sz, err := proc.bs.Size(notif.Ref)
 	if err != nil {
-		return errors.Wrap(err, "error getting blob size")
+		return fmt.Errorf("error getting blob size: %w", err)
 	}
 
 	m := map[string]int64{notif.Ref.Ref(): sz}
 	err = proc.out.Pour(ctx, m)
-	dbg.Log("cause", "broadcasting received blob", "sz", sz)
-	return errors.Wrap(err, "errors pouring into sink")
+	if err != nil {
+		return fmt.Errorf("errors pouring into sink: %w", err)
+	}
 
+	dbg.Log("cause", "broadcasting received blob", "sz", sz)
+	return nil
 }
 
 //
@@ -383,14 +389,14 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 			return nil
 		}
 		dbg.Log("cause", "broadcast error", "err", err)
-		return errors.Wrap(err, "wmanager broadcast error")
+		return fmt.Errorf("wmanager broadcast error: %w", err)
 	}
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
 	w, ok := v.(ssb.BlobWant)
 	if !ok {
-		err := errors.Errorf("wrong type: %T", v)
+		err := fmt.Errorf("wrong type: %T", v)
 		return err
 	}
 	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortRef(), "dist", w.Dist)
@@ -426,7 +432,10 @@ type GetWithSize struct {
 func (proc *wantProc) Close() error {
 	// TODO: unwant open wants
 	defer proc.done(nil)
-	return errors.Wrap(proc.out.Close(), "error in lower-layer close")
+	if err := proc.out.Close(); err != nil {
+		return fmt.Errorf("error in lower-layer close: %w", err)
+	}
+	return nil
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
@@ -454,12 +463,12 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 
 					wErr := proc.wmgr.WantWithDist(w.Ref, w.Dist-1)
 					if wErr != nil {
-						return errors.Wrap(err, "forwarding want faild")
+						return fmt.Errorf("forwarding want faild: %w", err)
 					}
 					continue
 				}
 
-				return errors.Wrap(err, "error getting blob size")
+				return fmt.Errorf("error getting blob size: %w", err)
 			}
 
 			proc.l.Lock()
@@ -489,7 +498,10 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	}
 
 	err := proc.out.Pour(ctx, mOut)
-	return errors.Wrap(err, "error responding to wants")
+	if err != nil {
+		return fmt.Errorf("error responding to wants: %w", err)
+	}
+	return nil
 }
 
 // WantMsg is an array of _wants_, a blob reference with a distance.
@@ -503,7 +515,10 @@ func (msg WantMsg) MarshalJSON() ([]byte, error) {
 		wantsMap[want.Ref] = want.Dist
 	}
 	data, err := json.Marshal(wantsMap)
-	return data, errors.Wrap(err, "WantMsg: error marshalling map")
+	if err != nil {
+		return nil, fmt.Errorf("WantMsg: error marshalling map: %w", err)
+	}
+	return data, nil
 }
 
 // UnmarshalJSON turns an object of {ref:dist, ...} relations into a slice of BlobWants.
@@ -518,14 +533,14 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	var wantsMap map[string]int64
 	err = json.Unmarshal(data, &wantsMap)
 	if err != nil {
-		return errors.Wrap(err, "WantMsg: error parsing into map")
+		return fmt.Errorf("WantMsg: error parsing into map: %w", err)
 	}
 
 	var wants []ssb.BlobWant
 	for ref, dist := range wantsMap {
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			fmt.Println(errors.Wrap(err, "WantMsg: error parsing blob reference"))
+			fmt.Println(fmt.Errorf("WantMsg: error parsing blob reference: %w", err))
 			continue
 		}
 

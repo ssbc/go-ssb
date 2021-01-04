@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 )
 
@@ -38,7 +37,7 @@ func (mgr *Store) AddKey(id ID, r Recipient) error {
 		if IsNoSuchKey(err) {
 			recps = Recipients{}
 		} else {
-			return errors.Wrap(err, "error getting old value")
+			return fmt.Errorf("error getting old value: %w", err)
 		}
 	}
 

@@ -8,11 +8,11 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/netwrap"
@@ -124,16 +124,19 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	}
 	dest, ok := req.Args()[0].(string)
 	if !ok {
-		return nil, errors.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args()[0])
+		return nil, fmt.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args()[0])
 	}
 	msaddr, err := multiserver.ParseNetAddress([]byte(dest))
 	if err != nil {
-		return nil, errors.Wrapf(err, "ctrl.connect call: failed to parse input: %s", dest)
+		return nil, fmt.Errorf("ctrl.connect call: failed to parse input %q: %w", dest, err)
 	}
 
 	wrappedAddr := netwrap.WrapAddr(&msaddr.Addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
 	level.Info(h.info).Log("event", "doing gossip.connect", "remote", msaddr.Ref.ShortRef())
 	// TODO: add context to tracker to cancel connections
 	err = h.node.Connect(context.Background(), wrappedAddr)
-	return nil, errors.Wrapf(err, "ctrl.connect call: error connecting to %q", msaddr.Addr)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
+	}
+	return "connected", nil
 }

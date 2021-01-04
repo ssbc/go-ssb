@@ -6,16 +6,15 @@ package blobs
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 /*

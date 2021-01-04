@@ -3,9 +3,8 @@
 package ssb
 
 import (
+	"errors"
 	"net"
-
-	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"

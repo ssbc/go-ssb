@@ -5,12 +5,12 @@ package private_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
@@ -96,7 +96,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 
 		v, err = src.Next(context.TODO())
 		r.Error(err)
-		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
+		r.True(errors.Is(err, luigi.EOS{}))
 
 		// try with seqwrapped query
 		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
@@ -122,7 +122,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 
 		v, err = src.Next(context.TODO())
 		r.Error(err)
-		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
+		r.True(errors.Is(err, luigi.EOS{}))
 
 		// shutdown
 		a.NoError(c.Close())

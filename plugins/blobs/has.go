@@ -7,12 +7,11 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type hasHandler struct {
@@ -40,7 +39,7 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 		ref, err := refs.ParseBlobRef(v)
 		if err != nil {
-			req.Stream.CloseWithError(errors.Wrap(err, "error parsing blob reference"))
+			req.Stream.CloseWithError(fmt.Errorf("error parsing blob reference: %w", err))
 			return
 		}
 
@@ -51,14 +50,16 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		if err == blobstore.ErrNoSuchBlob {
 			has = false
 		} else if err != nil {
-			err = errors.Wrap(err, "error looking up blob")
+			err = fmt.Errorf("error looking up blob: %w", err)
 			err = req.Stream.CloseWithError(err)
 			checkAndLog(h.log, err)
 			return
 		}
 
 		err = req.Return(ctx, has)
-		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+		if err != nil {
+			checkAndLog(h.log, fmt.Errorf("error returning value: %w", err))
+		}
 
 	case []interface{}:
 		var has = make([]bool, len(v))
@@ -71,8 +72,8 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 				return
 			}
 			ref, err := refs.ParseBlobRef(blobStr)
-			checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 			if err != nil {
+				checkAndLog(h.log, fmt.Errorf("error parsing blob reference: %w", err))
 				return
 			}
 
@@ -83,7 +84,7 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 			if err == blobstore.ErrNoSuchBlob {
 				has[k] = false
 			} else if err != nil {
-				err = errors.Wrap(err, "error looking up blob")
+				err = fmt.Errorf("error looking up blob: %w", err)
 				err = req.Stream.CloseWithError(err)
 				checkAndLog(h.log, err)
 				return
@@ -92,7 +93,9 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		}
 
 		err := req.Return(ctx, has)
-		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+		if err != nil {
+			checkAndLog(h.log, fmt.Errorf("error returning value: %w", err))
+		}
 
 	default:
 		req.Stream.CloseWithError(fmt.Errorf("bad request - unhandled type"))

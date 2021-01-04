@@ -5,11 +5,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
@@ -93,7 +93,7 @@ func New(
 ) (*Service, error) {
 	kv, err := repo.OpenMKV(r.GetPath("plugin", "legacyinvites"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open key-value database")
+		return nil, fmt.Errorf("failed to open key-value database: %w", err)
 	}
 
 	return &Service{

@@ -9,8 +9,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -55,7 +53,7 @@ func main() {
 	}
 
 	if feedAlgo != refs.RefAlgoFeedSSB1 && feedAlgo != refs.RefAlgoFeedGabby { //  enums would be nice
-		check(errors.Errorf("invalid feed refrence algo. %s or %s", refs.RefAlgoFeedSSB1, refs.RefAlgoFeedGabby))
+		check(fmt.Errorf("invalid feed refrence algo. %s or %s", refs.RefAlgoFeedSSB1, refs.RefAlgoFeedGabby))
 	}
 
 	r := repo.New(repoDir)

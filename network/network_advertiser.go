@@ -4,6 +4,7 @@ package network
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -12,7 +13,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-reuseport"
-	"github.com/pkg/errors"
+
 	"go.cryptoscope.co/ssb"
 	multiserver "go.mindeco.de/ssb-multiserver"
 )
@@ -34,7 +35,7 @@ func newPublicKeyString(keyPair *ssb.KeyPair) string {
 
 func newAdvertisement(local *net.UDPAddr, keyPair *ssb.KeyPair) (string, error) {
 	if local == nil {
-		return "", errors.Errorf("ssb: passed nil local address")
+		return "", errors.New("ssb: passed nil local address")
 	}
 
 	withoutZone := *local
@@ -60,13 +61,13 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 	case *net.UDPAddr:
 		udpAddr = nv
 	default:
-		return nil, errors.Errorf("node Advertise: invalid local address type: %T", local)
+		return nil, fmt.Errorf("node Advertise: invalid local address type: %T", local)
 	}
 	log.Printf("adverstiser using local address %s", udpAddr)
 
 	remote, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", net.IPv4bcast, DefaultPort))
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb/NewAdvertiser: failed to resolve v4 broadcast addr")
+		return nil, fmt.Errorf("ssb/NewAdvertiser: failed to resolve v4 broadcast addr: %w", err)
 	}
 
 	return &Advertiser{
@@ -80,7 +81,7 @@ func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
 func (b *Advertiser) advertise() error {
 	localAddresses, err := findSiteLocalNetworkAddresses(b.local)
 	if err != nil {
-		return errors.Wrap(err, "ssb: failed to make new advertisment")
+		return fmt.Errorf("ssb: failed to make new advertisment: %w", err)
 	}
 
 	for _, localAddress := range localAddresses {
@@ -104,17 +105,17 @@ func (b *Advertiser) advertise() error {
 			localUDP.IP = v.IP
 			localUDP.Port = v.Port
 		default:
-			return errors.Errorf("cannot get Port for network type %s", localAddress.Network())
+			return fmt.Errorf("cannot get Port for network type %s", localAddress.Network())
 		}
 
 		broadcastAddress, err := localBroadcastAddress(localAddress)
 		if err != nil {
-			return errors.Wrap(err, "ssb: failed to find site local address broadcast address")
+			return fmt.Errorf("ssb: failed to find site local address broadcast address: %w", err)
 		}
 		dstStr := net.JoinHostPort(broadcastAddress, strconv.Itoa(DefaultPort))
 		remoteUDP, err := net.ResolveUDPAddr("udp", dstStr)
 		if err != nil {
-			return errors.Wrapf(err, "ssb: failed to resolve broadcast dest addr for advertiser: %s", dstStr)
+			return fmt.Errorf("ssb: failed to resolve broadcast dest addr for advertiser: %s: %w", dstStr, err)
 		}
 
 		msg, err := newAdvertisement(
@@ -132,13 +133,13 @@ func (b *Advertiser) advertise() error {
 		}
 		_, err = fmt.Fprint(broadcastConn, msg)
 		if err != nil {
-			// err = errors.Wrapf(err, "adv send of msg failed")
+			// err = fmt.Errorf("adv send of msg failed",err)
 			// log.Println("debug,cont:", err)
 			continue
 		}
 		_ = broadcastConn.Close()
 		if err != nil {
-			// err = errors.Wrapf(err, "close of con failed")
+			// err = fmt.Errorf("close of con failed",err)
 			// log.Println("debug,cont:", err)
 			continue
 		}

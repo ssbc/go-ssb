@@ -10,8 +10,13 @@ import (
 	"log"
 	"testing"
 
-	"github.com/kylelemons/godebug/diff"
+	// TODO: was on a streak to remoe all the errors.Wrap but here it's used as check(errors.Wrap(err, "the msg"))
+	// which uses the cases that errors.Wrap(err) returns nil if err is nil
+	// replacing it here would need a lot of if err!=nil { ... "the msg "}
+	// also, this is just test code and not performance critical
 	"github.com/pkg/errors"
+
+	"github.com/kylelemons/godebug/diff"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -25,7 +30,10 @@ var testMessages []testMessage
 
 func init() {
 	r, err := zip.OpenReader("testdata.zip")
-	checkPanic(errors.Wrap(err, "could not find testdata - run 'node encode_test.js' to create it"))
+	if err != nil {
+		fmt.Println("could not find testdata - run 'node encode_test.js' to create it")
+		checkPanic(err)
+	}
 	defer r.Close()
 
 	if len(r.File)%3 != 0 {
@@ -41,13 +49,13 @@ func init() {
 		noSig := r.File[i+2]
 		// check file structure assumption
 		if noSig.Name != fmt.Sprintf("%05d.noSig", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.noSig' got %s", seq, noSig.Name))
+			checkPanic(fmt.Errorf("unexpected file. wanted '%05d.noSig' got %s", seq, noSig.Name))
 		}
 		if input.Name != fmt.Sprintf("%05d.input", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.input' got %s", seq, input.Name))
+			checkPanic(fmt.Errorf("unexpected file. wanted '%05d.input' got %s", seq, input.Name))
 		}
 		if full.Name != fmt.Sprintf("%05d.full", seq) {
-			checkPanic(errors.Errorf("unexpected file. wanted '%05d.full' got %s", seq, full.Name))
+			checkPanic(fmt.Errorf("unexpected file. wanted '%05d.full' got %s", seq, full.Name))
 		}
 
 		// get some data from the full message
@@ -63,19 +71,19 @@ func init() {
 		// get sig
 		sig, has := origMsg.Value["signature"]
 		if !has {
-			checkPanic(errors.Errorf("test(%d) - expected signature in value field", i))
+			checkPanic(fmt.Errorf("test(%d) - expected signature in value field", i))
 		}
 		testMessages[seq].Signature = sig.(string)
 		// get author
 		a, has := origMsg.Value["author"]
 		if !has {
-			checkPanic(errors.Errorf("test(%d) - expected author in value field", i))
+			checkPanic(fmt.Errorf("test(%d) - expected author in value field", i))
 		}
 		r, err := refs.ParseRef(a.(string))
 		checkPanic(errors.Wrapf(err, "test(%d) - failed to parse author ref", i))
 		fr, ok := r.(*refs.FeedRef)
 		if !ok {
-			checkPanic(errors.Errorf("test(%d) - expected valid author ref", i))
+			checkPanic(fmt.Errorf("test(%d) - expected valid author ref", i))
 		}
 		testMessages[seq].Author = fr
 

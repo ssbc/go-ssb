@@ -1,11 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -24,7 +24,7 @@ var blobsCmd = &cli.Command{
 		var localRepo = ctx.String("localstore")
 		if localRepo == "" {
 			//blobsStore, err = newClient(ctx)
-			return errors.Errorf("TODO: implement more blobs features on client")
+			return fmt.Errorf("TODO: implement more blobs features on client")
 		}
 		var err error
 		blobsStore, err = blobstore.New(localRepo)
@@ -59,17 +59,11 @@ var blobsHasCmd = &cli.Command{
 		// TODO: direct blobstore mode!?
 		var has bool
 		//sz, err := blobsStore.Size()
-		resp, err := client.Async(longctx, has, muxrpc.Method{"blobs", "has"}, ref)
+		err = client.Async(longctx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
 		if err != nil {
 			return errors.Wrapf(err, "connect: async call failed.")
 		}
-		log.Log("event", "blob.has", "r", resp)
-		goon.Dump(resp)
-		var ok bool
-		has, ok = resp.(bool)
-		if !ok {
-			return errors.Errorf("blobs.has: invalid return type: %T", resp)
-		}
+		log.Log("event", "blob.has", "r", has)
 
 		if !has {
 			log.Log("blob.has", false)
@@ -106,7 +100,7 @@ var blobsAddCmd = &cli.Command{
 	Usage: "add a file to the store (use - to open stdin)",
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return errors.Errorf("no blobstore use 'blobs --localstore $repo/blobs add -' for now")
+			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs add -' for now")
 		}
 		fname := ctx.Args().Get(0)
 		if fname == "" {
@@ -138,7 +132,7 @@ var blobsGetCmd = &cli.Command{
 	},
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return errors.Errorf("no blobstore use 'blobs --localstore $repo/blobs get &...' for now")
+			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs get &...' for now")
 		}
 		ref := ctx.Args().Get(0)
 		if ref == "" {

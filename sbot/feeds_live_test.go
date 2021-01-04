@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"github.com/VividCortex/gohistogram"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
@@ -247,7 +247,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
 		}
-		if errors.Cause(err) == ssb.ErrShuttingDown {
+		if errors.Is(err, ssb.ErrShuttingDown) {
 			return nil
 		}
 		return err
@@ -269,7 +269,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 		if err != nil {
 			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
 		}
-		if errors.Cause(err) == ssb.ErrShuttingDown {
+		if errors.Is(err, ssb.ErrShuttingDown) {
 			return nil
 		}
 		return err
@@ -561,7 +561,7 @@ func makeChanWaiter(ctx context.Context, src luigi.Source, gotMsg chan<- refs.Me
 		for {
 			v, err := src.Next(ctx)
 			if err != nil {
-				if luigi.IsEOS(err) || errors.Cause(err) == ssb.ErrShuttingDown {
+				if luigi.IsEOS(err) || errors.Is(err, ssb.ErrShuttingDown) {
 					return nil
 				}
 				return err

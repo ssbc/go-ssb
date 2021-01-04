@@ -9,9 +9,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
@@ -133,7 +133,7 @@ func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 		a, b, err := getAliceBob(from, to, state)
 		return func(bld Builder) error {
 			if err != nil {
-				return errors.Wrap(err, "dist: no such peers")
+				return fmt.Errorf("dist: no such peers: %w", err)
 			}
 			g, err := bld.Build()
 			if err != nil {
@@ -141,18 +141,18 @@ func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 			}
 			dijk, err := g.MakeDijkstra(a.key.Id)
 			if err != nil {
-				return errors.Wrap(err, "dist: make dijkstra failed")
+				return fmt.Errorf("dist: make dijkstra failed: %w", err)
 			}
 
 			path, dist := dijk.Dist(b.key.Id)
 			if hops < 0 {
 				if !math.IsInf(dist, +1) {
-					return errors.Errorf("expected no path but got %v %f", path, dist)
+					return fmt.Errorf("expected no path but got %v %f", path, dist)
 				}
 
 			} else {
 				if len(path)-2 != hops {
-					return errors.Errorf("wrong hop count: %v %f", path, dist)
+					return fmt.Errorf("wrong hop count: %v %f", path, dist)
 				}
 			}
 			return nil
@@ -165,14 +165,14 @@ func PeopleAssertFollows(from, to string, want bool) PeopleAssertMaker {
 		a, b, err := getAliceBob(from, to, state)
 		return func(bld Builder) error {
 			if err != nil {
-				return errors.Wrap(err, "follows: no such peers")
+				return fmt.Errorf("follows: no such peers: %w", err)
 			}
 			g, err := bld.Build()
 			if err != nil {
 				return err
 			}
 			if g.Follows(a.key.Id, b.key.Id) != want {
-				return errors.Errorf("follows assert failed - wanted %v", want)
+				return fmt.Errorf("follows assert failed - wanted %v", want)
 			}
 			return nil
 		}
@@ -184,19 +184,19 @@ func PeopleAssertBlocks(from, to string, want bool) PeopleAssertMaker {
 		a, b, err := getAliceBob(from, to, state)
 		return func(bld Builder) error {
 			if err != nil {
-				return errors.Wrap(err, "blocks: no such peers")
+				return fmt.Errorf("blocks: no such peers: %w", err)
 			}
 			g, err := bld.Build()
 			if err != nil {
 				return err
 			}
 			if g.Blocks(a.key.Id, b.key.Id) != want {
-				return errors.Errorf("Blocks() assert failed - wanted %v", want)
+				return fmt.Errorf("Blocks() assert failed - wanted %v", want)
 			}
 			set := g.BlockedList(a.key.Id)
 			isBlocked := set.Has(b.key.Id)
 			if isBlocked != want {
-				return errors.Errorf("BlockedList() assert failed - wanted %v (has: %v)", want, isBlocked)
+				return fmt.Errorf("BlockedList() assert failed - wanted %v (has: %v)", want, isBlocked)
 			}
 			return nil
 		}
@@ -208,7 +208,7 @@ func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAsser
 		a, b, err := getAliceBob(host, remote, state)
 		return func(bld Builder) error {
 			if err != nil {
-				return errors.Wrap(err, "auth: no such peers")
+				return fmt.Errorf("auth: no such peers: %w", err)
 			}
 
 			auth := bld.Authorizer(a.key.Id, hops)
@@ -216,12 +216,12 @@ func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAsser
 			err := auth.Authorize(b.key.Id)
 			if want {
 				if err != nil {
-					return errors.Errorf("auth assert: %s didn't allow %s", host, remote)
+					return fmt.Errorf("auth assert: %s didn't allow %s", host, remote)
 				}
 				return nil
 			}
 			if err == nil {
-				return errors.Errorf("auth assert: host(%s) accepted remote(%s) (dist:%d)", host, remote, hops)
+				return fmt.Errorf("auth assert: host(%s) accepted remote(%s) (dist:%d)", host, remote, hops)
 			}
 			// TODO compare err?
 			return nil

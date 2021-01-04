@@ -4,8 +4,9 @@ package luigiutils
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -90,12 +91,11 @@ func (f *MultiSink) Send(_ context.Context, msg []byte) error {
 	for i, s := range f.sinks {
 		_, err := s.Write(msg)
 		if err != nil {
-			causeErr := errors.Cause(err)
-			if muxrpc.IsSinkClosed(err) || causeErr == context.Canceled || neterr.IsConnBrokenErr(causeErr) {
+			if muxrpc.IsSinkClosed(err) || errors.Is(err, context.Canceled) || neterr.IsConnBrokenErr(err) {
 				deadFeeds = append(deadFeeds, s)
 				continue
 			}
-			return errors.Wrapf(err, "MultiSink: failed to pour into sink #%d", i)
+			return fmt.Errorf("MultiSink: failed to pour into sink #%d: %w", i, err)
 		}
 		if f.until[s] <= f.seq {
 			deadFeeds = append(deadFeeds, s)

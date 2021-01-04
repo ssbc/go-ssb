@@ -4,6 +4,8 @@ package gossip
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -11,7 +13,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -94,7 +95,7 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 func (m *FeedManager) serveLiveFeeds() {
 	seqv, err := m.ReceiveLog.Seq().Value()
 	if err != nil {
-		err = errors.Wrap(err, "failed to get root log sequence")
+		err = fmt.Errorf("failed to get root log sequence: %w", err)
 		panic(err)
 	}
 
@@ -108,7 +109,7 @@ func (m *FeedManager) serveLiveFeeds() {
 
 	err = luigi.Pump(m.rootCtx, luigi.FuncSink(m.pour), src)
 	if err != nil && err != ssb.ErrShuttingDown && err != context.Canceled {
-		err = errors.Wrap(err, "error while serving live feed")
+		err = fmt.Errorf("error while serving live feed: %w", err)
 		panic(err)
 	}
 	level.Warn(m.logger).Log("event", "live qry on rxlog exited")
@@ -142,7 +143,7 @@ func (m *FeedManager) addLiveFeed(
 	}
 	err := liveFeed.Register(ctx, sink, until)
 	if err != nil {
-		return errors.Wrapf(err, "could not create live stream for client %s", ssbID)
+		return fmt.Errorf("could not create live stream for client %s: %w", ssbID, err)
 	}
 	m.liveFeeds[ssbID] = liveFeed
 	// TODO: Remove multiSink from map when complete
@@ -188,7 +189,7 @@ func liveLimit(
 func getLatestSeq(log margaret.Log) (int64, error) {
 	latestSeqValue, err := log.Seq().Value()
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to observe latest")
+		return 0, fmt.Errorf("failed to observe latest: %w", err)
 	}
 	switch v := latestSeqValue.(type) {
 	case librarian.UnsetValue: // don't have the feed - nothing to do?
@@ -196,7 +197,7 @@ func getLatestSeq(log margaret.Log) (int64, error) {
 	case margaret.BaseSeq:
 		return v.Seq(), nil
 	default:
-		return 0, errors.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", v)
+		return 0, fmt.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", v)
 	}
 }
 
@@ -207,18 +208,18 @@ func (m *FeedManager) CreateStreamHistory(
 	arg *message.CreateHistArgs,
 ) error {
 	if arg.ID == nil {
-		return errors.Errorf("bad request: missing id argument")
+		return fmt.Errorf("bad request: missing id argument")
 	}
 	feedLogger := log.With(m.logger, "fr", arg.ID.ShortRef())
 
 	// check what we got
 	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))
 	if err != nil {
-		return errors.Wrapf(err, "failed to open sublog for user")
+		return fmt.Errorf("failed to open sublog for user: %w", err)
 	}
 	latest, err := getLatestSeq(userLog)
 	if err != nil {
-		return errors.Wrap(err, "userLog sequence")
+		return fmt.Errorf("userLog sequence: %w", err)
 	}
 
 	if arg.Seq != 0 {
@@ -232,7 +233,7 @@ func (m *FeedManager) CreateStreamHistory(
 					liveLimit(arg, latest),
 				)
 			}
-			return errors.Wrap(sink.Close(), "pour: failed to close")
+			return fmt.Errorf("pour: failed to close: %w", sink.Close())
 		}
 	}
 	if arg.Live && arg.Limit == 0 {
@@ -261,7 +262,7 @@ func (m *FeedManager) CreateStreamHistory(
 	resolved := mutil.Indirect(m.ReceiveLog, userLog)
 	src, err := resolved.Query(qryArgs...)
 	if err != nil {
-		return errors.Wrapf(err, "invalid user log query")
+		return fmt.Errorf("invalid user log query: %w", err)
 	}
 
 	var luigiSink luigi.Sink
@@ -278,7 +279,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 
 	default:
-		return errors.Errorf("unsupported feed format.")
+		return fmt.Errorf("unsupported feed format.")
 	}
 
 	sent := 0
@@ -293,11 +294,11 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 
-	if errors.Cause(err) == context.Canceled || muxrpc.IsSinkClosed(err) {
+	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) {
 		sink.Close()
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "failed to pump messages to peer")
+		return fmt.Errorf("failed to pump messages to peer: %w", err)
 	}
 
 	// cryptix: this seems to produce some hangs

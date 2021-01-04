@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -10,7 +11,6 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/machinebox/progress"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -360,7 +360,7 @@ func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 		seq := it.Next()
 		err := s.ReceiveLog.Null(margaret.BaseSeq(seq))
 		if err != nil {
-			return errors.Wrapf(err, "failed to null message (%d) in receive log", seq)
+			return fmt.Errorf("failed to null message (%d) in receive log: %w", seq, err)
 		}
 	}
 
@@ -368,7 +368,7 @@ func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 	for i, constErr := range report.Errors {
 		err := s.NullFeed(constErr.Ref)
 		if err != nil {
-			return errors.Wrapf(err, "heal(%d): failed to null broken feed", i)
+			return fmt.Errorf("heal(%d): failed to null broken feed: %w", i, err)
 		}
 		level.Debug(funcLog).Log("feed", constErr.Ref.Ref())
 	}

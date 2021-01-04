@@ -5,9 +5,9 @@ package get
 
 import (
 	"context"
+	"fmt"
 	"log"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
@@ -43,7 +43,7 @@ func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	if len(req.Args()) < 1 {
-		req.CloseWithError(errors.Errorf("invalid arguments"))
+		req.CloseWithError(fmt.Errorf("invalid arguments"))
 		return
 	}
 	var (
@@ -60,7 +60,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 	case map[string]interface{}:
 		refV, ok := v["id"]
 		if !ok {
-			req.CloseWithError(errors.Errorf("invalid argument - missing 'id' in map"))
+			req.CloseWithError(fmt.Errorf("invalid argument - missing 'id' in map"))
 			return
 		}
 		input = refV.(string)
@@ -71,19 +71,19 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			}
 		}
 	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
+		req.CloseWithError(fmt.Errorf("invalid argument type %T", req.Args()[0]))
 		return
 	}
 
 	parsed, err = refs.ParseMessageRef(input)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "failed to parse arguments"))
+		req.CloseWithError(fmt.Errorf("failed to parse arguments: %w", err))
 		return
 	}
 
 	msg, err := h.get.Get(*parsed)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "failed to load message"))
+		req.CloseWithError(fmt.Errorf("failed to load message: %w", err))
 		return
 	}
 	var kv refs.KeyValueRaw
@@ -98,7 +98,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 			kv.Value.Content = cleartext
 		} else if err != private.ErrNotBoxed {
-			req.CloseWithError(errors.Wrap(err, "failed to decrypt message"))
+			req.CloseWithError(fmt.Errorf("failed to decrypt message: %w", err))
 			return
 		}
 	}

@@ -5,15 +5,17 @@ package asynctesting
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -46,17 +48,17 @@ func MakeCompareSink(texpected []string, rootLog margaret.Log) (luigi.FuncSink, 
 					close(closeC)
 					return nil
 				}
-				return errors.Errorf("expected more values after err %v  i%d, len%d", err, i, len(texpected))
+				return fmt.Errorf("expected more values after err %v  i%d, len%d", err, i, len(texpected))
 			}
-			return errors.Errorf("unexpected error %q", err)
+			return fmt.Errorf("unexpected error %q", err)
 		}
 
 		v, err = rootLog.Get(v.(margaret.Seq))
 		if err != nil {
-			return errors.Errorf("error getting message from root log %q", v)
+			return fmt.Errorf("error getting message from root log %q", v)
 		}
 		if expectEOS {
-			return errors.Errorf("expected EOS but got value(%d) %v", i, v)
+			return fmt.Errorf("expected EOS but got value(%d) %v", i, v)
 		}
 
 		m := make(map[string]interface{})
@@ -64,10 +66,10 @@ func MakeCompareSink(texpected []string, rootLog margaret.Log) (luigi.FuncSink, 
 		abs := v.(refs.Message)
 		err = json.Unmarshal(abs.ContentBytes(), &m)
 		if err != nil {
-			return errors.Errorf("error decoding stored message %q", v)
+			return fmt.Errorf("error decoding stored message %q", v)
 		}
 		if got := m["test"]; got != texpected[i] {
-			return errors.Errorf("unexpected value %+v instead of %+v at i=%v", got, texpected[i], i)
+			return fmt.Errorf("unexpected value %+v instead of %+v at i=%v", got, texpected[i], i)
 		}
 
 		return nil
@@ -83,13 +85,13 @@ func ServeLog(ctx context.Context, name string, l margaret.Log, snk librarian.Si
 
 		src, err := l.Query(margaret.SeqWrap(true), snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
-			errc <- errors.Wrapf(err, "%s failed to construct query", name)
+			errc <- fmt.Errorf("%s failed to construct query: %w", name, err)
 			return
 		}
 
 		err = luigi.Pump(ctx, snk, src)
-		if err != nil && errors.Cause(err) != context.Canceled && errors.Cause(err) != ssb.ErrShuttingDown {
-			errc <- errors.Wrapf(err, "%s serve exited", name)
+		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ssb.ErrShuttingDown) {
+			errc <- fmt.Errorf("%s serve exited: %w", name, err)
 			return
 		}
 	}()

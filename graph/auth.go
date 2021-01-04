@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -32,7 +31,7 @@ func (nsf ErrNoSuchFrom) Error() string {
 func (a *authorizer) Authorize(to *refs.FeedRef) error {
 	fg, err := a.b.Build()
 	if err != nil {
-		return errors.Wrap(err, "graph/Authorize: failed to make friendgraph")
+		return fmt.Errorf("graph/Authorize: failed to make friendgraph: %w", err)
 	}
 
 	if fg.NodeCount() == 0 {
@@ -50,7 +49,7 @@ func (a *authorizer) Authorize(to *refs.FeedRef) error {
 	var distLookup *Lookup
 	distLookup, err = fg.MakeDijkstra(a.from)
 	if err != nil {
-		return errors.Wrap(err, "graph/Authorize: failed to construct dijkstra")
+		return fmt.Errorf("graph/Authorize: failed to construct dijkstra: %w", err)
 	}
 
 	// dist includes start and end of the path so Alice to Bob will be

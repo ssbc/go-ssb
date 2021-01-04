@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
@@ -29,7 +28,9 @@ func main() {
 	check(err)
 
 	addrs, err := mlog.List()
-	check(errors.Wrap(err, "error listing multilog"))
+	if err != nil {
+		check(fmt.Errorf("error listing multilog: %w", err))
+	}
 	log.Log("mlog", "opened", "list#", len(addrs))
 	for i, a := range addrs {
 

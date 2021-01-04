@@ -4,9 +4,9 @@ package blobs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/muxrpc/v2"
 
@@ -25,7 +25,7 @@ func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	src, err := req.GetResponseSource()
 	if err != nil {
-		err = errors.Wrap(err, "add: couldn't get source")
+		err = fmt.Errorf("add: couldn't get source: %w", err)
 		checkAndLog(h.log, err)
 		req.CloseWithError(err)
 		return
@@ -34,7 +34,7 @@ func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	r := muxrpc.NewSourceReader(src)
 	ref, err := h.bs.Put(r)
 	if err != nil {
-		err = errors.Wrap(err, "error putting blob")
+		err = fmt.Errorf("error putting blob: %w", err)
 		checkAndLog(h.log, err)
 		req.CloseWithError(err)
 		return

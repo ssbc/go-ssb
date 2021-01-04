@@ -6,6 +6,8 @@ package gossip
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,11 +15,11 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
@@ -124,7 +126,7 @@ func (g *LegacyGossip) HandleCall(
 		var args []json.RawMessage
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			closeIfErr(errors.Wrap(err, "bad argumentss"))
+			closeIfErr(fmt.Errorf("bad argumentss: %w", err))
 			return
 		}
 		if len(args) < 1 {
@@ -136,13 +138,13 @@ func (g *LegacyGossip) HandleCall(
 		var query message.CreateHistArgs
 		err = json.Unmarshal(args[0], &query)
 		if err != nil {
-			closeIfErr(errors.Wrap(err, "bad request"))
+			closeIfErr(fmt.Errorf("bad request: %w", err))
 			return
 		}
 
 		remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 		if err != nil {
-			closeIfErr(errors.Wrap(err, "bad remote"))
+			closeIfErr(fmt.Errorf("bad remote: %w", err))
 			return
 		}
 
@@ -198,7 +200,7 @@ func (g *LegacyGossip) HandleCall(
 				req.Stream.Close()
 				return
 			}
-			err = errors.Wrap(err, "createHistoryStream failed")
+			err = fmt.Errorf("createHistoryStream failed: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -208,13 +210,13 @@ func (g *LegacyGossip) HandleCall(
 	case "gossip.ping":
 		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
 		if err != nil {
-			closeIfErr(errors.Wrapf(err, "pour failed to pong"))
+			closeIfErr(fmt.Errorf("pour failed to pong: %w", err))
 			return
 		}
 		// just leave this stream open.
 		// some versions of ssb-gossip don't like if the stream is closed without an error
 
 	default:
-		closeIfErr(errors.Errorf("unknown command: %q", req.Method.String()))
+		closeIfErr(fmt.Errorf("unknown command: %q", req.Method.String()))
 	}
 }

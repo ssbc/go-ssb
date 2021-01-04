@@ -4,9 +4,8 @@
 package repo
 
 import (
+	"fmt"
 	"path/filepath"
-
-	"github.com/pkg/errors"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -29,5 +28,8 @@ func (r repo) GetPath(rel ...string) string {
 
 func OpenBlobStore(r Interface) (ssb.BlobStore, error) {
 	bs, err := blobstore.New(r.GetPath("blobs"))
-	return bs, errors.Wrap(err, "error opening blob store")
+	if err != nil {
+		return nil, fmt.Errorf("error opening blob store: %w", err)
+	}
+	return bs, nil
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-reuseport"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb"
@@ -57,13 +56,13 @@ func (d *Discoverer) start() error {
 func makePktConn(n string) (net.PacketConn, error) {
 	lis, err := reuseport.ListenPacket(n, fmt.Sprintf(":%d", DefaultPort))
 	if err != nil {
-		return nil, errors.Wrap(err, "ssb: adv start failed to listen on v4 broadcast")
+		return nil, fmt.Errorf("ssb: adv start failed to listen on v4 broadcast: %w", err)
 	}
 	switch v := lis.(type) {
 	case *net.UDPConn:
 		return v, nil
 	default:
-		return nil, errors.Errorf("node Advertise: invalid rx listen type: %T", lis)
+		return nil, fmt.Errorf("node Advertise: invalid rx listen type: %T", lis)
 	}
 }
 

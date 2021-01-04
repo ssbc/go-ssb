@@ -3,7 +3,8 @@
 package sbot
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
@@ -12,16 +13,16 @@ import (
 func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 	getIdx, ok := s.simpleIndex["get"]
 	if !ok {
-		return nil, errors.Errorf("sbot: get index disabled")
+		return nil, fmt.Errorf("sbot: get index disabled")
 	}
 	obs, err := getIdx.Get(s.rootCtx, librarian.Addr(ref.Hash))
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot/get: failed to get seq val from index")
+		return nil, fmt.Errorf("sbot/get: failed to get seq val from index: %w", err)
 	}
 
 	v, err := obs.Value()
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot/get: failed to get current value from obs")
+		return nil, fmt.Errorf("sbot/get: failed to get current value from obs: %w", err)
 	}
 
 	var seq margaret.Seq
@@ -30,21 +31,21 @@ func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 		seq = tv
 	case int64:
 		if tv < 0 {
-			return nil, errors.Errorf("invalid sequence stored in index")
+			return nil, fmt.Errorf("invalid sequence stored in index")
 		}
 		seq = margaret.BaseSeq(tv)
 	default:
-		return nil, errors.Errorf("sbot/get: wrong sequence type in index: %T", v)
+		return nil, fmt.Errorf("sbot/get: wrong sequence type in index: %T", v)
 	}
 
 	storedV, err := s.ReceiveLog.Get(seq)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot/get: failed to load message")
+		return nil, fmt.Errorf("sbot/get: failed to load message: %w", err)
 	}
 
 	msg, ok := storedV.(refs.Message)
 	if !ok {
-		return nil, errors.Errorf("sbot/get: wrong message type in storeage: %T", storedV)
+		return nil, fmt.Errorf("sbot/get: wrong message type in storeage: %T", storedV)
 	}
 
 	return msg, nil

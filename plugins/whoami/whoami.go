@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -83,7 +82,7 @@ func (edp endpoint) WhoAmI(ctx context.Context) (refs.FeedRef, error) {
 
 	err := edp.edp.Async(ctx, &resp, muxrpc.TypeJSON, method)
 	if err != nil {
-		return refs.FeedRef{}, errors.Wrap(err, "error making async call")
+		return refs.FeedRef{}, fmt.Errorf("error making async call: %w", err)
 	}
 
 	return resp.ID, nil

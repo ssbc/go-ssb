@@ -4,8 +4,8 @@ package luigiutils
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -34,22 +34,22 @@ func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 			boxedV := tv.Value()
 			theMsg, ok := boxedV.(multimsg.MultiMessage)
 			if !ok {
-				return errors.Errorf("gabbyStream: expected MultiMessage in sequence wrapper - got %T", boxedV)
+				return fmt.Errorf("gabbyStream: expected MultiMessage in sequence wrapper - got %T", boxedV)
 			}
 			mm = &theMsg
 
 		default:
-			return errors.Errorf("gabbyStream: expected MultiMessage - got %T", v)
+			return fmt.Errorf("gabbyStream: expected MultiMessage - got %T", v)
 		}
 
 		tr, ok := mm.AsGabby()
 		if !ok {
-			return errors.Errorf("gabbyStream: wrong format type type")
+			return fmt.Errorf("gabbyStream: wrong format type type")
 		}
 
 		trdata, err := tr.MarshalCBOR()
 		if err != nil {
-			return errors.Wrap(err, "gabbyStream: failed to marshal transfer object")
+			return fmt.Errorf("gabbyStream: failed to marshal transfer object: %w", err)
 		}
 
 		_, err = w.Write(trdata)

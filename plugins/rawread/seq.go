@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -51,7 +50,7 @@ func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 	fmt.Fprintln(os.Stderr, "seqStream args:", string(req.RawArgs))
 	// if len(req.Args()) != 1 {
 	// 	goon.Dump(req.RawArgs)
-	// 	req.CloseWithError(errors.Errorf("invalid arguments"))
+	// 	req.CloseWithError(fmt.Errorf("invalid arguments"))
 	// 	return
 	// }
 
@@ -74,7 +73,7 @@ func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 
 	sv, err := g.root.Seq().Value()
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "seqStream: failed to qry current seq"))
+		req.CloseWithError(fmt.Errorf("seqStream: failed to qry current seq: %w", err))
 		return
 	}
 
@@ -82,7 +81,7 @@ func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 
 	err = req.Stream.Pour(ctx, seq.Seq())
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "seqStream: failed to send current sequence"))
+		req.CloseWithError(fmt.Errorf("seqStream: failed to send current sequence: %w", err))
 		return
 	}
 
@@ -94,7 +93,7 @@ func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request, e
 		}
 		sw, ok := iv.(margaret.SeqWrapper)
 		if !ok {
-			return errors.Errorf("not a seq wrapper")
+			return fmt.Errorf("not a seq wrapper")
 		}
 		newSeq <- sw.Seq().Seq()
 		return nil

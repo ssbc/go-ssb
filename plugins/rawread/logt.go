@@ -11,7 +11,6 @@ import (
 	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -76,7 +75,7 @@ func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	args := req.Args()
 	if len(args) < 1 {
-		return errors.Errorf("invalid arguments")
+		return fmt.Errorf("invalid arguments")
 	}
 	var qry message.MessagesByTypeArgs
 
@@ -85,7 +84,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	case map[string]interface{}:
 		q, err := message.NewCreateHistArgsFromMap(v)
 		if err != nil {
-			return errors.Wrap(err, "bad request")
+			return fmt.Errorf("bad request: %w", err)
 		}
 		qry.CommonArgs = q.CommonArgs
 		qry.StreamArgs = q.StreamArgs
@@ -93,7 +92,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		var ok bool
 		qry.Type, ok = v["type"].(string)
 		if !ok {
-			return errors.Errorf("bad request - missing root")
+			return fmt.Errorf("bad request - missing root")
 		}
 
 	case string:
@@ -102,12 +101,12 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		qry.Keys = true
 
 	default:
-		return errors.Errorf("invalid argument type %T", args[0])
+		return fmt.Errorf("invalid argument type %T", args[0])
 	}
 
 	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
-		return errors.Wrap(err, "failed to establish remote")
+		return fmt.Errorf("failed to establish remote: %w", err)
 	}
 
 	isSelf := g.isSelf.Authorize(remote)
@@ -129,12 +128,12 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		}
 		typed, err := g.types.Get(idxAddr)
 		if err != nil {
-			return errors.Wrap(err, "failed to load typed log")
+			return fmt.Errorf("failed to load typed log: %w", err)
 		}
 
 		src, err := mutil.Indirect(g.rxlog, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
 		if err != nil {
-			return errors.Wrap(err, "logT: failed to qry tipe")
+			return fmt.Errorf("logT: failed to qry tipe: %w", err)
 		}
 
 		// if qry.Private { TODO
@@ -143,7 +142,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		err = luigi.Pump(ctx, snk, src)
 		if err != nil {
-			return errors.Wrap(err, "logT: failed to pump msgs")
+			return fmt.Errorf("logT: failed to pump msgs: %w", err)
 		}
 
 		return snk.Close()
@@ -201,7 +200,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 	sort, err := g.res.SortAndFilterBitmap(typed, repo.SortByClaimed, filter, qry.Reverse)
 	if err != nil {
-		return errors.Wrap(err, "failed to filter bitmap")
+		return fmt.Errorf("failed to filter bitmap: %w", err)
 	}
 
 	for _, res := range sort {

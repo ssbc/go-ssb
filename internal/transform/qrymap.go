@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/encodedTime"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
@@ -60,7 +59,7 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 			var ok bool
 			abs, ok = sv.(refs.Message)
 			if !ok {
-				return nil, errors.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
+				return nil, fmt.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
 			}
 		default:
 			return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
@@ -92,7 +91,7 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		if seqWrap == nil {
 			kvMsg, err := json.Marshal(kv)
 			if err != nil {
-				return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
+				return nil, fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
 			}
 			return json.RawMessage(kvMsg), nil
 		}
@@ -108,7 +107,7 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		}
 		kvMsg, err := json.Marshal(sw)
 		if err != nil {
-			return nil, errors.Wrapf(err, "kvwrap: failed to k:v map message")
+			return nil, fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
 		}
 		return json.RawMessage(kvMsg), nil
 	})

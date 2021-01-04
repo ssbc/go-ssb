@@ -15,11 +15,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
+	"modernc.org/ql"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	refs "go.mindeco.de/ssb-refs"
-	"modernc.org/ql"
 )
 
 func init() {
@@ -35,7 +35,7 @@ type StateMatrix struct {
 func New(path string, idx *numberedfeeds.Index) (*StateMatrix, error) {
 	db, err := sql.Open("ql2", path)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open database")
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	var version uint
@@ -47,14 +47,14 @@ func New(path string, idx *numberedfeeds.Index) (*StateMatrix, error) {
 		}
 
 		if _, err := tx.Exec(schemaVersion1); err != nil {
-			return nil, errors.Wrap(err, "persist/ql: failed to init schema v1")
+			return nil, fmt.Errorf("persist/ql: failed to init schema v1: %w", err)
 		}
 		err = tx.Commit()
 		if err != nil {
 			return nil, err
 		}
 	} else if err != nil {
-		return nil, errors.Wrapf(err, "persist/ql: schema version lookup failed %s", path)
+		return nil, fmt.Errorf("persist/ql: schema version lookup failed %s: %w", path, err)
 	}
 
 	return &StateMatrix{
@@ -268,30 +268,30 @@ func (sm StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 				rx = bool(?4), flen = uint64(?3)
 			where peer=uint64(?1) and feed=uint64(?2)`, nWho, nof, of.Len, of.Receive)
 			if err != nil {
-				return errors.Wrapf(err, "fill%d failed update ", i)
+				return fmt.Errorf("fill%d failed update: %w", i, err)
 			}
 			affn, err := res.RowsAffected()
 			if err != nil {
-				return errors.Wrapf(err, "fill%d failed affected", i)
+				return fmt.Errorf("fill%d failed affected: %w", i, err)
 			}
 			if affn < 1 {
 				_, err := tx.Exec(`INSERT INTO ebtState (peer, feed, flen, rx) VALUES (uint64(?1), uint64(?2), uint64(?3), ?4)`, nWho, nof, of.Len, of.Receive)
 				if err != nil {
-					return errors.Wrapf(err, "fill%d failed insert", i)
+					return fmt.Errorf("fill%d failed insert: %w", i, err)
 				}
 			}
 		} else {
 			// seq == -1 means drop it
 			_, err := tx.Exec(`DELETE FROM ebtState where peer=uint64(?1) and feed=uint64(?2)`, nWho, nof)
 			if err != nil {
-				return errors.Wrapf(err, "fill%d drop failed", i)
+				return fmt.Errorf("fill%d drop failed: %w", i, err)
 			}
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return errors.Wrap(err, "fill failed commit")
+		return fmt.Errorf("failed to commit fill: %w", err)
 	}
 	return nil
 }

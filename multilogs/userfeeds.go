@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -33,19 +32,22 @@ func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, m
 
 	abstractMsg, ok := value.(refs.Message)
 	if !ok {
-		return errors.Errorf("error casting message. got type %T", value)
+		return fmt.Errorf("error casting message. got type %T", value)
 	}
 
 	author := abstractMsg.Author()
 	if author == nil {
-		return errors.Errorf("nil author on message?! %v (%d)", value, seq.Seq())
+		return fmt.Errorf("nil author on message?! %v (%d)", value, seq.Seq())
 	}
 
 	authorLog, err := mlog.Get(storedrefs.Feed(author))
 	if err != nil {
-		return errors.Wrap(err, "error opening sublog")
+		return fmt.Errorf("error opening sublog: %w", err)
 	}
 
 	_, err = authorLog.Append(seq)
-	return errors.Wrap(err, "error appending new author message")
+	if err != nil {
+		return fmt.Errorf("error appending new author message: %w", err)
+	}
+	return nil
 }

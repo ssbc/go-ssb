@@ -2,13 +2,14 @@ package partial
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"go.cryptoscope.co/ssb/plugins/gossip"
-
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/plugins/gossip"
 )
 
 //  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
@@ -26,13 +27,13 @@ func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	}
 	argMap, ok := args[0].(map[string]interface{})
 	if !ok {
-		err := errors.Errorf("ssb/message: not the right map - %T", args[0])
+		err := fmt.Errorf("ssb/message: not the right map - %T", args[0])
 		return err
 
 	}
 	query, err := message.NewCreateHistArgsFromMap(argMap)
 	if err != nil {
-		return errors.Wrap(err, "bad request")
+		return fmt.Errorf("bad request: %w", err)
 	}
 
 	// query.Limit = 50
@@ -43,7 +44,7 @@ func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			req.Stream.Close()
 			return nil
 		}
-		return errors.Wrap(err, "createHistoryStream failed")
+		return fmt.Errorf("createHistoryStream failed: %w", err)
 	}
 	return nil
 }
@@ -61,13 +62,13 @@ func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Req
 	}
 	argMap, ok := args[0].(map[string]interface{})
 	if !ok {
-		err := errors.Errorf("ssb/message: not the right map - %T", args[0])
+		err := fmt.Errorf("ssb/message: not the right map - %T", args[0])
 		return err
 
 	}
 	query, err := message.NewCreateHistArgsFromMap(argMap)
 	if err != nil {
-		return errors.Wrap(err, "bad request")
+		return fmt.Errorf("bad request: %w", err)
 	}
 	query.Reverse = true
 
@@ -79,7 +80,7 @@ func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Req
 			req.Stream.Close()
 			return nil
 		}
-		return errors.Wrap(err, "createHistoryStream failed")
+		return fmt.Errorf("createHistoryStream failed: %w", err)
 	}
 	return nil
 }

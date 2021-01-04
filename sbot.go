@@ -3,7 +3,8 @@
 package ssb
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -102,7 +103,7 @@ func (upto ReplicateUpToResponse) Seq() int64 {
 func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 	storedFeeds, err := feedIndex.List()
 	if err != nil {
-		return nil, errors.Wrap(err, "feedSrc: did not get user list")
+		return nil, fmt.Errorf("feedSrc: did not get user list: %w", err)
 	}
 
 	var feedsWithSeqs []interface{}
@@ -111,18 +112,18 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 		var sr tfk.Feed
 		err := sr.UnmarshalBinary([]byte(author))
 		if err != nil {
-			return nil, errors.Wrapf(err, "feedSrc(%d): invalid storage ref", i)
+			return nil, fmt.Errorf("feedSrc(%d): invalid storage ref: %w", i, err)
 		}
 		authorRef := sr.Feed()
 
 		subLog, err := feedIndex.Get(author)
 		if err != nil {
-			return nil, errors.Wrapf(err, "feedSrc(%d): did not load sublog", i)
+			return nil, fmt.Errorf("feedSrc(%d): did not load sublog: %w", i, err)
 		}
 
 		currSeq, err := subLog.Seq().Value()
 		if err != nil {
-			return nil, errors.Wrapf(err, "feedSrc(%d): failed to get current seq value", i)
+			return nil, fmt.Errorf("feedSrc(%d): failed to get current seq value: %w", i, err)
 		}
 
 		elem := ReplicateUpToResponse{

@@ -5,10 +5,10 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -101,7 +101,10 @@ func TestGabbyFeedFromGo(t *testing.T) {
 			return err
 		}
 		_, err = s.ReceiveLog.Append(val)
-		return errors.Wrap(err, "failed to append verified message to rootLog")
+		if err != nil {
+			return fmt.Errorf("failed to append verified message to rootLog: %w", err)
+		}
+		return nil
 	})
 	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
 

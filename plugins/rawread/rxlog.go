@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -57,7 +56,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(errors.Wrap(err, "bad request data"))
+			req.CloseWithError(fmt.Errorf("bad request data: %w", err))
 			return
 		}
 		if len(args) == 1 {
@@ -81,7 +80,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		sv, err := g.root.Seq().Value()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(errors.Wrap(err, "logStream: failed to qry current seq"))
+			req.CloseWithError(fmt.Errorf("logStream: failed to qry current seq: %w", err))
 			return
 		}
 
@@ -98,7 +97,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		margaret.Reverse(qry.Reverse),
 	)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logStream: failed to qry tipe"))
+		req.CloseWithError(fmt.Errorf("logStream: failed to qry tipe: %w", err))
 		return
 	}
 
@@ -110,7 +109,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-		req.CloseWithError(errors.Wrap(err, "logStream: failed to pump msgs"))
+		req.CloseWithError(fmt.Errorf("logStream: failed to pump msgs: %w", err))
 		return
 	}
 	snk.Close()

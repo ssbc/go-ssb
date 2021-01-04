@@ -4,9 +4,9 @@ package names
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 )
 
@@ -63,6 +63,8 @@ func (h hGetAll) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		return
 	}
 	err = req.Return(ctx, abouts)
-	checkAndLog(h.log, errors.Wrap(err, "error returning all values"))
+	if err != nil {
+		checkAndLog(h.log, fmt.Errorf("error returning all values: %w", err))
+	}
 	return
 }

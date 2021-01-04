@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/hkdf"
 )
@@ -82,7 +81,7 @@ func (k Key) Derive(buf []byte, infos Infos, outLen int) (Key, error) {
 	r := hkdf.New(sha256.New, []byte(k), nil, infoBs)
 	_, err := r.Read(out)
 	if err != nil {
-		return nil, errors.Wrap(err, "error deriving key")
+		return nil, fmt.Errorf("error deriving key: %w", err)
 	}
 
 	// clear intermediate data

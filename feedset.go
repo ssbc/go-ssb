@@ -3,14 +3,14 @@
 package ssb
 
 import (
+	"fmt"
 	"sync"
 
-	"go.mindeco.de/ssb-refs/tfk"
-
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
+
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type strFeedMap map[librarian.Addr]struct{}
@@ -61,7 +61,7 @@ func (fs StrFeedSet) List() ([]*refs.FeedRef, error) {
 		var sr tfk.Feed
 		err := sr.UnmarshalBinary([]byte(feed))
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to decode map entry")
+			return nil, fmt.Errorf("failed to decode map entry: %w", err)
 		}
 		// log.Printf("dbg List(%d) %s", i, ref.Ref())
 		lst[i] = sr.Feed().Copy()

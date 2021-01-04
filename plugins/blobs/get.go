@@ -5,19 +5,18 @@ package blobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 
+	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	refs "go.mindeco.de/ssb-refs"
-
-	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/blobstore"
 
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type getHandler struct {
@@ -43,7 +42,7 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	if err := json.Unmarshal(req.RawArgs, &justTheRef); err != nil {
 		var withSize []blobstore.GetWithSize
 		if err := json.Unmarshal(req.RawArgs, &withSize); err != nil {
-			req.Stream.CloseWithError(errors.Wrap(err, "bad request - invalid json"))
+			req.Stream.CloseWithError(fmt.Errorf("bad request - invalid json: %w", err))
 			return
 		}
 		if len(withSize) != 1 {
@@ -82,16 +81,20 @@ func (h getHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	snk, err := req.GetResponseSink()
 	if err != nil {
-		req.Stream.CloseWithError(errors.Wrap(err, "no sink for request"))
+		req.Stream.CloseWithError(fmt.Errorf("no sink for request: %w", err))
 		return
 	}
 	w := muxrpc.NewSinkWriter(snk)
 
 	_, err = io.Copy(w, r)
-	checkAndLog(errLog, errors.Wrap(err, "error sending blob"))
+	if err != nil {
+		checkAndLog(errLog, fmt.Errorf("error sending blob: %w", err))
+	}
 
 	err = w.Close()
-	checkAndLog(errLog, errors.Wrap(err, "error closing blob output"))
+	if err != nil {
+		checkAndLog(errLog, fmt.Errorf("error closing blob output: %w", err))
+	}
 	// if err == nil {
 	// 	info.Log("event", "transmission successfull", "took", time.Since(start))
 	// }

@@ -127,7 +127,7 @@ func main() {
 }
 
 func todo(ctx *cli.Context) error {
-	return errors.Errorf("todo: %s", ctx.Command.Name)
+	return fmt.Errorf("todo: %s", ctx.Command.Name)
 }
 
 func initClient(ctx *cli.Context) error {

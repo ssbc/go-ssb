@@ -53,19 +53,13 @@ var friendsIsFollowingCmd = &cli.Command{
 			Dest   *refs.FeedRef `json:"dest"`
 		}{Source: srcRef, Dest: dstRef}
 
-		resp, err := client.Async(longctx, false, muxrpc.Method{"friends", "isFollowing"}, arg)
+		var is bool
+		err = client.Async(longctx, &is, muxrpc.TypeJSON, muxrpc.Method{"friends", "isFollowing"}, arg)
 		if err != nil {
 			return errors.Wrapf(err, "connect: async call failed.")
 		}
 
-		var is bool
-		is, ok := resp.(bool)
-		if !ok {
-			return errors.Errorf("friends.isFollowing: invalid return type: %T", resp)
-		}
-
 		log.Log("event", "friends.isFollowing", "is", is)
-
 		return nil
 	},
 }

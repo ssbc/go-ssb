@@ -4,9 +4,9 @@ package names
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 )
 
@@ -32,8 +32,8 @@ func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(errors.Wrapf(err, "do not have about for: %s", ref.Ref()))
-		checkAndLog(h.log, errors.Wrap(err, "error closing stream with error"))
+		err = req.Stream.CloseWithError(fmt.Errorf("do not have about for: %s: %w", ref.Ref(), err))
+		checkAndLog(h.log, fmt.Errorf("error closing stream with error: %w", err))
 		return
 	}
 	var name = ai.Name.Chosen
@@ -48,6 +48,8 @@ func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	}
 
 	err = req.Return(ctx, name)
-	checkAndLog(h.log, errors.Wrap(err, "error returning all values"))
+	if err != nil {
+		checkAndLog(h.log, fmt.Errorf("error returning all values: %w", err))
+	}
 	return
 }

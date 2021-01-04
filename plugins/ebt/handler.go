@@ -8,7 +8,6 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -58,13 +57,16 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 		if err != nil {
 			closed = true
 			closeErr := req.Stream.CloseWithError(err)
-			h.check(errors.Wrapf(closeErr, "error closeing request. %s", req.Method))
+			h.check(fmt.Errorf("error closeing request %q: %w", req.Method, closeErr))
 		}
 	}
 
 	defer func() {
 		if !closed {
-			h.check(errors.Wrapf(req.Stream.Close(), "gossip: error closing call: %s", req.Method))
+			cerr := req.Stream.Close()
+			if cerr != nil {
+				h.check(fmt.Errorf("gossip: error closing call %q: %w", req.Method, cerr))
+			}
 		}
 	}()
 
@@ -106,14 +108,14 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
 	currState, err := h.stateMatrix.Changed(h.id, remote)
 	if err != nil {
-		return errors.Wrap(err, "failed to get changed frontier")
+		return fmt.Errorf("failed to get changed frontier: %w", err)
 	}
 
 	if len(currState) == 0 { // no state yet
 		lister := h.wantList.ReplicationList()
 		feeds, err := lister.List()
 		if err != nil {
-			return errors.Wrap(err, "failed to get userlist")
+			return fmt.Errorf("failed to get userlist: %w", err)
 		}
 
 		// TODO: see if they changed and if they want them
@@ -123,14 +125,14 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 
 			seq, err := h.currentSequence(feed)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get sequence for entry %d", i)
+				return fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
 			currState[feed] = seq
 		}
 
 		currState[h.id], err = h.currentSequence(h.id)
 		if err != nil {
-			return errors.Wrap(err, "failed to get our sequence")
+			return fmt.Errorf("failed to get our sequence: %w", err)
 		}
 	}
 
@@ -139,7 +141,7 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 
 	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
-		return errors.Wrapf(err, "failed to send currState: %d", len(currState))
+		return fmt.Errorf("failed to send currState: %d: %w", len(currState), err)
 	}
 
 	return nil
@@ -255,11 +257,11 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 func (h MUXRPCHandler) currentSequence(feed *refs.FeedRef) (ssb.Note, error) {
 	l, err := h.userFeeds.Get(storedrefs.Feed(feed))
 	if err != nil {
-		return ssb.Note{}, errors.Wrapf(err, "failed to get user log %s", feed.ShortRef())
+		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
 	}
 	sv, err := l.Seq().Value()
 	if err != nil {
-		return ssb.Note{}, errors.Wrapf(err, "failed to get sequence for user log:%s", feed.ShortRef())
+		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
 	}
 
 	return ssb.Note{

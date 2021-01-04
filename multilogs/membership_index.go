@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret"
@@ -30,16 +29,15 @@ var _ io.Closer = (*MembershipStore)(nil)
 
 // NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
 func NewMembershipIndex(r repo.Interface, self *refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
-
 	pth := r.GetPath(repo.PrefixIndex, "groups", "members", "mkv")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "openIndex: error making index directory")
+		return nil, nil, fmt.Errorf("openIndex: error making index directory: %w", err)
 	}
 
 	db, err := repo.OpenMKV(pth)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "openIndex: failed to open MKV database")
+		return nil, nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
 	}
 	var store = MembershipStore{
 		idx:         libmkv.NewIndex(db, Members{}),

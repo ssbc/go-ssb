@@ -4,9 +4,9 @@ package names
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -32,13 +32,13 @@ func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(errors.Errorf("do not have about for: %s", ref.Ref()))
-		checkAndLog(h.log, errors.Wrap(err, "error closing stream with error"))
+		err = req.Stream.CloseWithError(fmt.Errorf("do not have about for: %s", ref.Ref()))
+		checkAndLog(h.log, fmt.Errorf("error closing stream with error: %w", err))
 		return
 	}
 	if ai.Image.Chosen != "" {
 		err = req.Return(ctx, ai.Image.Chosen)
-		checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
+		checkAndLog(h.log, fmt.Errorf("error returning chosen value: %w", err))
 		return
 	}
 	var hottest string
@@ -50,7 +50,9 @@ func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		}
 	}
 	err = req.Return(ctx, hottest)
-	checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
+	if err != nil {
+		checkAndLog(h.log, fmt.Errorf("error returning chosen value: %w", err))
+	}
 	return
 }
 
@@ -63,7 +65,7 @@ func checkAndLog(log logging.Interface, err error) {
 func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
 	args := req.Args()
 	if len(args) != 1 {
-		return nil, errors.Errorf("not enough args")
+		return nil, fmt.Errorf("not enough args")
 	}
 
 	var refStr string
@@ -76,7 +78,7 @@ func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
 
 	ref, err := refs.ParseFeedRef(refStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing feed reference")
+		return nil, fmt.Errorf("error parsing feed reference: %w", err)
 	}
 
 	return ref, nil

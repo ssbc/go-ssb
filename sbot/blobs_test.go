@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2/debug"
@@ -470,7 +470,7 @@ func TestBlobsTooBig(t *testing.T) {
 		srvGroup.Go(func() error {
 			err := bot.Network.Serve(ctx)
 			if err != nil && err != context.Canceled {
-				return errors.Wrapf(err, "bot %s serve exited", name)
+				return fmt.Errorf("bot %s serve exited: %w", name, err)
 			}
 			return nil
 		})

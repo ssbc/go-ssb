@@ -3,11 +3,12 @@
 package indexes
 
 import (
+	"fmt"
+
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
-
 	"go.cryptoscope.co/librarian"
+
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -23,7 +24,7 @@ func OpenContacts(log kitlog.Logger, r repo.Interface) (graph.Builder, librarian
 
 	_, idx, updateSink, err := repo.OpenBadgerIndex(r, FolderNameContacts, f)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "error getting contacts index")
+		return nil, nil, nil, fmt.Errorf("error getting contacts index: %w", err)
 	}
 
 	return builder, idx, updateSink, nil

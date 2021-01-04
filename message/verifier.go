@@ -2,9 +2,9 @@ package message
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -63,7 +63,7 @@ func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
 		}
 
 		_, err = vs.rxlog.Append(val)
-		return errors.Wrap(err, "failed to append verified message to rootLog")
+		return fmt.Errorf("failed to append verified message to rootLog: %w", err)
 	})
 
 	snk = NewVerifySink(ref, msg, msg, storeSnk, vs.hmacSec)
@@ -86,11 +86,11 @@ func (vs VerifySink) getLatestMsg(ref *refs.FeedRef) (refs.Message, error) {
 	frAddr := storedrefs.Feed(ref)
 	userLog, err := vs.feeds.Get(frAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open sublog for user")
+		return nil, fmt.Errorf("failed to open sublog for user: %w", err)
 	}
 	latest, err := userLog.Seq().Value()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to observe latest")
+		return nil, fmt.Errorf("failed to observe latest: %w", err)
 	}
 
 	switch v := latest.(type) {
@@ -104,22 +104,22 @@ func (vs VerifySink) getLatestMsg(ref *refs.FeedRef) (refs.Message, error) {
 
 		rxVal, err := userLog.Get(v)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to look up root seq for latest user sublog")
+			return nil, fmt.Errorf("failed to look up root seq for latest user sublog: %w", err)
 		}
 		msgV, err := vs.rxlog.Get(rxVal.(margaret.Seq))
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed retreive stored message")
+			return nil, fmt.Errorf("failed retreive stored message: %w", err)
 		}
 
 		var ok bool
 		latestMsg, ok := msgV.(refs.Message)
 		if !ok {
-			return nil, errors.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
+			return nil, fmt.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
 		}
 		return latestMsg, nil
 
 	default:
-		return nil, errors.Errorf("unexpected return value from index: %T", latest)
+		return nil, fmt.Errorf("unexpected return value from index: %T", latest)
 	}
 	panic("unreadable")
 }

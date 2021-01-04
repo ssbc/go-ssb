@@ -14,7 +14,6 @@ import (
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
@@ -115,7 +114,7 @@ func (s *Sbot) Close() error {
 
 	if s.Network != nil {
 		if err := s.Network.Close(); err != nil {
-			s.closeErr = errors.Wrap(err, "sbot: failed to close own network node")
+			s.closeErr = fmt.Errorf("sbot: failed to close own network node: %w", err)
 			return s.closeErr
 		}
 		s.Network.GetConnTracker().CloseAll()
@@ -123,7 +122,7 @@ func (s *Sbot) Close() error {
 	}
 
 	if err := s.idxDone.Wait(); err != nil {
-		s.closeErr = errors.Wrap(err, "sbot: index group shutdown failed")
+		s.closeErr = fmt.Errorf("sbot: index group shutdown failed: %w", err)
 		return s.closeErr
 	}
 	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
@@ -149,14 +148,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// optionize?!
 	s.ReceiveLog, err = repo.OpenLog(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open rootlog")
+		return nil, fmt.Errorf("sbot: failed to open rootlog: %w", err)
 	}
 	s.closers.addCloser(s.ReceiveLog.(io.Closer))
 
 	if s.BlobStore == nil { // load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to open blob store")
+			return nil, fmt.Errorf("sbot: failed to open blob store: %w", err)
 		}
 	}
 
@@ -172,7 +171,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	for _, opt := range s.lateInit {
 		err := opt(s)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to apply late option")
+			return nil, fmt.Errorf("sbot: failed to apply late option: %w", err)
 		}
 	}
 
@@ -201,7 +200,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.SeqResolver, err = repo.NewSequenceResolver(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "error opening sequence resolver")
+		return nil, fmt.Errorf("error opening sequence resolver: %w", err)
 	}
 	s.closers.addCloser(s.SeqResolver)
 
@@ -220,13 +219,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		ml, err := multifs.NewMultiLog(mlogPath)
 		if err != nil {
-			return nil, errors.Wrapf(err, "sbot: failed to open multilog %s", index.Name)
+			return nil, fmt.Errorf("sbot: failed to open multilog %s: %w", index.Name, err)
 		}
 		s.closers.addCloser(ml)
 		s.mlogIndicies[index.Name] = ml
 
 		if err := ml.CompressAll(); err != nil {
-			return nil, errors.Wrapf(err, "sbot: failed compress multilog %s", index.Name)
+			return nil, fmt.Errorf("sbot: failed compress multilog %s: %w", index.Name, err)
 		}
 
 		*index.Mlog = ml
@@ -240,7 +239,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.PublishLog, err = message.OpenPublishLog(s.ReceiveLog, s.Users, s.KeyPair, pubopts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to create publish log")
+		return nil, fmt.Errorf("sbot: failed to create publish log: %w", err)
 	}
 
 	err = MountSimpleIndex("get", indexes.OpenGet)(s)
@@ -251,11 +250,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// current ebt state?!
 	// l, err := s.Users.Get(s.KeyPair.Id.StoredAddr())
 	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "failed to get user log %s")
+	// 	return nil, fmt.Errorf("failed to get user log %s",err)
 	// }
 	// sv, err := l.Seq().Value()
 	// if err != nil {
-	// 	return nil, errors.Wrapf(err, "failed to get sequence for user log:%s")
+	// 	return nil, fmt.Errorf("failed to get sequence for user log:%s",err)
 	// }
 
 	// err = s.ebtState.Fill(s.KeyPair.Id, []statematrix.ObservedFeed{
@@ -270,12 +269,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
 	err = os.MkdirAll(pth, 0700)
 	if err != nil {
-		return nil, errors.Wrap(err, "openIndex: error making index directory")
+		return nil, fmt.Errorf("openIndex: error making index directory: %w", err)
 	}
 
 	db, err := repo.OpenMKV(pth)
 	if err != nil {
-		return nil, errors.Wrap(err, "openIndex: failed to open MKV database")
+		return nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
 	}
 
 	idx := libmkv.NewIndex(db, keys.Recipients{})
@@ -291,7 +290,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	groupsHelperMlog, _, err := repo.OpenBadgerMultiLog(r, "group-member-helper", updateHelper)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
 	}
 	s.closers.addCloser(groupsHelperMlog)
 
@@ -309,7 +308,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		sm,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open combined application index")
+		return nil, fmt.Errorf("sbot: failed to open combined application index: %w", err)
 	}
 	s.serveIndex("combined", combIdx)
 	s.closers.addCloser(combIdx)
@@ -317,7 +316,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// groups re-indexing
 	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open group membership index")
+		return nil, fmt.Errorf("sbot: failed to open group membership index: %w", err)
 	}
 	s.closers.addCloser(members)
 	s.closers.addCloser(membersSnk)
@@ -326,7 +325,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	addMemberSeqs, err := groupsHelperMlog.Get(addMemberIdxAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open sublog for add-member messages")
+		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
 	}
 	justAddMemberMsgs := mutil.Indirect(s.ReceiveLog, addMemberSeqs)
 
@@ -349,7 +348,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// contact/follow graph
 	contactLog, err := s.ByType.Get(librarian.Addr("string:contact"))
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open message contact sublog")
+		return nil, fmt.Errorf("sbot: failed to open message contact sublog: %w", err)
 	}
 	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
@@ -359,12 +358,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		s.GraphBuilder, err = graph.NewLogBuilder(s.info, justContacts)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: NewLogBuilder failed")
+			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
 		}
 	} else {
 		gb, seqSetter, updateIdx, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: OpenContacts failed")
+			return nil, fmt.Errorf("sbot: OpenContacts failed: %w", err)
 		}
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
@@ -375,14 +374,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// abouts
 	aboutSeqs, err := s.ByType.Get(librarian.Addr("string:about"))
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open message about sublog")
+		return nil, fmt.Errorf("sbot: failed to open message about sublog: %w", err)
 	}
 	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
 	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open about idx")
+		return nil, fmt.Errorf("sbot: failed to open about idx: %w", err)
 	}
 	s.closers.addCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
@@ -422,7 +421,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		remote, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: expected an address containing an shs-bs addr")
+			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
 		if s.KeyPair.Id.Equal(remote) {
 			return s.master.MakeHandler(conn)
@@ -479,7 +478,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// publish
 	authorLog, err := s.Users.Get(storedrefs.Feed(s.KeyPair.Id))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open user private index")
+		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
 	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.Groups, authorLog))
 
@@ -487,7 +486,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// TODO: box2
 	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(s.KeyPair.Id))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open user private index")
+		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
 	s.master.Register(privplug.NewPlug(
 		kitlog.With(log, "unit", "private"),
@@ -660,7 +659,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.Network, err = network.New(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create network node")
+		return nil, fmt.Errorf("failed to create network node: %w", err)
 	}
 	blobsPathPrefix := "/blobs/get/"
 	h := cors.Default().Handler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -704,7 +703,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.ReceiveLog,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "sbot: failed to open legacy invites plugin")
+		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
 	}
 	s.master.Register(inviteService.MasterPlugin())
 

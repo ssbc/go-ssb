@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
@@ -24,7 +23,7 @@ type getMessagesOfTypeHandler struct {
 
 func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	if len(req.Args()) < 1 {
-		return errors.Errorf("invalid arguments")
+		return fmt.Errorf("invalid arguments")
 	}
 	var (
 		feed *refs.FeedRef
@@ -39,12 +38,12 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 	case map[string]interface{}:
 		refV, ok := v["id"]
 		if !ok {
-			return errors.Errorf("invalid argument - missing 'id' in map")
+			return fmt.Errorf("invalid argument - missing 'id' in map")
 		}
 
 		ref, ok := refV.(string)
 		if !ok {
-			return errors.Errorf("invalid argument - 'id' field is not a string")
+			return fmt.Errorf("invalid argument - 'id' field is not a string")
 		}
 
 		feed, err = refs.ParseFeedRef(ref)
@@ -54,7 +53,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 		typeV, ok := v["type"]
 		if !ok {
-			return errors.Errorf("invalid argument - missing 'type' in map")
+			return fmt.Errorf("invalid argument - missing 'type' in map")
 		}
 
 		tipe = typeV.(string)
@@ -66,14 +65,14 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		}
 
 	default:
-		return errors.Errorf("invalid argument type %T", req.Args()[0])
+		return fmt.Errorf("invalid argument type %T", req.Args()[0])
 
 	}
 
 	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(feed))
 	if err != nil {
 		// TODO actual assert not found error.
-		// errors.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
+		// fmt.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
 		snk.Close()
 		return nil
 
@@ -81,7 +80,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + tipe))
 	if err != nil {
-		// return errors.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
+		// return fmt.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
 		snk.Close()
 		return nil
 
@@ -101,7 +100,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 		msg, ok := msgv.(refs.Message)
 		if !ok {
-			return errors.Errorf("invalid msg type %T", msgv)
+			return fmt.Errorf("invalid msg type %T", msgv)
 		}
 		if keys {
 			var kv refs.KeyValueRaw

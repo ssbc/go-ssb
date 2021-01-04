@@ -220,7 +220,7 @@ var publishContactCmd = &cli.Command{
 			return errors.Wrapf(err, "publish/contact: invalid feed ref")
 		}
 		if ctx.Bool("following") && ctx.Bool("blocking") {
-			return errors.Errorf("publish/contact: can't be both true")
+			return fmt.Errorf("publish/contact: can't be both true")
 		}
 		arg := map[string]interface{}{
 			"contact":   cref.Ref(),

@@ -3,10 +3,10 @@ package sbot
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -29,49 +29,52 @@ func (s *Sbot) NullContent(fr *refs.FeedRef, seq uint) error {
 
 	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
-		return errors.Errorf("userFeeds mlog not present")
+		return fmt.Errorf("userFeeds mlog not present")
 	}
 
 	userLog, err := uf.Get(storedrefs.Feed(fr))
 	if err != nil {
-		return errors.Wrap(err, "nullContent: unable to load feed")
+		return fmt.Errorf("nullContent: unable to load feed: %w", err)
 	}
 
 	// internal data strucutres are 0-indexed
 	seqv, err := userLog.Get(margaret.BaseSeq(seq - 1))
 	if err != nil {
-		return errors.Wrap(err, "nullContent: unable to load feed")
+		return fmt.Errorf("nullContent: unable to load feed: %w", err)
 	}
 
 	rootLogSeq, ok := seqv.(margaret.Seq)
 	if !ok {
-		return errors.Errorf("not a sequence type: %T", seqv)
+		return fmt.Errorf("not a sequence type: %T", seqv)
 	}
 
 	msgv, err := s.ReceiveLog.Get(rootLogSeq)
 	if err != nil {
-		return errors.Wrap(err, "nullContent: failed to get message in rootLog")
+		return fmt.Errorf("nullContent: failed to get message in rootLog: %w", err)
 	}
 
 	mm, ok := msgv.(*multimsg.MultiMessage)
 	if !ok {
-		return errors.Errorf("nullContent: unexpected message type %T", msgv)
+		return fmt.Errorf("nullContent: unexpected message type %T", msgv)
 	}
 
 	tr, ok := mm.AsGabby()
 	if !ok {
-		return errors.Errorf("nullContent: expected gabbyGrove type MultiMessage")
+		return fmt.Errorf("nullContent: expected gabbyGrove type MultiMessage")
 	}
 
 	tr.Content = nil
 
 	nulled, err := mm.MarshalBinary()
 	if err != nil {
-		return errors.Wrap(err, "nullContent: unable to marshall nulled content transfer")
+		return fmt.Errorf("nullContent: unable to marshall nulled content transfer: %w", err)
 	}
 
 	err = s.ReceiveLog.Replace(rootLogSeq, nulled)
-	return errors.Wrap(err, "nullContent: failed to execute replace operation")
+	if err != nil {
+		return fmt.Errorf("nullContent: failed to execute replace operation: %w", err)
+	}
+	return nil
 }
 
 const FolderNameDelete = "drop-content-requests"
@@ -125,7 +128,7 @@ func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Inde
 
 	idx, snk, err := repo.OpenIndex(r, FolderNameDelete, dcr.idxupdate)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error getting dcr trigger index")
+		return nil, nil, fmt.Errorf("error getting dcr trigger index: %w", err)
 	}
 	go dcr.consume()
 	ws := &wrappedIndexSink{SinkIndex: snk, ch: dcr.check}
@@ -154,7 +157,7 @@ func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian
 
 		msg, ok := val.(refs.Message)
 		if !ok {
-			return errors.Errorf("index/dcrTigger: unexpected message type: %T", val)
+			return fmt.Errorf("index/dcrTigger: unexpected message type: %T", val)
 		}
 
 		author := msg.Author()

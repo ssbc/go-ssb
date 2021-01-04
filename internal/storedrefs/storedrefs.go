@@ -2,7 +2,8 @@
 package storedrefs
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	"go.cryptoscope.co/librarian"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
@@ -12,12 +13,12 @@ import (
 func Feed(r *refs.FeedRef) librarian.Addr {
 	sr, err := tfk.FeedFromRef(r)
 	if err != nil {
-		panic(errors.Wrap(err, "failed to make stored ref"))
+		panic(fmt.Errorf("failed to make stored ref: %w", err))
 	}
 
 	b, err := sr.MarshalBinary()
 	if err != nil {
-		panic(errors.Wrap(err, "error while marshalling stored ref"))
+		panic(fmt.Errorf("error while marshalling stored ref: %w", err))
 	}
 	return librarian.Addr(b)
 }

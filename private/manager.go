@@ -6,12 +6,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
 
 	"github.com/cryptix/go/encodedTime"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
@@ -147,7 +147,10 @@ func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, err
 func (mgr *Manager) EncryptBox1(content []byte, rcpts ...*refs.FeedRef) ([]byte, error) {
 	bxr := box.NewBoxer(mgr.rand)
 	ctxt, err := bxr.Encrypt(content, rcpts...)
-	return ctxt, errors.Wrap(err, "error encrypting message (box1)")
+	if err != nil {
+		return nil, fmt.Errorf("error encrypting message (box1): %w", err)
+	}
+	return ctxt, nil
 }
 
 // EncryptBox2 creates box2 ciphertext
@@ -181,7 +184,10 @@ func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []
 	// then, encrypt message
 	bxr := box2.NewBoxer(mgr.rand)
 	ctxt, err := bxr.Encrypt(content, mgr.author.Id, prev, allKeys)
-	return ctxt, errors.Wrap(err, "error encrypting message (box1)")
+	if err != nil {
+		return nil, fmt.Errorf("error encrypting message (box1): %w", err)
+	}
+	return ctxt, nil
 }
 
 // DecryptBox1 does exactly what the name suggests, it returns the cleartext if mgr.author can read it
@@ -287,7 +293,7 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 
 		cleartxt, err := mgr.DecryptMessage(msg)
 		if err != nil {
-			if errors.Cause(err) == ErrNotBoxed {
+			if err == ErrNotBoxed {
 				return v, nil
 			}
 			return nil, err

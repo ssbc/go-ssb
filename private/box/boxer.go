@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -39,13 +38,13 @@ type Boxer struct {
 func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...*refs.FeedRef) ([]byte, error) {
 	n := len(rcpts)
 	if n <= 0 || n > maxRecps {
-		return nil, errors.Errorf("encrypt pm: wrong number of recipients: %d", n)
+		return nil, fmt.Errorf("encrypt pm: wrong number of recipients: %d", n)
 	}
 
 	// ephemeral one time, single-use key for this message
 	ephPub, ephSecret, err := box.GenerateKey(bxr.rand)
 	if err != nil {
-		return nil, errors.Errorf("encrypt pm: could not make one-time sender keypair")
+		return nil, fmt.Errorf("encrypt pm: could not make one-time sender keypair")
 	}
 
 	var (
@@ -67,7 +66,7 @@ func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...*refs.FeedRef) ([]byte, erro
 	cipheredMsg.Write(ephPub[:])
 
 	if n := cipheredMsg.Len(); n != 32+24 {
-		return nil, errors.Errorf("encrypt pm: wrong number of header bytes %d", n)
+		return nil, fmt.Errorf("encrypt pm: wrong number of header bytes %d", n)
 	}
 
 	// make a key box for each recipient
@@ -92,7 +91,7 @@ func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...*refs.FeedRef) ([]byte, erro
 
 func (bxr *Boxer) Decrypt(recpt *ssb.KeyPair, rawMsg []byte) ([]byte, error) {
 	if len(rawMsg) < 122 {
-		return nil, errors.Errorf("decode pm: sorry message seems short?")
+		return nil, fmt.Errorf("decode pm: sorry message seems short?")
 	}
 
 	var nonce [24]byte

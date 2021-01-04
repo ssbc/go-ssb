@@ -15,13 +15,10 @@ import (
 	"strings"
 	"sync"
 
-	"go.cryptoscope.co/ssb/internal/statematrix"
-
 	"github.com/cryptix/go/logging"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
@@ -32,6 +29,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/internal/netwraputil"
+	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/private"
@@ -166,7 +164,10 @@ func WithListenAddr(addr string) Option {
 	return func(s *Sbot) error {
 		var err error
 		s.listenAddr, err = net.ResolveTCPAddr("tcp", addr)
-		return errors.Wrap(err, "failed to parse tcp listen addr")
+		if err != nil {
+			return fmt.Errorf("failed to parse tcp listen addr: %w", err)
+		}
+		return nil
 	}
 }
 
@@ -194,7 +195,7 @@ func WithUNIXSocket() Option {
 		// this races because sbot might not be done with init yet
 		// TODO: refactor network peer code and make unixsock implement that (those will be inited late anyway)
 		if s.KeyPair == nil {
-			return errors.Errorf("sbot/unixsock: keypair is nil. please use unixSocket with LateOption")
+			return fmt.Errorf("sbot/unixsock: keypair is nil. please use unixSocket with LateOption")
 		}
 		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.ID)
 
@@ -205,7 +206,7 @@ func WithUNIXSocket() Option {
 		c, err := net.Dial("unix", sockPath)
 		if err == nil {
 			c.Close()
-			return errors.Errorf("sbot: repo already in use, socket accepted connection")
+			return fmt.Errorf("sbot: repo already in use, socket accepted connection")
 		}
 		os.Remove(sockPath)
 		os.MkdirAll(filepath.Dir(sockPath), 0700)
@@ -227,7 +228,7 @@ func WithUNIXSocket() Option {
 						}
 					}
 
-					err = errors.Wrap(err, "unix sock accept failed")
+					err = fmt.Errorf("unix sock accept failed: %w", err)
 					s.info.Log("warn", err)
 					logging.CheckFatal(err)
 					continue
@@ -255,7 +256,7 @@ func WithUNIXSocket() Option {
 
 					h, err := s.master.MakeHandler(conn)
 					if err != nil {
-						err = errors.Wrap(err, "unix sock make handler")
+						err = fmt.Errorf("unix sock make handler: %w", err)
 						s.info.Log("warn", err)
 						logging.CheckFatal(err)
 						return
@@ -284,7 +285,7 @@ func WithUNIXSocket() Option {
 func WithAppKey(k []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(k); n != 32 {
-			return errors.Errorf("appKey: need 32 bytes got %d", n)
+			return fmt.Errorf("appKey: need 32 bytes got %d", n)
 		}
 		s.appKey = k
 		return nil
@@ -297,7 +298,10 @@ func WithNamedKeyPair(name string) Option {
 		r := repo.New(s.repoPath)
 		var err error
 		s.KeyPair, err = repo.LoadKeyPair(r, name)
-		return errors.Wrapf(err, "loading named key-pair %q failed", name)
+		if err != nil {
+			return fmt.Errorf("loading named key-pair %q failed: %w", name, err)
+		}
+		return nil
 	}
 }
 
@@ -307,7 +311,10 @@ func WithJSONKeyPair(blob string) Option {
 	return func(s *Sbot) error {
 		var err error
 		s.KeyPair, err = ssb.ParseKeyPair(strings.NewReader(blob))
-		return errors.Wrap(err, "JSON KeyPair decode failed")
+		if err != nil {
+			return fmt.Errorf("JSON KeyPair decode failed: %w", err)
+		}
+		return nil
 	}
 }
 
@@ -396,7 +403,7 @@ func EnableAdvertismentDialing(do bool) Option {
 func WithHMACSigning(key []byte) Option {
 	return func(s *Sbot) error {
 		if n := len(key); n != 32 {
-			return errors.Errorf("WithHMACSigning: wrong key length (%d)", n)
+			return fmt.Errorf("WithHMACSigning: wrong key length (%d)", n)
 		}
 		s.signHMACsecret = key
 		return nil
@@ -477,14 +484,14 @@ func New(fopts ...Option) (*Sbot, error) {
 	for i, opt := range fopts {
 		err := opt(&s)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error applying option #%d", i)
+			return nil, fmt.Errorf("error applying option #%d: %w", i, err)
 		}
 	}
 
 	if s.repoPath == "" {
 		u, err := user.Current()
 		if err != nil {
-			return nil, errors.Wrap(err, "error getting info on current user")
+			return nil, fmt.Errorf("error getting info on current user: %w", err)
 		}
 
 		s.repoPath = filepath.Join(u.HomeDir, ".ssb-go")
@@ -493,7 +500,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	if s.appKey == nil {
 		ak, err := base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to decode default appkey")
+			return nil, fmt.Errorf("failed to decode default appkey: %w", err)
 		}
 		s.appKey = ak
 	}
@@ -522,7 +529,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		var err error
 		s.KeyPair, err = repo.DefaultKeyPair(r)
 		if err != nil {
-			return nil, errors.Wrap(err, "sbot: failed to get keypair")
+			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
 		}
 	}
 

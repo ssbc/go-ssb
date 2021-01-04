@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,11 +14,11 @@ import (
 	"time"
 
 	"github.com/keks/persist"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
@@ -50,7 +51,7 @@ func NewCombinedIndex(
 	os.MkdirAll(filepath.Dir(statePath), 0700)
 	idxStateFile, err := os.OpenFile(statePath, mode, 0700)
 	if err != nil {
-		return nil, errors.Wrap(err, "error opening state file")
+		return nil, fmt.Errorf("error opening state file: %w", err)
 	}
 
 	idx := &CombinedIndex{
@@ -112,13 +113,13 @@ func (slog *CombinedIndex) Box2Reindex(author *refs.FeedRef) error {
 	// 1) all messages in boxed2 format
 	allBox2, err := slog.private.LoadInternalBitmap(librarian.Addr("meta:box2"))
 	if err != nil {
-		return errors.Wrap(err, "error getting all box2 messages")
+		return fmt.Errorf("error getting all box2 messages: %w", err)
 	}
 
 	// 2) all messages by the author we should re-index
 	fromAuthor, err := slog.users.LoadInternalBitmap(storedrefs.Feed(author))
 	if err != nil {
-		return errors.Wrap(err, "error getting all from author")
+		return fmt.Errorf("error getting all from author: %w", err)
 	}
 
 	// 2) intersection between the two
@@ -128,7 +129,7 @@ func (slog *CombinedIndex) Box2Reindex(author *refs.FeedRef) error {
 	myReadableAddr := librarian.Addr("box2:") + storedrefs.Feed(slog.self)
 	myReadable, err := slog.private.LoadInternalBitmap(myReadableAddr)
 	if err != nil {
-		return errors.Wrap(err, "error getting my readable")
+		return fmt.Errorf("error getting my readable: %w", err)
 	}
 
 	// 3) subtract those from 2)
@@ -166,14 +167,14 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	sw, ok := swv.(margaret.SeqWrapper)
 	if !ok {
-		return errors.Errorf("error casting seq wrapper. got type %T", swv)
+		return fmt.Errorf("error casting seq wrapper. got type %T", swv)
 	}
 	seq := sw.Seq()
 
 	// todo: defer state save!?
 	err := persist.Save(slog.file, seq)
 	if err != nil {
-		return errors.Wrap(err, "error saving current sequence number")
+		return fmt.Errorf("error saving current sequence number: %w", err)
 	}
 
 	v := sw.Value()
@@ -182,7 +183,7 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		if margaret.IsErrNulled(isNulled) {
 			err = slog.seqresolver.Append(seq.Seq(), 0, time.Now(), time.Now())
 			if err != nil {
-				return errors.Wrap(err, "error updating sequence resolver (nulled message)")
+				return fmt.Errorf("error updating sequence resolver (nulled message): %w", err)
 			}
 			return nil
 		}
@@ -191,7 +192,7 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	msg, ok := v.(refs.Message)
 	if !ok {
-		return errors.Errorf("error casting message. got type %T", v)
+		return fmt.Errorf("error casting message. got type %T", v)
 	}
 
 	return slog.update(seq.Seq(), msg)
@@ -200,7 +201,7 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	err := slog.seqresolver.Append(seq, msg.Seq(), msg.Claimed(), msg.Received())
 	if err != nil {
-		return errors.Wrap(err, "error updating sequence resolver")
+		return fmt.Errorf("error updating sequence resolver: %w", err)
 	}
 
 	author := msg.Author()
@@ -208,11 +209,11 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	authorAddr := storedrefs.Feed(author)
 	authorLog, err := slog.users.Get(authorAddr)
 	if err != nil {
-		return errors.Wrap(err, "error opening sublog")
+		return fmt.Errorf("error opening sublog: %w", err)
 	}
 	_, err = authorLog.Append(margaret.BaseSeq(seq))
 	if err != nil {
-		return errors.Wrap(err, "error updating author sublog")
+		return fmt.Errorf("error updating author sublog: %w", err)
 	}
 
 	// batch/debounce me
@@ -223,7 +224,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		Replicate: true, // This field might be impractical
 	}})
 	if err != nil {
-		return errors.Wrap(err, "ebt update failed")
+		return fmt.Errorf("ebt update failed: %w", err)
 	}
 
 	// decrypt box 1 & 2
@@ -282,12 +283,12 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 
 	typedLog, err := slog.byType.Get(typeIdxAddr)
 	if err != nil {
-		return errors.Wrap(err, "error opening sublog")
+		return fmt.Errorf("error opening sublog: %w", err)
 	}
 
 	_, err = typedLog.Append(seq)
 	if err != nil {
-		return errors.Wrap(err, "error updating byType sublog")
+		return fmt.Errorf("error updating byType sublog: %w", err)
 	}
 
 	// tangles v1 and v2
@@ -295,11 +296,11 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		addr := librarian.Addr(append([]byte("v1:"), jsonContent.Root.Hash...))
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
-			return errors.Wrap(err, "error opening sublog")
+			return fmt.Errorf("error opening sublog: %w", err)
 		}
 		_, err = tangleLog.Append(seq)
 		if err != nil {
-			return errors.Wrap(err, "error updating v1 tangle sublog")
+			return fmt.Errorf("error updating v1 tangle sublog: %w", err)
 		}
 	}
 
@@ -310,11 +311,11 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
-			return errors.Wrap(err, "error opening sublog")
+			return fmt.Errorf("error opening sublog: %w", err)
 		}
 		_, err = tangleLog.Append(seq)
 		if err != nil {
-			return errors.Wrap(err, "error updating v2 tangle sublog")
+			return fmt.Errorf("error updating v2 tangle sublog: %w", err)
 		}
 	}
 
@@ -334,7 +335,7 @@ func (slog *CombinedIndex) QuerySpec() margaret.QuerySpec {
 	var seq margaret.BaseSeq
 
 	if err := persist.Load(slog.file, &seq); err != nil {
-		if errors.Cause(err) != io.EOF {
+		if !errors.Is(err, io.EOF) {
 			return margaret.ErrorQuerySpec(err)
 		}
 
@@ -381,7 +382,7 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 		return nil, err
 	}
 	if _, err := boxTyped.Append(margaret.BaseSeq(rxSeq)); err != nil {
-		return nil, errors.Wrapf(err, "private: error marking type:box")
+		return nil, fmt.Errorf("private: error marking type:box: %w", err)
 	}
 
 	// try decrypt and pass on the clear text
@@ -410,10 +411,10 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 
 	userPrivs, err := slog.private.Get(idxAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "private/readidx: error opening priv sublog for")
+		return nil, fmt.Errorf("private/readidx: error opening priv sublog for: %w", err)
 	}
 	if _, err := userPrivs.Append(margaret.BaseSeq(rxSeq)); err != nil {
-		return nil, errors.Wrapf(err, "private/readidx: error appending PM")
+		return nil, fmt.Errorf("private/readidx: error appending PM: %w", err)
 	}
 
 	return cleartext, nil
@@ -453,13 +454,13 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(input)-7))
 			n, err := base64.StdEncoding.Decode(boxedData, b64data)
 			if err != nil {
-				err = errors.Wrap(err, "private/readidx: invalid b64 encoding")
+				err = fmt.Errorf("private/readidx: invalid b64 encoding: %w", err)
 				//level.Debug(pr.logger).Log("msg", "unboxLog b64 decode failed", "err", err)
 				return nil, nil, errSkipBox1
 			}
 			return nil, boxedData[:n], nil
 		} else {
-			return nil, nil, errors.Errorf("private/ssb1: unknown content type: %q", input[len(input)-10:])
+			return nil, nil, fmt.Errorf("private/ssb1: unknown content type: %q", input[len(input)-10:])
 		}
 
 		// gg supports pure binary data
@@ -468,19 +469,19 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 		if !ok {
 			mmPtr, ok := msg.(*multimsg.MultiMessage)
 			if !ok {
-				err := errors.Errorf("private/readidx: error casting message. got type %T", msg)
+				err := fmt.Errorf("private/readidx: error casting message. got type %T", msg)
 				return nil, nil, err
 			}
 			mm = *mmPtr
 		}
 		tr, ok := mm.AsGabby()
 		if !ok {
-			return nil, nil, errors.Errorf("private/readidx: error getting gabby msg")
+			return nil, nil, fmt.Errorf("private/readidx: error getting gabby msg")
 		}
 
 		evt, err := tr.UnmarshaledEvent()
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "private/readidx: error unpacking event from stored message")
+			return nil, nil, fmt.Errorf("private/readidx: error unpacking event from stored message: %w", err)
 		}
 		if evt.Content.Type != gabbygrove.ContentTypeArbitrary {
 			return nil, nil, errSkipBox2
@@ -496,11 +497,11 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 		case bytes.HasPrefix(tr.Content, prefixBox2):
 			return nil, tr.Content[5:], nil
 		default:
-			return nil, nil, errors.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortRef())
+			return nil, nil, fmt.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortRef())
 		}
 
 	default:
-		err := errors.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
+		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
 		return nil, nil, err
 	}
 

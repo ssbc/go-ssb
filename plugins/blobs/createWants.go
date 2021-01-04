@@ -4,17 +4,18 @@ package blobs
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type createWantsHandler struct {
@@ -50,7 +51,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 
 	bSrc, err := edp.Source(ctx, muxrpc.TypeJSON, muxrpc.Method{"blobs", "createWants"})
 	if err != nil {
-		return nil, errors.Wrap(err, "error making source call")
+		return nil, fmt.Errorf("error making source call: %w", err)
 	}
 	if bSrc == nil {
 		return nil, errors.New("failed to get createWants source from remote")
@@ -82,7 +83,7 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
 		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
-		req.CloseWithError(errors.Wrap(err, "failed to get source"))
+		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
 		return
 	}
 	snk := h.wm.CreateWants(ctx, req.Stream, edp)
@@ -91,7 +92,7 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	}
 
 	err = luigi.Pump(ctx, snk, src)
-	if err != nil && !muxrpc.IsSinkClosed(err) && errors.Cause(err) != context.Canceled {
+	if err != nil && !muxrpc.IsSinkClosed(err) && !errors.Is(err, context.Canceled) {
 		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "err", err)
 	}
 

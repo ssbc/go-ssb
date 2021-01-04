@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
@@ -126,7 +125,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	go func() {
 		err := sbot.Network.Serve(ctx)
 		if err != nil {
-			errc <- errors.Wrap(err, "node serve exited")
+			errc <- fmt.Errorf("node serve exited: %w", err)
 		}
 		// ts.t.Log("go-sbot: serve exited", err)
 		close(done)
@@ -182,7 +181,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			errc <- errors.Wrap(err, "cmd wait failed")
+			errc <- fmt.Errorf("cmd wait failed: %w", err)
 		}
 		close(done)
 		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
@@ -239,7 +238,7 @@ func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			errc <- errors.Wrap(err, "cmd wait failed")
+			errc <- fmt.Errorf("cmd wait failed: %w", err)
 		}
 		close(done)
 		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")

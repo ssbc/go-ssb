@@ -5,8 +5,8 @@ package network
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -15,15 +15,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/secretstream/secrethandshake"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/neterr"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // DefaultPort is the default listening port for ScuttleButt.
@@ -114,25 +112,25 @@ func New(opts Options) (ssb.Network, error) {
 
 	n.secretClient, err = secretstream.NewClient(opts.KeyPair.Pair, opts.AppKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating secretstream.Client")
+		return nil, fmt.Errorf("error creating secretstream.Client: %w", err)
 	}
 
 	n.secretServer, err = secretstream.NewServer(opts.KeyPair.Pair, opts.AppKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating secretstream.Server")
+		return nil, fmt.Errorf("error creating secretstream.Server: %w", err)
 	}
 
 	if n.opts.AdvertsSend {
 		n.localDiscovTx, err = NewAdvertiser(n.opts.ListenAddr, opts.KeyPair)
 		if err != nil {
-			return nil, errors.Wrap(err, "error creating Advertiser")
+			return nil, fmt.Errorf("error creating Advertiser: %w", err)
 		}
 	}
 
 	if n.opts.AdvertsConnectTo {
 		n.localDiscovRx, err = NewDiscoverer(opts.KeyPair)
 		if err != nil {
-			return nil, errors.Wrap(err, "error creating Advertiser")
+			return nil, fmt.Errorf("error creating Advertiser: %w", err)
 		}
 	}
 
@@ -300,7 +298,8 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 
 	h, err := n.opts.MakeHandler(conn)
 	if err != nil {
-		if _, ok := errors.Cause(err).(*ssb.ErrOutOfReach); ok {
+		var eOOR ssb.ErrOutOfReach
+		if errors.As(err, &eOOR) {
 			return // ignore silently
 		}
 		level.Debug(rLogger).Log("conn", "mkHandler", "err", err)
@@ -329,11 +328,8 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 
 	err = srv.Serve()
 	// level.Warn(n.log).Log("conn", "serve-return", "err", err)
-	if err != nil {
-		causeErr := errors.Cause(err)
-		if !neterr.IsConnBrokenErr(causeErr) && causeErr != context.Canceled {
-			level.Debug(rLogger).Log("conn", "serve exited", "err", err)
-		}
+	if err != nil && !neterr.IsConnBrokenErr(err) && !errors.Is(err, context.Canceled) {
+		level.Debug(rLogger).Log("conn", "serve exited", "err", err)
 	}
 	n.removeRemote(edp)
 
@@ -354,7 +350,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	n.lis, err = netwrap.Listen(n.opts.ListenAddr, lisWrap)
 	if err != nil {
 		n.listenerLock.Unlock()
-		return errors.Wrap(err, "error creating listener")
+		return fmt.Errorf("error creating listener: %w", err)
 	}
 	n.lisClose = sync.Once{} // reset once
 	close(n.listening)
@@ -389,16 +385,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 				if err == nil {
 					continue
 				}
-				switch cause := errors.Cause(err).(type) {
-				case secrethandshake.ErrProcessing:
-					// ignore
-				case secrethandshake.ErrProtocol:
-					// ignore
-				default:
-					if cause != io.EOF { // handshake ended early
-						level.Debug(evtLog).Log("msg", "discovery dialback", "err", err, "addr", a.String())
-					}
-				}
+				level.Warn(evtLog).Log("msg", "discovery dialback loop exited")
 			}
 		}()
 	}
@@ -422,17 +409,6 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 					return
 				}
 
-				switch cause := errors.Cause(err).(type) {
-				case secrethandshake.ErrProcessing:
-					// ignore
-				case secrethandshake.ErrProtocol:
-					// ignore
-				default:
-					if cause != io.EOF { // handshake ended early
-						level.Warn(evtLog).Log("msg", "failed to accept connection", "err", err,
-							"cause", cause, "causeT", fmt.Sprintf("%T", cause))
-					}
-				}
 				continue
 			}
 
@@ -478,7 +454,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 		if conn != nil {
 			conn.Close()
 		}
-		return errors.Wrap(err, "node/connect: error dialing")
+		return fmt.Errorf("node/connect: error dialing: %w", err)
 	}
 
 	go func(c net.Conn) {
@@ -502,7 +478,7 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 		var err error
 		conn, err = cw(conn)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error applying connection wrapper #%d", i)
+			return nil, fmt.Errorf("error applying connection wrapper #%d: %w", i, err)
 		}
 	}
 	return conn, nil
@@ -516,7 +492,7 @@ func (n *node) Close() error {
 	if n.httpLis != nil {
 		err := n.httpLis.Close()
 		if err != nil {
-			return errors.Wrap(err, "ssb: failed to close http listener")
+			return fmt.Errorf("ssb: failed to close http listener: %w", err)
 		}
 	}
 	n.listenerLock.Lock()
@@ -526,8 +502,8 @@ func (n *node) Close() error {
 		n.lisClose.Do(func() {
 			closeErr = n.lis.Close()
 		})
-		if closeErr != nil && !strings.Contains(errors.Cause(closeErr).Error(), "use of closed network connection") {
-			return errors.Wrap(closeErr, "ssb: network node failed to close it's listener")
+		if closeErr != nil && !strings.Contains(closeErr.Error(), "use of closed network connection") {
+			return fmt.Errorf("ssb: network node failed to close it's listener: %w", closeErr)
 		}
 	}
 

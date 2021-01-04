@@ -7,8 +7,8 @@ package replicate
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -46,19 +46,19 @@ func (g replicateHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) 
 
 func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	if len(req.Method) < 2 && req.Method[1] != "upto" {
-		req.CloseWithError(errors.Errorf("invalid method"))
+		req.CloseWithError(fmt.Errorf("invalid method"))
 		return
 	}
 
 	src, err := ssb.FeedsWithSequnce(g.users)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "replicate: did not get feed source"))
+		req.CloseWithError(fmt.Errorf("replicate: did not get feed source: %w", err))
 		return
 	}
 
 	err = luigi.Pump(ctx, req.Stream, src)
 	if err != nil {
-		req.CloseWithError(errors.Wrapf(err, "replicate: failed to pump feed statuses"))
+		req.CloseWithError(fmt.Errorf("replicate: failed to pump feed statuses: %w", err))
 		return
 
 	}

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	refs "go.mindeco.de/ssb-refs"
@@ -130,12 +129,12 @@ func TestWantManager(t *testing.T) {
 			edp := &mmock.FakeEndpoint{
 				SourceStub: func(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
 					if len(args) != 1 {
-						return nil, errors.Errorf("expected one argument, got %v", len(args))
+						return nil, fmt.Errorf("expected one argument, got %v", len(args))
 					}
 
 					arg, ok := args[0].(GetWithSize)
 					if !ok {
-						return nil, errors.Errorf("expected a string argument, got type %T", args[0])
+						return nil, fmt.Errorf("expected a string argument, got type %T", args[0])
 					}
 
 					sz, ok := tc.remoteWants[arg.Key.Ref()]

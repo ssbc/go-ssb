@@ -2,13 +2,13 @@ package sbot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
@@ -131,7 +131,7 @@ func newLister() *lister {
 
 func (l lister) Authorize(remote *refs.FeedRef) error {
 	if l.blocked.Has(remote) {
-		return fmt.Errorf("peer blocked")
+		return errors.New("peer blocked")
 	}
 
 	if l.feedWants.Has(remote) {

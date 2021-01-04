@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 
@@ -55,7 +54,7 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 		var args []message.CreateLogArgs
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			return errors.Wrap(err, "bad request data")
+			return fmt.Errorf("bad request data: %w", err)
 		}
 		if len(args) == 1 {
 			qry = args[0]

@@ -5,11 +5,12 @@ package gossip
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -57,8 +58,7 @@ func (h *LegacyGossip) FetchAll(
 func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef) func() error {
 	return func() error {
 		err := h.fetchFeed(ctx, ref, edp, time.Now())
-		causeErr := errors.Cause(err)
-		if muxrpc.IsSinkClosed(err) || causeErr == context.Canceled || causeErr == muxrpc.ErrSessionTerminated || neterr.IsConnBrokenErr(causeErr) {
+		if muxrpc.IsSinkClosed(err) || errors.Is(err, context.Canceled) || errors.Is(err, muxrpc.ErrSessionTerminated) || neterr.IsConnBrokenErr(err) {
 			return err
 		} else if err != nil {
 			// just logging the error assuming forked feed for instance
@@ -84,7 +84,7 @@ func (h *LegacyGossip) fetchFeed(
 
 	snk, err := h.verifySinks.GetSink(fr)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get verify sink for feed")
+		return fmt.Errorf("failed to get verify sink for feed: %w", err)
 	}
 
 	var latestSeq = int(snk.Seq())
@@ -123,7 +123,7 @@ func (h *LegacyGossip) fetchFeed(
 		src, err = edp.Source(ctx, 0, method, q)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "fetchFeed(%s:%d) failed to create source", fr.Ref(), latestSeq)
+		return fmt.Errorf("fetchFeed(%s:%d) failed to create source: %w", fr.Ref(), latestSeq, err)
 	}
 
 	w := luigiutils.NewSinkCounter(&latestSeq, snk)
@@ -141,5 +141,8 @@ func (h *LegacyGossip) fetchFeed(
 		}
 	}
 
-	return errors.Wrap(src.Err(), "gossip pump failed")
+	if err := src.Err(); err != nil {
+		return fmt.Errorf("gossip pump failed: %w", err)
+	}
+	return nil
 }

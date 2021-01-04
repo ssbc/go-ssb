@@ -3,9 +3,9 @@ package legacyinvites
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
@@ -43,7 +43,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 
 	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "no guest ref!?"))
+		req.CloseWithError(fmt.Errorf("no guest ref!?: %w", err))
 		return
 	}
 

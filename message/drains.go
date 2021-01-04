@@ -6,16 +6,17 @@ package message
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/message/legacy"
+	gabbygrove "go.mindeco.de/ssb-gabbygrove"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type SequencedSink interface {
@@ -75,7 +76,7 @@ type gabbyVerify struct {
 func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 	var tr gabbygrove.Transfer
 	if uErr := tr.UnmarshalCBOR(trBytes); uErr != nil {
-		err = errors.Wrapf(uErr, "gabbyVerify: transfer unmarshal failed")
+		err = fmt.Errorf("gabbyVerify: transfer unmarshal failed: %w", uErr)
 		return
 	}
 
@@ -83,14 +84,14 @@ func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 		// TODO: change cbor encoder in gg
 		if r := recover(); r != nil {
 			if panicErr, ok := r.(error); ok {
-				err = errors.Wrap(panicErr, "gabbyVerify: recovered from panic")
+				err = fmt.Errorf("gabbyVerify: recovered from panic: %w", panicErr)
 			} else {
 				panic(r)
 			}
 		}
 	}()
 	if !tr.Verify(gv.hmacKey) {
-		return nil, errors.Errorf("gabbyVerify: transfer verify failed")
+		return nil, fmt.Errorf("gabbyVerify: transfer verify failed")
 	}
 	msg = &tr
 	return
@@ -131,12 +132,12 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 		msg = tv
 
 	default:
-		return errors.Errorf("verify: expected %T - got %T", msg, v)
+		return fmt.Errorf("verify: expected %T - got %T", msg, v)
 	}
 
 	next, err := ld.verify.Verify(msg)
 	if err != nil {
-		return errors.Wrapf(err, "message(%s:%d) verify failed", ld.who.ShortRef(), ld.latestSeq.Seq())
+		return fmt.Errorf("message(%s:%d) verify failed: %w", ld.who.ShortRef(), ld.latestSeq.Seq(), err)
 	}
 
 	err = ValidateNext(ld.latestMsg, next)
@@ -149,7 +150,7 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 
 	err = ld.storage.Pour(ctx, next)
 	if err != nil {
-		return errors.Wrapf(err, "message(%s): failed to append message(%s:%d)", ld.who.ShortRef(), next.Key().Ref(), next.Seq())
+		return fmt.Errorf("message(%s): failed to append message(%s:%d): %w", ld.who.ShortRef(), next.Key().Ref(), next.Seq(), err)
 	}
 
 	ld.latestSeq = margaret.BaseSeq(next.Seq())
@@ -169,7 +170,7 @@ func ValidateNext(current, next refs.Message) error {
 
 	if current == nil || current.Seq() == 0 {
 		if nextSeq != 1 {
-			return errors.Errorf("ValidateNext(%s:%d): first message has to have sequence 1, got %d", next.Author().ShortRef(), 0, nextSeq)
+			return fmt.Errorf("ValidateNext(%s:%d): first message has to have sequence 1, got %d", next.Author().ShortRef(), 0, nextSeq)
 		}
 		return nil
 	}
@@ -177,7 +178,7 @@ func ValidateNext(current, next refs.Message) error {
 
 	author := current.Author()
 	if !author.Equal(next.Author()) {
-		return errors.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
+		return fmt.Errorf("ValidateNext(%s:%d): wrong author: %s", author.ShortRef(), current.Seq(), next.Author().ShortRef())
 	}
 
 	if currSeq+1 != nextSeq {
@@ -185,12 +186,12 @@ func ValidateNext(current, next refs.Message) error {
 		if shouldSkip {
 			return errSkip
 		}
-		return errors.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1", author.ShortRef(), currSeq, nextSeq)
+		return fmt.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1", author.ShortRef(), currSeq, nextSeq)
 	}
 
 	currKey := current.Key()
 	if !currKey.Equal(next.Previous()) {
-		return errors.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%v",
+		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%v",
 			author.Ref(),
 			currSeq,
 			current.Key().Ref(),

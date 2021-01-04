@@ -207,7 +207,7 @@ func (lw *latencyWrapper) Remote() net.Addr {
 func (lw *latencyWrapper) Serve() error {
 	srv, ok := lw.root.(muxrpc.Server)
 	if !ok {
-		return errors.Errorf("latencywrapper: server interface not implemented")
+		return fmt.Errorf("latencywrapper: server interface not implemented")
 	}
 	// this looses the wrapped endpoint again maybe?
 	return srv.Serve()

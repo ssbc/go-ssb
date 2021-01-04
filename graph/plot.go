@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
@@ -29,7 +28,7 @@ func (g *Graph) RenderSVG(w io.Writer) error {
 	defer g.Mutex.Unlock()
 	dotbytes, err := dot.Marshal(g, "trust", "", "")
 	if err != nil {
-		return errors.Wrap(err, "dot marshal failed")
+		return fmt.Errorf("dot marshal failed: %w", err)
 	}
 	dotR := bytes.NewReader(dotbytes)
 
@@ -37,7 +36,11 @@ func (g *Graph) RenderSVG(w io.Writer) error {
 	dotCmd.Stdout = w
 	dotCmd.Stdin = dotR
 	// dotCmd.Stdin = io.TeeReader(dotR, dotFile)
-	return errors.Wrap(dotCmd.Run(), "RenderSVG: dot command failed")
+
+	if err := dotCmd.Run(); err != nil {
+		return fmt.Errorf("RenderSVG: dot command failed: %w", err)
+	}
+	return nil
 }
 
 func (g *Graph) RenderSVGToFile(path string) error {
@@ -46,7 +49,7 @@ func (g *Graph) RenderSVGToFile(path string) error {
 
 	svgFile, err := os.Create(path)
 	if err != nil {
-		return errors.Wrap(err, "svg file create failed")
+		return fmt.Errorf("svg file create failed: %w", err)
 	}
 	defer svgFile.Close()
 	return g.RenderSVG(svgFile)

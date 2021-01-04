@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,18 +15,17 @@ import (
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb/message/legacy"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type Plugin struct {
@@ -37,24 +37,16 @@ type Plugin struct {
 	h handler
 }
 
-func (p Plugin) Name() string {
-	return "get"
-}
-
-func (p Plugin) Method() muxrpc.Method {
-	return muxrpc.Method{"peerInvites"}
-}
-
-func (p Plugin) Handler() muxrpc.Handler {
-	return p.h
-}
+func (p Plugin) Name() string            { return FolderNameInvites }
+func (p Plugin) Method() muxrpc.Method   { return muxrpc.Method{"peerInvites"} }
+func (p Plugin) Handler() muxrpc.Handler { return p.h }
 
 const FolderNameInvites = "peerInvites"
 
 func (p *Plugin) OpenIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
 	_, sinkIdx, serve, err := repo.OpenBadgerIndex(r, FolderNameInvites, p.updateIndex)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error getting index")
+		return nil, nil, fmt.Errorf("error getting index: %w", err)
 	}
 
 	// TODO: close badger db?
@@ -116,18 +108,18 @@ func (p *Plugin) indexNewInvite(ctx context.Context, msg refs.Message) error {
 
 	obv, err := p.h.state.Get(ctx, idxAddr)
 	if err != nil {
-		return errors.Wrap(err, "idx get failed")
+		return fmt.Errorf("idx get failed: %w", err)
 	}
 
 	obvV, err := obv.Value()
 	if err != nil {
-		return errors.Wrap(err, "idx value failed")
+		return fmt.Errorf("idx value failed: %w", err)
 	}
 
 	switch v := obvV.(type) {
 	case bool:
 		if v {
-			return errors.Errorf("invites: guest ID already in use")
+			return fmt.Errorf("invites: guest ID already in use")
 		}
 		// ok, reuse
 
@@ -178,11 +170,11 @@ func (p *Plugin) indexConfirm(ctx context.Context, msg refs.Message) error {
 func (p *Plugin) Authorize(to *refs.FeedRef) error {
 	obv, err := p.h.state.Get(context.Background(), librarian.Addr(to.Ref()))
 	if err != nil {
-		return errors.Wrap(err, "idx state get failed")
+		return fmt.Errorf("idx state get failed: %w", err)
 	}
 	v, err := obv.Value()
 	if err != nil {
-		return errors.Wrap(err, "idx value failed")
+		return fmt.Errorf("idx value failed: %w", err)
 	}
 	if valid, ok := v.(bool); ok && valid {
 		p.logger.Log("authorized", "auth", "to", to.Ref())
@@ -234,13 +226,13 @@ func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	if len(req.Args()) < 1 {
-		req.CloseWithError(errors.Errorf("invalid arguments"))
+		req.CloseWithError(fmt.Errorf("invalid arguments"))
 		return
 	}
 
 	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "no guest ref!?"))
+		req.CloseWithError(fmt.Errorf("no guest ref: %w", err))
 		return
 	}
 
@@ -258,12 +250,12 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 		ref, err := refs.ParseMessageRef(req.Args()[0].(string))
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "failed to parse arguments"))
+			req.CloseWithError(fmt.Errorf("failed to parse arguments: %w", err))
 			return
 		}
 		msg, err := h.g.Get(*ref)
 		if err != nil {
-			err = errors.Wrap(err, "failed to get referenced message")
+			err = fmt.Errorf("failed to get referenced message: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -277,14 +269,14 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		err = json.Unmarshal(msg.ContentBytes(), &invCore)
 		if err != nil {
 			// spew.Dump(msg.ContentBytes())
-			err = errors.Wrap(err, "failed to decode stored message")
+			err = fmt.Errorf("failed to decode stored message: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
 		}
 
 		if !bytes.Equal(invCore.Invite.ID, guestRef.ID) {
-			err = errors.Errorf("not your invite")
+			err = fmt.Errorf("not your invite")
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -304,7 +296,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 		accept, err := verifyAcceptMessage(msgArg, guestRef)
 		if err != nil {
-			err = errors.Wrap(err, "failed to validate accept msg")
+			err = fmt.Errorf("failed to validate accept msg: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -316,7 +308,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			Embed json.RawMessage `json:"embed"`
 		}{"peer-invite/confirm", msgArg})
 		if err != nil {
-			errors.Wrap(err, "failed to publish confirm message")
+			err = fmt.Errorf("failed to publish confirm message: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -324,7 +316,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 		msg, err := h.g.Get(*ref)
 		if err != nil {
-			errors.Wrap(err, "failed to load published confirm message")
+			err = fmt.Errorf("failed to load published confirm message: %w", err)
 			errLog.Log("err", err)
 			req.CloseWithError(err)
 			return
@@ -340,7 +332,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			Receipt    *refs.MessageRef `json:"peerReceipt"`
 		}{"contact", accept.ID, true, true, accept.Receipt})
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "failed to publish confirm message"))
+			req.CloseWithError(fmt.Errorf("failed to publish confirm message: %w", err))
 			return
 		}
 
@@ -360,7 +352,7 @@ func verifyAcceptMessage(raw []byte, guestID *refs.FeedRef) (*acceptContent, err
 	}
 	err := json.Unmarshal(raw, &rawContent)
 	if err != nil {
-		return nil, errors.Wrap(err, "unwrap content for verify failed")
+		return nil, fmt.Errorf("unwrap content for verify failed: %w", err)
 	}
 
 	// fmt.Fprintln(os.Stderr, "msg:", string(rawContent.Content))
@@ -387,15 +379,15 @@ func verifyAcceptMessage(raw []byte, guestID *refs.FeedRef) (*acceptContent, err
 	}
 
 	if err := json.Unmarshal(raw, &inviteAccept); err != nil {
-		return nil, errors.Wrap(err, "unwrap content for sanatize failed")
+		return nil, fmt.Errorf("unwrap content for sanatize failed: %w", err)
 	}
 
 	if inviteAccept.Content.Type != "peer-invite/accept" {
-		return nil, errors.Errorf("invalid type on accept message")
+		return nil, fmt.Errorf("invalid type on accept message")
 	}
 
 	if !bytes.Equal(inviteAccept.Author.ID, inviteAccept.Content.ID.ID) {
-		return nil, errors.Errorf("invte is not for the right guest")
+		return nil, fmt.Errorf("invte is not for the right guest")
 	}
 
 	return &inviteAccept.Content, nil

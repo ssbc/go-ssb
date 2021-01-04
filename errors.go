@@ -4,14 +4,14 @@ package ssb
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-var ErrShuttingDown = errors.Errorf("ssb: shutting down now") // this is fine
+var ErrShuttingDown = fmt.Errorf("ssb: shutting down now") // this is fine
 
 type ErrOutOfReach struct {
 	Dist int
@@ -23,17 +23,19 @@ func (e ErrOutOfReach) Error() string {
 }
 
 func IsMessageUnusable(err error) bool {
-	cause := errors.Cause(err)
-	_, is := cause.(ErrWrongType)
-	if is {
+	if errors.Is(err, ErrWrongType{}) {
 		return true
 	}
-	_, is = cause.(ErrMalfromedMsg)
-	if is {
+
+	if errors.Is(err, ErrMalfromedMsg{}) {
 		return true
 	}
-	_, is = cause.(*json.SyntaxError)
-	return is
+
+	if errors.Is(err, &json.SyntaxError{}) {
+		return true
+	}
+
+	return false
 }
 
 type ErrMalfromedMsg struct {
@@ -57,7 +59,7 @@ func (ewt ErrWrongType) Error() string {
 	return fmt.Sprintf("ErrWrongType: want: %s has: %s", ewt.want, ewt.has)
 }
 
-var ErrUnuspportedFormat = errors.Errorf("ssb: unsupported format")
+var ErrUnuspportedFormat = fmt.Errorf("ssb: unsupported format")
 
 // ErrWrongSequence is returned if there is a glitch on the current
 // sequence number on the feed between in the offsetlog and the logical entry on the feed

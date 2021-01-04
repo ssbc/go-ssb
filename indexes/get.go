@@ -6,9 +6,9 @@ package indexes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
@@ -23,7 +23,7 @@ const FolderNameGet = "get"
 func OpenGet(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
 	_, idx, sinkIdx, err := repo.OpenBadgerIndex(r, FolderNameGet, createFn)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error getting get() index")
+		return nil, nil, fmt.Errorf("error getting get() index: %w", err)
 	}
 	return idx, sinkIdx, nil
 }
@@ -41,8 +41,11 @@ func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librar
 		if ok && margaret.IsErrNulled(err) {
 			return nil
 		}
-		return errors.Errorf("index/get: unexpected message type: %T", val)
+		return fmt.Errorf("index/get: unexpected message type: %T", val)
 	}
 	err := idx.Set(ctx, librarian.Addr(msg.Key().Hash), seq.Seq())
-	return errors.Wrapf(err, "index/get: failed to update message %s (seq: %d)", msg.Key().Ref(), seq.Seq())
+	if err != nil {
+		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Ref(), seq.Seq(), err)
+	}
+	return nil
 }
