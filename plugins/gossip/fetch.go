@@ -3,10 +3,11 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -15,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/luigiutils"
 	"go.cryptoscope.co/ssb/internal/neterr"
 	"go.cryptoscope.co/ssb/message"
 	refs "go.mindeco.de/ssb-refs"
@@ -120,29 +120,34 @@ func (h *LegacyGossip) fetchFeed(
 	case refs.RefAlgoFeedSSB1:
 		src, err = edp.Source(ctx, muxrpc.TypeJSON, method, q)
 	case refs.RefAlgoFeedGabby:
-		src, err = edp.Source(ctx, 0, method, q)
+		src, err = edp.Source(ctx, muxrpc.TypeBinary, method, q)
 	}
 	if err != nil {
 		return fmt.Errorf("fetchFeed(%s:%d) failed to create source: %w", fr.Ref(), latestSeq, err)
 	}
 
-	w := luigiutils.NewSinkCounter(&latestSeq, snk)
-
+	var buf = &bytes.Buffer{}
 	for src.Next(ctx) {
-		bts, err := src.Bytes()
+
+		err = src.Reader(func(r io.Reader) error {
+			_, err = buf.ReadFrom(r)
+			return err
+		})
 		if err != nil {
 			return err
 		}
 
-		v := json.RawMessage(bts)
-		err = w.Pour(ctx, v)
+		err = snk.Verify(buf.Bytes())
 		if err != nil {
 			return err
 		}
+		buf.Reset()
+		latestSeq++
 	}
 
 	if err := src.Err(); err != nil {
 		return fmt.Errorf("gossip pump failed: %w", err)
 	}
+
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
@@ -17,7 +16,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -38,6 +36,8 @@ type MUXRPCHandler struct {
 	stateMatrix *statematrix.StateMatrix
 
 	currentMessages map[string]refs.Message
+
+	verify *message.VerifySink
 }
 
 func (h *MUXRPCHandler) check(err error) {
@@ -163,43 +163,29 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 
 		var nf ssb.NetworkFrontier
 		err = json.Unmarshal(jsonBody, &nf)
-		if err != nil { // check as message
+		if err != nil { // assume it's a message
 
-			// verify and validate next message and append it to the receive log
-
-			// TODO: format support
-
-			// TODO: hmac setup
-			ref, desr, err2 := legacy.Verify(jsonBody, nil)
-			if err2 != nil {
-				// TODO: mark feed as bad
-				h.check(err2)
-				continue
+			var msgWithAuthor struct {
+				Author *refs.FeedRef
 			}
 
-			nextMsg := &legacy.StoredMessage{
-				Author_:    &desr.Author,
-				Previous_:  desr.Previous,
-				Key_:       ref,
-				Sequence_:  desr.Sequence,
-				Timestamp_: time.Now(),
-				Raw_:       jsonBody,
-			}
-
-			current := h.currentMessages[desr.Author.Ref()]
-			if err := message.ValidateNext(current, nextMsg); err != nil {
-				level.Debug(h.info).Log("current", current.Seq(), "next", nextMsg.Seq(), "err", err)
-				continue
-			}
-			h.currentMessages[desr.Author.Ref()] = nextMsg
-
-			seq, err := h.rootLog.Append(nextMsg)
+			err := json.Unmarshal(jsonBody, &msgWithAuthor)
 			if err != nil {
 				h.check(err)
-				return
+				continue
 			}
-			level.Debug(h.info).Log("author", nextMsg.Author().ShortRef(), "got", nextMsg.Seq(), "rxlog", seq)
 
+			vsnk, err := h.verify.GetSink(msgWithAuthor.Author)
+			if err != nil {
+				h.check(err)
+				continue
+			}
+
+			err = vsnk.Verify(jsonBody)
+			if err != nil {
+				// TODO: mark feed as bad
+				h.check(err)
+			}
 			continue
 		}
 

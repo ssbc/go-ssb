@@ -8,6 +8,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
+	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -25,6 +26,7 @@ func NewPlug(
 	fm *gossip.FeedManager,
 	nf *numberedfeeds.Index,
 	sm *statematrix.StateMatrix,
+	v *message.VerifySink,
 ) *Plugin {
 
 	return &Plugin{&MUXRPCHandler{
@@ -38,6 +40,8 @@ func NewPlug(
 
 		feedNumbers: nf,
 		stateMatrix: sm,
+
+		verify: v,
 
 		currentMessages: make(map[string]refs.Message),
 	},

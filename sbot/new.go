@@ -470,6 +470,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
+			s.Replicate(s.KeyPair.Id)
 			return s.public.MakeHandler(conn)
 		}
 		return nil, err
@@ -530,18 +531,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.eventCounter,
 	)
 
-	ebtPlug := ebt.NewPlug(
-		kitlog.With(log, "plugin", "ebt"),
-		s.KeyPair.Id,
-		s.ReceiveLog,
-		s.Users,
-		s.Replicator.Lister(),
-		fm,
-		nf,
-		sm,
-	)
-	s.public.Register(ebtPlug)
-
 	// outgoing gossip behavior
 	var histOpts = []interface{}{
 		gossip.Promisc(s.promisc),
@@ -555,20 +544,46 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		histOpts = append(histOpts, s.eventCounter)
 	}
 
+	var verifySink *message.VerifySink
 	if s.signHMACsecret != nil {
 		var k [32]byte
-		copy(k[:], s.signHMACsecret)
+		n := copy(k[:], s.signHMACsecret)
+		if n != 32 {
+			return nil, fmt.Errorf("expected 32 bytes of HMAC key material but got %d", n)
+		}
 		histOpts = append(histOpts, gossip.HMACSecret(&k))
+		verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, &k)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// unify ebt.HandleConnect and gossip.HandleConnect for feature negotiation
 	gossipPlug := gossip.NewFetcher(ctx,
 		kitlog.With(log, "plugin", "gossip"),
 		r,
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
+		verifySink,
 		histOpts...)
+
+	ebtPlug := ebt.NewPlug(
+		kitlog.With(log, "plugin", "ebt"),
+		s.KeyPair.Id,
+		s.ReceiveLog,
+		s.Users,
+		s.Replicator.Lister(),
+		fm,
+		nf,
+		sm,
+		verifySink,
+	)
+	s.public.Register(ebtPlug)
 
 	rn := negPlugin{replicateNegotiator{
 		logger: kitlog.With(log, "module", "replicate-negotiator"),

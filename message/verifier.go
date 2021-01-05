@@ -1,12 +1,10 @@
 package message
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -53,22 +51,19 @@ func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
 		return nil, err
 	}
 
-	// TODO: get rid of all these empty interface wrappers
-	storeSnk := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if err != nil {
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-
-		_, err = vs.rxlog.Append(val)
-		return fmt.Errorf("failed to append verified message to rootLog: %w", err)
-	})
-
-	snk = NewVerifySink(ref, msg, msg, storeSnk, vs.hmacSec)
+	var ms = margaretSaver{vs.rxlog}
+	snk = NewVerifySink(ref, msg, msg, ms, vs.hmacSec)
 	vs.sinks[ref.Ref()] = snk
 	return snk, nil
+}
+
+type margaretSaver struct {
+	margaret.Log
+}
+
+func (ms margaretSaver) Save(msg refs.Message) error {
+	_, err := ms.Log.Append(msg)
+	return err
 }
 
 func firstMessage(r *refs.FeedRef) refs.KeyValueRaw {

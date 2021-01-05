@@ -233,7 +233,11 @@ func (m *FeedManager) CreateStreamHistory(
 					liveLimit(arg, latest),
 				)
 			}
-			return fmt.Errorf("pour: failed to close: %w", sink.Close())
+			err = sink.Close()
+			if err != nil {
+				err = fmt.Errorf("pour: failed to close: %w", err)
+			}
+			return err
 		}
 	}
 	if arg.Live && arg.Limit == 0 {

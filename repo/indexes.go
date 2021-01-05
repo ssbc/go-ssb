@@ -89,13 +89,10 @@ var lockFileExistsRe = regexp.MustCompile(`cannot access DB \"(.*)\": lock file 
 
 // TODO: add test
 func isLockFileExistsErr(err error) bool {
-	log.Println("TODO: check process isn't running")
-	return false
 	if err == nil {
 		return false
 	}
 
-	// TODO: extract core error?
 	errStr := err.Error()
 	if !lockFileExistsRe.MatchString(errStr) {
 		return false

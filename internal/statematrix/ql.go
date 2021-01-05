@@ -39,7 +39,7 @@ func New(path string, idx *numberedfeeds.Index) (*StateMatrix, error) {
 	}
 
 	var version uint
-	err = db.QueryRow(`SELECT version from ebtMeta where space = ?`, "ssb").Scan(&version)
+	err = db.QueryRow(`SELECT version from ebtMeta where space = $1`, "ssb").Scan(&version)
 	if err == sql.ErrNoRows || version == 0 { // new file or old schema
 		tx, err := db.Begin()
 		if err != nil {

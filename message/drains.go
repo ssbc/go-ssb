@@ -4,14 +4,11 @@
 package message
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -21,7 +18,12 @@ import (
 
 type SequencedSink interface {
 	margaret.Seq
-	luigi.Sink // TODO: de-luigi-fy
+
+	Verify([]byte) error
+}
+
+type SaveMessager interface {
+	Save(refs.Message) error
 }
 
 // NewVerifySink returns a sink that does message verification and appends corret messages to the passed log.
@@ -29,12 +31,12 @@ type SequencedSink interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, snk luigi.Sink, hmacKey *[32]byte) SequencedSink {
+func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
 	sd := &streamDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
 		latestMsg: abs,
-		storage:   snk,
+		storage:   saver,
 	}
 	switch who.Algo {
 	case refs.RefAlgoFeedSSB1:
@@ -108,7 +110,7 @@ type streamDrain struct {
 	latestSeq margaret.BaseSeq
 	latestMsg refs.Message
 
-	storage luigi.Sink // TODO: change to margaret.Log
+	storage SaveMessager
 }
 
 func (ld *streamDrain) Seq() int64 {
@@ -117,23 +119,12 @@ func (ld *streamDrain) Seq() int64 {
 	return int64(ld.latestSeq)
 }
 
-// TODO: de-luigify
-func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
+// Verify passes the raw message bytes to the verifaction function for the message format (legacy or gabby grove).
+// If it passes the message is checked with the current message using ValidateNext().
+// If that also passes it is saved to the storage system.
+func (ld *streamDrain) Verify(msg []byte) error {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
-
-	var msg []byte
-
-	switch tv := v.(type) {
-	case json.RawMessage:
-		msg = tv
-
-	case []uint8:
-		msg = tv
-
-	default:
-		return fmt.Errorf("verify: expected %T - got %T", msg, v)
-	}
 
 	next, err := ld.verify.Verify(msg)
 	if err != nil {
@@ -148,7 +139,7 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 		return err
 	}
 
-	err = ld.storage.Pour(ctx, next)
+	err = ld.storage.Save(next)
 	if err != nil {
 		return fmt.Errorf("message(%s): failed to append message(%s:%d): %w", ld.who.ShortRef(), next.Key().Ref(), next.Seq(), err)
 	}
@@ -157,8 +148,6 @@ func (ld *streamDrain) Pour(ctx context.Context, v interface{}) error {
 	ld.latestMsg = next
 	return nil
 }
-
-func (ld streamDrain) Close() error { return nil } //ld.storage.Close() }
 
 var errSkip = errors.New("ValidateNext: already got message")
 

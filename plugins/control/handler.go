@@ -118,14 +118,17 @@ func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
-	if len(req.Args()) != 1 {
+	var args []string
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.connect call: invalid arguments: %w", err)
+	}
+	if len(args) != 1 {
 		h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
 		return nil, errors.New("usage: ctrl.connect host:port:key")
 	}
-	dest, ok := req.Args()[0].(string)
-	if !ok {
-		return nil, fmt.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args()[0])
-	}
+	dest := args[0]
+
 	msaddr, err := multiserver.ParseNetAddress([]byte(dest))
 	if err != nil {
 		return nil, fmt.Errorf("ctrl.connect call: failed to parse input %q: %w", dest, err)

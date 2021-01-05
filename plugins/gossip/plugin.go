@@ -32,6 +32,7 @@ func NewFetcher(
 	userFeeds multilog.MultiLog,
 	fm *FeedManager,
 	wantList ssb.ReplicationLister,
+	snk *message.VerifySink,
 	opts ...interface{},
 ) *plugin {
 	h := &LegacyGossip{
@@ -47,6 +48,8 @@ func NewFetcher(
 
 		Info:    log,
 		rootCtx: ctx,
+
+		verifySinks: snk,
 	}
 
 	for i, o := range opts {
@@ -63,12 +66,6 @@ func NewFetcher(
 			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
 	}
-
-	snk, err := message.NewVerificationSinker(h.ReceiveLog, h.UserFeeds, h.hmacSec)
-	if err != nil {
-		panic(err)
-	}
-	h.verifySinks = snk
 
 	return &plugin{h}
 }
