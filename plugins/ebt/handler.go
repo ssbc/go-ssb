@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package ebt
 
 import (
@@ -12,7 +14,6 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
@@ -32,7 +33,6 @@ type MUXRPCHandler struct {
 
 	wantList ssb.ReplicationLister
 
-	feedNumbers *numberedfeeds.Index
 	stateMatrix *statematrix.StateMatrix
 
 	currentMessages map[string]refs.Message
@@ -127,17 +127,22 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 			if err != nil {
 				return fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
-			currState[feed] = seq
+			currState[feed.Ref()] = seq
 		}
 
-		currState[h.id], err = h.currentSequence(h.id)
+		currState[h.id.Ref()], err = h.currentSequence(h.id)
 		if err != nil {
 			return fmt.Errorf("failed to get our sequence: %w", err)
 		}
 	}
 
-	fmt.Println("our state")
-	fmt.Println(currState.String())
+	// don't receive your own feed
+	myNote := currState[h.id.Ref()]
+	myNote.Receive = false
+	currState[h.id.Ref()] = myNote
+
+	// fmt.Println("our state", h.id.Ref())
+	// fmt.Println(currState.String())
 
 	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
@@ -189,37 +194,39 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 			continue
 		}
 
-		fmt.Println("their state:", remote.ShortRef())
-		fmt.Println(nf.String())
+		// TODO: this is just the new state
+		// they might have told us about other feeds they want to receive before.
+		// load the sate matrix again!
+
+		// fmt.Println("their state:", remote.ShortRef())
+		// fmt.Println(nf.String())
 
 		// update our network perception
 		var observed []statematrix.ObservedFeed
 
 		// ad-hoc send where we have newer messages
-		for feed, their := range nf {
+		for feedStr, their := range nf {
+			feed, err := refs.ParseFeedRef(feedStr)
+			if err != nil {
+				panic(err)
+			}
+
 			if !their.Replicate {
 				observed = append(observed, statematrix.ObservedFeed{
-					Feed:      feed,
-					Replicate: false,
+					Feed: feed,
+					Note: ssb.Note{Replicate: false},
 				})
 				continue
 			}
 
-			ourState, err := h.currentSequence(feed)
-			if err != nil {
-				continue
-			}
-
-			if their.Receive && ourState.Seq > their.Seq { // we have more for them
-
+			if their.Receive {
 				arg := &message.CreateHistArgs{
 					ID:  feed.Copy(),
-					Seq: their.Seq,
+					Seq: their.Seq + 1,
 				}
 				arg.Limit = -1
 				arg.Live = true
 
-				// TODO: need to change the fetch code
 				err = h.livefeeds.CreateStreamHistory(ctx, tx, arg)
 				if err != nil {
 					h.check(err)

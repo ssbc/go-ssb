@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package ssb
 
 import (
@@ -10,7 +12,8 @@ import (
 )
 
 // NetworkFrontier represents a set of feeds and their length
-type NetworkFrontier map[*refs.FeedRef]Note
+// The key is the canonical string representation (feed.Ref())
+type NetworkFrontier map[string]Note
 
 // Note informs about a feeds length and some control settings
 type Note struct {
@@ -47,7 +50,8 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 
 	var newMap = make(NetworkFrontier, len(dummy))
 	for fstr, i := range dummy {
-		ref, err := refs.ParseFeedRef(fstr)
+		// validate
+		_, err := refs.ParseFeedRef(fstr)
 		if err != nil {
 			return err
 		}
@@ -57,7 +61,7 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 		s.Receive = !(i&1 == 1)
 		s.Seq = i >> 1
 
-		newMap[ref] = s
+		newMap[fstr] = s
 	}
 
 	*nf = newMap
@@ -68,7 +72,7 @@ func (nf NetworkFrontier) String() string {
 	var sb strings.Builder
 	sb.WriteString("## Network Frontier:\n")
 	for feed, seq := range nf {
-		fmt.Fprintf(&sb, "\t%s:%+v\n", feed.ShortRef(), seq)
+		fmt.Fprintf(&sb, "\t%s:%+v\n", feed, seq)
 	}
 	return sb.String()
 }

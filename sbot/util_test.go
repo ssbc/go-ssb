@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"errors"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -22,7 +23,7 @@ func (bs botServer) Serve(s *Sbot) func() error {
 	return func() error {
 		err := s.Network.Serve(bs.ctx)
 		if err != nil {
-			if err == ssb.ErrShuttingDown {
+			if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 				return nil
 			}
 			level.Warn(bs.log).Log("event", "bot serve exited", "err", err)

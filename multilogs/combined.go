@@ -18,6 +18,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/ssb"
 
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -218,10 +219,12 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 
 	// batch/debounce me
 	err = slog.ebtState.Fill(slog.self, []statematrix.ObservedFeed{{
-		Feed:      author,
-		Len:       uint64(msg.Seq()),
-		Receive:   true,
-		Replicate: true, // This field might be impractical
+		Feed: author,
+		Note: ssb.Note{
+			Seq:       msg.Seq(),
+			Receive:   true,
+			Replicate: true,
+		},
 	}})
 	if err != nil {
 		return fmt.Errorf("ebt update failed: %w", err)

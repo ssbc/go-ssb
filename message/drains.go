@@ -171,11 +171,11 @@ func ValidateNext(current, next refs.Message) error {
 	}
 
 	if currSeq+1 != nextSeq {
-		shouldSkip := next.Seq() > currSeq+1
+		shouldSkip := next.Seq() <= currSeq
 		if shouldSkip {
 			return errSkip
 		}
-		return fmt.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1", author.ShortRef(), currSeq, nextSeq)
+		return fmt.Errorf("ValidateNext(%s:%d): next.seq(%d) != curr.seq+1 (skip: %v)", author.ShortRef(), currSeq, nextSeq, shouldSkip)
 	}
 
 	currKey := current.Key()

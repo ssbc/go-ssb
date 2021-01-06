@@ -29,7 +29,6 @@ import (
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
@@ -63,14 +62,15 @@ func (sbot *Sbot) Replicate(r *refs.FeedRef) {
 	if err != nil {
 		panic(err)
 	}
-	l := uint64(0)
+
+	l := int64(0)
 	v, err := slog.Seq().Value()
 	if err == nil {
-		l = uint64(v.(margaret.Seq).Seq() + 1)
+		l = v.(margaret.Seq).Seq()
 	}
 
 	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Len: l, Receive: true, Replicate: true},
+		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
 	})
 	fmt.Println("ebt updated", r.Ref(), l)
 	sbot.Replicator.Replicate(r)
@@ -81,14 +81,15 @@ func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
 	if err != nil {
 		panic(err)
 	}
-	l := uint64(0)
+
+	l := int64(0)
 	v, err := slog.Seq().Value()
 	if err == nil {
-		l = uint64(v.(margaret.Seq).Seq() + 1)
+		l = v.(margaret.Seq).Seq()
 	}
 
 	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Len: l, Receive: false, Replicate: true},
+		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
 	})
 
 	sbot.Replicator.DontReplicate(r)
@@ -175,23 +176,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	nf, err := numberedfeeds.New(r.GetPath("numberedfeeds"))
-	if err != nil {
-		return nil, err
-	}
-	s.closers.addCloser(nf)
-
-	nSelf, err := nf.NumberFor(s.KeyPair.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	level.Debug(s.info).Log("self-feed-number", nSelf)
-	if nSelf != 0 {
-		panic("TODO: statematrix has peer=0 as self")
-	}
-
-	sm, err := statematrix.New(r.GetPath("ebt-state-matrix"), nf)
+	sm, err := statematrix.New(r.GetPath("ebt-state-matrix"), s.KeyPair.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -246,24 +231,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// current ebt state?!
-	// l, err := s.Users.Get(s.KeyPair.Id.StoredAddr())
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get user log %s",err)
-	// }
-	// sv, err := l.Seq().Value()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get sequence for user log:%s",err)
-	// }
-
-	// err = s.ebtState.Fill(s.KeyPair.Id, []statematrix.ObservedFeed{
-	// 	{Feed: s.KeyPair.Id, Len: uint64(sv.(margaret.BaseSeq).Seq() + 1), Receive: true, Replicate: true},
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// fmt.Println("FULL OF IT")
 
 	// groups2
 	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
@@ -506,22 +473,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
-	// REAL ebt
-
-	go func() {
-		for range time.NewTicker(3 * time.Second).C {
-			l, err := sm.HasLonger()
-			if err != nil {
-				level.Error(s.info).Log("err", err, "from", "ebt-spew")
-				return
-			}
-			if len(l) == 0 {
-				continue
-			}
-			fmt.Printf("%+v\n", l)
-		}
-	}()
-
+	// gossiping (legacy and ebt)
 	fm := gossip.NewFeedManager(
 		ctx,
 		s.ReceiveLog,
@@ -546,21 +498,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	var verifySink *message.VerifySink
 	if s.signHMACsecret != nil {
-		var k [32]byte
-		n := copy(k[:], s.signHMACsecret)
-		if n != 32 {
-			return nil, fmt.Errorf("expected 32 bytes of HMAC key material but got %d", n)
-		}
-		histOpts = append(histOpts, gossip.HMACSecret(&k))
-		verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, &k)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, nil)
-		if err != nil {
-			return nil, err
-		}
+		histOpts = append(histOpts, gossip.HMACSecret(s.signHMACsecret))
+	}
+
+	verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
+	if err != nil {
+		return nil, err
 	}
 
 	gossipPlug := gossip.NewFetcher(ctx,
@@ -579,7 +522,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.Users,
 		s.Replicator.Lister(),
 		fm,
-		nf,
 		sm,
 		verifySink,
 	)

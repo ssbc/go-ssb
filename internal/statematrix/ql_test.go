@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package statematrix
 
 import (
@@ -8,6 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -15,44 +19,44 @@ func TestNew(t *testing.T) {
 	r := require.New(t)
 	os.RemoveAll("testrun")
 	os.Mkdir("testrun", 0700)
-	m, err := New("testrun/new_test.ql")
+	m, err := New("testrun/new", testFeed(0))
 	r.NoError(err)
 
 	feeds := []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 5},
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 499},
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 3000},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 5}},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 499}},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 3000}},
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
 	start := time.Now()
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 2},
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 20},
-		{Feed: testFeed(3), Replicate: true, Receive: true, Len: 200},
-		{Feed: testFeed(4), Replicate: true, Receive: true, Len: 2000},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 2}},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 20}},
+		{Feed: testFeed(3), Note: ssb.Note{Replicate: true, Receive: true, Seq: 200}},
+		{Feed: testFeed(4), Note: ssb.Note{Replicate: true, Receive: true, Seq: 2000}},
 	}
 	r.NoError(m.Fill(testFeed(23), feeds))
 	t.Log(m.String(), ", took:", time.Since(start))
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 4},
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 500},
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 9000},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 4}},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 500}},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 9000}},
 	}
 	r.NoError(m.Fill(testFeed(23), feeds))
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 3},
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 499},
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 1000},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 3}},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 499}},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 1000}},
 	}
 	r.NoError(m.Fill(testFeed(13), feeds))
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 5},
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 750},
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 1000},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 5}},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 750}},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 1000}},
 	}
 	r.NoError(m.Fill(testFeed(9), feeds))
 
@@ -62,8 +66,8 @@ func TestNew(t *testing.T) {
 	t.Logf("%+v", has)
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(2), Replicate: true, Receive: true, Len: 750},
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 1000},
+		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 750}},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 1000}},
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
@@ -73,7 +77,7 @@ func TestNew(t *testing.T) {
 	t.Logf("%+v", has)
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(5), Replicate: true, Receive: true, Len: 9000},
+		{Feed: testFeed(5), Note: ssb.Note{Replicate: true, Receive: true, Seq: 9000}},
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
@@ -82,7 +86,7 @@ func TestNew(t *testing.T) {
 	r.Len(has, 0)
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 0},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 0}},
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
@@ -92,7 +96,7 @@ func TestNew(t *testing.T) {
 	t.Logf("%+v", has)
 
 	feeds = []ObservedFeed{
-		{Feed: testFeed(1), Replicate: true, Receive: true, Len: 10},
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 10}},
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
@@ -104,8 +108,12 @@ func TestNew(t *testing.T) {
 }
 
 func testFeed(i int) *refs.FeedRef {
+	k := bytes.Repeat([]byte(strconv.Itoa(i)), 32)
+	if len(k) > 32 {
+		k = k[:32]
+	}
 	return &refs.FeedRef{
-		Algo: "test",
-		ID:   bytes.Repeat([]byte(strconv.Itoa(i)), 32),
+		Algo: refs.RefAlgoFeedSSB1,
+		ID:   k,
 	}
 }

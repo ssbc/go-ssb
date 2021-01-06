@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package ebt
 
 import (
@@ -5,8 +7,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -24,7 +26,6 @@ func NewPlug(
 	uf multilog.MultiLog,
 	wl ssb.ReplicationLister,
 	fm *gossip.FeedManager,
-	nf *numberedfeeds.Index,
 	sm *statematrix.StateMatrix,
 	v *message.VerifySink,
 ) *Plugin {
@@ -38,7 +39,6 @@ func NewPlug(
 
 		livefeeds: fm,
 
-		feedNumbers: nf,
 		stateMatrix: sm,
 
 		verify: v,

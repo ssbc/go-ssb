@@ -1,4 +1,6 @@
-/* Package statematrix stores and provides useful operations on an state matrix for a epidemic broadcast tree protocol.
+// SPDX-License-Identifier: MIT
+
+/*Package statematrix stores and provides useful operations on an state matrix for a epidemic broadcast tree protocol.
 
 The state matrix represents multiple _network frontiers_ (or vector clock).
 
@@ -11,56 +13,135 @@ Q:
 package statematrix
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fmt"
-	"strings"
-
-	"modernc.org/ql"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/numberedfeeds"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
-func init() {
-	ql.RegisterDriver2()
-}
-
 type StateMatrix struct {
-	store *sql.DB
+	basePath string
 
-	feedidx *numberedfeeds.Index
+	self string // whoami
+
+	mu   sync.Mutex
+	open currentFrontiers
 }
 
-func New(path string, idx *numberedfeeds.Index) (*StateMatrix, error) {
-	db, err := sql.Open("ql2", path)
+// map[peer refernce]frontier
+type currentFrontiers map[string]ssb.NetworkFrontier
+
+func New(base string, self *refs.FeedRef) (*StateMatrix, error) {
+
+	os.MkdirAll(base, 0700)
+
+	sm := StateMatrix{
+		basePath: base,
+
+		self: self.Ref(),
+
+		open: make(currentFrontiers),
+	}
+
+	_, err := sm.loadFrontier(self)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, err
 	}
 
-	var version uint
-	err = db.QueryRow(`SELECT version from ebtMeta where space = $1`, "ssb").Scan(&version)
-	if err == sql.ErrNoRows || version == 0 { // new file or old schema
-		tx, err := db.Begin()
-		if err != nil {
+	return &sm, nil
+}
+
+/*
+func (sm *StateMatrix) Open(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.loadFrontier(peer)
+}
+*/
+
+func (sm *StateMatrix) stateFileName(peer *refs.FeedRef) (string, error) {
+	peerTfk, err := tfk.Encode(peer)
+	if err != nil {
+		return "", err
+	}
+
+	peerFileName := filepath.Join(sm.basePath, fmt.Sprintf("%x", peerTfk))
+	return peerFileName, nil
+}
+
+func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
+	curr, has := sm.open[peer.Ref()]
+	if has {
+		curr = make(ssb.NetworkFrontier)
+		return curr, nil
+	}
+
+	peerFileName, err := sm.stateFileName(peer)
+	if err != nil {
+		return nil, err
+	}
+
+	peerFile, err := os.Open(peerFileName)
+	if err != nil {
+		if !os.IsNotExist(err) {
 			return nil, err
 		}
 
-		if _, err := tx.Exec(schemaVersion1); err != nil {
-			return nil, fmt.Errorf("persist/ql: failed to init schema v1: %w", err)
-		}
-		err = tx.Commit()
+		curr = make(ssb.NetworkFrontier)
+	} else {
+		defer peerFile.Close()
+
+		var nf ssb.NetworkFrontier
+		err = json.NewDecoder(peerFile).Decode(&nf)
 		if err != nil {
 			return nil, err
 		}
-	} else if err != nil {
-		return nil, fmt.Errorf("persist/ql: schema version lookup failed %s: %w", path, err)
 	}
 
-	return &StateMatrix{
-		store:   db,
-		feedidx: idx,
-	}, nil
+	sm.open[peer.Ref()] = curr
+	return curr, nil
+}
+
+func (sm *StateMatrix) SaveAndClose(peer *refs.FeedRef) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.saveAndClose(peer.Ref())
+}
+
+func (sm *StateMatrix) saveAndClose(peer string) error {
+	parsed, err := refs.ParseFeedRef(peer)
+	if err != nil {
+		return err
+	}
+
+	nf, has := sm.open[peer]
+	if !has {
+		return nil
+	}
+
+	peerFileName, err := sm.stateFileName(parsed)
+	if err != nil {
+		return err
+	}
+
+	// truncate the file for overwriting, create it if it doesnt exist
+	peerFile, err := os.OpenFile(peerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0700)
+	if err != nil {
+		return err
+	}
+
+	err = json.NewEncoder(peerFile).Encode(nf)
+	if err != nil {
+		return err
+	}
+
+	delete(sm.open, peer)
+	return peerFile.Close()
 }
 
 type HasLongerResult struct {
@@ -73,272 +154,168 @@ func (hlr HasLongerResult) String() string {
 	return fmt.Sprintf("%s: %s:%d", hlr.Peer.ShortRef(), hlr.Feed.ShortRef(), hlr.Len)
 }
 
-func (sm StateMatrix) HasLonger() ([]HasLongerResult, error) {
-	rows, err := sm.store.Query(`
-SELECT all.peer, all.feed, all.flen 
-  FROM ebtState as all,
-  (SELECT feed, flen FROM ebtState where peer = 0) as my
-  WHERE all.feed == my.feed AND all.flen > my.flen
-`)
-	if err != nil {
-		return nil, err
+func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
+	var err error
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	selfNf, has := sm.open[sm.self]
+	if !has {
+		return nil, nil
 	}
-	defer rows.Close()
 
 	var res []HasLongerResult
 
-	for rows.Next() {
-		var (
-			hlr      HasLongerResult
-			pid, fid uint64
-		)
-		err := rows.Scan(&pid, &fid, &hlr.Len)
-		if err != nil {
-			return nil, err
+	for peer, theirNf := range sm.open {
+
+		for feed, note := range selfNf {
+
+			theirNote, has := theirNf[feed]
+			if !has {
+				continue
+			}
+
+			if theirNote.Seq > note.Seq {
+				var hlr HasLongerResult
+				hlr.Len = uint64(theirNote.Seq)
+
+				hlr.Peer, err = refs.ParseFeedRef(peer)
+				if err != nil {
+					return nil, err
+				}
+
+				hlr.Feed, err = refs.ParseFeedRef(feed)
+				if err != nil {
+					return nil, err
+				}
+
+				res = append(res, hlr)
+			}
+
 		}
-
-		hlr.Feed, err = sm.feedidx.FeedFor(fid)
-		if err != nil {
-			return nil, err
-		}
-
-		hlr.Peer, err = sm.feedidx.FeedFor(pid)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, hlr)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 
 	return res, nil
 }
 
 // all the feeds a peer wants to recevie messages for
-func (sm StateMatrix) WantsList(peer *refs.FeedRef) ([]*refs.FeedRef, error) {
-	nPeer, err := sm.feedidx.NumberFor(peer)
-	if err != nil {
-		return nil, err
-	}
+func (sm *StateMatrix) WantsList(peer *refs.FeedRef) ([]*refs.FeedRef, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	// set of shared feeds
-	rows, err := sm.store.Query(`select feed where peer == uint64(?1) and rx == true`, nPeer)
+	nf, err := sm.loadFrontier(peer)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	var res []*refs.FeedRef
 
-	for rows.Next() {
-		var (
-			fid uint64
-		)
-		err := rows.Scan(&fid)
-		if err != nil {
-			return nil, err
+	for feedStr, note := range nf {
+		if note.Receive {
+			feed, err := refs.ParseFeedRef(feedStr)
+			if err != nil {
+				return nil, fmt.Errorf("wantList: failed to parse feed entry %q: %w", feedStr, err)
+			}
+			res = append(res, feed)
 		}
-
-		fref, err := sm.feedidx.FeedFor(fid)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, fref)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 
 	return res, nil
 }
 
-func (sm StateMatrix) WantsFeed(peer, feed *refs.FeedRef, weHave uint64) (bool, error) {
-	nPeer, err := sm.feedidx.NumberFor(peer)
+func (sm *StateMatrix) WantsFeed(peer, feed *refs.FeedRef, weHave uint64) (bool, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	nf, err := sm.loadFrontier(peer)
 	if err != nil {
 		return false, err
 	}
 
-	nFeed, err := sm.feedidx.NumberFor(feed)
-	if err != nil {
-		return false, err
+	n, has := nf[feed.Ref()]
+	if !has {
+		return false, nil
 	}
 
-	var rx bool
-	err = sm.store.QueryRow(`select rx from ebtState
-		where peer == uint64(?1) and feed == uint64(?2) and flen < uint64(?3)`,
-		nPeer, nFeed, weHave).Scan(&rx)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return rx, nil
+	return n.Receive, nil
 }
 
-func (sm StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
-	nSelf, err := sm.feedidx.NumberFor(self)
-	if err != nil {
-		return nil, err
+// Changed returns which feeds have newer messages since last update
+func (sm *StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	changedFrontier := make(ssb.NetworkFrontier)
+
+	selfNf, has := sm.open[sm.self]
+	if !has {
+		return changedFrontier, nil
 	}
 
-	nPeer, err := sm.feedidx.NumberFor(peer)
-	if err != nil {
-		return nil, err
+	peerNf, has := sm.open[sm.self]
+	if !has {
+		return changedFrontier, nil
 	}
 
-	// set of shared feeds
-	rows, err := sm.store.Query(`
-	select feed, flen from ebtState where peer == uint64(?1) and feed IN (
-SELECT remote.feed
-FROM ebtState as remote,
-  (SELECT feed, flen FROM ebtState where peer == uint64(?1)) as my
-WHERE remote.feed == my.feed AND remote.peer == uint64(?2)
-)
-`, nSelf, nPeer)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	for theirFeed, theirNote := range peerNf {
 
-	var res = make(ssb.NetworkFrontier)
+		for myFeed, myNote := range selfNf {
+			if theirFeed != myFeed {
+				continue
+			}
 
-	for rows.Next() {
-		var (
-			fid  uint64
-			flen uint64
-			rx   bool = true // TODO
-		)
-		err := rows.Scan(&fid, &flen)
-		if err != nil {
-			return nil, err
+			if !theirNote.Receive {
+				continue
+			}
+
+			if myNote.Seq > theirNote.Seq {
+				changedFrontier[myFeed] = myNote
+			}
 		}
 
-		fref, err := sm.feedidx.FeedFor(fid)
-		if err != nil {
-			return nil, err
-		}
-
-		res[fref] = ssb.Note{
-			Seq:       int64(flen),
-			Replicate: flen != 0,
-			Receive:   rx,
-		}
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return res, nil
+	return changedFrontier, nil
 }
 
 type ObservedFeed struct {
-	Feed      *refs.FeedRef
-	Len       uint64
-	Receive   bool
-	Replicate bool
+	Feed *refs.FeedRef
+
+	ssb.Note
 }
 
-func (sm StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
-	tx, err := sm.store.Begin()
+func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	nf, err := sm.loadFrontier(who)
 	if err != nil {
 		return err
 	}
 
-	nWho, err := sm.feedidx.NumberFor(who)
-	if err != nil {
-		return err
-	}
+	for _, of := range feeds {
 
-	for i, of := range feeds {
-		nof, err := sm.feedidx.NumberFor(of.Feed)
-		if err != nil {
-			return err
-		}
 		if of.Replicate {
-			// SAD UPSERT
-			res, err := tx.Exec(`UPDATE ebtState 
-				rx = bool(?4), flen = uint64(?3)
-			where peer=uint64(?1) and feed=uint64(?2)`, nWho, nof, of.Len, of.Receive)
-			if err != nil {
-				return fmt.Errorf("fill%d failed update: %w", i, err)
-			}
-			affn, err := res.RowsAffected()
-			if err != nil {
-				return fmt.Errorf("fill%d failed affected: %w", i, err)
-			}
-			if affn < 1 {
-				_, err := tx.Exec(`INSERT INTO ebtState (peer, feed, flen, rx) VALUES (uint64(?1), uint64(?2), uint64(?3), ?4)`, nWho, nof, of.Len, of.Receive)
-				if err != nil {
-					return fmt.Errorf("fill%d failed insert: %w", i, err)
-				}
-			}
+			nf[of.Feed.Ref()] = of.Note
 		} else {
 			// seq == -1 means drop it
-			_, err := tx.Exec(`DELETE FROM ebtState where peer=uint64(?1) and feed=uint64(?2)`, nWho, nof)
-			if err != nil {
-				return fmt.Errorf("fill%d drop failed: %w", i, err)
-			}
+			delete(nf, of.Feed.Ref())
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit fill: %w", err)
-	}
+	sm.open[who.Ref()] = nf
 	return nil
 }
 
-const schemaVersion1 = `
-BEGIN TRANSACTION;
+func (sm *StateMatrix) Close() error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-CREATE TABLE ebtMeta (
-  space string,
-  version uint32,
-);
-CREATE UNIQUE INDEX ebtVersioning ON ebtMeta (space);
+	for peer := range sm.open {
+		sm.saveAndClose(peer)
+	}
 
-CREATE TABLE ebtState (
-	peer uint64 NOT NULL,
-	feed uint64 NOT NULL,
-	
-	flen uint64 NOT NULL,
-
-	rx bool not null,
-);
-
-CREATE UNIQUE INDEX ebtPeers ON ebtState (peer, feed);
-CREATE INDEX ebtLengths ON ebtState (feed,flen);
-
-insert into ebtMeta VALUES ("ssb",1);
-COMMIT;
-`
-
-func (sm StateMatrix) Close() error {
-	return sm.store.Close()
-}
-
-func (sm StateMatrix) String() string {
-	var sb strings.Builder
-
-	//sm.store.QueryRow()
-
-	fmt.Fprintf(&sb, "state matrix (%d:%d):", 1, 2)
-	/*
-		r, c := sm.mat.Dims()
-			for ir := 0; ir < r; ir++ {
-				for jc := 0; jc < c; jc++ {
-					fmt.Fprintf(&sb, "%3.0f", sm.mat.At(ir, jc))
-				}
-				fmt.Fprintln(&sb)
-			}
-	*/
-	return sb.String()
+	return nil
 }

@@ -166,17 +166,13 @@ func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.Key
 
 type PublishOption func(*publishLog) error
 
-func SetHMACKey(hmackey []byte) PublishOption {
+func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
-		var hmacSec [32]byte
-		if n := copy(hmacSec[:], hmackey); n != 32 {
-			return fmt.Errorf("hmac key of wrong length:%d", n)
-		}
 		switch cv := pl.create.(type) {
 		case *legacyCreate:
-			cv.hmac = &hmacSec
+			cv.hmac = hmackey
 		case *gabbyCreate:
-			cv.enc.WithHMAC(hmackey)
+			cv.enc.WithHMAC(hmackey[:])
 		default:
 			return fmt.Errorf("hmac: unknown creater: %T", cv)
 		}

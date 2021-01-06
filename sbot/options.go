@@ -92,7 +92,7 @@ type Sbot struct {
 	SeqResolver *repo.SequenceResolver
 
 	PublishLog     ssb.Publisher
-	signHMACsecret []byte
+	signHMACsecret *[32]byte
 
 	// hardcoded default indexes
 	Users   *roaring.MultiLog // one sublog per feed
@@ -405,7 +405,9 @@ func WithHMACSigning(key []byte) Option {
 		if n := len(key); n != 32 {
 			return fmt.Errorf("WithHMACSigning: wrong key length (%d)", n)
 		}
-		s.signHMACsecret = key
+		var k [32]byte
+		copy(k[:], key)
+		s.signHMACsecret = &k
 		return nil
 	}
 }
