@@ -178,10 +178,13 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	// now publish on D and let them bubble to A, live without reconnect
 	timeouts := 0
 	for i := 0; i < testMessageCount; i++ {
-		rxSeq, err := botD.PublishLog.Append(refs.NewPost("some test msg"))
+		rxSeq, err := botD.PublishLog.Append(refs.NewPost(fmt.Sprintf("test msg:%d", i)))
 		r.NoError(err)
 		published := time.Now()
-		r.Equal(margaret.BaseSeq(i), rxSeq)
+		if !a.Equal(margaret.BaseSeq(i), rxSeq) {
+			testutils.StreamLog(t, botD.ReceiveLog)
+			break
+		}
 
 		// received new message?
 		select {

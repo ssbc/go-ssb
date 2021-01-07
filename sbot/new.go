@@ -63,7 +63,7 @@ func (sbot *Sbot) Replicate(r *refs.FeedRef) {
 		panic(err)
 	}
 
-	l := int64(0)
+	l := int64(-1)
 	v, err := slog.Seq().Value()
 	if err == nil {
 		l = v.(margaret.Seq).Seq()
@@ -72,7 +72,7 @@ func (sbot *Sbot) Replicate(r *refs.FeedRef) {
 	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
 	})
-	fmt.Println("ebt updated", r.Ref(), l)
+
 	sbot.Replicator.Replicate(r)
 }
 
@@ -82,7 +82,7 @@ func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
 		panic(err)
 	}
 
-	l := int64(0)
+	l := int64(-1)
 	v, err := slog.Seq().Value()
 	if err == nil {
 		l = v.(margaret.Seq).Seq()
