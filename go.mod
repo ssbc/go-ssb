@@ -35,8 +35,8 @@ require (
 	go.mindeco.de/rumorlog v1.0.0
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
-	go.mindeco.de/ssb-refs v0.1.1-0.20201123094321-75dc1fe9e1e4
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.3
 	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
@@ -53,7 +53,3 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
-
-replace go.mindeco.de/ssb-refs => /home/cryptix/go-repos/ssb-refs
-
-replace go.mindeco.de/rumorlog => /home/cryptix/go-repos/go-rumorlog

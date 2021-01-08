@@ -165,6 +165,8 @@ github.com/hashicorp/consul/api v1.3.0/go.mod h1:MmDNSzIMUjNpY/mQ398R4bk2FnqQLoP
 github.com/hashicorp/consul/sdk v0.3.0/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
+github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
+github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.1/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.3/go.mod h1:ahLV/dePpqEmjfWmKiqvPkv/twdG7iPBM1vqhUKIvfM=
@@ -205,6 +207,8 @@ github.com/karrick/bufpool v1.2.0 h1:AfhYmVv8A62iOzB31RuJrGLTdHlvBbl0+rh8Gvgvybg
 github.com/karrick/bufpool v1.2.0/go.mod h1:ZRBxSXJi05b7mfd7kcL1M86UL1x8dTValcwCQp7I7P8=
 github.com/karrick/gopool v1.1.0 h1:b9C9zwnRjgu9RNQPfiGEFmCDm3OdRuLpY7qYIDf8b28=
 github.com/karrick/gopool v1.1.0/go.mod h1:Llf0mwk3WWtY0AIQoodGWVOU+5xfvUWqJKvck2qNwBU=
+github.com/karrick/gopool v1.2.2 h1:YcxpjUxiwimrsvxLlIdrMcPPH2mlgLa4XD5z5q90M9U=
+github.com/karrick/gopool v1.2.2/go.mod h1:5Fng5/Z1F8x09k7QiokCmFB96DKrLra/oub/tKb6mGA=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472 h1:6nrO82kszcc+rcKPCJGgCj5ACTdmq6aNGav8zE5oYm0=
 github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472/go.mod h1:oLLUlGld/axGHThR36o8bADQUHG+TKSUdoKqCvnoQB4=
 github.com/keks/persist v0.0.0-20180731151133-9546f7b3f97e/go.mod h1:KMIOJFEE+0E/mYfYExA9vOpCFDz4TQfzk6mCOtCXR9k=
@@ -426,10 +430,16 @@ go.cryptoscope.co/secretstream v1.2.2 h1:kPxsgWrTDFyS9ZklcD0si1KGljPLz6mmPKnFQjG
 go.cryptoscope.co/secretstream v1.2.2/go.mod h1:7nRGZ7fTqSgQAnv2Y4m8xQsS3MFxvB7I0C19reUNlXg=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
+go.mindeco.de/rumorlog v1.0.0/go.mod h1:n62UAAkS3O4vxaibqS3MiBOvTR+T1bkI9ip4WOZQrQs=
 go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398 h1:SAmIyRPH5pBvCh3CfQie37QbPQC17O6rXNGUvohKgVE=
 go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398/go.mod h1:14SS9YOzziQ7aWdBdB30WyL9lEZcxPY3PR5tQxRc7EY=
 go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996 h1:+v2nqtamGeqEgDjSm8p/o3KpuNasynIZOFwRp3XBltc=
 go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996/go.mod h1:00eKD22DevFY0GQ1ifsydiOvBHJi9Z/bomxlRGTEvL0=
+go.mindeco.de/ssb-refs v0.0.0-20200615115708-7b8437f55cef/go.mod h1:u3EqvzDljgzrGT93hyWA1VbE06NKdavnpJ4sMXZxQxE=
+go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097/go.mod h1:NYcuq8EOqR8/RgmMa7qA4VgrXXUp+5Y0rk8CTi++Xys=
+go.mindeco.de/ssb-refs v0.1.1-0.20201123094321-75dc1fe9e1e4/go.mod h1:OnBnV02ux4lLsZ39LID6yYLqSDp+dqTHb/3miYPkQFs=
+go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870 h1:TCI3AefMAaOYECvppn30+CfEB0Fn8IES1SKvvacc3/c=
+go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870/go.mod h1:OnBnV02ux4lLsZ39LID6yYLqSDp+dqTHb/3miYPkQFs=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
