@@ -578,7 +578,6 @@ func makeChanWaiter(ctx context.Context, src luigi.Source, gotMsg chan<- refs.Me
 
 			case <-ctx.Done():
 				return nil
-
 			}
 		}
 	}

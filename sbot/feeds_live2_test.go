@@ -52,6 +52,7 @@ func makeFeedsLiveNetworkChain(chainLen uint) func(t *testing.T) {
 
 		netOpts := []Option{
 			WithAppKey(appKey),
+			WithContext(ctx),
 			WithHMACSigning(hmacKey),
 		}
 
@@ -179,6 +180,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 
 	netOpts := []Option{
 		WithAppKey(appKey),
+		WithContext(ctx),
 		WithHMACSigning(hmacKey),
 	}
 
@@ -303,6 +305,7 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 
 	netOpts := []Option{
 		WithAppKey(appKey),
+		WithContext(ctx),
 		WithHMACSigning(hmacKey),
 		WithInfo(info),
 		WithHops(3),
@@ -323,7 +326,7 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 		0, 1, 1, 1, 0, 1,
 		1, 0, 0, 1, 1, 0,
 	}
-	followMsgs := 0
+	// followMsgs := 0
 	for i := 0; i < 6; i++ {
 		for j := 0; j < 6; j++ {
 
@@ -335,15 +338,15 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 
 			if fQ == 1 {
 				botI.Replicate(botJ.KeyPair.Id)
-				_, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.Id))
-				r.NoError(err)
+				// _, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.Id))
+				// r.NoError(err)
 				// t.Log(i, "followed", j, ref.Ref()[1:5])
-				followMsgs++
+				// followMsgs++
 			}
 		}
 	}
 
-	initialSync(t, theBots, followMsgs)
+	// initialSync(t, theBots, followMsgs)
 
 	// setup connections
 	connectMatrix := []int{
@@ -373,17 +376,14 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 		}
 	}
 
-	// now send them off
-	uf, ok := theBots[0].GetMultiLog("userFeeds")
-	r.True(ok)
-	feedOfBotC, err := uf.Get(storedrefs.Feed(theBots[5].KeyPair.Id))
-	r.NoError(err)
-
 	// setup live listener
 	gotMsg := make(chan refs.Message)
 
+	// construct query source
+	feedOfBotC, err := theBots[0].Users.Get(storedrefs.Feed(theBots[5].KeyPair.Id))
+	r.NoError(err)
 	seqSrc, err := mutil.Indirect(theBots[0].ReceiveLog, feedOfBotC).Query(
-		margaret.Gte(margaret.BaseSeq(3)),
+		// margaret.Gte(margaret.BaseSeq(3)),
 		margaret.Live(true))
 	r.NoError(err)
 
@@ -395,14 +395,14 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 		seq, err := theBots[5].PublishLog.Append(tMsg)
 		r.NoError(err)
 		published := time.Now()
-		r.Equal(margaret.BaseSeq(22+i), seq, "new msg %d", i)
+		r.Equal(margaret.BaseSeq(i), seq, "new msg %d", i)
 
 		// received new message?
 		select {
 		case <-time.After(3 * time.Second):
 			t.Errorf("timeout %d....", i)
 		case msg := <-gotMsg:
-			a.EqualValues(margaret.BaseSeq(4+i), msg.Seq(), "wrong seq")
+			a.EqualValues(margaret.BaseSeq(i+1), msg.Seq(), "wrong seq")
 			delayHist.Add(time.Since(published).Seconds())
 		}
 	}

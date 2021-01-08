@@ -51,17 +51,17 @@ func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
 		return nil, err
 	}
 
-	var ms = margaretSaver{vs.rxlog}
+	var ms = MargaretSaver{vs.rxlog}
 	snk = NewVerifySink(ref, msg, msg, ms, vs.hmacSec)
 	vs.sinks[ref.Ref()] = snk
 	return snk, nil
 }
 
-type margaretSaver struct {
+type MargaretSaver struct {
 	margaret.Log
 }
 
-func (ms margaretSaver) Save(msg refs.Message) error {
+func (ms MargaretSaver) Save(msg refs.Message) error {
 	_, err := ms.Log.Append(msg)
 	return err
 }

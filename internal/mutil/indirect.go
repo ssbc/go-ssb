@@ -38,7 +38,10 @@ func (il indirectLog) Get(seq margaret.Seq) (interface{}, error) {
 	}
 
 	rv, err := il.root.Get(v.(margaret.Seq))
-	return rv, fmt.Errorf("indirect: root lookup failed: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("indirect: root lookup failed: %w", err)
+	}
+	return rv, nil
 }
 
 // Query returns a stream that is constrained by the passed query specification

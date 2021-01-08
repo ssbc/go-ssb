@@ -5,12 +5,10 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
@@ -93,23 +91,19 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
 	aliceAsGabby := *alice
 	aliceAsGabby.Algo = refs.RefAlgoFeedGabby
-	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if err != nil {
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-		_, err = s.ReceiveLog.Append(val)
-		if err != nil {
-			return fmt.Errorf("failed to append verified message to rootLog: %w", err)
-		}
-		return nil
-	})
-	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
 
-	err = luigi.Pump(ctx, snk, src.AsStream())
-	r.NoError(err)
+	var saver = message.MargaretSaver{s.ReceiveLog}
+
+	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+
+	for src.Next(ctx) {
+
+		b, err := src.Bytes()
+		r.NoError(err)
+
+		err = snk.Verify(b)
+		r.NoError(err)
+	}
 
 	// test is currently borked because we get fake messages back
 
