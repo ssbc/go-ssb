@@ -22,54 +22,22 @@ type getMessagesOfTypeHandler struct {
 }
 
 func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
-	if len(req.Args()) < 1 {
-		return fmt.Errorf("invalid arguments")
+	var args []struct {
+		ID *refs.FeedRef
+
+		Type string
+
+		Keys bool
 	}
-	var (
-		feed *refs.FeedRef
-		tipe string
-
-		keys bool
-
-		err error
-	)
-	switch v := req.Args()[0].(type) {
-
-	case map[string]interface{}:
-		refV, ok := v["id"]
-		if !ok {
-			return fmt.Errorf("invalid argument - missing 'id' in map")
-		}
-
-		ref, ok := refV.(string)
-		if !ok {
-			return fmt.Errorf("invalid argument - 'id' field is not a string")
-		}
-
-		feed, err = refs.ParseFeedRef(ref)
-		if err != nil {
-			return fmt.Errorf("invalid argument: %w", err)
-		}
-
-		typeV, ok := v["type"]
-		if !ok {
-			return fmt.Errorf("invalid argument - missing 'type' in map")
-		}
-
-		tipe = typeV.(string)
-
-		if keysV, has := v["keys"]; has {
-			if yes, ok := keysV.(bool); ok {
-				keys = yes
-			}
-		}
-
-	default:
-		return fmt.Errorf("invalid argument type %T", req.Args()[0])
-
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return fmt.Errorf("invalid arguments: %w", err)
 	}
+	arg := args[0]
 
-	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(feed))
+	fmt.Printf("by type: %+v\n", arg)
+
+	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(arg.ID))
 	if err != nil {
 		// TODO actual assert not found error.
 		// fmt.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
@@ -78,12 +46,11 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 	}
 
-	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + tipe))
+	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + arg.Type))
 	if err != nil {
 		// return fmt.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
 		snk.Close()
 		return nil
-
 	}
 
 	// which sequences are in both?
@@ -102,7 +69,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		if !ok {
 			return fmt.Errorf("invalid msg type %T", msgv)
 		}
-		if keys {
+		if arg.Keys {
 			var kv refs.KeyValueRaw
 			kv.Key_ = msg.Key()
 			kv.Value = *msg.ValueContent()

@@ -2,6 +2,7 @@ package partial
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -19,32 +20,37 @@ type getFeedHandler struct {
 }
 
 func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
-	args := req.Args()
+	var args []json.RawMessage
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return err
+	}
 
 	if len(args) < 1 {
-		return errors.New("ssb/message: not enough arguments, expecting feed id")
-
+		return errors.New("partial/feed: not enough arguments, expecting 1 object")
 	}
-	argMap, ok := args[0].(map[string]interface{})
-	if !ok {
-		err := fmt.Errorf("ssb/message: not the right map - %T", args[0])
-		return err
 
-	}
-	query, err := message.NewCreateHistArgsFromMap(argMap)
+	var query message.CreateHistArgs
+	err = json.Unmarshal(args[0], &query)
 	if err != nil {
-		return fmt.Errorf("bad request: %w", err)
+		return err
 	}
 
-	// query.Limit = 50
-	// spew.Dump(query)
-	err = h.fm.CreateStreamHistory(ctx, snk, query)
+	if query.Limit == 0 { // stupid unset default
+		query.Limit = -1
+	}
+
+	fmt.Printf("partial/feed (forward): %s:%d\n", query.ID.Ref(), query.Seq)
+	// fmt.Printf("partial/feed: full query %+v\n", query)
+	fmt.Println(string(args[0]))
+
+	err = h.fm.CreateStreamHistory(ctx, snk, &query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()
 			return nil
 		}
-		return fmt.Errorf("createHistoryStream failed: %w", err)
+		return fmt.Errorf("partial/feed failed: %w", err)
 	}
 	return nil
 }
@@ -54,33 +60,38 @@ type getFeedReverseHandler struct {
 }
 
 func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
-	args := req.Args()
+	var args []json.RawMessage
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return err
+	}
 
 	if len(args) < 1 {
-		return errors.New("ssb/message: not enough arguments, expecting feed id")
-
+		return errors.New("partial/feed: not enough arguments, expecting 1 object")
 	}
-	argMap, ok := args[0].(map[string]interface{})
-	if !ok {
-		err := fmt.Errorf("ssb/message: not the right map - %T", args[0])
-		return err
 
-	}
-	query, err := message.NewCreateHistArgsFromMap(argMap)
+	var query message.CreateHistArgs
+	err = json.Unmarshal(args[0], &query)
 	if err != nil {
-		return fmt.Errorf("bad request: %w", err)
+		return err
+	}
+
+	if query.Limit == 0 { // stupid unset default
+		query.Limit = -1
 	}
 	query.Reverse = true
 
-	// query.Limit = 50
-	// spew.Dump(query)
-	err = h.fm.CreateStreamHistory(ctx, snk, query)
+	fmt.Printf("partial/feed (reverse): %s:%d\n", query.ID.Ref(), query.Seq)
+	// fmt.Printf("partial/feed: full query %+v\n", query)
+	fmt.Println(string(args[0]))
+
+	err = h.fm.CreateStreamHistory(ctx, snk, &query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()
 			return nil
 		}
-		return fmt.Errorf("createHistoryStream failed: %w", err)
+		return fmt.Errorf("partial/feed reverse failed: %w", err)
 	}
 	return nil
 }
