@@ -6,8 +6,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb"
 
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 )
@@ -21,6 +21,10 @@ type replicateNegotiator struct {
 }
 
 func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
+	// uncomment these two lines to force legacy
+	// rn.lg.StartLegacyFetching(ctx, e)
+	// return
+
 	// try ebt
 
 	// the client calls ebt.replicate to the server

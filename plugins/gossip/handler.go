@@ -27,6 +27,12 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// LegacyGossip implements incoming and outgoing createHistoryStream calls.
+// Either register this plugin's HandleConnect for fetching feeds
+// or the sbot.Negotiate plugin to get EBT opertunistlicly and fallback to this
+// don't register both!
+//
+// TODO: add feature flag for live streaming
 type LegacyGossip struct {
 	repo repo.Interface
 
@@ -53,8 +59,8 @@ type LegacyGossip struct {
 	rootCtx context.Context
 }
 
+// HandleConnect on this handler triggers legacy createHistoryStream replication.
 func (g *LegacyGossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	// TODO: only do this if negotiate isn't registerd
 	g.StartLegacyFetching(ctx, e)
 }
 
