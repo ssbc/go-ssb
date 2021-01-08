@@ -101,6 +101,8 @@ func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, er
 		if err != nil {
 			return nil, err
 		}
+
+		curr = nf
 	}
 
 	sm.open[peer.Ref()] = curr

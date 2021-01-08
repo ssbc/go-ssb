@@ -53,7 +53,8 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 		// validate
 		_, err := refs.ParseFeedRef(fstr)
 		if err != nil {
-			return err
+			// just skip invalid feeds
+			continue
 		}
 
 		var s Note

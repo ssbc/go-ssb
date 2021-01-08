@@ -44,6 +44,8 @@ func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	// fmt.Printf("partial/feed: full query %+v\n", query)
 	fmt.Println(string(args[0]))
 
+	snk.SetEncoding(muxrpc.TypeJSON)
+
 	err = h.fm.CreateStreamHistory(ctx, snk, &query)
 	if err != nil {
 		if luigi.IsEOS(err) {
@@ -84,6 +86,8 @@ func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Req
 	fmt.Printf("partial/feed (reverse): %s:%d\n", query.ID.Ref(), query.Seq)
 	// fmt.Printf("partial/feed: full query %+v\n", query)
 	fmt.Println(string(args[0]))
+
+	snk.SetEncoding(muxrpc.TypeJSON)
 
 	err = h.fm.CreateStreamHistory(ctx, snk, &query)
 	if err != nil {

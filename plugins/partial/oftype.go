@@ -53,6 +53,8 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		return nil
 	}
 
+	snk.SetEncoding(muxrpc.TypeJSON)
+
 	// which sequences are in both?
 	workSet.And(tipeSeqs)
 

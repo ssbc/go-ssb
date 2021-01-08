@@ -195,6 +195,12 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				continue
 			}
 
+			if msgWithAuthor.Author == nil {
+				fmt.Println("debug body:", string(jsonBody))
+				h.check(fmt.Errorf("message without author?"))
+				continue
+			}
+
 			vsnk, err := h.verify.GetSink(msgWithAuthor.Author)
 			if err != nil {
 				h.check(err)
