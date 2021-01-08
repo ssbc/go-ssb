@@ -3,9 +3,11 @@
 package ebt
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
@@ -83,12 +85,9 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	// TODO: check protocol version option
 	h.info.Log("debug", "called", "args", string(req.RawArgs))
 
-	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
-	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
-		return
-	}
+	//
 
+	// get writer and reader from duplex call
 	snk, err := req.GetResponseSink()
 	if err != nil {
 		h.info.Log("event", "call replicate", "err", err)
@@ -96,6 +95,12 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	}
 
 	src, err := req.GetResponseSource()
+	if err != nil {
+		h.info.Log("event", "call replicate", "err", err)
+		return
+	}
+
+	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
 	if err != nil {
 		h.info.Log("event", "call replicate", "err", err)
 		return
@@ -158,18 +163,28 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 		return
 	}
 
+	var buf = &bytes.Buffer{}
 	for rx.Next(ctx) { // read/write loop for messages
 
-		jsonBody, err := rx.Bytes()
+		buf.Reset()
+		err := rx.Reader(func(r io.Reader) error {
+			_, err := buf.ReadFrom(r)
+			return err
+		})
 		if err != nil {
 			h.check(err)
 			return
 		}
 
-		var nf ssb.NetworkFrontier
-		err = json.Unmarshal(jsonBody, &nf)
+		jsonBody := buf.Bytes()
+
+		var frontierUpdate ssb.NetworkFrontier
+		err = json.Unmarshal(jsonBody, &frontierUpdate)
 		if err != nil { // assume it's a message
 
+			// redundant pass of finding out the author
+			// would be rad to get this from the pretty-printed version
+			// and just pass that to verify
 			var msgWithAuthor struct {
 				Author *refs.FeedRef
 			}
@@ -191,37 +206,34 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				// TODO: mark feed as bad
 				h.check(err)
 			}
+
 			continue
 		}
 
-		// TODO: this is just the new state
-		// they might have told us about other feeds they want to receive before.
-		// load the sate matrix again!
-
-		// fmt.Println("their state:", remote.ShortRef())
-		// fmt.Println(nf.String())
-
 		// update our network perception
-		var observed []statematrix.ObservedFeed
+		wants, err := h.stateMatrix.Update(remote, frontierUpdate)
+		if err != nil {
+			h.check(err)
+			return
+		}
 
 		// ad-hoc send where we have newer messages
-		for feedStr, their := range nf {
+		for feedStr, their := range wants {
+			// these were already validated by the .UnmarshalJSON() method
+			// but we need the refs.Feed for the createHistArgs
 			feed, err := refs.ParseFeedRef(feedStr)
 			if err != nil {
-				panic(err)
+				h.check(err)
+				return
 			}
 
 			if !their.Replicate {
-				observed = append(observed, statematrix.ObservedFeed{
-					Feed: feed,
-					Note: ssb.Note{Replicate: false},
-				})
 				continue
 			}
 
 			if their.Receive {
 				arg := &message.CreateHistArgs{
-					ID:  feed.Copy(),
+					ID:  feed,
 					Seq: their.Seq + 1,
 				}
 				arg.Limit = -1
@@ -233,12 +245,6 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 					return
 				}
 			}
-		}
-
-		h.stateMatrix.Fill(remote, observed)
-		if err != nil {
-			h.check(err)
-			return
 		}
 	}
 

@@ -286,6 +286,24 @@ type ObservedFeed struct {
 	ssb.Note
 }
 
+func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ssb.NetworkFrontier, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	current, err := sm.loadFrontier(who)
+	if err != nil {
+		return nil, err
+	}
+
+	// overwrite the entries in current with the updated ones
+	for feed, note := range update {
+		current[feed] = note
+	}
+
+	sm.open[who.Ref()] = current
+	return current, nil
+}
+
 func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
