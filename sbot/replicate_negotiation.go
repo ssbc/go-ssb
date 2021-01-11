@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -26,18 +27,19 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	// return
 
 	// try ebt
+	remoteAddr := e.Remote()
 
 	// the client calls ebt.replicate to the server
 	if !muxrpc.IsServer(e) {
-		// do nothing if we are the server
-
-		rn.logger.Log("TODO", "we are server... start legacy after timeout?")
-		// TODO: start legacy if remote doesn't start a ebt session after a timeout
-		// if !rn.ebt.StartedSession(e.Remote()) {		}
+		// do nothing if we are the server, unless the peer doesn't start ebt
+		started := rn.ebt.Sessions.WaitFor(ctx, remoteAddr, 1*time.Minute)
+		if !started {
+			rn.lg.StartLegacyFetching(ctx, e)
+		}
 		return
 	}
 
-	remote, err := ssb.GetFeedRefFromAddr(e.Remote())
+	remote, err := ssb.GetFeedRefFromAddr(remoteAddr)
 	if err != nil {
 		panic(err)
 		return
@@ -57,25 +59,15 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 		return
 	}
 
-	rn.ebt.Loop(ctx, tx, rx, remote)
+	rn.ebt.Loop(ctx, tx, rx, remoteAddr)
 }
 
 func (rn replicateNegotiator) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	// noop - this handler only controls outgoing calls for replication
 }
 
-type negPlugin struct {
-	replicateNegotiator
-}
+type negPlugin struct{ replicateNegotiator }
 
-func (p negPlugin) Name() string {
-	return "negotiate"
-}
-
-func (p negPlugin) Method() muxrpc.Method {
-	return muxrpc.Method{"negotiate"}
-}
-
-func (p negPlugin) Handler() muxrpc.Handler {
-	return p.replicateNegotiator
-}
+func (p negPlugin) Name() string            { return "negotiate" }
+func (p negPlugin) Method() muxrpc.Method   { return muxrpc.Method{"negotiate"} }
+func (p negPlugin) Handler() muxrpc.Handler { return p.replicateNegotiator }

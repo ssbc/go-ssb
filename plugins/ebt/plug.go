@@ -43,7 +43,11 @@ func NewPlug(
 
 		verify: v,
 
-		currentMessages: make(map[string]refs.Message),
+		Sessions: Sessions{
+			open: make(map[string]*session),
+
+			waitingFor: make(map[string]chan<- struct{}),
+		},
 	},
 	}
 }

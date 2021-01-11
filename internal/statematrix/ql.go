@@ -156,6 +156,7 @@ func (hlr HasLongerResult) String() string {
 	return fmt.Sprintf("%s: %s:%d", hlr.Peer.ShortRef(), hlr.Feed.ShortRef(), hlr.Len)
 }
 
+// HasLonger returns all the feeds which have more messages then we have and who has them.
 func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
 	var err error
 
@@ -201,7 +202,7 @@ func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
 	return res, nil
 }
 
-// all the feeds a peer wants to recevie messages for
+// WantsList returns all the feeds a peer wants to recevie messages for
 func (sm *StateMatrix) WantsList(peer *refs.FeedRef) ([]*refs.FeedRef, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -226,7 +227,8 @@ func (sm *StateMatrix) WantsList(peer *refs.FeedRef) ([]*refs.FeedRef, error) {
 	return res, nil
 }
 
-func (sm *StateMatrix) WantsFeed(peer, feed *refs.FeedRef, weHave uint64) (bool, error) {
+// WantsFeed returns true if peer want's to receive feed
+func (sm *StateMatrix) WantsFeed(peer, feed *refs.FeedRef) (bool, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -288,6 +290,8 @@ type ObservedFeed struct {
 	ssb.Note
 }
 
+// Update gets the current state from who, overwrites the notes in current with the new ones from the passed update
+// and returns the complet updated frontier.
 func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -306,6 +310,7 @@ func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ss
 	return current, nil
 }
 
+// Fill might be deprecated. It just updates the current frontier state
 func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()

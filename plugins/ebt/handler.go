@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
@@ -24,8 +25,7 @@ import (
 )
 
 type MUXRPCHandler struct {
-	info   logging.Interface
-	isServ bool
+	info logging.Interface
 
 	id        *refs.FeedRef
 	rootLog   margaret.Log
@@ -37,9 +37,9 @@ type MUXRPCHandler struct {
 
 	stateMatrix *statematrix.StateMatrix
 
-	currentMessages map[string]refs.Message
-
 	verify *message.VerifySink
+
+	Sessions Sessions
 }
 
 func (h *MUXRPCHandler) check(err error) {
@@ -90,24 +90,19 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	// get writer and reader from duplex call
 	snk, err := req.GetResponseSink()
 	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
+		h.info.Log("event", "handle.ebt", "err", err)
 		return
 	}
 
 	src, err := req.GetResponseSource()
 	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
+		h.info.Log("event", "handle.ebt", "err", err)
 		return
 	}
 
-	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
-	if err != nil {
-		h.info.Log("event", "call replicate", "err", err)
-		return
-	}
+	remoteAddr := edp.Remote()
+	h.Loop(ctx, snk, src, remoteAddr)
 
-	h.Loop(ctx, snk, src, remote)
-	h.info.Log("debug", "loop exited", "r", remote.ShortRef())
 }
 
 func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
@@ -123,11 +118,8 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 			return fmt.Errorf("failed to get userlist: %w", err)
 		}
 
-		// TODO: see if they changed and if they want them
 		for i, feed := range feeds {
-
 			// filter the ones that didnt change
-
 			seq, err := h.currentSequence(feed)
 			if err != nil {
 				return fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
@@ -142,9 +134,10 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 	}
 
 	// don't receive your own feed
-	myNote := currState[h.id.Ref()]
-	myNote.Receive = false
-	currState[h.id.Ref()] = myNote
+	if myNote, has := currState[h.id.Ref()]; has {
+		myNote.Receive = false
+		currState[h.id.Ref()] = myNote
+	}
 
 	// fmt.Println("our state", h.id.Ref())
 	// fmt.Println(currState.String())
@@ -157,8 +150,21 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 	return nil
 }
 
-func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remote *refs.FeedRef) {
-	if err := h.sendState(ctx, tx, remote); err != nil {
+func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remoteAddr net.Addr) {
+	h.Sessions.Started(remoteAddr)
+
+	peer, err := ssb.GetFeedRefFromAddr(remoteAddr)
+	if err != nil {
+		h.check(err)
+		return
+	}
+
+	defer func() {
+		h.Sessions.Ended(remoteAddr)
+		h.info.Log("debug", "loop exited", "r", peer.ShortRef())
+	}()
+
+	if err := h.sendState(ctx, tx, peer); err != nil {
 		h.check(err)
 		return
 	}
@@ -217,7 +223,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 		}
 
 		// update our network perception
-		wants, err := h.stateMatrix.Update(remote, frontierUpdate)
+		wants, err := h.stateMatrix.Update(peer, frontierUpdate)
 		if err != nil {
 			h.check(err)
 			return
@@ -237,6 +243,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				continue
 			}
 
+			// TODO: don't double subscribe
 			if their.Receive {
 				arg := &message.CreateHistArgs{
 					ID:  feed,
