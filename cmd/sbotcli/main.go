@@ -25,7 +25,6 @@ import (
 	"github.com/go-kit/kit/log/term"
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -91,11 +90,12 @@ var app = cli.App{
 		replicateUptoCmd,
 		repliesStreamCmd,
 		callCmd,
+		sourceCmd,
 		getCmd,
 		connectCmd,
 		publishCmd,
 		groupsCmd,
-		tryEBTCmd,
+		// tryEBTCmd,
 	},
 }
 
@@ -235,16 +235,58 @@ CAVEAT: only one argument...
 		}
 
 		var reply interface{}
-		val, err := client.Async(longctx, reply, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
 		if err != nil {
 			return errors.Wrapf(err, "%s: call failed.", cmd)
 		}
 		level.Debug(log).Log("event", "call reply")
-		jsonReply, err := json.MarshalIndent(val, "", "  ")
+		jsonReply, err := json.MarshalIndent(reply, "", "  ")
+		if err != nil {
+			return errors.Wrapf(err, "%s: indent failed.", cmd)
+		}
+		_, err = io.Copy(os.Stdout, bytes.NewReader(jsonReply))
+		return errors.Wrapf(err, "%s: result copy failed.", cmd)
+	},
+}
+
+var sourceCmd = &cli.Command{
+	Name:  "source",
+	Usage: "make an simple source call",
+
+	Flags: []cli.Flag{
+		&cli.StringFlag{Name: "id", Value: ""},
+		// TODO: Slice of branches
+		&cli.IntFlag{Name: "limit", Value: -1},
+	},
+
+	Action: func(ctx *cli.Context) error {
+		cmd := ctx.Args().Get(0)
+		if cmd == "" {
+			return errors.New("call: cmd can't be empty")
+		}
+
+		v := strings.Split(cmd, ".")
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var args = struct {
+			ID    string `json:"id"`
+			Limit int    `json:"limit"`
+		}{
+			ID:    ctx.String("id"),
+			Limit: ctx.Int("limit"),
+		}
+
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method(v), args)
 		if err != nil {
 			return errors.Wrapf(err, "%s: call failed.", cmd)
 		}
-		_, err = io.Copy(os.Stdout, bytes.NewReader(jsonReply))
+		level.Debug(log).Log("event", "call reply")
+
+		err = jsonDrain(os.Stdout, src)
 		return errors.Wrapf(err, "%s: result copy failed.", cmd)
 	},
 }
@@ -270,12 +312,12 @@ var getCmd = &cli.Command{
 		}{key, ctx.Bool("private")}
 
 		var val interface{}
-		val, err = client.Async(longctx, val, muxrpc.Method{"get"}, arg)
+		err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"get"}, arg)
 		if err != nil {
 			return err
 		}
 		log.Log("event", "get reply")
-		jsonDrain(os.Stdout).Pour(longctx, val)
+		fmt.Printf("%+v\n", val)
 		return nil
 
 	},
@@ -296,12 +338,12 @@ var connectCmd = &cli.Command{
 		}
 
 		var val interface{}
-		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "connect"}, to)
+		err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"ctrl", "connect"}, to)
 		if err != nil {
 			level.Warn(log).Log("event", "connect command failed", "err", err)
 
 			// js fallback (our mux doesnt support authed namespaces)
-			val, err = client.Async(longctx, val, muxrpc.Method{"gossip", "connect"}, to)
+			err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
 				return errors.Wrapf(err, "connect: async call failed.")
 			}
@@ -333,7 +375,7 @@ var blockCmd = &cli.Command{
 		log.Log("blocking", len(blocked))
 
 		var val interface{}
-		val, err = client.Async(longctx, val, muxrpc.Method{"ctrl", "block"}, blocked)
+		err = client.Async(longctx, val, muxrpc.TypeJSON, muxrpc.Method{"ctrl", "block"}, blocked)
 		if err != nil {
 			return err
 		}
@@ -378,7 +420,7 @@ var groupsCreateCmd = &cli.Command{
 		}
 
 		var val interface{}
-		val, err = client.Async(longctx, val, muxrpc.Method{"groups", "create"}, struct {
+		err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"groups", "create"}, struct {
 			Name string `json:"name"`
 		}{name})
 		if err != nil {
@@ -415,12 +457,12 @@ var groupsInviteCmd = &cli.Command{
 		}
 
 		var reply interface{}
-		v, err := client.Async(longctx, reply, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Ref())
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Ref())
 		if err != nil {
 			return errors.Wrapf(err, "invite call failed")
 		}
 		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Ref())
-		goon.Dump(v)
+		goon.Dump(reply)
 		return nil
 	},
 }
@@ -450,12 +492,12 @@ var groupsPublishToCmd = &cli.Command{
 		}
 
 		var reply interface{}
-		v, err := client.Async(longctx, reply, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
 		log.Log("event", "publishTo", "type", "raw")
-		goon.Dump(v)
+		goon.Dump(reply)
 		return nil
 	},
 }
@@ -466,7 +508,7 @@ var groupsJoinCmd = &cli.Command{
 	Action: todo,
 }
 
-// EBT HACKZ
+/* EBT HACKZ
 var tryEBTCmd = &cli.Command{
 	Name: "ebt",
 	Action: func(ctx *cli.Context) error {
@@ -519,3 +561,4 @@ func drain(ctx context.Context, src luigi.Source) {
 	err := luigi.Pump(ctx, snk, src)
 	log.Log("event", "drain done", "err", err)
 }
+*/

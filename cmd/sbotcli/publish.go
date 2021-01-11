@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -43,7 +44,8 @@ var publishRawCmd = &cli.Command{
 		}
 
 		type reply map[string]interface{}
-		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, content)
+		var v reply
+		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, content)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
@@ -85,10 +87,12 @@ var publishPostCmd = &cli.Command{
 		type reply map[string]interface{}
 		var v interface{}
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
-			v, err = client.Async(longctx, reply{},
+			err = client.Async(longctx, &v,
+				muxrpc.TypeJSON,
 				muxrpc.Method{"private", "publish"}, arg, recps)
 		} else {
-			v, err = client.Async(longctx, reply{},
+			err = client.Async(longctx, &v,
+				muxrpc.TypeJSON,
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
@@ -146,10 +150,12 @@ var publishVoteCmd = &cli.Command{
 		type reply map[string]interface{}
 		var v interface{}
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
-			v, err = client.Async(longctx, reply{},
+			err = client.Async(longctx, &v,
+				muxrpc.TypeJSON,
 				muxrpc.Method{"private", "publish"}, arg, recps)
 		} else {
-			v, err = client.Async(longctx, reply{},
+			err = client.Async(longctx, &v,
+				muxrpc.TypeJSON,
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
@@ -195,7 +201,8 @@ var publishAboutCmd = &cli.Command{
 		}
 
 		type reply map[string]interface{}
-		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, arg)
+		var v reply
+		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, arg)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
@@ -235,7 +242,8 @@ var publishContactCmd = &cli.Command{
 		}
 
 		type reply map[string]interface{}
-		v, err := client.Async(longctx, reply{}, muxrpc.Method{"publish"}, arg)
+		var v reply
+		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, arg)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}

@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	refs "go.mindeco.de/ssb-refs"
@@ -86,14 +85,13 @@ var friendsHopsCmd = &cli.Command{
 			return err
 		}
 
-		src, err := client.Source(longctx, refs.FeedRef{}, muxrpc.Method{"friends", "hops"}, arg)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"friends", "hops"}, arg)
 		if err != nil {
 			return err
 		}
 
-		snk := jsonDrain(os.Stdout)
+		err = jsonDrain(os.Stdout, src)
 
-		err = luigi.Pump(longctx, snk, src)
 		log.Log("done", err)
 		return err
 	},
@@ -115,14 +113,12 @@ var friendsBlocksCmd = &cli.Command{
 			return err
 		}
 
-		src, err := client.Source(longctx, refs.FeedRef{}, muxrpc.Method{"friends", "blocks"}, args...)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"friends", "blocks"}, args...)
 		if err != nil {
 			return err
 		}
 
-		snk := jsonDrain(os.Stdout)
-
-		err = luigi.Pump(longctx, snk, src)
+		err = jsonDrain(os.Stdout, src)
 		log.Log("done", err)
 		return err
 	},

@@ -3,15 +3,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"go.cryptoscope.co/ssb/message"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
@@ -74,7 +73,7 @@ var partialStreamCmd = &cli.Command{
 			id = f
 		}
 
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"partialReplication", "getMessagesOfType"}, struct {
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"partialReplication", "getMessagesOfType"}, struct {
 			ID   string `json:"id"`
 			Tipe string `json:"type"`
 		}{
@@ -84,7 +83,8 @@ var partialStreamCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
+
 		if err != nil {
 			err = fmt.Errorf("byType pump failed: %w", err)
 		}
@@ -114,11 +114,11 @@ var historyStreamCmd = &cli.Command{
 			}
 			args.ID = flagRef
 		}
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createHistoryStream"}, args)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"createHistoryStream"}, args)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("feed hist pump failed: %w", err)
 		}
@@ -136,11 +136,11 @@ var logStreamCmd = &cli.Command{
 		}
 
 		var args = getStreamArgs(ctx)
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createLogStream"}, args)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"createLogStream"}, args)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("message pump failed: %w", err)
 		}
@@ -158,11 +158,11 @@ var sortedStreamCmd = &cli.Command{
 		}
 
 		var args = getStreamArgs(ctx)
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"createFeedStream"}, args)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"createFeedStream"}, args)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("message pump failed: %w", err)
 		}
@@ -183,11 +183,11 @@ var typeStreamCmd = &cli.Command{
 		targs.CommonArgs = arg.CommonArgs
 		targs.StreamArgs = arg.StreamArgs
 		targs.Type = ctx.Args().First()
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"messagesByType"}, targs)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"messagesByType"}, targs)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("message pump failed: %w", err)
 		}
@@ -214,11 +214,11 @@ var repliesStreamCmd = &cli.Command{
 		}
 		targs.Name = ctx.String("tname")
 
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"tangles", "read"}, targs)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "read"}, targs)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("message pump failed: %w", err)
 		}
@@ -235,11 +235,11 @@ var replicateUptoCmd = &cli.Command{
 			return err
 		}
 		var args = getStreamArgs(ctx)
-		src, err := client.Source(longctx, mapMsg{}, muxrpc.Method{"replicate", "upto"}, args)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"replicate", "upto"}, args)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}
-		err = luigi.Pump(longctx, jsonDrain(os.Stdout), src)
+		err = jsonDrain(os.Stdout, src)
 		if err != nil {
 			err = fmt.Errorf("message pump failed: %w", err)
 		}
@@ -247,25 +247,29 @@ var replicateUptoCmd = &cli.Command{
 	},
 }
 
-func jsonDrain(w io.Writer) luigi.Sink {
-	i := 0
-	return luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if luigi.IsEOS(err) {
-			return nil
-		} else if err != nil {
-			return fmt.Errorf("jsonDrain: failed to drain message %d", i, err)
-		}
-		b, err := json.MarshalIndent(val, "", "  ")
+func jsonDrain(w io.Writer, r *muxrpc.ByteSource) error {
+
+	var buf = &bytes.Buffer{}
+	for r.Next(context.TODO()) { // read/write loop for messages
+
+		buf.Reset()
+		err := r.Reader(func(r io.Reader) error {
+			_, err := buf.ReadFrom(r)
+			return err
+		})
+
+		// jsonReply, err := json.MarshalIndent(buf.Bytes(), "", "  ")
+		// if err != nil {
+		// 	return err
+		// }
+
+		_, err = buf.WriteTo(os.Stdout)
 		if err != nil {
-			return fmt.Errorf("jsonDrain: failed to encode msg %d", i, err)
+			return err
 		}
-		_, err = fmt.Fprintln(w, string(b))
-		if err != nil {
-			return fmt.Errorf("jsonDrain: failed to write msg %d", i, err)
-		}
-		i++
-		return nil
-	})
+
+	}
+	return r.Err()
 }
 
 /*
