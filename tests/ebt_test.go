@@ -90,6 +90,7 @@ func TestEpidemic(t *testing.T) {
 	pull(
 		sbot.createHistoryStream({id: testBob, live:true}),
 		pull.drain((msg) => {
+			t.log('message from bob:' + msg.key)
 			if (msg.value.content.type == 'spam-feed') {
 				const feed = msg.value.content.feed
 				t.comment('got spam feed:' + feed)
@@ -112,7 +113,6 @@ func TestEpidemic(t *testing.T) {
 					})
 				)
 			}
-
 		})
 	)
 	sbot.on('rpc:connect', (rpc) => {
@@ -130,7 +130,6 @@ func TestEpidemic(t *testing.T) {
 			"about": sbot.KeyPair.Id.Ref(),
 			"name":  "test user",
 		},
-		refs.NewContactFollow(alice),
 		map[string]interface{}{"type": "post", "text": `# hello world!`},
 		map[string]interface{}{
 			"type":  "about",
@@ -150,34 +149,47 @@ func TestEpidemic(t *testing.T) {
 		Port: port,
 	}, secretstream.Addr{PubKey: alice.ID})
 
-	err := sbot.Network.Connect(context.TODO(), wrappedAddr)
+	connCtx, connCancel := context.WithCancel(context.TODO())
+	err := sbot.Network.Connect(connCtx, wrappedAddr)
 	r.NoError(err, "connect #1 failed")
 
 	//  wait until we have all messages from alice?
 	time.Sleep(5 * time.Second)
 
+	lv, err := sbot.Users.List()
+	r.NoError(err)
+	r.Len(lv, 2, "just alice and bob so far?")
+
+	// load the last message from alice
 	alices, err := sbot.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	sv, err := alices.Seq().Value()
 	r.NoError(err)
 
-	lv, err := sbot.Users.List()
-	r.NoError(err)
-	r.Len(lv, 2)
-
 	seq := sv.(margaret.BaseSeq)
-	r.EqualValues(14, seq)
+	r.EqualValues(14, seq, "wrong rx seq")
+
 	alicesMsgs := mutil.Indirect(sbot.ReceiveLog, alices)
 	iv, err := alicesMsgs.Get(seq)
 	r.NoError(err)
 	msg := iv.(refs.Message)
 
-	var followTest struct{ ID *refs.FeedRef }
+	var followTest struct {
+		Type string
+		ID   *refs.FeedRef
+	}
 	err = json.Unmarshal(msg.ContentBytes(), &followTest)
 	r.NoError(err)
 
 	sbot.Replicate(followTest.ID)
+
+	// TODO: we shouldnt need this reconnect
+	// but right now the ebt want-clock isn't resent on Replicate() calls alone
+	connCancel()
+	connCtx, connCancel = context.WithCancel(context.TODO())
+	err = sbot.Network.Connect(connCtx, wrappedAddr)
+	r.NoError(err, "connect #2 failed")
 
 	// query for follow-test msgs
 
@@ -186,10 +198,6 @@ func TestEpidemic(t *testing.T) {
 	claire := ts.startJSBotWithName("claire", fmt.Sprintf(``, alice.Ref()), ``)
 	sbot.Replicate(claire)
 	*/
-	t.Log("plz stayyyyyy")
-	time.Sleep(45 * time.Second)
-	t.Log("donnneee")
-	return
 
 	// create a pinger that stops after alice send the done message
 	poop, port := ts.startJSBotAsServer("poop",
@@ -230,6 +238,7 @@ func TestEpidemic(t *testing.T) {
 	)
 	sbot.on('rpc:connect', (rpc) => {
 		rpc.on('closed', () => {
+			clearInterval(spam)
 			t.comment(rpc.id, "disconnected")
 		})
 	})`, alice.Ref()), ``)
@@ -240,16 +249,20 @@ func TestEpidemic(t *testing.T) {
 		"feed": poop.Ref(),
 	})
 
-	t.Log("hmmm")
+	t.Log("published spam-feed pointer")
 	time.Sleep(3 * time.Second)
+
 	wrappedAddr = netwrap.WrapAddr(&net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
 		Port: port,
 	}, secretstream.Addr{PubKey: poop.ID})
 	t.Log("connecting to poop")
+
 	err = sbot.Network.Connect(context.TODO(), wrappedAddr)
 	r.NoError(err, "connect #2 failed")
 	time.Sleep(10 * time.Second)
+
 	t.Log("test ended")
+	connCancel()
 	ts.wait()
 }

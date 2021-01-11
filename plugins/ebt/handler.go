@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -27,7 +28,7 @@ import (
 type MUXRPCHandler struct {
 	info logging.Interface
 
-	id        *refs.FeedRef
+	self      *refs.FeedRef
 	rootLog   margaret.Log
 	userFeeds multilog.MultiLog
 
@@ -82,35 +83,48 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 		return
 	}
 
-	// TODO: check protocol version option
-	h.info.Log("debug", "called", "args", string(req.RawArgs))
+	var args []struct{ Version int }
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		checkAndClose(err)
+		return
+	}
 
-	//
+	if n := len(args); n != 1 {
+		checkAndClose(fmt.Errorf("expected one argument but got %d", n))
+		return
+	}
+
+	h.info.Log("debug", "called", "args", args[0])
+	if args[0].Version != 3 {
+		checkAndClose(errors.New("go-ssb only support ebt v3"))
+		return
+	}
 
 	// get writer and reader from duplex call
 	snk, err := req.GetResponseSink()
 	if err != nil {
-		h.info.Log("event", "handle.ebt", "err", err)
+		checkAndClose(err)
 		return
 	}
 
 	src, err := req.GetResponseSource()
 	if err != nil {
-		h.info.Log("event", "handle.ebt", "err", err)
+		checkAndClose(err)
 		return
 	}
 
 	remoteAddr := edp.Remote()
 	h.Loop(ctx, snk, src, remoteAddr)
-
 }
 
 func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
-	currState, err := h.stateMatrix.Changed(h.id, remote)
+	currState, err := h.stateMatrix.Changed(h.self, remote)
 	if err != nil {
 		return fmt.Errorf("failed to get changed frontier: %w", err)
 	}
 
+	selfRef := h.self.Ref()
 	if len(currState) == 0 { // no state yet
 		lister := h.wantList.ReplicationList()
 		feeds, err := lister.List()
@@ -127,21 +141,20 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 			currState[feed.Ref()] = seq
 		}
 
-		currState[h.id.Ref()], err = h.currentSequence(h.id)
+		currState[selfRef], err = h.currentSequence(h.self)
 		if err != nil {
 			return fmt.Errorf("failed to get our sequence: %w", err)
 		}
 	}
 
 	// don't receive your own feed
-	if myNote, has := currState[h.id.Ref()]; has {
+	if myNote, has := currState[selfRef]; has {
 		myNote.Receive = false
-		currState[h.id.Ref()] = myNote
+		currState[selfRef] = myNote
 	}
 
-	// fmt.Println("our state", h.id.Ref())
-	// fmt.Println(currState.String())
-
+	fmt.Printf("[%s] my state\n%s\n", h.self.ShortRef(), currState)
+	tx.SetEncoding(muxrpc.TypeJSON)
 	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
 		return fmt.Errorf("failed to send currState: %d: %w", len(currState), err)
@@ -200,6 +213,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				h.check(err)
 				continue
 			}
+			fmt.Printf("[%s] new message from\n", msgWithAuthor.Author.Ref())
 
 			if msgWithAuthor.Author == nil {
 				fmt.Println("debug body:", string(jsonBody))
@@ -221,6 +235,8 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 
 			continue
 		}
+
+		fmt.Printf("[%s] their state (from: %s)\n%s\n", h.self.ShortRef(), peer.Ref(), frontierUpdate)
 
 		// update our network perception
 		wants, err := h.stateMatrix.Update(peer, frontierUpdate)

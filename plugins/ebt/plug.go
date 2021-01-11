@@ -21,7 +21,7 @@ type Plugin struct {
 
 func NewPlug(
 	i logging.Interface,
-	id *refs.FeedRef,
+	self *refs.FeedRef,
 	rootLog margaret.Log,
 	uf multilog.MultiLog,
 	wl ssb.ReplicationLister,
@@ -32,7 +32,7 @@ func NewPlug(
 
 	return &Plugin{&MUXRPCHandler{
 		info:      i,
-		id:        id,
+		self:      self,
 		rootLog:   rootLog,
 		userFeeds: uf,
 		wantList:  wl,
