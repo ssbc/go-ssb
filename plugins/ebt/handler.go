@@ -95,11 +95,11 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 		return
 	}
 
-	h.info.Log("debug", "called", "args", args[0])
 	if args[0].Version != 3 {
 		checkAndClose(errors.New("go-ssb only support ebt v3"))
 		return
 	}
+	level.Debug(h.info).Log("event", "replicating", "version", args[0].Version)
 
 	// get writer and reader from duplex call
 	snk, err := req.GetResponseSink()
@@ -164,7 +164,7 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 }
 
 func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remoteAddr net.Addr) {
-	h.Sessions.Started(remoteAddr)
+	session := h.Sessions.Started(remoteAddr)
 
 	peer, err := ssb.GetFeedRefFromAddr(remoteAddr)
 	if err != nil {
@@ -213,7 +213,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				h.check(err)
 				continue
 			}
-			fmt.Printf("[%s] new message from\n", msgWithAuthor.Author.Ref())
+			fmt.Printf("[%s] new message from %s\n", h.self.ShortRef(), msgWithAuthor.Author.Ref())
 
 			if msgWithAuthor.Author == nil {
 				fmt.Println("debug body:", string(jsonBody))
@@ -245,6 +245,10 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 			return
 		}
 
+		// TODO: partition wants across the open connections
+		// one peer might be closer to a feed
+		// for this we also need timing and other heuristics
+
 		// ad-hoc send where we have newer messages
 		for feedStr, their := range wants {
 			// these were already validated by the .UnmarshalJSON() method
@@ -259,21 +263,29 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				continue
 			}
 
-			// TODO: don't double subscribe
-			if their.Receive {
-				arg := &message.CreateHistArgs{
-					ID:  feed,
-					Seq: their.Seq + 1,
-				}
-				arg.Limit = -1
-				arg.Live = true
-
-				err = h.livefeeds.CreateStreamHistory(ctx, tx, arg)
-				if err != nil {
-					h.check(err)
-					return
-				}
+			if !their.Receive {
+				session.Unubscribe(feed)
+				continue
 			}
+
+			arg := &message.CreateHistArgs{
+				ID:  feed,
+				Seq: their.Seq + 1,
+			}
+			arg.Limit = -1
+			arg.Live = true
+
+			// TODO: it might not scale to do this with contexts (each one has a goroutine)
+			// in that case we need to rework the internal/luigiutils MultiSink so that we can unsubscribe on it directly
+			ctx, cancel := context.WithCancel(ctx)
+
+			err = h.livefeeds.CreateStreamHistory(ctx, tx, arg)
+			if err != nil {
+				cancel()
+				h.check(err)
+				return
+			}
+			session.Subscribed(feed, cancel)
 		}
 	}
 

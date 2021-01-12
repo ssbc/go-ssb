@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type session struct {
@@ -16,14 +18,42 @@ type session struct {
 	// tx *muxrpc.ByteSink // the muxrpc writer to send updates
 
 	// which feeds this session is currently subscribed to
-	subscribed map[string]struct{}
+	mu         sync.Mutex // since the session is only used inside the ebt handler loop, we might not even need this lock
+	subscribed map[string]context.CancelFunc
 }
 
 func newSession(remote net.Addr) *session {
 	return &session{
 		remote: remote,
 
-		subscribed: make(map[string]struct{}),
+		subscribed: make(map[string]context.CancelFunc),
+	}
+}
+
+// Subscribed registers the cancel function for that stream in the session
+func (s *session) Subscribed(feed *refs.FeedRef, cancelFn context.CancelFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	fr := feed.Ref()
+	if fn, has := s.subscribed[fr]; has {
+		fmt.Println("warning: canceling previous subscription")
+		fn()
+		delete(s.subscribed, fr)
+	}
+
+	s.subscribed[fr] = cancelFn
+}
+
+// Unubscribe checks to see if there is one and cancels it
+func (s *session) Unubscribe(feed *refs.FeedRef) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	fr := feed.Ref()
+	if fn, has := s.subscribed[fr]; has {
+		fn()
+		delete(s.subscribed, fr)
 	}
 }
 
@@ -34,19 +64,23 @@ type Sessions struct {
 	waitingFor map[string]chan<- struct{}
 }
 
-func (s *Sessions) Started(addr net.Addr) {
+func (s *Sessions) Started(addr net.Addr) *session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// we are using the full ip:port~pubkey notation as the map key
 	mk := addr.String()
 
-	s.open[mk] = newSession(addr)
+	session := newSession(addr)
+
+	s.open[mk] = session
 
 	if c, has := s.waitingFor[mk]; has {
 		close(c)
 		delete(s.waitingFor, mk)
 	}
+
+	return session
 }
 
 func (s *Sessions) Ended(addr net.Addr) {
