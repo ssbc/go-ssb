@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,12 +81,16 @@ func TestAutomaticUnboxing(t *testing.T) {
 	testElementsInSource(t, src, 3) // add-member + the two posts
 }
 
-func testElementsInSource(t *testing.T, src luigi.Source, cnt int) {
+func testElementsInSource(t *testing.T, src *muxrpc.ByteSource, cnt int) {
 	ctx := context.Background()
 	r, a := require.New(t), assert.New(t)
-	var elems []interface{}
-	var snk = luigi.NewSliceSink(&elems)
-	err := luigi.Pump(ctx, snk, src)
+
+	i := 0
+	for src.Next(ctx) {
+		i++
+	}
+
+	err := src.Err()
 	r.NoError(err, "failed to get all elements from source (public)")
-	a.Len(elems, cnt)
+	a.Equal(cnt, i)
 }

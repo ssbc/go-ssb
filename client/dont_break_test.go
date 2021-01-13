@@ -3,6 +3,8 @@ package client_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -80,45 +81,38 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = refs.KeyValueRaw{}
+
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
 
 	i := 0
-	for {
-		v, err := src.Next(ctx)
-		if err != nil {
-			if luigi.IsEOS(err) {
-				break
-			}
-			r.NoError(err)
-		}
-		r.NotNil(v)
+	for src.Next(ctx) {
 
-		if i == 5 {
+		if i == 5 { // ??? why after 5
 			var o message.CreateHistArgs
 			o.ID = &refs.FeedRef{
 				Algo: "wrong",
 				ID:   bytes.Repeat([]byte("nope"), 8),
 			}
 			o.Keys = true
-			o.MarshalType = refs.KeyValueRaw{}
+
 			// starting the call works (although our lib could check that the ref is wrong, too)
 			src, err := c.CreateHistoryStream(o)
 			a.NoError(err)
 			a.NotNil(src)
-			v, err := src.Next(ctx)
-			a.Nil(v, "did not expect value from source: %T", v)
-			a.Error(err)
-			ce := errors.Cause(err)
+			a.False(src.Next(ctx))
+			ce := src.Err()
 			callErr, ok := ce.(*muxrpc.CallError)
 			r.True(ok, "not a call err: %T", ce)
 			t.Log(callErr)
 		}
 
-		msg, ok := v.(refs.Message)
-		r.True(ok, "%d: wrong type: %T", i, v)
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
+		r.NoError(err)
 
 		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++

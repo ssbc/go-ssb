@@ -4,6 +4,8 @@ package client_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -13,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"golang.org/x/sync/errgroup"
@@ -69,29 +70,24 @@ func TestUnixSock(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
 
 	ctx := context.TODO()
 	i := 0
-	for {
-		v, err := src.Next(ctx)
-		if err != nil {
-			if luigi.IsEOS(err) {
-				break
-			}
-			r.NoError(err)
-		}
-		r.NotNil(v)
+	for src.Next(ctx) {
 
-		msg, ok := v.(refs.Message)
-		r.True(ok, "%d: wrong type: %T", i, v)
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
+		r.NoError(err)
 
 		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
+	r.NoError(src.Err())
 	r.Equal(msgCount, i, "did not get all messages")
 
 	a.NoError(c.Close())
@@ -315,7 +311,6 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		lopt.Live = true
 		lopt.Keys = true
 		lopt.Limit = -1
-		lopt.MarshalType = refs.KeyValueRaw{}
 		src, err := c.CreateLogStream(lopt)
 		r.NoError(err)
 
@@ -328,11 +323,12 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 			r.NoError(err, "publish %d errored", i)
 			r.NotNil(ref)
 
-			v, err := src.Next(ctx)
+			r.True(src.Next(ctx))
+			var msg refs.KeyValueRaw
+			err = src.Reader(func(r io.Reader) error {
+				return json.NewDecoder(r).Decode(&msg)
+			})
 			r.NoError(err, "message live err %d errored", i)
-
-			msg, ok := v.(refs.Message)
-			r.True(ok, "not a message: %T", v)
 
 			a.Equal(msg.Key().Hash, ref.Hash, "wrong message: %d - %s", i, ref.Ref())
 		}
@@ -415,20 +411,20 @@ func TestPublish(t *testing.T) {
 	opts := message.CreateLogArgs{}
 	opts.Limit = 1
 	opts.Keys = true
-	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
-	streamV, err := src.Next(context.TODO())
+	r.True(src.Next(context.TODO()))
+	var streamMsg refs.KeyValueRaw
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok := streamV.(refs.Message)
-	r.True(ok, "acutal type: %T", streamV)
+
 	a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
 	a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	r.False(src.Next(context.TODO()))
 
 	a.NoError(c.Close())
 
@@ -493,26 +489,28 @@ func TestTangles(t *testing.T) {
 	opts.Root = rootRef
 	opts.Limit = 2
 	opts.Keys = true
-	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.Tangles(opts)
 	r.NoError(err)
 
-	streamV, err := src.Next(context.TODO())
+	ctx := context.TODO()
+	r.True(src.Next(ctx))
+	var streamMsg refs.KeyValueRaw
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok := streamV.(refs.Message)
-	r.True(ok)
-
 	a.EqualValues(2, streamMsg.Seq())
 
-	streamV, err = src.Next(context.TODO())
+	r.True(src.Next(ctx))
+	var streamMsg2 refs.KeyValueRaw
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok = streamV.(refs.Message)
-	r.True(ok)
-	a.EqualValues(3, streamMsg.Seq())
+	a.EqualValues(3, streamMsg2.Seq())
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	r.False(src.Next(ctx))
+	r.NoError(src.Err())
 
 	a.NoError(c.Close())
 

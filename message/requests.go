@@ -82,16 +82,6 @@ type CommonArgs struct {
 	Values bool `json:"values,omitempty"`
 	Live   bool `json:"live,omitempty"`
 
-	// flume-stub experiments
-	// Raw bool `json:"raw"`
-	// Seqs  bool `json:"seqs"`
-	// Cache bool `json:"cache"`
-
-	// this field is used to tell muxrpc into wich type the messages should be marshaled into.
-	// for instance, it could be json.RawMessage or a map or a struct
-	// TODO: find a nice way to have a default here
-	MarshalType interface{} `json:"-"`
-
 	Private bool `json:"private,omitempty"`
 }
 

@@ -5,6 +5,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
@@ -84,41 +84,42 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		ID:     testKP.Id,
 		AsJSON: true,
 	}
-	args.MarshalType = json.RawMessage{}
 	src, err := c.CreateHistoryStream(args)
 	r.NoError(err)
 
 	ctx := context.TODO()
 	for i := 0; i < 10; i++ {
 		// ctx, _ := context.WithTimeout(ctx, 5*time.Second)
-		streamV, err := src.Next(ctx)
-		r.NoError(err, "failed to next msg:%d", i)
-		msg, ok := streamV.(json.RawMessage)
-		r.True(ok, "acutal type: %T", streamV)
+		ok := src.Next(ctx)
+		r.True(ok, "expected more results")
 
 		var v map[string]interface{}
-		err = json.Unmarshal(msg, &v)
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&v)
+		})
+
 		r.NoError(err, "failed JSON unmarshal message:%d", i)
 		// a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	ok := src.Next(ctx)
+	a.False(ok, "expected no more results")
+	r.NoError(src.Err())
 
 	// now with key-value wrapping
-	args.MarshalType = &refs.KeyValueRaw{}
 	args.Keys = true
 	src, err = c.CreateHistoryStream(args)
 	r.NoError(err)
 
-	ctx = context.TODO()
 	for i := 0; i < 10; i++ {
 		// ctx, _ := context.WithTimeout(ctx, 5*time.Second)
-		streamV, err := src.Next(ctx)
-		r.NoError(err, "failed to next msg:%d", i)
-		msg, ok := streamV.(*refs.KeyValueRaw)
-		r.True(ok, "acutal type: %T", streamV)
+		ok := src.Next(ctx)
+		r.True(ok, "expected more results")
+
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
 
 		var v testMsg
 		spew.Dump(msg.Value.Content)
@@ -127,9 +128,9 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		// a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
-	v, err = src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	ok = src.Next(ctx)
+	a.False(ok, "expected no more results")
+	r.NoError(src.Err())
 
 	a.NoError(c.Close())
 

@@ -4,6 +4,8 @@ package client_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
@@ -81,47 +82,51 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		opts.Keys = true
 		opts.Limit = 1
 		opts.Seq = int64(i)
-		opts.MarshalType = refs.KeyValueRaw{}
+
 		src, err := c.CreateLogStream(opts)
 		r.NoError(err)
 
-		streamV, err := src.Next(context.TODO())
-		r.NoError(err, "failed to next msg:%d", i)
-		streamMsg, ok := streamV.(refs.Message)
-		r.True(ok, "acutal type: %T", streamV)
+		ctx := context.TODO()
+		r.True(src.Next(ctx))
+		var streamMsg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&streamMsg)
+		})
+		r.NoError(err)
+
 		a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
 
 		a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
-		v, err := src.Next(context.TODO())
-		a.Nil(v)
-		if !a.Equal(luigi.EOS{}, errors.Cause(err)) {
-			t.Log("got additional item from stream?")
-			if msg, ok := v.(refs.Message); ok {
-				t.Log(i, "ref:", msg.Key().Ref())
-				t.Log("content:", string(msg.ContentBytes()))
-			}
-		}
+		r.False(src.Next(ctx))
+		r.NoError(src.Err())
 	}
 
 	opts := message.CreateLogArgs{}
 	opts.Keys = true
 	opts.Limit = 10
-	opts.MarshalType = refs.KeyValueRaw{}
+
 	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
+	ctx := context.TODO()
 	for i := 0; i < 10; i++ {
-		streamV, err := src.Next(context.TODO())
-		r.NoError(err, "failed to next msg:%d", i)
-		msg, ok := streamV.(refs.Message)
-		r.True(ok, "acutal type: %T", streamV)
+
+		if !src.Next(ctx) {
+			break
+		}
+
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
+		r.NoError(err)
+
 		a.Equal(wantRefs[i], msg.Key().Ref())
 	}
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	r.False(src.Next(ctx))
+	r.NoError(src.Err())
 
 	a.NoError(c.Close())
 
