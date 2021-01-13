@@ -84,6 +84,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		ID:     testKP.Id,
 		AsJSON: true,
 	}
+	args.Limit = -1
 	src, err := c.CreateHistoryStream(args)
 	r.NoError(err)
 

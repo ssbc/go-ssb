@@ -74,10 +74,6 @@ type tangleHandler struct {
 }
 
 func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
-	if len(req.Args()) < 1 {
-		return fmt.Errorf("invalid arguments")
-	}
-
 	var qryarr []message.TanglesArgs
 	var qry message.TanglesArgs
 

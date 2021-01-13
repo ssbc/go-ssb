@@ -53,6 +53,7 @@ func TestAutomaticUnboxing(t *testing.T) {
 
 	args := message.MessagesByTypeArgs{Type: "post"}
 	args.Private = false
+	args.Limit = -1
 	src, err := c.MessagesByType(args)
 	r.NoError(err, "failed to create source for public messages")
 	testElementsInSource(t, src, 0)
@@ -70,6 +71,7 @@ func TestAutomaticUnboxing(t *testing.T) {
 		Root: root,
 		Name: "group",
 	}
+	targs.Limit = -1
 	targs.Private = false
 	src, err = c.Tangles(targs)
 	r.NoError(err, "failed to create source for tangled messages (public)")
@@ -86,6 +88,7 @@ func testElementsInSource(t *testing.T, src *muxrpc.ByteSource, cnt int) {
 	r, a := require.New(t), assert.New(t)
 
 	i := 0
+
 	for src.Next(ctx) {
 		i++
 	}

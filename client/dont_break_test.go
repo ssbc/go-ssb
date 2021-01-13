@@ -81,15 +81,21 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-
+	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
 
 	i := 0
-	for src.Next(ctx) {
+	for {
+		if !src.Next(ctx) {
+			t.Log("hist stream ended", i)
+			break
+		}
 
-		if i == 5 { // ??? why after 5
+		if i == 5 { // why after 5? - iirc its just somehwere inbetween the open stream
+			t.Error("TODO: add tests to muxrpc for CallError")
+			return
 			var o message.CreateHistArgs
 			o.ID = &refs.FeedRef{
 				Algo: "wrong",
@@ -117,6 +123,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
+	r.NoError(src.Err())
 	r.Equal(msgCount, i, "did not get all messages")
 
 	a.NoError(c.Close())

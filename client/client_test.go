@@ -70,6 +70,7 @@ func TestUnixSock(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
+	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
@@ -502,12 +503,11 @@ func TestTangles(t *testing.T) {
 	a.EqualValues(2, streamMsg.Seq())
 
 	r.True(src.Next(ctx))
-	var streamMsg2 refs.KeyValueRaw
 	err = src.Reader(func(r io.Reader) error {
 		return json.NewDecoder(r).Decode(&streamMsg)
 	})
 	r.NoError(err)
-	a.EqualValues(3, streamMsg2.Seq())
+	a.EqualValues(3, streamMsg.Seq())
 
 	r.False(src.Next(ctx))
 	r.NoError(src.Err())
