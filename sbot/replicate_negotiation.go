@@ -19,14 +19,18 @@ type replicateNegotiator struct {
 	lg *gossip.LegacyGossip
 
 	ebt *ebt.MUXRPCHandler
+
+	// these control outgoing replication behaviour
+	disableEBT        bool
+	disableLiveLegacy bool
 }
 
 func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	// uncomment these two lines to force legacy
-	// rn.lg.StartLegacyFetching(ctx, e)
-	// return
+	if rn.disableEBT {
+		rn.lg.StartLegacyFetching(ctx, e, !rn.disableLiveLegacy)
+		return
+	}
 
-	// try ebt
 	remoteAddr := e.Remote()
 
 	// the client calls ebt.replicate to the server
@@ -34,7 +38,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 		// do nothing if we are the server, unless the peer doesn't start ebt
 		started := rn.ebt.Sessions.WaitFor(ctx, remoteAddr, 1*time.Minute)
 		if !started {
-			rn.lg.StartLegacyFetching(ctx, e)
+			rn.lg.StartLegacyFetching(ctx, e, !rn.disableLiveLegacy)
 		}
 		return
 	}
@@ -55,7 +59,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 		level.Debug(rn.logger).Log("event", "no ebt support", "err", err)
 
 		// fallback to legacy
-		rn.lg.StartLegacyFetching(ctx, e)
+		rn.lg.StartLegacyFetching(ctx, e, !rn.disableLiveLegacy)
 		return
 	}
 

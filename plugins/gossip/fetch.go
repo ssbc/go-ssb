@@ -25,6 +25,7 @@ func (h *LegacyGossip) FetchAll(
 	ctx context.Context,
 	e muxrpc.Endpoint,
 	set *ssb.StrFeedSet,
+	withLive bool,
 ) error {
 	lst, err := set.List()
 	if err != nil {
@@ -48,16 +49,16 @@ func (h *LegacyGossip) FetchAll(
 	fetchGroup, ctx := errgroup.WithContext(ctx)
 
 	for _, r := range lst {
-		fetchGroup.Go(h.workFeed(ctx, e, r))
+		fetchGroup.Go(h.workFeed(ctx, e, r, withLive))
 	}
 
 	err = fetchGroup.Wait()
 	return err
 }
 
-func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef) func() error {
+func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef, withLive bool) func() error {
 	return func() error {
-		err := h.fetchFeed(ctx, ref, edp, time.Now())
+		err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
 		if muxrpc.IsSinkClosed(err) || errors.Is(err, context.Canceled) || errors.Is(err, muxrpc.ErrSessionTerminated) || neterr.IsConnBrokenErr(err) {
 			return err
 		} else if err != nil {
@@ -75,6 +76,7 @@ func (h *LegacyGossip) fetchFeed(
 	fr *refs.FeedRef,
 	edp muxrpc.Endpoint,
 	started time.Time,
+	withLive bool,
 ) error {
 	select {
 	case <-ctx.Done():
@@ -98,7 +100,7 @@ func (h *LegacyGossip) fetchFeed(
 		Seq:        int64(latestSeq + 1),
 		StreamArgs: message.StreamArgs{Limit: -1},
 	}
-	q.Live = true
+	q.Live = withLive
 
 	defer func() {
 		if n := latestSeq - startSeq; n > 0 {

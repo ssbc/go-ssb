@@ -18,6 +18,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// todo: make these proper functional options
+
 type HMACSecret *[32]byte
 
 type Promisc bool
@@ -50,6 +52,8 @@ func NewFetcher(
 		rootCtx: ctx,
 
 		verifySinks: snk,
+
+		enableLiveStreaming: true,
 	}
 
 	for i, o := range opts {

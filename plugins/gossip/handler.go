@@ -46,6 +46,8 @@ type LegacyGossip struct {
 
 	promisc bool // ask for remote feed even if it's not on owns fetch list
 
+	enableLiveStreaming bool
+
 	activeLock  *sync.Mutex
 	activeFetch map[string]struct{}
 
@@ -61,10 +63,10 @@ type LegacyGossip struct {
 
 // HandleConnect on this handler triggers legacy createHistoryStream replication.
 func (g *LegacyGossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	g.StartLegacyFetching(ctx, e)
+	g.StartLegacyFetching(ctx, e, g.enableLiveStreaming)
 }
 
-func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoint) {
+func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoint, withLive bool) {
 	remote := e.Remote()
 	remoteRef, err := ssb.GetFeedRefFromAddr(remote)
 	if err != nil {
@@ -75,7 +77,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		return
 	}
 
-	info := log.With(g.Info, "remote", remoteRef.ShortRef(), "event", "gossiprx")
+	info := log.With(g.Info, "remote", remoteRef.ShortRef(), "event", "gossiprx", "live", withLive)
 
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, storedrefs.Feed(remoteRef))
@@ -86,7 +88,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 		if !hasCallee {
 			info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
-			if err := g.fetchFeed(ctx, remoteRef, e, time.Now()); err != nil {
+			if err := g.fetchFeed(ctx, remoteRef, e, time.Now(), withLive); err != nil {
 				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
@@ -96,7 +98,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 	feeds := g.WantList.ReplicationList()
 	//level.Debug(info).Log("msg", "hops count", "count", feeds.Count())
-	err = g.FetchAll(ctx, e, feeds)
+	err = g.FetchAll(ctx, e, feeds, withLive)
 	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Warn(info).Log("msg", "hops failed", "err", err)
 		return
