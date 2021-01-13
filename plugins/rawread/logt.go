@@ -95,10 +95,11 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		qry.Limit = -1
 
 	} else {
-		if len(args) != 1 {
+		nargs := len(args)
+		if nargs == 1 {
 			qry = args[0]
 		} else {
-			return fmt.Errorf("bad request data: assumed one argument object")
+			return fmt.Errorf("bad request data: assumed one argument object but got %d", nargs)
 		}
 	}
 
