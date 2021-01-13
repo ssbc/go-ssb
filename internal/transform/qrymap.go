@@ -18,7 +18,7 @@ import (
 )
 
 // NewKeyValueWrapper turns a value into a key-value message.
-// If keyWrap is true, it returns the JSON of a ssb.KeyValueRaw value.
+// If keyWrap is true, it sends the JSON of the ssb.KeyValueRaw value on the passed ByteSink.
 func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 
 	noNulled := mfr.FilterFunc(func(ctx context.Context, v interface{}) (bool, error) {
@@ -42,14 +42,19 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 
 		return true, nil
 	})
-	output := mw.AsStream()
-	mapToKV := mfr.SinkMap(output, func(ctx context.Context, v interface{}) (interface{}, error) {
+
+	mapToKV := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return mw.CloseWithError(err)
+		}
+
 		var seqWrap margaret.SeqWrapper
 
 		var abs refs.Message
 		switch tv := v.(type) {
 		case json.RawMessage:
-			return tv, nil
+			_, err = mw.Write(tv)
+			return err
 		case refs.Message:
 			abs = tv
 		case margaret.SeqWrapper:
@@ -59,10 +64,10 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 			var ok bool
 			abs, ok = sv.(refs.Message)
 			if !ok {
-				return nil, fmt.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
+				return fmt.Errorf("kvwrap: wrong message type in seqWrapper - got %T", sv)
 			}
 		default:
-			return nil, fmt.Errorf("failed to find message in empty interface(%T)", v)
+			return fmt.Errorf("failed to find message in empty interface(%T)", v)
 		}
 
 		if !keyWrap {
@@ -70,17 +75,23 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 			if mm, ok := abs.(*multimsg.MultiMessage); ok {
 				leg, ok := mm.AsLegacy()
 				if ok {
-					return json.RawMessage(leg.Raw_), nil
+					body := leg.Raw_
+					_, err = mw.Write(body)
+					return err
 				}
 			}
 			if mm, ok := abs.(multimsg.MultiMessage); ok {
 				leg, ok := mm.AsLegacy()
 				if ok {
-					return json.RawMessage(leg.Raw_), nil
+					body := leg.Raw_
+					_, err = mw.Write(body)
+					return err
 				}
 			}
 
-			return json.RawMessage(abs.ValueContentJSON()), nil
+			body := abs.ValueContentJSON()
+			_, err = mw.Write(body)
+			return err
 		}
 
 		var kv refs.KeyValueRaw
@@ -91,9 +102,10 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		if seqWrap == nil {
 			kvMsg, err := json.Marshal(kv)
 			if err != nil {
-				return nil, fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
+				return fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
 			}
-			return json.RawMessage(kvMsg), nil
+			_, err = mw.Write(kvMsg)
+			return err
 		}
 
 		type sewWrapped struct {
@@ -107,9 +119,10 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		}
 		kvMsg, err := json.Marshal(sw)
 		if err != nil {
-			return nil, fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
+			return fmt.Errorf("kvwrap: failed to k:v map message: %w", err)
 		}
-		return json.RawMessage(kvMsg), nil
+		_, err = mw.Write(kvMsg)
+		return err
 	})
 
 	return mfr.SinkFilter(mapToKV, noNulled)
