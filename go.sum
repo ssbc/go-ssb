@@ -422,6 +422,8 @@ go.cryptoscope.co/muxrpc v1.5.3/go.mod h1:kB8EGlRBgr5M8E80CKaTxC2Ga8OCMLUVnw8YNi
 go.cryptoscope.co/muxrpc/v2 v2.0.0-20201109120516-7467873ff36e/go.mod h1:BnYRFXvtwyr68RVUWQkcCGybhHiwYEeNwAJPFBG2rDs=
 go.cryptoscope.co/muxrpc/v2 v2.0.0-20210106123727-c44b342e0d2a h1:Xt2eUA91y07/SUg32Jh0Dh//kOUi2fnVlIn+XMvsv7I=
 go.cryptoscope.co/muxrpc/v2 v2.0.0-20210106123727-c44b342e0d2a/go.mod h1:U5R/9p5ROOdMJxlFy2JmBZohgAjdh/XiRoZUFukgUIE=
+go.cryptoscope.co/muxrpc/v2 v2.0.0-20210113103027-f34cab753bff h1:erCZTJQr/YzL8CL2r4AUZNX6fcRckl/OilIakxOCdKU=
+go.cryptoscope.co/muxrpc/v2 v2.0.0-20210113103027-f34cab753bff/go.mod h1:U5R/9p5ROOdMJxlFy2JmBZohgAjdh/XiRoZUFukgUIE=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
 go.cryptoscope.co/netwrap v0.1.1 h1:JLzzGKEvrUrkKzu3iM0DhpHmt+L/gYqmpcf1lJMUyFs=
 go.cryptoscope.co/netwrap v0.1.1/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
