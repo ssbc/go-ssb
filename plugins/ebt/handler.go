@@ -133,7 +133,13 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 		}
 
 		for i, feed := range feeds {
-			// filter the ones that didnt change
+			if feed.Algo != refs.RefAlgoFeedSSB1 {
+				// skip other formats (TODO: gg support)
+				continue
+			}
+
+			// TODO: filter the ones that didnt change
+
 			seq, err := h.currentSequence(feed)
 			if err != nil {
 				return fmt.Errorf("failed to get sequence for entry %d: %w", i, err)

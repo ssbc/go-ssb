@@ -51,9 +51,14 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 	var newMap = make(NetworkFrontier, len(dummy))
 	for fstr, i := range dummy {
 		// validate
-		_, err := refs.ParseFeedRef(fstr)
+		feed, err := refs.ParseFeedRef(fstr)
 		if err != nil {
 			// just skip invalid feeds
+			continue
+		}
+
+		if feed.Algo != refs.RefAlgoFeedSSB1 {
+			// skip other formats (TODO: gg support)
 			continue
 		}
 
