@@ -4,6 +4,7 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -73,35 +74,32 @@ func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
 func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
-	args := req.Args()
-	if len(args) < 1 {
-		return fmt.Errorf("invalid arguments")
-	}
 	var qry message.MessagesByTypeArgs
+	var args []message.MessagesByTypeArgs
 
-	switch v := args[0].(type) {
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
 
-	case map[string]interface{}:
-		q, err := message.NewCreateHistArgsFromMap(v)
+		// assume just string for type
+		var args []string
+		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			return fmt.Errorf("bad request: %w", err)
+			return fmt.Errorf("bad request data: %w", err)
 		}
-		qry.CommonArgs = q.CommonArgs
-		qry.StreamArgs = q.StreamArgs
-
-		var ok bool
-		qry.Type, ok = v["type"].(string)
-		if !ok {
-			return fmt.Errorf("bad request - missing root")
+		if len(args) != 1 {
+			return fmt.Errorf("bad request data: assumed string argument for type field")
 		}
-
-	case string:
-		qry.Limit = -1
-		qry.Type = v
+		qry.Type = args[0]
+		// Defaults for no arguments
 		qry.Keys = true
+		qry.Limit = -1
 
-	default:
-		return fmt.Errorf("invalid argument type %T", args[0])
+	} else {
+		if len(args) != 1 {
+			qry = args[0]
+		} else {
+			return fmt.Errorf("bad request data: assumed one argument object")
+		}
 	}
 
 	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())

@@ -51,17 +51,15 @@ func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	// fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
 	var qry message.CreateLogArgs
-	if len(req.Args()) == 1 {
-		var args []message.CreateLogArgs
-		err := json.Unmarshal(req.RawArgs, &args)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(fmt.Errorf("bad request data: %w", err))
-			return
-		}
-		if len(args) == 1 {
-			qry = args[0]
-		}
+	var args []message.CreateLogArgs
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
+		req.CloseWithError(fmt.Errorf("bad request data: %w", err))
+		return
+	}
+	if len(args) == 1 {
+		qry = args[0]
 	} else {
 		// Defaults for no arguments
 		qry.Keys = true

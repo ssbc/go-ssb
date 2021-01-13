@@ -262,14 +262,14 @@ func serveLog(ctx context.Context, name string, l margaret.Log, snk librarian.Si
 		src, err := l.Query(snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
 			log.Println("got err for", name, err)
-			errc <- fmt.Errorf("%s query failed", name, err)
+			errc <- fmt.Errorf("%s query failed: %w", name, err)
 			return
 		}
 
 		err = luigi.Pump(ctx, snk, src)
 		if err != nil && !errors.Is(err, ssb.ErrShuttingDown) {
 			log.Println("got err for", name, err)
-			errc <- fmt.Errorf("%s serve exited", name, err)
+			errc <- fmt.Errorf("%s serve exited: %w", name, err)
 		}
 	}()
 	return errc

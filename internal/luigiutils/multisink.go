@@ -18,7 +18,6 @@ import (
 // registered sinks.
 //
 // MultiSink is like luigi.Broadcaster but with context support.
-// TODO(cryptix): cool utility! might want to move it to internal until we find  better place
 type MultiSink struct {
 	seq   int64
 	sinks []*muxrpc.ByteSink

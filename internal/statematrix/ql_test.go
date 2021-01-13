@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 		{Feed: testFeed(4), Note: ssb.Note{Replicate: true, Receive: true, Seq: 2000}},
 	}
 	r.NoError(m.Fill(testFeed(23), feeds))
-	t.Log(m.String(), ", took:", time.Since(start))
+	t.Logf("%v (took: %s)", m, time.Since(start))
 
 	feeds = []ObservedFeed{
 		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 4}},

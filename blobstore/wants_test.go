@@ -127,7 +127,7 @@ func TestWantManager(t *testing.T) {
 			out := luigi.NewSliceSink(&outSlice)
 			ctx := context.Background()
 			edp := &mmock.FakeEndpoint{
-				SourceStub: func(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
+				SourceStub: func(ctx context.Context, enc muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (*muxrpc.ByteSource, error) {
 					if len(args) != 1 {
 						return nil, fmt.Errorf("expected one argument, got %v", len(args))
 					}
@@ -144,9 +144,7 @@ func TestWantManager(t *testing.T) {
 
 					data := tc.blobs[arg.Key.Ref()]
 
-					return (*luigi.SliceSource)(&[]interface{}{
-						[]byte(data),
-					}), nil
+					return muxrpc.NewTestSource([]byte(data)), nil
 				},
 				RemoteStub: func() net.Addr {
 					return &net.TCPAddr{Port: 666}

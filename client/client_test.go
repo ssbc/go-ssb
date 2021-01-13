@@ -200,7 +200,7 @@ func TestStatusCalls(t *testing.T) {
 		go func() {
 			err := srv.Network.Serve(ctx)
 			t.Log("tcp bot serve exited", err)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				panic(err)
 			}
 		}()
