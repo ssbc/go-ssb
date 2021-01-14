@@ -506,6 +506,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, err
 	}
 
+	if s.disableLegacyLiveReplication {
+		histOpts = append(histOpts, gossip.WithLive(!s.disableLegacyLiveReplication))
+	}
+
 	gossipPlug := gossip.NewFetcher(ctx,
 		kitlog.With(log, "plugin", "gossip"),
 		r,
@@ -515,25 +519,29 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		verifySink,
 		histOpts...)
 
-	ebtPlug := ebt.NewPlug(
-		kitlog.With(log, "plugin", "ebt"),
-		s.KeyPair.Id,
-		s.ReceiveLog,
-		s.Users,
-		s.Replicator.Lister(),
-		fm,
-		sm,
-		verifySink,
-	)
-	s.public.Register(ebtPlug)
+	if s.disableEBT {
+		s.public.Register(gossipPlug)
+	} else {
+		ebtPlug := ebt.NewPlug(
+			kitlog.With(log, "plugin", "ebt"),
+			s.KeyPair.Id,
+			s.ReceiveLog,
+			s.Users,
+			s.Replicator.Lister(),
+			fm,
+			sm,
+			verifySink,
+		)
+		s.public.Register(ebtPlug)
 
-	rn := negPlugin{replicateNegotiator{
-		logger: kitlog.With(log, "module", "replicate-negotiator"),
+		rn := negPlugin{replicateNegotiator{
+			logger: kitlog.With(log, "module", "replicate-negotiator"),
 
-		lg:  gossipPlug.LegacyGossip,
-		ebt: ebtPlug.MUXRPCHandler,
-	}}
-	s.public.Register(rn)
+			lg:  gossipPlug.LegacyGossip,
+			ebt: ebtPlug.MUXRPCHandler,
+		}}
+		s.public.Register(rn)
+	}
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewServer(ctx,

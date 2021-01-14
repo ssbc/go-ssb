@@ -103,6 +103,26 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		level.Warn(info).Log("msg", "hops failed", "err", err)
 		return
 	}
+
+	if !g.enableLiveStreaming {
+		// start polling
+		tick := time.NewTicker(5 * time.Minute)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			case <-tick.C:
+				feeds := g.WantList.ReplicationList()
+				err = g.FetchAll(ctx, e, feeds, withLive)
+				if err != nil && !muxrpc.IsSinkClosed(err) {
+					level.Warn(info).Log("msg", "hops failed", "err", err)
+					return
+				}
+			}
+		}
+	}
 }
 
 func (g *LegacyGossip) HandleCall(

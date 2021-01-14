@@ -169,6 +169,10 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
+		// enabling this might consume a lot of resources
+		mksbot.DisableLegacyLiveReplication(true),
+		// new code, test with caution
+		mksbot.DisableEBT(true),
 	}
 
 	if !flagDisableUNIXSock {
@@ -239,14 +243,14 @@ func runSbot() error {
 	if hmacSec != "" {
 		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
 		if err != nil {
-			return errors.Wrap(err, "HMAC")
+			return errors.Wrap(err, "invalid base64 string for HMAC signing secret")
 		}
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
 	sbot, err := mksbot.New(opts...)
 	if err != nil {
-		return errors.Wrap(err, "scuttlebot")
+		return errors.Wrap(err, "failed to instantiate ssb server")
 	}
 
 	c := make(chan os.Signal)

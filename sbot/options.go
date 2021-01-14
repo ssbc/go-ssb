@@ -61,6 +61,9 @@ type Sbot struct {
 	promisc  bool
 	hopCount uint
 
+	disableEBT                   bool
+	disableLegacyLiveReplication bool
+
 	// TODO: these should all be options that are applied on the network construction...
 	Network            ssb.Network
 	disableNetwork     bool
@@ -155,6 +158,24 @@ func WithRepoPath(path string) Option {
 func DisableNetworkNode() Option {
 	return func(s *Sbot) error {
 		s.disableNetwork = true
+		return nil
+	}
+}
+
+// DisableEBT disables epidemic broadcast trees. It's a new implementation and might have some bugs.
+func DisableEBT(yes bool) Option {
+	return func(s *Sbot) error {
+		s.disableEBT = yes
+		return nil
+	}
+}
+
+// DisableLegacyLiveReplication controls wether createHistoryStreams are created with live:true flag.
+// This code is functional but might not scale to a lot of feeds. Therefore this flag can be used to force
+// the old non-live polling mode.
+func DisableLegacyLiveReplication(yes bool) Option {
+	return func(s *Sbot) error {
+		s.disableLegacyLiveReplication = yes
 		return nil
 	}
 }
