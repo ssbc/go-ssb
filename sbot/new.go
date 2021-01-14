@@ -176,7 +176,20 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	sm, err := statematrix.New(r.GetPath("ebt-state-matrix"), s.KeyPair.Id)
+	// which feeds to replicate
+	if s.Replicator == nil {
+		s.Replicator, err = s.newGraphReplicator()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	sm, err := statematrix.New(
+		r.GetPath("ebt-state-matrix"),
+		s.KeyPair.Id,
+		s.Replicator.Lister(),
+		s,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -358,14 +371,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return s, nil
 	}
 
-	// which feeds to replicate
-	if s.Replicator == nil {
-		s.Replicator, err = s.newGraphReplicator()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
 	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
@@ -527,7 +532,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			s.KeyPair.Id,
 			s.ReceiveLog,
 			s.Users,
-			s.Replicator.Lister(),
 			fm,
 			sm,
 			verifySink,
@@ -688,4 +692,26 @@ func (sc selfChecker) Authorize(remote *refs.FeedRef) error {
 		return nil
 	}
 	return fmt.Errorf("not authorized")
+}
+
+func (s *Sbot) CurrentSequence(feed *refs.FeedRef) (ssb.Note, error) {
+	l, err := s.Users.Get(storedrefs.Feed(feed))
+	if err != nil {
+		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
+	}
+	sv, err := l.Seq().Value()
+	if err != nil {
+		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
+	}
+
+	currSeq := sv.(margaret.BaseSeq)
+	// margaret is 0-indexed
+	currSeq++
+	fmt.Println("sequence for:", feed.Ref(), currSeq)
+
+	return ssb.Note{
+		Seq:       currSeq.Seq(),
+		Replicate: true,
+		Receive:   true, // TODO: not exactly... we might be getting this feed from somewhre else
+	}, nil
 }

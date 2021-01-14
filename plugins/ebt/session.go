@@ -64,6 +64,8 @@ type Sessions struct {
 	waitingFor map[string]chan<- struct{}
 }
 
+// Started registers a new session for the network address and returns it.
+// It also closes open channels in waitingFor if they exist and thus makes WaitFor() calls return.
 func (s *Sessions) Started(addr net.Addr) *session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -83,6 +85,7 @@ func (s *Sessions) Started(addr net.Addr) *session {
 	return session
 }
 
+// Ended notifies the session store that a session has ended.
 func (s *Sessions) Ended(addr net.Addr) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -11,21 +11,21 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/graph"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 var _ ssb.Replicator = (*Sbot)(nil)
 
 type graphReplicator struct {
-	builder graph.Builder
+	bot     *Sbot
 	current *lister
 }
 
 func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	var r graphReplicator
-	r.builder = s.GraphBuilder
+	r.bot = s
 	r.current = newLister()
 
 	replicateEvt := log.With(s.info, "event", "update-replicate")
@@ -41,7 +41,7 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 func (r *graphReplicator) makeUpdater(log log.Logger, self *refs.FeedRef, hopCount int) func() {
 	return func() {
 		start := time.Now()
-		newWants := r.builder.Hops(self, hopCount)
+		newWants := r.bot.GraphBuilder.Hops(self, hopCount)
 		level.Debug(log).Log("feed-want-count", newWants.Count(), "hops", hopCount, "took", time.Since(start))
 
 		refs, err := newWants.List()
@@ -54,7 +54,7 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self *refs.FeedRef, hopCou
 		}
 
 		// make sure we dont fetch and allow blocked feeds
-		g, err := r.builder.Build()
+		g, err := r.bot.GraphBuilder.Build()
 		if err != nil {
 			level.Error(log).Log("msg", "failed to build blocks", "err", err)
 			return

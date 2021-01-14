@@ -29,6 +29,9 @@ type StateMatrix struct {
 
 	self string // whoami
 
+	currSeq  CurrentSequencer
+	wantList ssb.ReplicationLister
+
 	mu   sync.Mutex
 	open currentFrontiers
 }
@@ -36,7 +39,11 @@ type StateMatrix struct {
 // map[peer refernce]frontier
 type currentFrontiers map[string]ssb.NetworkFrontier
 
-func New(base string, self *refs.FeedRef) (*StateMatrix, error) {
+type CurrentSequencer interface {
+	CurrentSequence(*refs.FeedRef) (ssb.Note, error)
+}
+
+func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSequencer) (*StateMatrix, error) {
 
 	os.MkdirAll(base, 0700)
 
@@ -44,6 +51,9 @@ func New(base string, self *refs.FeedRef) (*StateMatrix, error) {
 		basePath: base,
 
 		self: self.Ref(),
+
+		wantList: wl,
+		currSeq:  cs,
 
 		open: make(currentFrontiers),
 	}
@@ -77,7 +87,6 @@ func (sm *StateMatrix) stateFileName(peer *refs.FeedRef) (string, error) {
 func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
 	curr, has := sm.open[peer.Ref()]
 	if has {
-		curr = make(ssb.NetworkFrontier)
 		return curr, nil
 	}
 
@@ -121,12 +130,17 @@ func (sm *StateMatrix) saveAndClose(peer string) error {
 		return err
 	}
 
-	nf, has := sm.open[peer]
-	if !has {
-		return nil
+	err = sm.save(parsed)
+	if err != nil {
+		return err
 	}
 
-	peerFileName, err := sm.stateFileName(parsed)
+	delete(sm.open, peer)
+	return nil
+}
+
+func (sm *StateMatrix) save(peer *refs.FeedRef) error {
+	peerFileName, err := sm.stateFileName(peer)
 	if err != nil {
 		return err
 	}
@@ -137,13 +151,22 @@ func (sm *StateMatrix) saveAndClose(peer string) error {
 		return err
 	}
 
+	nf, has := sm.open[peer.Ref()]
+	if !has {
+		return nil
+	}
+
 	err = json.NewEncoder(peerFile).Encode(nf)
 	if err != nil {
 		return err
 	}
 
-	delete(sm.open, peer)
-	return peerFile.Close()
+	err = peerFile.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type HasLongerResult struct {
@@ -247,38 +270,76 @@ func (sm *StateMatrix) WantsFeed(peer, feed *refs.FeedRef) (bool, error) {
 
 // Changed returns which feeds have newer messages since last update
 func (sm *StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
-
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	changedFrontier := make(ssb.NetworkFrontier)
+	var err error
 
-	selfNf, has := sm.open[sm.self]
-	if !has {
-		return changedFrontier, nil
+	selfNf, err := sm.loadFrontier(self)
+	if err != nil {
+		return nil, err
 	}
 
-	peerNf, has := sm.open[sm.self]
-	if !has {
-		return changedFrontier, nil
-	}
-
-	for theirFeed, theirNote := range peerNf {
-
-		for myFeed, myNote := range selfNf {
-			if theirFeed != myFeed {
-				continue
-			}
-
-			if !theirNote.Receive {
-				continue
-			}
-
-			if myNote.Seq > theirNote.Seq {
-				changedFrontier[myFeed] = myNote
-			}
+	// no state yet
+	if len(selfNf) == 0 {
+		// use the replication lister and determin the stored feeds lenghts
+		lister := sm.wantList.ReplicationList()
+		feeds, err := lister.List()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get userlist: %w", err)
 		}
 
+		for i, feed := range feeds {
+			if feed.Algo != refs.RefAlgoFeedSSB1 {
+				// skip other formats (TODO: gg support)
+				continue
+			}
+
+			seq, err := sm.currSeq.CurrentSequence(feed)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
+			}
+			selfNf[feed.Ref()] = seq
+		}
+
+		selfNf[self.Ref()], err = sm.currSeq.CurrentSequence(self)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get our sequence: %w", err)
+		}
+
+		sm.open[sm.self] = selfNf
+		err = sm.save(self)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	peerNf, err := sm.loadFrontier(peer)
+	if err != nil {
+		fmt.Println("ebt/warning: remote peer state loading error:", err)
+		return selfNf, nil
+	}
+
+	// just the ones that differ
+	changedFrontier := make(ssb.NetworkFrontier)
+
+	for myFeed, myNote := range selfNf {
+		theirNote, has := peerNf[myFeed]
+		if !has && myNote.Receive {
+			// they don't have it, but tell them we want it
+			changedFrontier[myFeed] = myNote
+			continue
+		}
+
+		if !theirNote.Receive {
+			// they dont care about this feed
+			continue
+		}
+
+		if myNote.Seq > theirNote.Seq {
+			// we have more then them, tell them how much
+			changedFrontier[myFeed] = myNote
+		}
 	}
 
 	return changedFrontier, nil

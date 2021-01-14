@@ -8,7 +8,6 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -24,7 +23,6 @@ func NewPlug(
 	self *refs.FeedRef,
 	rootLog margaret.Log,
 	uf multilog.MultiLog,
-	wl ssb.ReplicationLister,
 	fm *gossip.FeedManager,
 	sm *statematrix.StateMatrix,
 	v *message.VerifySink,
@@ -35,7 +33,6 @@ func NewPlug(
 		self:      self,
 		rootLog:   rootLog,
 		userFeeds: uf,
-		wantList:  wl,
 
 		livefeeds: fm,
 
@@ -52,14 +49,8 @@ func NewPlug(
 	}
 }
 
-func (p Plugin) Name() string {
-	return "ebt"
-}
+// muxrpc plugin
 
-func (p Plugin) Method() muxrpc.Method {
-	return muxrpc.Method{"ebt"}
-}
-
-func (p Plugin) Handler() muxrpc.Handler {
-	return p.MUXRPCHandler
-}
+func (p Plugin) Name() string            { return "ebt" }
+func (p Plugin) Method() muxrpc.Method   { return muxrpc.Method{"ebt"} }
+func (p Plugin) Handler() muxrpc.Handler { return p.MUXRPCHandler }

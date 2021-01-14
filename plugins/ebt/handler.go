@@ -11,6 +11,8 @@ import (
 	"io"
 	"net"
 
+	"github.com/go-kit/kit/log"
+
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/margaret"
@@ -19,7 +21,6 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/statematrix"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	refs "go.mindeco.de/ssb-refs"
@@ -34,7 +35,7 @@ type MUXRPCHandler struct {
 
 	livefeeds *gossip.FeedManager
 
-	wantList ssb.ReplicationLister
+	// wantList ssb.ReplicationLister
 
 	stateMatrix *statematrix.StateMatrix
 
@@ -125,33 +126,6 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 	}
 
 	selfRef := h.self.Ref()
-	if len(currState) == 0 { // no state yet
-		lister := h.wantList.ReplicationList()
-		feeds, err := lister.List()
-		if err != nil {
-			return fmt.Errorf("failed to get userlist: %w", err)
-		}
-
-		for i, feed := range feeds {
-			if feed.Algo != refs.RefAlgoFeedSSB1 {
-				// skip other formats (TODO: gg support)
-				continue
-			}
-
-			// TODO: filter the ones that didnt change
-
-			seq, err := h.currentSequence(feed)
-			if err != nil {
-				return fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
-			}
-			currState[feed.Ref()] = seq
-		}
-
-		currState[selfRef], err = h.currentSequence(h.self)
-		if err != nil {
-			return fmt.Errorf("failed to get our sequence: %w", err)
-		}
-	}
 
 	// don't receive your own feed
 	if myNote, has := currState[selfRef]; has {
@@ -178,9 +152,16 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 		return
 	}
 
+	peerLogger := log.With(h.info, "r", peer.ShortRef())
+
 	defer func() {
 		h.Sessions.Ended(remoteAddr)
-		h.info.Log("debug", "loop exited", "r", peer.ShortRef())
+
+		level.Debug(peerLogger).Log("event", "loop exited")
+		err := h.stateMatrix.SaveAndClose(peer)
+		if err != nil {
+			level.Warn(h.info).Log("event", "failed to save state matrix for peer", "err", err)
+		}
 	}()
 
 	if err := h.sendState(ctx, tx, peer); err != nil {
@@ -296,23 +277,4 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 	}
 
 	h.check(rx.Err())
-}
-
-// utils
-
-func (h MUXRPCHandler) currentSequence(feed *refs.FeedRef) (ssb.Note, error) {
-	l, err := h.userFeeds.Get(storedrefs.Feed(feed))
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
-	}
-	sv, err := l.Seq().Value()
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
-	}
-
-	return ssb.Note{
-		Seq:       sv.(margaret.BaseSeq).Seq() + 1,
-		Replicate: true,
-		Receive:   true, // TODO: not exactly... we might be getting this feed from somewhre else
-	}, nil
 }
