@@ -33,7 +33,7 @@ type Plugin struct {
 func NewPlugin(rxlog margaret.Log, tangles, private *roaring.MultiLog, unboxer *private.Manager, isSelf ssb.Authorizer) *Plugin {
 	mux := typemux.New(log.NewNopLogger())
 
-	mux.RegisterSource(muxrpc.Method{"tangles", "replies"}, tangleHandler{
+	mux.RegisterSource(muxrpc.Method{"tangles", "replies"}, repliesHandler{
 		rxlog:   rxlog,
 		tangles: tangles,
 
@@ -64,7 +64,7 @@ func (lt Plugin) Name() string            { return "tangles" }
 func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"tangles"} }
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
-type tangleHandler struct {
+type repliesHandler struct {
 	rxlog   margaret.Log
 	tangles *roaring.MultiLog
 	private *roaring.MultiLog
@@ -73,7 +73,7 @@ type tangleHandler struct {
 	unboxer *private.Manager
 }
 
-func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
 	var qryarr []message.TanglesArgs
 	var qry message.TanglesArgs
 
@@ -154,7 +154,6 @@ func (g tangleHandler) HandleSource(ctx context.Context, req *muxrpc.Request, sn
 	if err != nil {
 		// TODO: check err == persist: not found
 		return snk.Close()
-		return fmt.Errorf("failed to load thread log: %w", err)
 	}
 
 	if qry.Private {

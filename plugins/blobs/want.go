@@ -4,6 +4,7 @@ package blobs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/cryptix/go/logging"
@@ -27,24 +28,25 @@ func (h wantHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mu
 		req.Type = "async"
 	}
 
-	args := req.Args()
-	if len(args) != 1 {
-		// TODO: change from generic handlers to typed once (source, sink, async..)
-		// async then would have to return a value or an error and not fall into this trap of not closing a stream
-		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args (%d)", len(args)))
-		return
-	}
-
-	br, err := refs.ParseBlobRef(args[0].(string))
+	var wants []*refs.BlobRef
+	err := json.Unmarshal(req.RawArgs, &wants)
 	if err != nil {
 		err = fmt.Errorf("error parsing blob reference: %w", err)
 		checkAndLog(h.log, fmt.Errorf("error returning error: %w", req.CloseWithError(err)))
 		return
 	}
 
-	err = h.wm.Want(br)
-	if err != nil {
-		err = fmt.Errorf("error wanting blob reference: %w", err)
-		checkAndLog(h.log, fmt.Errorf("error returning error: %w", req.Return(ctx, err)))
+	if len(wants) < 1 {
+		// TODO: change from generic handlers to typed once (source, sink, async..)
+		// async then would have to return a value or an error and not fall into this trap of not closing a stream
+		req.Stream.CloseWithError(fmt.Errorf("bad request - no args %d", len(wants)))
+		return
+	}
+	for _, want := range wants {
+		err = h.wm.Want(want)
+		if err != nil {
+			err = fmt.Errorf("error wanting blob reference: %w", err)
+			checkAndLog(h.log, fmt.Errorf("error returning error: %w", req.Return(ctx, err)))
+		}
 	}
 }

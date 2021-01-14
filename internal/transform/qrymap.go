@@ -43,8 +43,13 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		return true, nil
 	})
 
+	mw.SetEncoding(muxrpc.TypeJSON)
+
 	mapToKV := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
+			if luigi.IsEOS(err) {
+				return mw.Close()
+			}
 			return mw.CloseWithError(err)
 		}
 
