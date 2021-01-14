@@ -37,7 +37,6 @@ func (s *session) Subscribed(feed *refs.FeedRef, cancelFn context.CancelFunc) {
 
 	fr := feed.Ref()
 	if fn, has := s.subscribed[fr]; has {
-		fmt.Println("warning: canceling previous subscription")
 		fn()
 		delete(s.subscribed, fr)
 	}

@@ -200,7 +200,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				h.check(err)
 				continue
 			}
-			fmt.Printf("[%s] new message from %s\n", h.self.ShortRef(), msgWithAuthor.Author.Ref())
+			// fmt.Printf("[%s] new message from %s\n", h.self.ShortRef(), msgWithAuthor.Author.Ref())
 
 			if msgWithAuthor.Author == nil {
 				fmt.Println("debug body:", string(jsonBody))
