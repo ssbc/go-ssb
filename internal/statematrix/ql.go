@@ -74,7 +74,7 @@ func (sm *StateMatrix) Open(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
 }
 */
 
-func (sm *StateMatrix) stateFileName(peer *refs.FeedRef) (string, error) {
+func (sm *StateMatrix) StateFileName(peer *refs.FeedRef) (string, error) {
 	peerTfk, err := tfk.Encode(peer)
 	if err != nil {
 		return "", err
@@ -90,7 +90,7 @@ func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, er
 		return curr, nil
 	}
 
-	peerFileName, err := sm.stateFileName(peer)
+	peerFileName, err := sm.StateFileName(peer)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (sm *StateMatrix) saveAndClose(peer string) error {
 }
 
 func (sm *StateMatrix) save(peer *refs.FeedRef) error {
-	peerFileName, err := sm.stateFileName(peer)
+	peerFileName, err := sm.StateFileName(peer)
 	if err != nil {
 		return err
 	}

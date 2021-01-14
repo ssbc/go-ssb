@@ -69,6 +69,13 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		return fmt.Errorf("NullFeed: error while deleting feed from graph index: %w", err)
 	}
 
+	// delete my ebt state
+	sfn, err := s.ebtState.StateFileName(s.KeyPair.Id)
+	if err != nil {
+		return fmt.Errorf("NullFeed: error while deleting ebt state file: %w", err)
+	}
+	os.Remove(sfn)
+
 	return nil
 }
 
