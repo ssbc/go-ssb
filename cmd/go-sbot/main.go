@@ -49,7 +49,8 @@ var (
 	flagEnDiscov bool
 	flagPromisc  bool
 
-	flagDecryptPrivate  bool
+	flagEnableEBT bool
+
 	flagDisableUNIXSock bool
 
 	listenAddr string
@@ -99,7 +100,8 @@ func initFlags() {
 
 	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
 
-	flag.BoolVar(&flagDecryptPrivate, "decryptprivate", false, "store which messages can be decrypted")
+	flag.BoolVar(&flagEnableEBT, "enable-ebt", false, "enable syncing by using epidemic-broadcast-trees (new code, test with caution)")
+
 	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
@@ -107,7 +109,6 @@ func initFlags() {
 	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
 
-	flag.BoolVar(&flagFatBot, "fatbot", false, "if set, sbot loads additional index plugins (bytype, get, tangles)")
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
@@ -172,47 +173,12 @@ func runSbot() error {
 		// enabling this might consume a lot of resources
 		mksbot.DisableLegacyLiveReplication(true),
 		// new code, test with caution
-		mksbot.DisableEBT(true),
+		mksbot.DisableEBT(!flagEnableEBT),
 	}
 
 	if !flagDisableUNIXSock {
 		opts = append(opts, mksbot.LateOption(mksbot.WithUNIXSocket()))
 	}
-	/*
-		if flagDecryptPrivate {
-			// TODO: refactor into plugins2
-			r := repo.New(repoDir)
-			kpsByPath, err := repo.AllKeyPairs(r)
-			if err != nil {
-				return errors.Wrap(err, "sbot: failed to open all keypairs in repo")
-			}
-
-			var kps []*ssb.KeyPair
-			for _, v := range kpsByPath {
-				kps = append(kps, v)
-			}
-
-			defKP, err := repo.DefaultKeyPair(r)
-			if err != nil {
-				return errors.Wrap(err, "sbot: failed to open default keypair")
-			}
-			kps = append(kps, defKP)
-
-			mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
-
-			opts = append(opts, mksbot.LateOption(mksbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)))
-		}
-
-
-		if flagFatBot {
-			opts = append(opts,
-				mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
-				mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
-				mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
-				mksbot.LateOption(mksbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
-			)
-		}
-	*/
 
 	if dbgLogDir != "" {
 		opts = append(opts, mksbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
