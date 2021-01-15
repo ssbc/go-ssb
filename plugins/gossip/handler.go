@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -146,6 +147,13 @@ func (g *LegacyGossip) HandleCall(
 		req.Stream.Close()
 	}
 
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		errLog.Log("err", err)
+		req.CloseWithError(err)
+		return
+	}
+
 	switch req.Method.String() {
 
 	//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
@@ -216,12 +224,6 @@ func (g *LegacyGossip) HandleCall(
 			// dbgLog.Log("msg", "feed access granted")
 		}
 
-		snk, err := req.GetResponseSink()
-		if err != nil {
-			errLog.Log("err", err)
-			req.CloseWithError(err)
-			return
-		}
 		err = g.feedManager.CreateStreamHistory(ctx, snk, &query)
 		if err != nil {
 			if luigi.IsEOS(err) {
@@ -235,8 +237,13 @@ func (g *LegacyGossip) HandleCall(
 		}
 		// don't close stream (feedManager will pass it on to live processing or close it itself)
 
+	case "tunnel.ping":
+		fallthrough
+
 	case "gossip.ping":
-		err := req.Stream.Pour(ctx, time.Now().UnixNano()/1000000)
+		snk.SetEncoding(muxrpc.TypeJSON)
+		ts := []byte(strconv.FormatInt(time.Now().UnixNano()/1000000, 10))
+		_, err = snk.Write(ts)
 		if err != nil {
 			closeIfErr(fmt.Errorf("pour failed to pong: %w", err))
 			return
