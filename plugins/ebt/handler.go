@@ -119,7 +119,7 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	h.Loop(ctx, snk, src, remoteAddr)
 }
 
-func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
+func (h *MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
 	currState, err := h.stateMatrix.Changed(h.self, remote)
 	if err != nil {
 		return fmt.Errorf("failed to get changed frontier: %w", err)
@@ -133,7 +133,6 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 		currState[selfRef] = myNote
 	}
 
-	fmt.Printf("[%s] my state\n%s\n", h.self.ShortRef(), currState)
 	tx.SetEncoding(muxrpc.TypeJSON)
 	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
@@ -143,6 +142,7 @@ func (h MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remot
 	return nil
 }
 
+// Loop executes the ebt logic loop, reading from the peer and sending state and messages as requests
 func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remoteAddr net.Addr) {
 	session := h.Sessions.Started(remoteAddr)
 
@@ -200,10 +200,9 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				h.check(err)
 				continue
 			}
-			// fmt.Printf("[%s] new message from %s\n", h.self.ShortRef(), msgWithAuthor.Author.Ref())
 
 			if msgWithAuthor.Author == nil {
-				fmt.Println("debug body:", string(jsonBody))
+				// fmt.Println("debug body:", string(jsonBody))
 				h.check(fmt.Errorf("message without author?"))
 				continue
 			}
@@ -222,8 +221,6 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 
 			continue
 		}
-
-		fmt.Printf("[%s] their state (from: %s)\n%s\n", h.self.ShortRef(), peer.Ref(), frontierUpdate)
 
 		// update our network perception
 		wants, err := h.stateMatrix.Update(peer, frontierUpdate)

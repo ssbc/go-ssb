@@ -78,6 +78,7 @@ var (
 
 func checkAndLog(err error) {
 	if err != nil {
+		level.Error(log).Log("event", "fatal error", "err", err)
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
 			panic(err)
 		}
