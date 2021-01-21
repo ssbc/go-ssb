@@ -50,7 +50,8 @@ type BlobStore interface {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
 type WantManager interface {
 	io.Closer
-	luigi.Broadcast
+	luigi.Broadcast // todo: replace with a typed broadcast
+
 	Want(ref *refs.BlobRef) error
 	Wants(ref *refs.BlobRef) bool
 	WantWithDist(ref *refs.BlobRef, dist int64) error

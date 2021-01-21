@@ -87,18 +87,3 @@ func (plugin) Method() muxrpc.Method {
 func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
-
-// not sure what this was about
-func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
-	return endpoint{edp}
-}
-
-type endpoint struct {
-	edp muxrpc.Endpoint
-}
-
-/*
-func (edp endpoint) Add(ctx context.Context) (refs.MessageRef, error) {
-	return refs.MessageRef{}, errors.New("not implemented yet")
-}
-*/

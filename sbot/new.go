@@ -141,7 +141,6 @@ func (s *Sbot) Close() error {
 func initSbot(s *Sbot) (*Sbot, error) {
 	log := s.info
 	var err error
-	s.rootCtx, s.Shutdown = ctxutils.WithError(s.rootCtx, ssb.ErrShuttingDown)
 	ctx := s.rootCtx
 
 	r := repo.New(s.repoPath)
@@ -184,6 +183,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
+	// TODO: decouple from replicator
 	sm, err := statematrix.New(
 		r.GetPath("ebt-state-matrix"),
 		s.KeyPair.Id,
@@ -597,7 +597,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
 
 	mh := namedPlugin{
-		h:    manifestHandler(manifestBlob),
+		h:    manifestBlob,
 		name: "manifest"}
 	s.master.Register(mh)
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log"
@@ -100,8 +101,9 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 				if remote == initialFrom {
 					continue
 				}
-
-				err := wmgr.getBlob(has.connCtx, proc.edp, has.want.Ref)
+				ctx, cancel := context.WithTimeout(has.connCtx, 3*time.Minute)
+				err := wmgr.getBlob(ctx, proc.edp, has.want.Ref)
+				cancel()
 				if err == nil {
 					wmgr.l.Unlock()
 					continue workChan
@@ -117,7 +119,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 }
 
 type wantManager struct {
-	luigi.Broadcast
+	luigi.Broadcast // todo: replace with a typed broadcast
 
 	longCtx context.Context
 
@@ -130,7 +132,7 @@ type wantManager struct {
 
 	// our own set of wants
 	wants    map[string]int64
-	wantSink luigi.Sink
+	wantSink luigi.Sink // todo: replace with a typed broadcast
 
 	// the set of peers we interact with
 	procs map[string]*wantProc
@@ -283,7 +285,6 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink,
 		}
 		return nil
 	}
-	level.Debug(wmgr.info).Log("event", "wants sent", "cnt", len(wmgr.wants))
 
 	proc := &wantProc{
 		rootCtx:     ctx,
@@ -365,8 +366,8 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 		level.Error(proc.info).Log("warning", "invalid type", "err", err)
 		return err
 	}
-	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 
+	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
 	if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {

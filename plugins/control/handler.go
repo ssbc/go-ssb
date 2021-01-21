@@ -86,7 +86,10 @@ func unmarshalActionMap(next actionFn) typemux.AsyncFunc {
 		if err := next(ctx, refMap); err != nil {
 			return nil, err
 		}
-		return fmt.Sprintf("updated %d feeds", len(refMap)), nil
+		return struct {
+			Action string
+			Feeds  interface{}
+		}{"updated", len(refMap)}, nil
 	})
 }
 

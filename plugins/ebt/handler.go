@@ -55,24 +55,13 @@ func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 // HandleCall handles the server side (getting called by client)
 func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	var closed bool
 	checkAndClose := func(err error) {
 		h.check(err)
 		if err != nil {
-			closed = true
-			closeErr := req.Stream.CloseWithError(err)
+			closeErr := req.CloseWithError(err)
 			h.check(fmt.Errorf("error closeing request %q: %w", req.Method, closeErr))
 		}
 	}
-
-	defer func() {
-		if !closed {
-			cerr := req.Stream.Close()
-			if cerr != nil {
-				h.check(fmt.Errorf("gossip: error closing call %q: %w", req.Method, cerr))
-			}
-		}
-	}()
 
 	if req.Method.String() != "ebt.replicate" {
 		checkAndClose(fmt.Errorf("unknown command: %s", req.Method))

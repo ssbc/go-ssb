@@ -34,8 +34,17 @@ func (h manifestHandler) HandleCall(ctx context.Context, req *muxrpc.Request, ed
 	}
 }
 
+func init() {
+	if !json.Valid([]byte(manifestBlob)) {
+		manifestMap := make(map[string]interface{})
+		err := json.Unmarshal([]byte(manifestBlob), &manifestMap)
+		fmt.Println(err)
+		panic("manifestBlob is broken json")
+	}
+}
+
 // this is a very simple hardcoded manifest.json dump which oasis' ssb-client expects to do it's magic.
-const manifestBlob = `
+const manifestBlob manifestHandler = `
 {
 	"manifest": "sync",
 
@@ -57,14 +66,13 @@ const manifestBlob = `
 	 	"getMessagesOfType": "source"
 	},
 
-
-"private": {
-  "read":"source"
-},
+	"private": {
+		"read":"source"
+	},
 
 	"tangles": {
       "replies": "source"
-    },
+	},
 
     "names": {
         "get": "async",

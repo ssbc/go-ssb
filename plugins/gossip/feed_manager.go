@@ -88,8 +88,8 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 	if !ok {
 		return nil
 	}
-	err = sink.Send(ctx, msg.ValueContentJSON())
-	return err
+	sink.Send(msg.ValueContentJSON())
+	return nil
 }
 
 func (m *FeedManager) serveLiveFeeds() {
@@ -141,10 +141,9 @@ func (m *FeedManager) addLiveFeed(
 	if limit == -1 {
 		until = math.MaxInt64
 	}
-	err := liveFeed.Register(ctx, sink, until)
-	if err != nil {
-		return fmt.Errorf("could not create live stream for client %s: %w", ssbID, err)
-	}
+
+	liveFeed.Register(ctx, sink, until)
+
 	m.liveFeeds[ssbID] = liveFeed
 	// TODO: Remove multiSink from map when complete
 	return nil

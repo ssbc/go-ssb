@@ -27,7 +27,6 @@ type MultiSink struct {
 	isClosed bool
 }
 
-// var _ luigi.Sink = (*MultiSink)(nil)
 var _ margaret.Seq = (*MultiSink)(nil)
 
 func NewMultiSink(seq int64) *MultiSink {
@@ -47,16 +46,15 @@ func (f *MultiSink) Register(
 	ctx context.Context,
 	sink *muxrpc.ByteSink,
 	until int64,
-) error {
+) {
 	f.sinks = append(f.sinks, sink)
 	f.ctxs[sink] = ctx
 	f.until[sink] = until
-	return nil
 }
 
 func (f *MultiSink) Unregister(
 	sink *muxrpc.ByteSink,
-) error {
+) {
 	for i, s := range f.sinks {
 		if sink != s {
 			continue
@@ -64,9 +62,7 @@ func (f *MultiSink) Unregister(
 		f.sinks = append(f.sinks[:i], f.sinks[(i+1):]...)
 		delete(f.ctxs, sink)
 		delete(f.until, sink)
-		return nil
 	}
-	return nil
 }
 
 // Count returns the number of registerd sinks
@@ -79,7 +75,7 @@ func (f *MultiSink) Close() error {
 	return nil
 }
 
-func (f *MultiSink) Send(_ context.Context, msg []byte) error {
+func (f *MultiSink) Send(msg []byte) error {
 	if f.isClosed {
 		return luigi.EOS{}
 	}

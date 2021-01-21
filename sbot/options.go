@@ -504,6 +504,8 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.simpleIndex = make(map[string]librarian.Index)
 	s.indexStates = make(map[string]string)
 
+	s.disableLegacyLiveReplication = true
+
 	for i, opt := range fopts {
 		err := opt(&s)
 		if err != nil {
