@@ -13,9 +13,9 @@ import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb/blobstore"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/blobstore"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -93,14 +93,14 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	}
 
 	updates := h.wm.CreateWants(ctx, snk, edp)
-	if snk == nil {
+	if updates == nil {
+		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
 		return
 	}
 
 	for src.Next(ctx) {
 		err = src.Reader(func(r io.Reader) error {
 			var wantMsg blobstore.WantMsg
-
 			err := json.NewDecoder(r).Decode(&wantMsg)
 			if err != nil {
 				return err

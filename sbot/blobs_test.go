@@ -27,6 +27,8 @@ import (
 
 const blobSize = 1024 * 512
 
+const testDelay = 7 * time.Second
+
 func TestBlobsPair(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
@@ -132,7 +134,7 @@ func TestBlobsPair(t *testing.T) {
 		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 		err := bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
-		time.Sleep(2 * time.Second)
+		time.Sleep(testDelay)
 		assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
 		assert.EqualValues(t, 1, bobCT.Count(), "b: want 1 conn")
 	}
@@ -144,7 +146,7 @@ func TestBlobsPair(t *testing.T) {
 
 	aliCT.CloseAll()
 	bobCT.CloseAll()
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 	assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
 	assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 
@@ -206,7 +208,7 @@ func (s *session) simple(t *testing.T) {
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -229,7 +231,7 @@ func (s *session) wantFirst(t *testing.T) {
 
 	s.redial(t)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -261,7 +263,7 @@ func (s *session) eachOne(t *testing.T) {
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -294,7 +296,7 @@ func (s *session) eachOneConnet(t *testing.T) {
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)

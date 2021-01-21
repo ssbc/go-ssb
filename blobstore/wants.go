@@ -81,15 +81,15 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 	go func() {
 	workChan:
 		for has := range wmgr.available {
-			sz, _ := wmgr.bs.Size(has.Want.Ref)
-			if sz > 0 {
+			sz, _ := wmgr.bs.Size(has.want.Ref)
+			if sz > 0 { // already received
 				continue
 			}
 
-			initialFrom := has.Proc.edp.Remote().String()
+			initialFrom := has.remote.Remote().String()
 
 			// trying the one we got it from first
-			err := wmgr.getBlob(has.Proc.rootCtx, has.Proc.edp, has.Want.Ref)
+			err := wmgr.getBlob(has.connCtx, has.remote, has.want.Ref)
 			if err == nil {
 				continue
 			}
@@ -101,13 +101,13 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 					continue
 				}
 
-				err := wmgr.getBlob(proc.rootCtx, proc.edp, has.Want.Ref)
+				err := wmgr.getBlob(has.connCtx, proc.edp, has.want.Ref)
 				if err == nil {
 					wmgr.l.Unlock()
 					continue workChan
 				}
 			}
-			delete(wmgr.wants, has.Want.Ref.Ref())
+			delete(wmgr.wants, has.want.Ref.Ref())
 			level.Warn(wmgr.info).Log("event", "blob retreive failed", "n", len(wmgr.procs))
 			wmgr.l.Unlock()
 		}
@@ -144,6 +144,12 @@ type wantManager struct {
 	gauge  metrics.Gauge
 }
 
+type hasBlob struct {
+	want    ssb.BlobWant
+	remote  muxrpc.Endpoint
+	connCtx context.Context
+}
+
 func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *refs.BlobRef) error {
 	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
@@ -173,11 +179,6 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	sz, _ := wmgr.bs.Size(newBr)
 	level.Info(log).Log("msg", "stored", "ref", ref.ShortRef(), "sz", sz)
 	return nil
-}
-
-type hasBlob struct {
-	Want ssb.BlobWant
-	Proc *wantProc
 }
 
 func (wmgr *wantManager) promEvent(name string, n float64) {
@@ -494,8 +495,9 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 				}
 
 				proc.wmgr.available <- &hasBlob{
-					Want: w,
-					Proc: proc,
+					connCtx: ctx,
+					want:    w,
+					remote:  proc.edp,
 				}
 			}
 		}
