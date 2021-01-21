@@ -4,17 +4,18 @@ package blobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/ssb/blobstore"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/blobstore"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -27,7 +28,7 @@ type createWantsHandler struct {
 	wm ssb.WantManager
 
 	// sources is a map if sources where the responses are read from.
-	sources map[string]luigi.Source
+	sources map[string]*muxrpc.ByteSource
 
 	// l protects sources.
 	l sync.Mutex
@@ -35,7 +36,7 @@ type createWantsHandler struct {
 
 // getSource looks if we have a source for that remote and, if not, make a
 // source call to get one.
-func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (luigi.Source, error) {
+func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint) (*muxrpc.ByteSource, error) {
 	ref := edp.Remote().String()
 
 	h.l.Lock()
@@ -46,7 +47,7 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 		if src != nil {
 			return src, nil
 		}
-		h.log.Log("msg", "got a nil source from the map, ignoring and making new")
+		level.Debug(h.log).Log("msg", "got a nil source from the map, ignoring and making new")
 	}
 
 	bSrc, err := edp.Source(ctx, muxrpc.TypeJSON, muxrpc.Method{"blobs", "createWants"})
@@ -56,11 +57,8 @@ func (h *createWantsHandler) getSource(ctx context.Context, edp muxrpc.Endpoint)
 	if bSrc == nil {
 		return nil, errors.New("failed to get createWants source from remote")
 	}
-	stream := bSrc.AsStream()
-	stream.WithType(&blobstore.WantMsg{})
-	src = stream
-	h.sources[ref] = src
-	return src, nil
+	h.sources[ref] = bSrc
+	return bSrc, nil
 }
 
 func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
@@ -86,12 +84,40 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
 		return
 	}
-	snk := h.wm.CreateWants(ctx, req.Stream, edp)
+
+	snk, err := req.GetResponseSink()
+	if err != nil {
+		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
+		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
+		return
+	}
+
+	updates := h.wm.CreateWants(ctx, snk, edp)
 	if snk == nil {
 		return
 	}
 
-	err = luigi.Pump(ctx, snk, src)
+	for src.Next(ctx) {
+		err = src.Reader(func(r io.Reader) error {
+			var wantMsg blobstore.WantMsg
+
+			err := json.NewDecoder(r).Decode(&wantMsg)
+			if err != nil {
+				return err
+			}
+			return updates.Pour(ctx, wantMsg)
+		})
+		if err != nil {
+			level.Warn(h.log).Log("event", "onCall", "handler", "createWants", "pipe-err", err)
+			break
+		}
+
+	}
+
+	if err == nil {
+		err = src.Err()
+	}
+
 	if err != nil && !muxrpc.IsSinkClosed(err) && !errors.Is(err, context.Canceled) {
 		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "err", err)
 	}

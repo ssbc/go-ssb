@@ -269,22 +269,27 @@ func (wmgr *wantManager) WantWithDist(ref *refs.BlobRef, dist int64) error {
 	return nil
 }
 
-func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
+func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
-	err := sink.Pour(ctx, wmgr.wants)
+
+	sink.SetEncoding(muxrpc.TypeJSON)
+	enc := json.NewEncoder(sink)
+	err := enc.Encode(wmgr.wants)
 	if err != nil {
 		if !muxrpc.IsSinkClosed(err) {
 			level.Error(wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
 		}
 		return nil
 	}
+	level.Debug(wmgr.info).Log("event", "wants sent", "cnt", len(wmgr.wants))
 
 	proc := &wantProc{
 		rootCtx:     ctx,
 		bs:          wmgr.bs,
 		wmgr:        wmgr,
-		out:         sink,
+		out:         enc,
+		outSink:     sink,
 		remoteWants: make(map[string]int64),
 		edp:         edp,
 	}
@@ -327,11 +332,12 @@ type wantProc struct {
 
 	info log.Logger
 
-	bs   ssb.BlobStore
-	wmgr *wantManager
-	out  luigi.Sink
-	done func(func())
-	edp  muxrpc.Endpoint
+	bs      ssb.BlobStore
+	wmgr    *wantManager
+	out     *json.Encoder
+	outSink *muxrpc.ByteSink
+	done    func(func())
+	edp     muxrpc.Endpoint
 
 	l           sync.Mutex
 	remoteWants map[string]int64
@@ -372,7 +378,7 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 	}
 
 	m := map[string]int64{notif.Ref.Ref(): sz}
-	err = proc.out.Pour(ctx, m)
+	err = proc.out.Encode(m)
 	if err != nil {
 		return fmt.Errorf("errors pouring into sink: %w", err)
 	}
@@ -419,7 +425,7 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 
 	newW := WantMsg{w}
 	// dbg.Log("op", "sending want we now want", "wantCount", len(proc.wmgr.wants))
-	return proc.out.Pour(ctx, newW)
+	return proc.out.Encode(newW)
 }
 
 // GetWithSize is a muxrpc argument helper.
@@ -432,7 +438,7 @@ type GetWithSize struct {
 func (proc *wantProc) Close() error {
 	// TODO: unwant open wants
 	defer proc.done(nil)
-	if err := proc.out.Close(); err != nil {
+	if err := proc.outSink.Close(); err != nil {
 		return fmt.Errorf("error in lower-layer close: %w", err)
 	}
 	return nil
@@ -442,10 +448,13 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "createWants.In")
 
-	mIn := v.(*WantMsg)
+	mIn, ok := v.(WantMsg)
+	if !ok {
+		return fmt.Errorf("wantProc: unexpected type %T", v)
+	}
 	mOut := make(map[string]int64)
 
-	for _, w := range *mIn {
+	for _, w := range mIn {
 		if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
 			continue
 		}
@@ -497,7 +506,7 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		return nil
 	}
 
-	err := proc.out.Pour(ctx, mOut)
+	err := proc.out.Encode(mOut)
 	if err != nil {
 		return fmt.Errorf("error responding to wants: %w", err)
 	}

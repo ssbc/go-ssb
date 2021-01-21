@@ -59,7 +59,6 @@ func TestBlobsPair(t *testing.T) {
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(ali))
 
 	bobLog := log.With(info, "peer", "bob")
@@ -111,13 +110,17 @@ func TestBlobsPair(t *testing.T) {
 	aliCT.CloseAll()
 	bobCT.CloseAll()
 	i := 0
-	for aliCT.Count() != 0 || bobCT.Count() != 0 {
+	an := aliCT.Count()
+	bn := bobCT.Count()
+	for an != 0 || bn != 0 {
 		time.Sleep(750 * time.Millisecond)
-		info.Log("XXXX", "waited after close", "i", i, "a", aliCT.Count(), "b", bobCT.Count())
+		info.Log("event", "waited after close", "i", i, "a", an, "b", bn)
 		i++
 		if i > 10 {
 			t.Fatal("retried waiting for close")
 		}
+		an = aliCT.Count()
+		bn = bobCT.Count()
 	}
 
 	// disconnect and reconnect

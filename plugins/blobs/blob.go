@@ -10,7 +10,6 @@ import (
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
@@ -67,10 +66,12 @@ func New(log logging.Interface, self refs.FeedRef, bs ssb.BlobStore, wm ssb.Want
 			log: log,
 			bs:  bs,
 		}},
+
 		{muxrpc.Method{"blobs", "has"}, hasHandler{
 			log: log,
 			bs:  bs,
 		}},
+
 		{muxrpc.Method{"blobs", "size"}, sizeHandler{
 			log: log,
 			bs:  bs,
@@ -80,12 +81,13 @@ func New(log logging.Interface, self refs.FeedRef, bs ssb.BlobStore, wm ssb.Want
 			log: log,
 			wm:  wm,
 		}},
+
 		{muxrpc.Method{"blobs", "createWants"}, &createWantsHandler{
 			log:     log,
 			self:    self,
 			bs:      bs,
 			wm:      wm,
-			sources: make(map[string]luigi.Source),
+			sources: make(map[string]*muxrpc.ByteSource),
 		}},
 	}
 	rootHdlr.RegisterAll(hs...)

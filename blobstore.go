@@ -9,6 +9,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -54,7 +55,7 @@ type WantManager interface {
 	Wants(ref *refs.BlobRef) bool
 	WantWithDist(ref *refs.BlobRef, dist int64) error
 	//Unwant(ref *refs.BlobRef) error
-	CreateWants(context.Context, luigi.Sink, muxrpc.Endpoint) luigi.Sink
+	CreateWants(context.Context, *muxrpc.ByteSink, muxrpc.Endpoint) luigi.Sink
 
 	AllWants() []BlobWant
 }
