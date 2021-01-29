@@ -4,14 +4,9 @@ package luigiutils
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
-
-	"go.cryptoscope.co/ssb/internal/neterr"
 )
 
 // MultiSink takes each message poured into it, and passes it on to all
@@ -75,22 +70,18 @@ func (f *MultiSink) Close() error {
 	return nil
 }
 
-func (f *MultiSink) Send(msg []byte) error {
+func (f *MultiSink) Send(msg []byte) {
 	if f.isClosed {
-		return luigi.EOS{}
+		return
 	}
 	f.seq++
 
 	var deadFeeds []*muxrpc.ByteSink
 
-	for i, s := range f.sinks {
+	for _, s := range f.sinks {
 		_, err := s.Write(msg)
 		if err != nil {
-			if muxrpc.IsSinkClosed(err) || errors.Is(err, context.Canceled) || neterr.IsConnBrokenErr(err) {
-				deadFeeds = append(deadFeeds, s)
-				continue
-			}
-			return fmt.Errorf("MultiSink: failed to pour into sink #%d: %w", i, err)
+			deadFeeds = append(deadFeeds, s)
 		}
 		if f.until[s] <= f.seq {
 			deadFeeds = append(deadFeeds, s)
@@ -100,6 +91,4 @@ func (f *MultiSink) Send(msg []byte) error {
 	for _, feed := range deadFeeds {
 		f.Unregister(feed)
 	}
-
-	return nil
 }
