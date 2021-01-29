@@ -41,7 +41,7 @@ type createArguments struct {
 
 func (h createHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	if req.Method.String() != "invite.create" {
 		req.CloseWithError(fmt.Errorf("unknown method"))
 		return

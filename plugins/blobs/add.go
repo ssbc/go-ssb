@@ -20,10 +20,10 @@ type addHandler struct {
 
 func (addHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h addHandler) HandleAsync(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	// TODO: push manifest check into muxrpc
 
-	src, err := req.GetResponseSource()
+	src, err := req.ResponseSource()
 	if err != nil {
 		err = fmt.Errorf("add: couldn't get source: %w", err)
 		checkAndLog(h.log, err)

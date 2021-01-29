@@ -21,7 +21,7 @@ type getMessagesOfTypeHandler struct {
 	bytype *roaring.MultiLog
 }
 
-func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	var args []struct {
 		ID *refs.FeedRef
 

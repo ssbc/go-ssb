@@ -44,7 +44,7 @@ type replicateHandler struct {
 
 func (g replicateHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	if len(req.Method) < 2 && req.Method[1] != "upto" {
 		req.CloseWithError(fmt.Errorf("invalid method"))
 		return

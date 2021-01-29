@@ -26,7 +26,7 @@ func (lt Plugin) Handler() muxrpc.Handler { return lt }
 
 func (g Plugin) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (g Plugin) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g Plugin) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	s, err := g.status.Status()
 	if err != nil {
 		log.Println("statusErr", err)

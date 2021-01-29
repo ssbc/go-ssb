@@ -46,7 +46,7 @@ type seqStreamHandler struct {
 func (g seqStreamHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
-func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	fmt.Fprintln(os.Stderr, "seqStream args:", string(req.RawArgs))
 	// if len(req.Args()) != 1 {
 	// 	goon.Dump(req.RawArgs)

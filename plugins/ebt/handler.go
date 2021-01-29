@@ -54,7 +54,7 @@ func (h *MUXRPCHandler) check(err error) {
 func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 // HandleCall handles the server side (getting called by client)
-func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	checkAndClose := func(err error) {
 		h.check(err)
 		if err != nil {
@@ -92,20 +92,19 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp
 	level.Debug(h.info).Log("event", "replicating", "version", args[0].Version)
 
 	// get writer and reader from duplex call
-	snk, err := req.GetResponseSink()
+	snk, err := req.ResponseSink()
 	if err != nil {
 		checkAndClose(err)
 		return
 	}
 
-	src, err := req.GetResponseSource()
+	src, err := req.ResponseSource()
 	if err != nil {
 		checkAndClose(err)
 		return
 	}
 
-	remoteAddr := edp.Remote()
-	h.Loop(ctx, snk, src, remoteAddr)
+	h.Loop(ctx, snk, src, req.RemoteAddr())
 }
 
 func (h *MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {

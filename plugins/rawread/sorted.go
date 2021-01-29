@@ -47,7 +47,7 @@ func (lt sortedPlug) Name() string            { return "createFeedStream" }
 func (sortedPlug) Method() muxrpc.Method      { return muxrpc.Method{"createFeedStream"} }
 func (lt sortedPlug) Handler() muxrpc.Handler { return lt.h }
 
-func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	start := time.Now()
 	var qry message.CreateLogArgs
 	if len(req.Args()) == 1 {

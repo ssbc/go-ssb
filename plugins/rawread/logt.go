@@ -73,7 +73,7 @@ func (lt Plugin) Name() string            { return "msgTypes" }
 func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType"} }
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
-func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink) error {
 	var qry message.MessagesByTypeArgs
 	var args []message.MessagesByTypeArgs
 
@@ -103,7 +103,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		}
 	}
 
-	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
 		return fmt.Errorf("failed to establish remote: %w", err)
 	}

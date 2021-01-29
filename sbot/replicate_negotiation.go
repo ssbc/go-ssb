@@ -66,7 +66,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	rn.ebt.Loop(ctx, tx, rx, remoteAddr)
 }
 
-func (rn replicateNegotiator) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (rn replicateNegotiator) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// noop - this handler only controls outgoing calls for replication
 }
 

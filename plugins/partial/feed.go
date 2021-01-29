@@ -19,7 +19,7 @@ type getFeedHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	var args []json.RawMessage
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
@@ -61,7 +61,7 @@ type getFeedReverseHandler struct {
 	fm *gossip.FeedManager
 }
 
-func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	var args []json.RawMessage
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {

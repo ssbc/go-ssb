@@ -19,7 +19,7 @@ type acceptHandler struct {
 
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	h.service.mu.Lock()
 	defer h.service.mu.Unlock()
 	if req.Method.String() != "invite.use" {
@@ -41,7 +41,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	}
 	arg := args[0]
 
-	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	guestRef, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
 		req.CloseWithError(fmt.Errorf("no guest ref!?: %w", err))
 		return

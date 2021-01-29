@@ -14,9 +14,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type Plugin struct {
-	*MUXRPCHandler
-}
+type Plugin struct{ *MUXRPCHandler }
 
 func NewPlug(
 	i logging.Interface,

@@ -18,7 +18,7 @@ type hImagesFor struct {
 
 func (hImagesFor) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"

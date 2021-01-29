@@ -29,7 +29,7 @@ type handler struct {
 	mngr *private.Manager
 }
 
-func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	var closed bool
 	checkAndClose := func(err error) {
 		if err != nil {
@@ -159,7 +159,7 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 		return
 	}
 
-	snk, err := req.GetResponseSink()
+	snk, err := req.ResponseSink()
 	if err != nil {
 		req.CloseWithError(err)
 		return

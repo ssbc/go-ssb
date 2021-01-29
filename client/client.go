@@ -359,6 +359,6 @@ type noopHandler struct{ logger log.Logger }
 
 func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
-func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	req.CloseWithError(fmt.Errorf("go-ssb/client: unsupported call"))
 }

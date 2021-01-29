@@ -77,25 +77,17 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 	}
 }
 
-func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h *createWantsHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
+	edp := req.Endpoint()
+
 	src, err := h.getSource(ctx, edp)
 	if err != nil {
-		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
-		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
-		return
-	}
-
-	snk, err := req.GetResponseSink()
-	if err != nil {
-		level.Debug(h.log).Log("event", "onCall", "handler", "createWants", "getSourceErr", err)
-		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
-		return
+		return fmt.Errorf("failed to get source: %w", err)
 	}
 
 	updates := h.wm.CreateWants(ctx, snk, edp)
 	if updates == nil {
-		req.CloseWithError(fmt.Errorf("failed to get source: %w", err))
-		return
+		return fmt.Errorf("failed to get source: %w", err)
 	}
 
 	for src.Next(ctx) {
@@ -127,5 +119,5 @@ func (h *createWantsHandler) HandleCall(ctx context.Context, req *muxrpc.Request
 	delete(h.sources, edp.Remote().String())
 
 	snk.Close()
-	req.Stream.Close()
+	return nil
 }

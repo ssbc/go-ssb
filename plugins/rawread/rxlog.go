@@ -48,7 +48,7 @@ type rxLogHandler struct {
 func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 }
 
-func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
 	var qry message.CreateLogArgs
 	var args []message.CreateLogArgs
@@ -99,7 +99,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		return
 	}
 
-	snk, err := req.GetResponseSink()
+	snk, err := req.ResponseSink()
 	if err != nil {
 		req.CloseWithError(err)
 		return

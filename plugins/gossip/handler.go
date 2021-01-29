@@ -129,7 +129,6 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 func (g *LegacyGossip) HandleCall(
 	ctx context.Context,
 	req *muxrpc.Request,
-	edp muxrpc.Endpoint,
 ) {
 	if req.Type == "" {
 		req.Type = "async"
@@ -147,7 +146,7 @@ func (g *LegacyGossip) HandleCall(
 		req.Stream.Close()
 	}
 
-	snk, err := req.GetResponseSink()
+	snk, err := req.ResponseSink()
 	if err != nil {
 		errLog.Log("err", err)
 		req.CloseWithError(err)
@@ -178,7 +177,7 @@ func (g *LegacyGossip) HandleCall(
 			return
 		}
 
-		remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
+		remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 		if err != nil {
 			closeIfErr(fmt.Errorf("bad remote: %w", err))
 			return

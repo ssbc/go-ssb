@@ -73,7 +73,7 @@ type repliesHandler struct {
 	unboxer *private.Manager
 }
 
-func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink, edp muxrpc.Endpoint) error {
+func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	var qryarr []message.TanglesArgs
 	var qry message.TanglesArgs
 
@@ -103,7 +103,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		qry.Limit = -1
 	}
 
-	remote, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
 		return fmt.Errorf("failed to determain remote: %w", err)
 	}
