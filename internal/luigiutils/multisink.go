@@ -4,6 +4,7 @@ package luigiutils
 
 import (
 	"context"
+	"sync"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -14,7 +15,9 @@ import (
 //
 // MultiSink is like luigi.Broadcaster but with context support.
 type MultiSink struct {
-	seq   int64
+	seq int64
+
+	mu    sync.Mutex
 	sinks []*muxrpc.ByteSink
 	ctxs  map[*muxrpc.ByteSink]context.Context
 	until map[*muxrpc.ByteSink]int64
@@ -42,12 +45,22 @@ func (f *MultiSink) Register(
 	sink *muxrpc.ByteSink,
 	until int64,
 ) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.sinks = append(f.sinks, sink)
 	f.ctxs[sink] = ctx
 	f.until[sink] = until
 }
 
 func (f *MultiSink) Unregister(
+	sink *muxrpc.ByteSink,
+) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.unregister(sink)
+}
+
+func (f *MultiSink) unregister(
 	sink *muxrpc.ByteSink,
 ) {
 	for i, s := range f.sinks {
@@ -62,6 +75,8 @@ func (f *MultiSink) Unregister(
 
 // Count returns the number of registerd sinks
 func (f *MultiSink) Count() uint {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return uint(len(f.sinks))
 }
 
@@ -76,6 +91,9 @@ func (f *MultiSink) Send(msg []byte) {
 	}
 	f.seq++
 
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	var deadFeeds []*muxrpc.ByteSink
 
 	for _, s := range f.sinks {
@@ -89,6 +107,6 @@ func (f *MultiSink) Send(msg []byte) {
 	}
 
 	for _, feed := range deadFeeds {
-		f.Unregister(feed)
+		f.unregister(feed)
 	}
 }
