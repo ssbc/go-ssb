@@ -53,11 +53,11 @@ var (
 
 	flagDisableUNIXSock bool
 
-	listenAddr string
-	wsLisAddr  string
-	debugAddr  string
-	repoDir    string
-	dbgLogDir  string
+	repoDir     string
+	listenAddr  string
+	wsLisAddr   string
+	debugAddr   string
+	debugLogDir string
 
 	// helper
 	log        logging.Interface
@@ -95,7 +95,7 @@ func initFlags() {
 	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
 	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
 
-	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.StringVar(&listenAddr, "lis", ":8008", "address to listen on")
 	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
 
@@ -107,8 +107,8 @@ func initFlags() {
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
-	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
-	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
+	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
+	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
@@ -121,8 +121,8 @@ func initFlags() {
 
 	flag.Parse()
 
-	if dbgLogDir != "" {
-		logDir := filepath.Join(repoDir, dbgLogDir)
+	if debugLogDir != "" {
+		logDir := filepath.Join(repoDir, debugLogDir)
 		os.MkdirAll(logDir, 0700) // nearly everything is a log here so..
 		logFileName := fmt.Sprintf("%s-%s.log",
 			filepath.Base(os.Args[0]),
@@ -181,7 +181,7 @@ func runSbot() error {
 		opts = append(opts, mksbot.LateOption(mksbot.WithUNIXSocket()))
 	}
 
-	if dbgLogDir != "" {
+	if debugLogDir != "" {
 		opts = append(opts, mksbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			parts := strings.Split(conn.RemoteAddr().String(), "|")
 
@@ -191,7 +191,7 @@ func runSbot() error {
 
 			muxrpcDumpDir := filepath.Join(
 				repoDir,
-				dbgLogDir,
+				debugLogDir,
 				parts[1], // key first
 				parts[0],
 			)
