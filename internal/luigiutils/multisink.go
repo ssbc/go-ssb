@@ -15,14 +15,18 @@ import (
 //
 // MultiSink is like luigi.Broadcaster but with context support.
 type MultiSink struct {
-	seq int64
+	seq      int64
+	isClosed bool
 
 	mu    sync.Mutex
-	sinks []*muxrpc.ByteSink
-	ctxs  map[*muxrpc.ByteSink]context.Context
-	until map[*muxrpc.ByteSink]int64
+	sinks mapOfSinks
+}
 
-	isClosed bool
+type mapOfSinks map[*muxrpc.ByteSink]sinkContext
+
+type sinkContext struct {
+	ctx   context.Context
+	until int64
 }
 
 var _ margaret.Seq = (*MultiSink)(nil)
@@ -30,8 +34,7 @@ var _ margaret.Seq = (*MultiSink)(nil)
 func NewMultiSink(seq int64) *MultiSink {
 	return &MultiSink{
 		seq:   seq,
-		ctxs:  make(map[*muxrpc.ByteSink]context.Context),
-		until: make(map[*muxrpc.ByteSink]int64),
+		sinks: make(mapOfSinks),
 	}
 }
 
@@ -47,9 +50,10 @@ func (f *MultiSink) Register(
 ) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.sinks = append(f.sinks, sink)
-	f.ctxs[sink] = ctx
-	f.until[sink] = until
+	f.sinks[sink] = sinkContext{
+		ctx:   ctx,
+		until: until,
+	}
 }
 
 func (f *MultiSink) Unregister(
@@ -57,20 +61,7 @@ func (f *MultiSink) Unregister(
 ) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.unregister(sink)
-}
-
-func (f *MultiSink) unregister(
-	sink *muxrpc.ByteSink,
-) {
-	for i, s := range f.sinks {
-		if sink != s {
-			continue
-		}
-		f.sinks = append(f.sinks[:i], f.sinks[(i+1):]...)
-		delete(f.ctxs, sink)
-		delete(f.until, sink)
-	}
+	delete(f.sinks, sink)
 }
 
 // Count returns the number of registerd sinks
@@ -94,19 +85,11 @@ func (f *MultiSink) Send(msg []byte) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	var deadFeeds []*muxrpc.ByteSink
-
-	for _, s := range f.sinks {
+	for s, ctx := range f.sinks {
 		_, err := s.Write(msg)
-		if err != nil {
-			deadFeeds = append(deadFeeds, s)
+		if err != nil || ctx.until <= f.seq {
+			delete(f.sinks, s)
 		}
-		if f.until[s] <= f.seq {
-			deadFeeds = append(deadFeeds, s)
-		}
-	}
 
-	for _, feed := range deadFeeds {
-		f.unregister(feed)
 	}
 }
