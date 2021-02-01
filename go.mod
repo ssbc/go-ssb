@@ -29,7 +29,7 @@ require (
 	go.cryptoscope.co/librarian v0.2.1-0.20200604160012-d85e03a70e79
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
 	go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0
-	go.cryptoscope.co/muxrpc/v2 v2.0.0-20210201102350-3e60aec3131e
+	go.cryptoscope.co/muxrpc/v2 v2.0.0-20210201110246-6b708c77b871
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
@@ -53,4 +53,4 @@ require (
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
 
-//replace go.cryptoscope.co/muxrpc/v2 => /home/cryptix/go-repos/muxrpc
+// replace go.cryptoscope.co/muxrpc/v2 => /home/cryptix/go-repos/muxrpc
