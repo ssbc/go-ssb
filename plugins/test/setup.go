@@ -42,7 +42,7 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	return dstRepo, dstPath
 }
 
-func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
+func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Packer, *muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
 	keyAlice, err := repo.DefaultKeyPair(alice)
 	r.NoError(err, "error opening alice's key pair")

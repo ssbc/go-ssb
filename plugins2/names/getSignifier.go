@@ -15,26 +15,16 @@ type hGetSignifier struct {
 	log logging.Interface
 }
 
-func (hGetSignifier) HandleConnect(context.Context, muxrpc.Endpoint) {}
-
-func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
-
+func (h hGetSignifier) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 	ref, err := parseFeedRefFromArgs(req)
 	if err != nil {
-		checkAndLog(h.log, err)
-		req.CloseWithError(err)
-		return
+		return nil, err
 	}
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(fmt.Errorf("do not have about for: %s: %w", ref.Ref(), err))
-		checkAndLog(h.log, fmt.Errorf("error closing stream with error: %w", err))
-		return
+		return nil, fmt.Errorf("do not have about for: %s: %w", ref.Ref(), err)
+
 	}
 	var name = ai.Name.Chosen
 	if name == "" {
@@ -47,9 +37,5 @@ func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		}
 	}
 
-	err = req.Return(ctx, name)
-	if err != nil {
-		checkAndLog(h.log, fmt.Errorf("error returning all values: %w", err))
-	}
-	return
+	return name, nil
 }

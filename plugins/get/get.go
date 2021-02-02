@@ -39,6 +39,8 @@ type handler struct {
 	unboxer *private.Manager
 }
 
+func (handler) Handled(m muxrpc.Method) bool { return m.String() == "get" }
+
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {

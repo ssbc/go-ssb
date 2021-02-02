@@ -42,14 +42,11 @@ type replicateHandler struct {
 	users multilog.MultiLog
 }
 
+func (replicateHandler) Handled(m muxrpc.Method) bool { return m.String() == "replicate.upto" }
+
 func (g replicateHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g replicateHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	if len(req.Method) < 2 && req.Method[1] != "upto" {
-		req.CloseWithError(fmt.Errorf("invalid method"))
-		return
-	}
-
 	src, err := ssb.FeedsWithSequnce(g.users)
 	if err != nil {
 		req.CloseWithError(fmt.Errorf("replicate: did not get feed source: %w", err))

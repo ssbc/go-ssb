@@ -50,6 +50,8 @@ func (h *MUXRPCHandler) check(err error) {
 	}
 }
 
+func (MUXRPCHandler) Handled(m muxrpc.Method) bool { return m.String() == "ebt.replicate" }
+
 // HandleConnect does nothing. Feature negotiation is done by sbot
 func (h *MUXRPCHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
@@ -61,11 +63,6 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 			closeErr := req.CloseWithError(err)
 			h.check(fmt.Errorf("error closeing request %q: %w", req.Method, closeErr))
 		}
-	}
-
-	if req.Method.String() != "ebt.replicate" {
-		checkAndClose(fmt.Errorf("unknown command: %s", req.Method))
-		return
 	}
 
 	if req.Type != "duplex" {

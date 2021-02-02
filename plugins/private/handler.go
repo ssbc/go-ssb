@@ -29,6 +29,18 @@ type handler struct {
 	mngr *private.Manager
 }
 
+func (handler) Handled(m muxrpc.Method) bool {
+	if len(m) != 2 {
+		return false
+	}
+
+	if m[0] != "private" {
+		return false
+	}
+
+	return m[1] == "publish" || m[1] == "read"
+}
+
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	var closed bool
 	checkAndClose := func(err error) {

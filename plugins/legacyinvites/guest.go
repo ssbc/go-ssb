@@ -17,15 +17,13 @@ type acceptHandler struct {
 	service *Service
 }
 
+func (acceptHandler) Handled(m muxrpc.Method) bool { return m.String() == "invite.use" }
+
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	h.service.mu.Lock()
 	defer h.service.mu.Unlock()
-	if req.Method.String() != "invite.use" {
-		req.CloseWithError(fmt.Errorf("unknown method"))
-		return
-	}
 
 	// parse passed arguments
 	var args []struct {

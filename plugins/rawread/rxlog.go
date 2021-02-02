@@ -45,8 +45,9 @@ type rxLogHandler struct {
 	root margaret.Log
 }
 
-func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-}
+func (rxLogHandler) Handled(m muxrpc.Method) bool { return m.String() == "createLogStream" }
+
+func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))

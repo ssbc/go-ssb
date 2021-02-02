@@ -62,6 +62,8 @@ type LegacyGossip struct {
 	rootCtx context.Context
 }
 
+func (LegacyGossip) Handled(m muxrpc.Method) bool { return m.String() == "createHistoryStream" }
+
 // HandleConnect on this handler triggers legacy createHistoryStream replication.
 func (g *LegacyGossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	g.StartLegacyFetching(ctx, e, g.enableLiveStreaming)
@@ -236,9 +238,7 @@ func (g *LegacyGossip) HandleCall(
 		}
 		// don't close stream (feedManager will pass it on to live processing or close it itself)
 
-	case "tunnel.ping":
-		fallthrough
-
+	// TODO: move gossip.ping to it's own handler
 	case "gossip.ping":
 		snk.SetEncoding(muxrpc.TypeJSON)
 		ts := []byte(strconv.FormatInt(time.Now().UnixNano()/1000000, 10))

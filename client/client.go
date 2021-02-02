@@ -357,6 +357,8 @@ func (c Client) Tangles(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
 
 type noopHandler struct{ logger log.Logger }
 
+func (noopHandler) Handled(m muxrpc.Method) bool { return false }
+
 func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {

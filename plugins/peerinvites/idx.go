@@ -224,13 +224,13 @@ type handler struct {
 
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	if len(req.Args()) < 1 {
 		req.CloseWithError(fmt.Errorf("invalid arguments"))
 		return
 	}
 
-	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	guestRef, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
 		req.CloseWithError(fmt.Errorf("no guest ref: %w", err))
 		return

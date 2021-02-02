@@ -52,17 +52,11 @@ type handler struct {
 	id  *refs.FeedRef
 }
 
+func (handler) Handled(m muxrpc.Method) bool { return m.String() == "whoami" }
+
 func (handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
-	if req.Method.String() != "whoami" {
-		req.CloseWithError(fmt.Errorf("wrong method"))
-		return
-	}
 	type ret struct {
 		ID string `json:"id"`
 	}

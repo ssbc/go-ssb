@@ -16,50 +16,34 @@ type hImagesFor struct {
 	log logging.Interface
 }
 
-func (hImagesFor) HandleConnect(context.Context, muxrpc.Endpoint) {}
-
-func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
+func (h hImagesFor) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 
 	ref, err := parseFeedRefFromArgs(req)
 	if err != nil {
-		checkAndLog(h.log, err)
-		return
+		return nil, err
 	}
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(fmt.Errorf("do not have about for: %s", ref.Ref()))
-		checkAndLog(h.log, fmt.Errorf("error closing stream with error: %w", err))
-		return
+		return nil, fmt.Errorf("do not have about for: %s", ref.Ref())
 	}
+
 	if ai.Image.Chosen != "" {
-		err = req.Return(ctx, ai.Image.Chosen)
-		checkAndLog(h.log, fmt.Errorf("error returning chosen value: %w", err))
-		return
+		return ai.Image.Chosen, nil
 	}
-	var hottest string
+
+	// this is suboptimal, just got started but didnt finish
+	// ideal would take into account who your friends are, not everyone you see
+	var mostSet string
 	var most = 0
 	for v, cnt := range ai.Image.Prescribed {
 		if most > cnt {
 			most = cnt
-			hottest = v
+			mostSet = v
 		}
 	}
-	err = req.Return(ctx, hottest)
-	if err != nil {
-		checkAndLog(h.log, fmt.Errorf("error returning chosen value: %w", err))
-	}
-	return
-}
 
-func checkAndLog(log logging.Interface, err error) {
-	if err != nil {
-		log.Log("handlerErr", err)
-	}
+	return mostSet, nil
 }
 
 func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {

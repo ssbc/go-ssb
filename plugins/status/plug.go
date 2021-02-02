@@ -24,6 +24,8 @@ func (lt Plugin) Name() string            { return "status" }
 func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"status"} }
 func (lt Plugin) Handler() muxrpc.Handler { return lt }
 
+func (Plugin) Handled(m muxrpc.Method) bool { return m.String() == "status" }
+
 func (g Plugin) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g Plugin) HandleCall(ctx context.Context, req *muxrpc.Request) {

@@ -43,8 +43,9 @@ type seqStreamHandler struct {
 	root margaret.Log
 }
 
-func (g seqStreamHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-}
+func (seqStreamHandler) Handled(m muxrpc.Method) bool { return m.String() == "createSequenceStream" }
+
+func (g seqStreamHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (g seqStreamHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	fmt.Fprintln(os.Stderr, "seqStream args:", string(req.RawArgs))

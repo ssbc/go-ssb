@@ -5,6 +5,7 @@ package private_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -82,21 +83,23 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		src, err := c.PrivateRead()
 		r.NoError(err, "failed to open private stream")
 
-		v, err := src.Next(context.TODO())
+		more := src.Next(context.TODO())
+		r.True(more, "expected to get a message")
+
+		var savedMsg refs.KeyValueRaw
+		rawMsg, err := src.Bytes()
 		r.NoError(err, "failed to get msg")
+		err = json.Unmarshal(rawMsg, &savedMsg)
+		r.NoError(err, "failed to unnpack msg")
 
-		savedMsg, ok := v.(refs.Message)
-		r.True(ok, "wrong type: %T", v)
-		if !a.Equal(savedMsg.Key().Ref(), ref.Ref()) {
-
+		if !a.True(savedMsg.Key().Equal(ref)) {
 			whoops, err := srv.Get(*ref)
 			r.NoError(err)
 			t.Log(string(whoops.ContentBytes()))
 		}
 
-		v, err = src.Next(context.TODO())
-		r.Error(err)
-		r.True(errors.Is(err, luigi.EOS{}))
+		more = src.Next(context.TODO())
+		r.False(more)
 
 		// try with seqwrapped query
 		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
@@ -107,20 +110,20 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 
 		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)
 
-		src, err = unboxlog.Query(margaret.SeqWrap(true))
+		lsrc, err := unboxlog.Query(margaret.SeqWrap(true))
 		r.NoError(err)
 
-		v, err = src.Next(context.TODO())
+		v, err := lsrc.Next(context.TODO())
 		r.NoError(err, "failed to get msg")
 
 		sw, ok := v.(margaret.SeqWrapper)
 		r.True(ok, "wrong type: %T", v)
 		wrappedVal := sw.Value()
-		savedMsg, ok = wrappedVal.(refs.Message)
+		wrappedMsg, ok := wrappedVal.(refs.Message)
 		r.True(ok, "wrong type: %T", wrappedVal)
-		r.Equal(savedMsg.Key().Ref(), ref.Ref())
+		r.Equal(wrappedMsg.Key().Ref(), ref.Ref())
 
-		v, err = src.Next(context.TODO())
+		v, err = lsrc.Next(context.TODO())
 		r.Error(err)
 		r.True(errors.Is(err, luigi.EOS{}))
 

@@ -3,6 +3,7 @@
 package blobstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	mmock "go.cryptoscope.co/muxrpc/v2/mock"
 	"go.cryptoscope.co/ssb"
@@ -123,8 +123,12 @@ func TestWantManager(t *testing.T) {
 				wmsg = append(wmsg, ssb.BlobWant{Ref: ref, Dist: dist})
 			}
 
-			var outSlice []interface{}
-			out := luigi.NewSliceSink(&outSlice)
+			// var outSlice []interface{}
+			// out := luigi.NewSliceSink(&outSlice)
+
+			var outBuf bytes.Buffer
+			out := muxrpc.NewTestSink(&outBuf)
+
 			ctx := context.Background()
 			edp := &mmock.FakeEndpoint{
 				SourceStub: func(ctx context.Context, enc muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (*muxrpc.ByteSource, error) {

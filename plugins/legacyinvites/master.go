@@ -39,14 +39,11 @@ type createArguments struct {
 	Note string `json:"note,omitempty"`
 }
 
+func (createHandler) Handled(m muxrpc.Method) bool { return m.String() == "invite.create" }
+
 func (h createHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	if req.Method.String() != "invite.create" {
-		req.CloseWithError(fmt.Errorf("unknown method"))
-		return
-	}
-
 	// parse passed arguments
 	var args createArguments
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
