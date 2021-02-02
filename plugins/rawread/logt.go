@@ -46,7 +46,8 @@ func NewByTypePlugin(
 	ml *roaring.MultiLog,
 	pl *roaring.MultiLog,
 	pm *private.Manager,
-	res *repo.SequenceResolver,
+	// TODO[major/pgroups] fix storage and resumption
+	// res *repo.SequenceResolver,
 	isSelf ssb.Authorizer,
 ) ssb.Plugin {
 	plug := &Plugin{
@@ -57,7 +58,8 @@ func NewByTypePlugin(
 
 		unboxer: pm,
 
-		res: res,
+		// TODO[major/pgroups] fix storage and resumption
+		// res: res,
 
 		isSelf: isSelf,
 	}
@@ -121,7 +123,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	snk = newSinkCounter(&cnt, snk)
 
 	idxAddr := librarian.Addr("string:" + qry.Type)
-	if qry.Live {
+	if true { // TODO[major/pgroups] fix storage and resumption
 		if qry.Private {
 			return fmt.Errorf("TODO: fix live && private")
 		}
@@ -130,7 +132,9 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 			return fmt.Errorf("failed to load typed log: %w", err)
 		}
 
-		src, err := mutil.Indirect(g.rxlog, typed).Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
+		src, err := mutil.Indirect(g.rxlog, typed).Query(
+			margaret.Limit(int(qry.Limit)),
+			margaret.Live(qry.Live))
 		if err != nil {
 			return fmt.Errorf("logT: failed to qry tipe: %w", err)
 		}
@@ -146,6 +150,9 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		return snk.Close()
 	}
+	// TODO[major/pgroups] fix storage and resumption
+	// TODO: fix seq resolver filling hiccups
+	return snk.Close()
 
 	/* TODO: i'm skipping a fairly big refactor here to find out what works first.
 	   ideallly the live and not-live code would just be the same, somehow shoving it into Query(...).

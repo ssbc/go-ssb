@@ -196,11 +196,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.addCloser(sm)
 	s.ebtState = sm
 
-	s.SeqResolver, err = repo.NewSequenceResolver(r)
-	if err != nil {
-		return nil, fmt.Errorf("error opening sequence resolver: %w", err)
-	}
-	s.closers.addCloser(s.SeqResolver)
+	// TODO[major/pgroups] fix storage and resumption
+	// s.SeqResolver, err = repo.NewSequenceResolver(r)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error opening sequence resolver: %w", err)
+	// }
+	// s.closers.addCloser(s.SeqResolver)
 
 	// default multilogs
 	var mlogs = []struct {
@@ -279,7 +280,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.Groups,
 		s.KeyPair.Id,
 		s.ReceiveLog,
-		s.SeqResolver,
+		// s.SeqResolver, // TODO[major/pgroups] fix storage and resumption
 		s.Users,
 		s.Private,
 		s.ByType,
@@ -585,12 +586,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.ByType,
 		s.Private,
 		s.Groups,
-		s.SeqResolver,
+		// s.SeqResolver, // TODO[major/pgroups] fix storage and resumption
 		sc))
 	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
-	s.master.Register(rawread.NewRXLog(s.ReceiveLog))                               // createLogStream
-	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver)) // createLogStream
-	s.master.Register(hist)                                                         // createHistoryStream
+	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
+	// TODO[major/pgroups] fix storage and resumption
+	// s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver))
+	s.master.Register(hist) // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
 

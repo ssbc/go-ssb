@@ -11,15 +11,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/keks/persist"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/ssb"
 
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/multimsg"
@@ -38,7 +37,7 @@ func NewCombinedIndex(
 	box *private.Manager,
 	self *refs.FeedRef,
 	rxlog margaret.Log,
-	res *repo.SequenceResolver,
+	// res *repo.SequenceResolver, // TODO[major/pgroups] fix storage and resumption
 	u, p, bt, tan *roaring.MultiLog,
 	oh multilog.MultiLog,
 	sm *statematrix.StateMatrix,
@@ -67,8 +66,9 @@ func NewCombinedIndex(
 
 		ebtState: sm,
 
+		// TODO[major/pgroups] fix storage and resumption
 		// timestamp sorting
-		seqresolver: res,
+		// seqresolver: res,
 
 		// groups reindexing
 		rxlog:        rxlog,
@@ -95,7 +95,8 @@ type CombinedIndex struct {
 
 	orderdHelper multilog.MultiLog
 
-	seqresolver *repo.SequenceResolver
+	// TODO[major/pgroups] fix storage and resumption
+	// seqresolver *repo.SequenceResolver
 
 	ebtState *statematrix.StateMatrix
 
@@ -182,10 +183,11 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 
 	if isNulled, ok := v.(error); ok {
 		if margaret.IsErrNulled(isNulled) {
-			err = slog.seqresolver.Append(seq.Seq(), 0, time.Now(), time.Now())
-			if err != nil {
-				return fmt.Errorf("error updating sequence resolver (nulled message): %w", err)
-			}
+			// TODO[major/pgroups] fix storage and resumption
+			// err = slog.seqresolver.Append(seq.Seq(), 0, time.Now(), time.Now())
+			// if err != nil {
+			// 	return fmt.Errorf("error updating sequence resolver (nulled message): %w", err)
+			// }
 			return nil
 		}
 		return isNulled
@@ -200,10 +202,11 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 }
 
 func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
-	err := slog.seqresolver.Append(seq, msg.Seq(), msg.Claimed(), msg.Received())
-	if err != nil {
-		return fmt.Errorf("error updating sequence resolver: %w", err)
-	}
+	// TODO[major/pgroups] fix storage and resumption
+	// err := slog.seqresolver.Append(seq, msg.Seq(), msg.Claimed(), msg.Received())
+	// if err != nil {
+	// 	return fmt.Errorf("error updating sequence resolver: %w", err)
+	// }
 
 	author := msg.Author()
 
@@ -345,10 +348,11 @@ func (slog *CombinedIndex) QuerySpec() margaret.QuerySpec {
 		seq = margaret.SeqEmpty
 	}
 
-	if resN := slog.seqresolver.Seq() - 1; resN != seq.Seq() {
-		err := fmt.Errorf("combined idx (has:%d, will: %d)", resN, seq.Seq())
-		return margaret.ErrorQuerySpec(err)
-	}
+	// TODO[major/pgroups] fix storage and resumption
+	// if resN := slog.seqresolver.Seq() - 1; resN != seq.Seq() {
+	// 	err := fmt.Errorf("combined idx (has:%d, will: %d)", resN, seq.Seq())
+	// 	return margaret.ErrorQuerySpec(err)
+	// }
 
 	return margaret.MergeQuerySpec(
 		margaret.Gt(seq),
