@@ -1,12 +1,14 @@
+// Package invite contains functions for parsing invite codes and dialing a pub as a guest to redeem a token.
+// The muxrpc handlers and storage are found in plugins/legacyinvite.
 package invite
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	refs "go.mindeco.de/ssb-refs"
@@ -19,13 +21,13 @@ import (
 func Redeem(ctx context.Context, tok Token, longTerm *refs.FeedRef) error {
 	inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(tok.Seed[:]))
 	if err != nil {
-		return errors.Wrap(err, "invite: couldn't make keypair from seed")
+		return fmt.Errorf("invite: couldn't make keypair from seed: %w", err)
 	}
 
 	// now use the invite
 	inviteClient, err := client.NewTCP(inviteKeyPair, tok.Address, client.WithContext(ctx))
 	if err != nil {
-		return errors.Wrap(err, "invite: failed to establish guest-client connection")
+		return fmt.Errorf("invite: failed to establish guest-client connection: %w", err)
 	}
 
 	var ret refs.KeyValueRaw
@@ -33,16 +35,13 @@ func Redeem(ctx context.Context, tok Token, longTerm *refs.FeedRef) error {
 		Feed string `json:"feed"`
 	}{longTerm.Ref()}
 
-	inviteReply, err := inviteClient.Async(ctx, ret, muxrpc.Method{"invite", "use"}, param)
+	err = inviteClient.Async(ctx, &ret, muxrpc.TypeJSON, muxrpc.Method{"invite", "use"}, param)
 	if err != nil {
-		return errors.Wrap(err, "invite: invalid token")
+		return fmt.Errorf("invite: invalid token: %w", err)
 	}
-	msg, ok := inviteReply.(refs.Message)
-	if !ok {
-		return errors.Errorf("invite: reply was not a message")
-	}
-	if msg.Key() != nil {
-		log.Println("invite redeemed. Peer replied with msg", msg.Key().Ref())
+
+	if ret.Key() != nil {
+		log.Println("invite redeemed. Peer replied with msg", ret.Key().Ref())
 	} else {
 		log.Println("warning: peer replied with empty message")
 	}

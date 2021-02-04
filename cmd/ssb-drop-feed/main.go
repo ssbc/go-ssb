@@ -12,15 +12,14 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
-func check(err error) {
+func check(err error, msg string, args ...interface{}) {
 	if err != nil {
+		fmt.Printf(msg+"\n", args...)
 		fail(err)
 	}
 }
@@ -46,41 +45,41 @@ func main() {
 		for s.Scan() {
 			line := s.Text()
 			fr, err := refs.ParseFeedRef(line)
-			check(errors.Wrapf(err, "failed to parse %q argument", line))
+			check(err, "failed to parse %q argument", line)
 			inputRefs = append(inputRefs, fr)
 		}
-		check(errors.Wrap(s.Err(), "stdin scanner failed"))
+		check(s.Err(), "stdin scanner failed")
 	} else {
 
 		fr, err := refs.ParseFeedRef(os.Args[2])
-		check(errors.Wrap(err, "failed to parse feed argument"))
+		check(err, "failed to parse feed argument")
 		inputRefs = append(inputRefs, fr)
 	}
 
 	rmbot, err := sbot.New(
 		sbot.WithRepoPath(os.Args[1]),
 		sbot.WithUNIXSocket())
-	check(errors.Wrap(err, "failed to open bot"))
+	check(err, "failed to open bot")
 
 	for i, fr := range inputRefs {
 		start := time.Now()
 
 		err := rmbot.NullFeed(fr)
-		check(err)
+		check(err, "failed to null feed: %s", fr.Ref())
 		log.Printf("feed(%d) %s nulled (took %v)", i, fr.Ref(), time.Since(start))
 	}
 
 	rmbot.Shutdown()
 	err = rmbot.Close()
-	check(err)
+	check(err, "failed to close the bot")
 
 	start := time.Now()
 	err = sbot.DropIndicies(r)
-	check(err)
+	check(err, "failed to drop indexes")
 	log.Println("idexes dropped", time.Since(start))
 
 	start = time.Now()
 	err = sbot.RebuildIndicies(os.Args[1])
-	check(err)
+	check(err, "failed to rebuild indexes")
 	log.Println("idexes rebuilt", time.Since(start))
 }

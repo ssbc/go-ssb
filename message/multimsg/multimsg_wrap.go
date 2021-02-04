@@ -3,10 +3,10 @@
 package multimsg
 
 import (
+	"fmt"
 	"io"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
@@ -41,22 +41,9 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 
 	var mm MultiMessage
 
-	if osm, ok := val.(legacy.OldStoredMessage); ok {
-		mm.tipe = Legacy
-		mm.Message = &legacy.StoredMessage{
-			Author_:    osm.Author,
-			Previous_:  osm.Previous,
-			Key_:       osm.Key,
-			Sequence_:  osm.Sequence,
-			Timestamp_: osm.Timestamp,
-			Raw_:       osm.Raw,
-		}
-		return wl.AlterableLog.Append(mm)
-	}
-
 	abs, ok := val.(refs.Message)
 	if !ok {
-		return margaret.SeqEmpty, errors.Errorf("wrappedLog: not a refs.Message: %T", val)
+		return margaret.SeqEmpty, fmt.Errorf("wrappedLog: not a refs.Message: %T", val)
 	}
 
 	mm.key = abs.Key()
@@ -71,7 +58,7 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 		mm.Message = tv
 		mm.received = wl.receivedNow()
 	default:
-		return margaret.SeqEmpty, errors.Errorf("wrappedLog: unsupported message type: %T", val)
+		return margaret.SeqEmpty, fmt.Errorf("wrappedLog: unsupported message type: %T", val)
 	}
 
 	return wl.AlterableLog.Append(mm)

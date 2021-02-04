@@ -83,7 +83,7 @@ func main() {
 
 			seqsRoaring, ok := b[addr]
 			if !ok {
-				check(errors.Errorf("key not found in roaring map: %x\n", addr))
+				check(fmt.Errorf("key not found in roaring map: %x\n", addr))
 			}
 
 			nr := len(seqsRoaring)
@@ -149,7 +149,7 @@ func mapListOfAllSequencesByAddr(ml multilog.MultiLog) sequenceMap {
 		for i, v := range svs {
 			s, ok := v.(margaret.Seq)
 			if !ok {
-				check(errors.Errorf("wrong type from multilog: %T", v))
+				check(fmt.Errorf("wrong type from multilog: %T", v))
 			}
 			seqs[i] = s
 		}

@@ -1,20 +1,22 @@
+// Package legacyinvites supplies the follow-back sub protocol for new users. Translates to npm:ssb-invite.
 package legacyinvites
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 	"modernc.org/kv"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/invite"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -48,7 +50,7 @@ func (s *Service) Authorize(to *refs.FeedRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	kvKey := []byte(to.StoredAddr())
+	kvKey := []byte(storedrefs.Feed(to))
 
 	if err := s.kv.BeginTransaction(); err != nil {
 		return err
@@ -91,7 +93,7 @@ func New(
 ) (*Service, error) {
 	kv, err := repo.OpenMKV(r.GetPath("plugin", "legacyinvites"))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open key-value database")
+		return nil, fmt.Errorf("failed to open key-value database: %w", err)
 	}
 
 	return &Service{
@@ -129,7 +131,7 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 			return nil, fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
 		}
 
-		has, err := s.kv.Get(nil, []byte(inviteKeyPair.Id.StoredAddr()))
+		has, err := s.kv.Get(nil, []byte(storedrefs.Feed(inviteKeyPair.Id)))
 		if err != nil {
 			s.kv.Rollback()
 			return nil, fmt.Errorf("invite/create: failed to probe new key (%w)", err)
@@ -151,7 +153,7 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 		return nil, fmt.Errorf("invite/create: failed to marshal state data (%w)", err)
 	}
 
-	err = s.kv.Set([]byte(seedRef.StoredAddr()), data)
+	err = s.kv.Set([]byte(storedrefs.Feed(seedRef)), data)
 	if err != nil {
 		s.kv.Rollback()
 		return nil, fmt.Errorf("invite/create: failed to store state data (%w)", err)

@@ -3,6 +3,8 @@ package client_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,8 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
@@ -67,7 +68,10 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var msgs []*refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
-		ref, err := c.Publish(struct{ I int }{i})
+		ref, err := c.Publish(struct {
+			Type string `json:"type"`
+			Test int
+		}{"test", i})
 		r.NoError(err)
 		r.NotNil(ref)
 		msgs = append(msgs, ref)
@@ -77,49 +81,49 @@ func TestAskForSomethingWeird(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = refs.KeyValueRaw{}
+	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
 
 	i := 0
 	for {
-		v, err := src.Next(ctx)
-		if err != nil {
-			if luigi.IsEOS(err) {
-				break
-			}
-			r.NoError(err)
+		if !src.Next(ctx) {
+			t.Log("hist stream ended", i)
+			break
 		}
-		r.NotNil(v)
 
-		if i == 5 {
+		if i == 5 { // why after 5? - iirc its just somehwere inbetween the open stream
+			t.Error("TODO: add tests to muxrpc for CallError")
+			return
 			var o message.CreateHistArgs
 			o.ID = &refs.FeedRef{
 				Algo: "wrong",
 				ID:   bytes.Repeat([]byte("nope"), 8),
 			}
 			o.Keys = true
-			o.MarshalType = refs.KeyValueRaw{}
+
 			// starting the call works (although our lib could check that the ref is wrong, too)
 			src, err := c.CreateHistoryStream(o)
 			a.NoError(err)
 			a.NotNil(src)
-			v, err := src.Next(ctx)
-			a.Nil(v, "did not expect value from source: %T", v)
-			a.Error(err)
-			ce := errors.Cause(err)
+			a.False(src.Next(ctx))
+			ce := src.Err()
 			callErr, ok := ce.(*muxrpc.CallError)
 			r.True(ok, "not a call err: %T", ce)
 			t.Log(callErr)
 		}
 
-		msg, ok := v.(refs.Message)
-		r.True(ok, "%d: wrong type: %T", i, v)
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
+		r.NoError(err)
 
-		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
+	r.NoError(src.Err())
 	r.Equal(msgCount, i, "did not get all messages")
 
 	a.NoError(c.Close())

@@ -9,8 +9,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
@@ -20,7 +18,7 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrap(err, "message Encode: unexpected error from Token()")
+			return fmt.Errorf("message Encode: unexpected error from Token(): %w", err)
 		}
 		switch v := t.(type) {
 
@@ -38,16 +36,16 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 				fmt.Fprint(b, strings.Repeat("  ", depth))
 				fmt.Fprint(b, "{\n")
 				if err := formatObject(depth+1, b, dec); err != nil {
-					return errors.Wrapf(err, "formatArray(%d): decend failed", depth)
+					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
 				}
 			case '[':
 				fmt.Fprint(b, strings.Repeat("  ", depth))
 				fmt.Fprint(b, "[\n")
 				if err := formatArray(depth+1, b, dec); err != nil {
-					return errors.Wrapf(err, "formatArray(%d): decend failed", depth)
+					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
 				}
 			default:
-				return errors.Errorf("formatArray(%d): unexpected token: %v", depth, v)
+				return fmt.Errorf("formatArray(%d): unexpected token: %v", depth, v)
 			}
 
 		case string:
@@ -89,7 +87,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrap(err, "message Encode: unexpected error from Token()")
+			return fmt.Errorf("message Encode: unexpected error from Token(): %w", err)
 		}
 		switch v := t.(type) {
 
@@ -115,7 +113,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 					d = 1
 				}
 				if err := formatObject(d, b, dec); err != nil {
-					return errors.Wrapf(err, "formatObject(%d):decend failed", depth)
+					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
 				}
 				isKey = true
 			case '[':
@@ -130,11 +128,11 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 					d = 1
 				}
 				if err := formatArray(d, b, dec); err != nil {
-					return errors.Wrapf(err, "formatObject(%d):decend failed", depth)
+					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
 				}
 				isKey = true
 			default:
-				return errors.Errorf("formatObject(%d): unexpected token: %v", depth, v)
+				return fmt.Errorf("formatObject(%d): unexpected token: %v", depth, v)
 			}
 
 		case string:
@@ -194,14 +192,14 @@ func EncodePreserveOrder(b []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	t, err := dec.Token()
 	if err != nil {
-		return nil, errors.Wrap(err, "message Encode: expected {")
+		return nil, fmt.Errorf("message Encode: expected {: %w", err)
 	}
 	if v, ok := t.(json.Delim); !ok || v != '{' {
-		return nil, errors.Wrapf(err, "message Encode: wanted { got %v", t)
+		return nil, fmt.Errorf("message Encode: wanted { got %v: %w", t, err)
 	}
 	fmt.Fprint(&buf, "{\n")
 	if err := formatObject(1, &buf, dec); err != nil {
-		return nil, errors.Wrap(err, "message Encode: failed to format message as object")
+		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
 	}
 	return bytes.Trim(buf.Bytes(), "\n"), nil
 }

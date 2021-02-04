@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 
+// Package client is a a simple muxrpc interface to common ssb methods, similar to npm:ssb-client
 package client
 
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,19 +14,16 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/whoami"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type Client struct {
@@ -43,7 +42,7 @@ func newClientWithOptions(opts []Option) (*Client, error) {
 	for i, o := range opts {
 		err := o(&c)
 		if err != nil {
-			return nil, errors.Wrapf(err, "client: option #%d failed", i)
+			return nil, fmt.Errorf("client: option #%d failed: %w", i, err)
 		}
 	}
 
@@ -62,7 +61,7 @@ func newClientWithOptions(opts []Option) (*Client, error) {
 		var err error
 		c.appKeyBytes, err = base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
 		if err != nil {
-			return nil, errors.Wrapf(err, "client: failed to decode default app key")
+			return nil, fmt.Errorf("client: failed to decode default app key: %w", err)
 		}
 	}
 
@@ -74,7 +73,7 @@ func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	panic("TODO: is server?")
 	c.Endpoint = edp
 	return c, nil
 }
@@ -87,7 +86,7 @@ func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) 
 
 	shsClient, err := secretstream.NewClient(own.Pair, c.appKeyBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: error creating secretstream.Client")
+		return nil, fmt.Errorf("ssbClient: error creating secretstream.Client: %w", err)
 	}
 
 	// todo: would be nice if netwrap could handle these two steps
@@ -106,22 +105,26 @@ func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) 
 
 	conn, err := netwrap.Dial(netwrap.GetAddr(remote, "tcp"), shsClient.ConnWrapper(pubKey))
 	if err != nil {
-		return nil, errors.Wrap(err, "error dialing")
+		return nil, fmt.Errorf("error dialing: %w", err)
 	}
 	c.closer = conn
 
 	h := whoami.New(c.logger, own.Id).Handler()
 
-	c.Endpoint = muxrpc.HandleWithRemote(muxrpc.NewPacker(conn), h, conn.RemoteAddr())
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), h,
+		muxrpc.WithIsServer(true),
+		muxrpc.WithContext(c.rootCtx),
+		muxrpc.WithRemoteAddr(conn.RemoteAddr()),
+	)
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
 		conn.Close()
-		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
+		return nil, fmt.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
 	go func() {
-		err := srv.Serve(c.rootCtx)
+		err := srv.Serve()
 		if err != nil {
 			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
 		}
@@ -139,7 +142,7 @@ func NewUnix(path string, opts ...Option) (*Client, error) {
 
 	conn, err := net.Dial("unix", path)
 	if err != nil {
-		return nil, errors.Errorf("ssbClient: failed to open unix path %q", path)
+		return nil, fmt.Errorf("ssbClient: failed to open unix path %q", path)
 	}
 	c.closer = conn
 
@@ -147,16 +150,19 @@ func NewUnix(path string, opts ...Option) (*Client, error) {
 		logger: c.logger,
 	}
 
-	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h)
+	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), &h,
+		muxrpc.WithIsServer(true),
+		muxrpc.WithContext(c.rootCtx),
+	)
 
 	srv, ok := c.Endpoint.(muxrpc.Server)
 	if !ok {
 		conn.Close()
-		return nil, errors.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
+		return nil, fmt.Errorf("ssbClient: failed to cast handler to muxrpc server (has type: %T)", c.Endpoint)
 	}
 
 	go func() {
-		err := srv.Serve(c.rootCtx)
+		err := srv.Serve()
 		if err != nil {
 			level.Warn(c.logger).Log("event", "muxrpc.Serve exited", "err", err)
 		}
@@ -174,47 +180,48 @@ func (c Client) Close() error {
 }
 
 func (c Client) Whoami() (*refs.FeedRef, error) {
-	v, err := c.Async(c.rootCtx, message.WhoamiReply{}, muxrpc.Method{"whoami"})
+	var resp message.WhoamiReply
+	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"whoami"})
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: whoami failed")
-	}
-	resp, ok := v.(message.WhoamiReply)
-	if !ok {
-		return nil, errors.Errorf("ssbClient: wrong response type: %T", v)
+		return nil, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
 	return resp.ID, nil
 }
 
-func (c Client) ReplicateUpTo() (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, ssb.ReplicateUpToResponse{}, muxrpc.Method{"replicate", "upto"})
-	return src, errors.Wrap(err, "ssbClient: failed to create stream")
+func (c Client) ReplicateUpTo() (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"replicate", "upto"})
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient: failed to create stream: %w", err)
+	}
+	return src, nil
 }
 
 func (c Client) BlobsWant(ref refs.BlobRef) error {
 	var v interface{}
-	v, err := c.Async(c.rootCtx, v, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	err := c.Async(c.rootCtx, &v, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
-		return errors.Wrap(err, "ssbClient: blobs.want failed")
+		return fmt.Errorf("ssbClient: blobs.want failed: %w", err)
 	}
 	c.logger.Log("blob", "wanted", "v", v, "ref", ref.Ref())
 	return nil
 }
 
 func (c Client) BlobsHas(ref *refs.BlobRef) (bool, error) {
-	v, err := c.Async(c.rootCtx, true, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	var has bool
+	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
-		return false, errors.Wrap(err, "ssbClient: whoami failed")
+		return false, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
-	c.logger.Log("blob", "has", "v", v, "ref", ref.Ref())
-	return v.(bool), nil
+	c.logger.Log("blob", "has", "has", has, "ref", ref.Ref())
+	return has, nil
 
 }
 
 func (c Client) BlobsGet(ref *refs.BlobRef) (io.Reader, error) {
 	args := blobstore.GetWithSize{Key: ref, Max: blobstore.DefaultMaxSize}
-	v, err := c.Source(c.rootCtx, codec.Body{}, muxrpc.Method{"blobs", "get"}, args)
+	v, err := c.Source(c.rootCtx, 0, muxrpc.Method{"blobs", "get"}, args)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: blobs.get failed")
+		return nil, fmt.Errorf("ssbClient: blobs.get failed: %w", err)
 	}
 	c.logger.Log("blob", "got", "ref", ref.Ref())
 
@@ -245,107 +252,115 @@ func (ngr NamesGetResult) GetCommonName(feed *refs.FeedRef) (string, bool) {
 }
 
 func (c Client) NamesGet() (NamesGetResult, error) {
-	v, err := c.Async(c.rootCtx, NamesGetResult{}, muxrpc.Method{"names", "get"})
+	var res NamesGetResult
+	err := c.Async(c.rootCtx, &res, muxrpc.TypeJSON, muxrpc.Method{"names", "get"})
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: names.get failed")
+		return nil, fmt.Errorf("ssbClient: names.get failed: %w", err)
 	}
-	c.logger.Log("names", "get", "v", fmt.Sprintf("%T", v))
-	res := v.(NamesGetResult)
+	c.logger.Log("names", "get", "cnt", len(res))
 	return res, nil
 }
 
 func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
-	var v interface{}
-	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getSignifier"}, ref.Ref())
+	var name string
+	err := c.Async(c.rootCtx, &name, muxrpc.TypeJSON, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
 	if err != nil {
-		return "", errors.Wrap(err, "ssbClient: names.getSignifier failed")
+		return "", fmt.Errorf("ssbClient: names.getSignifier failed: %w", err)
 	}
-	c.logger.Log("names", "getSignifier", "v", v, "ref", ref.Ref())
-	return v.(string), nil
+	c.logger.Log("names", "getSignifier", "name", name, "ref", ref.Ref())
+	return name, nil
 }
 
 func (c Client) NamesImageFor(ref refs.FeedRef) (*refs.BlobRef, error) {
-	var v interface{}
-	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"names", "getImageFor"}, ref.Ref())
+	var blobRef string
+	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeJSON, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: names.getImageFor failed")
+		return nil, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
 	}
-	c.logger.Log("names", "getImageFor", "v", v, "ref", ref.Ref())
-	blobRef := v.(string)
-	if blobRef == "" {
-		return nil, errors.Errorf("no image for feed")
-	}
+	c.logger.Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
 	return refs.ParseBlobRef(blobRef)
 }
 
 func (c Client) Publish(v interface{}) (*refs.MessageRef, error) {
-	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"publish"}, v)
+	var resp string
+	err := c.Async(c.rootCtx, &resp, muxrpc.TypeString, muxrpc.Method{"publish"}, v)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: publish call failed")
-	}
-	resp, ok := v.(string)
-	if !ok {
-		return nil, errors.Errorf("ssbClient: wrong reply type: %T", v)
+		return nil, fmt.Errorf("ssbClient: publish call failed: %w", err)
 	}
 	msgRef, err := refs.ParseMessageRef(resp)
-	return msgRef, errors.Wrap(err, "failed to parse new message reference")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse new message reference: %w", err)
+	}
+	return msgRef, nil
 }
 
 func (c Client) PrivatePublish(v interface{}, recps ...*refs.FeedRef) (*refs.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
 		if ref == nil {
-			return nil, errors.Errorf("ssbClient: bad call - recp%d is nil", i)
+			return nil, fmt.Errorf("ssbClient: bad call - recp%d is nil", i)
 		}
 		recpRefs[i] = ref.Ref()
 	}
-	v, err := c.Async(c.rootCtx, "str", muxrpc.Method{"private", "publish"}, v, recpRefs)
+	var resp string
+	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"private", "publish"}, v, recpRefs)
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: private.publish call failed")
-	}
-	resp, ok := v.(string)
-	if !ok {
-		return nil, errors.Errorf("ssbClient: wrong reply type: %T", v)
+		return nil, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
 	}
 	msgRef, err := refs.ParseMessageRef(resp)
-	return msgRef, errors.Wrapf(err, "failed to parse new message reference: %q", resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse new message reference (%q): %w", resp, err)
+	}
+
+	return msgRef, nil
 }
 
-func (c Client) PrivateRead() (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, refs.KeyValueRaw{}, muxrpc.Method{"private", "read"})
+func (c Client) PrivateRead() (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"private", "read"})
 	if err != nil {
-		return nil, errors.Wrap(err, "ssbClient: private.read query failed")
+		return nil, fmt.Errorf("ssbClient: private.read query failed: %w", err)
 	}
 	return src, nil
 }
 
-func (c Client) CreateLogStream(opts message.CreateLogArgs) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"createLogStream"}, opts)
-	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
+func (c Client) CreateLogStream(o message.CreateLogArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"createLogStream"}, o)
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient: failed to create stream: %w", err)
+	}
+	return src, nil
 }
 
-func (c Client) CreateHistoryStream(o message.CreateHistArgs) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"createHistoryStream"}, o)
-	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", o)
+func (c Client) CreateHistoryStream(o message.CreateHistArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"createHistoryStream"}, o)
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient: failed to create stream (%T): %w", o, err)
+	}
+	return src, nil
 }
 
-func (c Client) MessagesByType(opts message.MessagesByTypeArgs) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, opts.MarshalType, muxrpc.Method{"messagesByType"}, opts)
-	return src, errors.Wrapf(err, "ssbClient: failed to create stream (%T)", opts)
+func (c Client) MessagesByType(o message.MessagesByTypeArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"messagesByType"}, o)
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient: failed to create stream (%T): %w", o, err)
+	}
+	return src, nil
 }
 
-func (c Client) Tangles(o message.TanglesArgs) (luigi.Source, error) {
-	src, err := c.Source(c.rootCtx, o.MarshalType, muxrpc.Method{"tangles"}, o)
-	return src, errors.Wrap(err, "ssbClient/tangles: failed to create stream")
+func (c Client) Tangles(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "replies"}, o)
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient/tangles: failed to create stream: %w", err)
+	}
+	return src, nil
 }
 
-type noopHandler struct {
-	logger log.Logger
-}
+type noopHandler struct{ logger log.Logger }
 
-func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {
-}
+func (noopHandler) Handled(m muxrpc.Method) bool { return false }
 
-func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	req.Stream.CloseWithError(fmt.Errorf("go-ssb/client: unsupported call"))
+func (h noopHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
+
+func (h noopHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
+	req.CloseWithError(fmt.Errorf("go-ssb/client: unsupported call"))
 }

@@ -4,11 +4,11 @@ package blobs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
 )
@@ -20,15 +20,25 @@ type addHandler struct {
 
 func (addHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h addHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h addHandler) HandleAsync(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
 	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "sink"
+
+	src, err := req.ResponseSource()
+	if err != nil {
+		err = fmt.Errorf("add: couldn't get source: %w", err)
+		checkAndLog(h.log, err)
+		req.CloseWithError(err)
+		return
 	}
 
-	r := muxrpc.NewSourceReader(req.Stream)
+	r := muxrpc.NewSourceReader(src)
 	ref, err := h.bs.Put(r)
-	checkAndLog(h.log, errors.Wrap(err, "error putting blob"))
+	if err != nil {
+		err = fmt.Errorf("error putting blob: %w", err)
+		checkAndLog(h.log, err)
+		req.CloseWithError(err)
+		return
+	}
 
 	req.Return(ctx, ref)
 }

@@ -4,119 +4,244 @@ package rawread
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
+	"os"
 
+	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pkg/errors"
+	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.cryptoscope.co/muxrpc/v2"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/private"
+	"go.cryptoscope.co/ssb/repo"
 )
 
-//  messagesByType --help
-// (logt) Retrieve messages with a given type, ordered by receive-time.
-// logt --type {type} [--gt index] [--gte index] [--lt index] [--lte index] [--reverse]  [--keys] [--values] [--limit n]
-type logTplug struct {
+type Plugin struct {
+	rxlog margaret.Log
+	types *roaring.MultiLog
+
+	priv    *roaring.MultiLog
+	isSelf  ssb.Authorizer
+	unboxer *private.Manager
+
+	res *repo.SequenceResolver
+
 	h muxrpc.Handler
 }
 
-func NewByType(rootLog margaret.Log, typeLogs multilog.MultiLog) ssb.Plugin {
-	plug := &logTplug{}
-	plug.h = logThandler{
-		root:  rootLog,
-		types: typeLogs,
+func NewByTypePlugin(
+	log log.Logger,
+	rootLog margaret.Log,
+	ml *roaring.MultiLog,
+	pl *roaring.MultiLog,
+	pm *private.Manager,
+	// TODO[major/pgroups] fix storage and resumption
+	// res *repo.SequenceResolver,
+	isSelf ssb.Authorizer,
+) ssb.Plugin {
+	plug := &Plugin{
+		rxlog: rootLog,
+		types: ml,
+
+		priv: pl,
+
+		unboxer: pm,
+
+		// TODO[major/pgroups] fix storage and resumption
+		// res: res,
+
+		isSelf: isSelf,
 	}
+
+	h := typemux.New(log)
+	h.RegisterSource(muxrpc.Method{"messagesByType"}, plug)
+
+	plug.h = &h
 	return plug
 }
 
-func (lt logTplug) Name() string { return "messagesByType" }
+func (lt Plugin) Name() string            { return "msgTypes" }
+func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType"} }
+func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
-func (logTplug) Method() muxrpc.Method {
-	return muxrpc.Method{"messagesByType"}
-}
-func (lt logTplug) Handler() muxrpc.Handler {
-	return lt.h
-}
+func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink) error {
+	var qry message.MessagesByTypeArgs
+	var args []message.MessagesByTypeArgs
 
-type logThandler struct {
-	root  margaret.Log
-	types multilog.MultiLog
-}
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
 
-func (g logThandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-}
-
-func (g logThandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	fmt.Println("byTypeCall:", req.Method.String())
-	spew.Dump(req.Args())
-	if len(req.Args()) < 1 {
-		req.CloseWithError(errors.Errorf("invalid arguments"))
-		return
-	}
-	var (
-		tipe librarian.Addr
-		qry  message.CreateHistArgs
-	)
-	switch v := req.Args()[0].(type) {
-	case string:
-		tipe = librarian.Addr(v)
-	case map[string]interface{}:
-		q, err := message.NewCreateHistArgsFromMap(v)
+		// assume just string for type
+		var args []string
+		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "bad request"))
-			return
+			return fmt.Errorf("bad request data: %w", err)
 		}
-		qry = *q
-	default:
-		req.CloseWithError(errors.Errorf("invalid argument type %T", req.Args()[0]))
-		return
-	}
-
-	if len(req.Args()) == 2 {
-		mv, ok := req.Args()[1].(map[string]interface{})
-		if !ok {
-			req.CloseWithError(errors.Errorf("bad request"))
-			return
+		if len(args) != 1 {
+			return fmt.Errorf("bad request data: assumed string argument for type field")
 		}
-		q, err := message.NewCreateHistArgsFromMap(mv)
-		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "bad request"))
-			return
-		}
-		qry = *q
-	} else {
-		qry.Limit = -1
-		// TODO: msg should be wrapped in obj with key and rxt
+		qry.Type = args[0]
+		// Defaults for no arguments
 		qry.Keys = true
+		qry.Limit = -1
 
-		// only return message keys
-		qry.Values = true
+	} else {
+		nargs := len(args)
+		if nargs == 1 {
+			qry = args[0]
+		} else {
+			return fmt.Errorf("bad request data: assumed one argument object but got %d", nargs)
+		}
 	}
-	tipeLog, err := g.types.Get(tipe)
+
+	remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logT: no multilog for tipe?"))
-		return
+		return fmt.Errorf("failed to establish remote: %w", err)
 	}
 
-	resolved := mutil.Indirect(g.root, tipeLog)
-	src, err := resolved.Query(margaret.Limit(int(qry.Limit)), margaret.Live(qry.Live))
+	isSelf := g.isSelf.Authorize(remote)
+	if qry.Private && isSelf != nil {
+		return fmt.Errorf("not authroized")
+	}
+
+	// create toJSON sink
+	snk := transform.NewKeyValueWrapper(w, qry.Keys)
+
+	// wrap it into a counter for debugging
+	var cnt int
+	snk = newSinkCounter(&cnt, snk)
+
+	idxAddr := librarian.Addr("string:" + qry.Type)
+	if true { // TODO[major/pgroups] fix storage and resumption
+		if qry.Private {
+			return fmt.Errorf("TODO: fix live && private")
+		}
+		typed, err := g.types.Get(idxAddr)
+		if err != nil {
+			return fmt.Errorf("failed to load typed log: %w", err)
+		}
+
+		src, err := mutil.Indirect(g.rxlog, typed).Query(
+			margaret.Limit(int(qry.Limit)),
+			margaret.Live(qry.Live))
+		if err != nil {
+			return fmt.Errorf("logT: failed to qry tipe: %w", err)
+		}
+
+		// if qry.Private { TODO
+		// 	src = g.unboxedSrc(src)
+		// }
+
+		err = luigi.Pump(ctx, snk, src)
+		if err != nil {
+			return fmt.Errorf("logT: failed to pump msgs: %w", err)
+		}
+
+		return snk.Close()
+	}
+	// TODO[major/pgroups] fix storage and resumption
+	// TODO: fix seq resolver filling hiccups
+	return snk.Close()
+
+	/* TODO: i'm skipping a fairly big refactor here to find out what works first.
+	   ideallly the live and not-live code would just be the same, somehow shoving it into Query(...).
+	   Same goes for timestamp sorting and private.
+	   Private is at least orthogonal, whereas sorting and live don't go well together.
+	*/
+
+	// not live
+	typed, err := g.types.LoadInternalBitmap(idxAddr)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logT: failed to qry tipe"))
-		return
+		return snk.Close()
+		//		return errors.Wrap(err, "failed to load typed log")
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	if qry.Private {
+		snk = g.unboxer.WrappedUnboxingSink(snk)
+	} else {
+		// filter all boxed messages from the stream
+		box1, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box1"))
+		if err != nil {
+			// TODO: compare not found
+			// return errors.Wrap(err, "failed to load bmap for box1")
+			box1 = bmap.New()
+		}
+
+		box2, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box2"))
+		if err != nil {
+			// TODO: compare not found
+			// return errors.Wrap(err, "failed to load bmap for box2")
+			box2 = bmap.New()
+		}
+
+		box1.Or(box2) // all the boxed messages
+
+		// remove all the boxed ones from the type we are looking up
+		typed.AndNot(box1)
+	}
+
+	// TODO: set _all_ correctly if gt=0 && lt=0
+	if qry.Lt == 0 {
+		qry.Lt = math.MaxInt64
+	}
+
+	spew.Dump(qry)
+
+	var filter = func(ts int64) bool {
+		isGreater := ts > qry.Gt
+		isSmaller := ts < qry.Lt
+		return isGreater && isSmaller
+	}
+
+	sort, err := g.res.SortAndFilterBitmap(typed, repo.SortByClaimed, filter, qry.Reverse)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logT: failed to pump msgs"))
-		return
+		return fmt.Errorf("failed to filter bitmap: %w", err)
 	}
 
-	req.Stream.Close()
+	for _, res := range sort {
+		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
+		if err != nil {
+			if margaret.IsErrNulled(err) {
+				continue
+			}
+			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err)
+			continue
+		}
+
+		if err := snk.Pour(ctx, v); err != nil {
+			fmt.Fprintln(os.Stderr, "messagesByType failed send:", res.Seq, " with:", err)
+			break
+		}
+
+		if qry.Limit >= 0 {
+			qry.Limit--
+			if qry.Limit == 0 {
+				break
+			}
+		}
+	}
+	fmt.Println("streamed", cnt, " for type:", qry.Type)
+	return snk.Close()
+}
+
+func newSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
+	return func(ctx context.Context, v interface{}, err error) error {
+		if err != nil {
+			return err
+		}
+
+		*counter++
+		return sink.Pour(ctx, v)
+	}
 }

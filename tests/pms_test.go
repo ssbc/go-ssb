@@ -8,15 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/private/box"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
@@ -26,15 +23,9 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	testRepo := repo.New(ts.repo)
-	aliceKP, err := repo.DefaultKeyPair(testRepo)
-	r.NoError(err)
+	boxer := box.NewBoxer(nil)
 
-	mlogPriv := multilogs.NewPrivateRead(log.With(ts.info, "module", "privLogs"), aliceKP)
-
-	ts.startGoBot(
-		sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
-	)
+	ts.startGoBot()
 	s := ts.gobot
 
 	before := `fromKey = testBob
@@ -98,27 +89,21 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	alice := ts.startJSBot(before, "")
 
 	s.Replicate(alice)
-	newSeq, err := s.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   alice.Ref(),
-		"following": true,
-	})
+	newSeq, err := s.PublishLog.Append(refs.NewContactFollow(alice))
 
 	r.NoError(err, "failed to publish contact message")
 	r.NotNil(newSeq)
 
 	var tmsgs = [][]byte{
-		[]byte(`[1,2,3,4,5]`),
-		[]byte(`{"some": 1, "msg": "here"}`),
-		[]byte(`{"hello": true}`),
-		// []byte(`hello, world`), // invalid json
-		[]byte(`"plainStringLikeABlob"`),
-		[]byte(`{"hello": false}`),
-		[]byte(`{"hello": true}`),
+		[]byte(`{"some": 1, "msg": "this", "type":"test"}`),
+		[]byte(`{"some": 2, "msg": "is", "type":"test"}`),
+		[]byte(`{"some": 3, "msg": "not", "type":"test"}`),
+		[]byte(`{"some": 4, "msg": "a", "type":"test"}`),
+		[]byte(`{"some": 5, "msg": "test", "type":"test"}`),
 	}
 
 	for i, msg := range tmsgs {
-		sbox, err := private.Box(msg, alice, s.KeyPair.Id)
+		sbox, err := boxer.Encrypt(msg, alice, s.KeyPair.Id)
 		r.NoError(err, "failed to create ciphertext %d", i)
 
 		newSeq, err := s.PublishLog.Append(sbox)
@@ -128,14 +113,12 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := s.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
 	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
 	r.NoError(err)
-	msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -150,6 +133,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
+	boxer := box.NewBoxer(nil)
 
 	ts.startGoBot()
 	bob := ts.gobot
@@ -191,7 +175,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	aliceLog, err := uf.Get(alice.StoredAddr())
+	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -199,12 +183,11 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	// var lastMsg string
 	for i := 0; i < n; i++ {
-		// only one feed in log - directly the rootlog sequences
 		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
 		r.NoError(err)
-		r.Equal(seqMsg, margaret.BaseSeq(1+i))
+		//r.Equal(seqMsg, margaret.BaseSeq(1+i))
 
-		msg, err := bob.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := bob.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		absMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)
@@ -227,7 +210,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(m.Content, ".box"))
 		r.NoError(err)
 
-		clearMsg, err := private.Unbox(bob.KeyPair, data)
+		clearMsg, err := boxer.Decrypt(bob.KeyPair, data)
 		r.NoError(err, "should decrypt the msg %d!", i)
 
 		type testMsg struct {

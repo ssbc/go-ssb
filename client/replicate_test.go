@@ -4,6 +4,8 @@ package client_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
@@ -58,17 +59,18 @@ func TestReplicateUpTo(t *testing.T) {
 			kp.Id.Algo = refs.RefAlgoFeedGabby
 		}
 
-		publish, err := message.OpenPublishLog(srv.RootLog, uf, kp)
+		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)
 
 		testKeyPairs[kp.Id.Ref()] = i
 		for n := i; n > 0; n-- {
 
 			ref, err := publish.Publish(struct {
+				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
-			}{true, n, kp.Id.Ref()})
+			}{"test", true, n, kp.Id.Ref()})
 			r.NoError(err)
 			t.Log(ref.Ref())
 		}
@@ -87,15 +89,17 @@ func TestReplicateUpTo(t *testing.T) {
 	src, err := c.ReplicateUpTo()
 	r.NoError(err)
 
+	ctx := context.TODO()
 	for i = 0; true; i++ {
-		streamV, err := src.Next(context.TODO())
-		if luigi.IsEOS(err) {
+		if !src.Next(ctx) {
 			break
 		}
-		r.NoError(err, "i:%d", i)
 
-		upToResp, ok := streamV.(ssb.ReplicateUpToResponse)
-		r.True(ok, "type: %T", streamV)
+		var upToResp ssb.ReplicateUpToResponse
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&upToResp)
+		})
+		r.NoError(err)
 
 		ref := upToResp.ID.Ref()
 		i, has := testKeyPairs[ref]
@@ -104,9 +108,8 @@ func TestReplicateUpTo(t *testing.T) {
 	}
 	r.Equal(i, 9)
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.True(luigi.IsEOS(err))
+	r.False(src.Next(ctx))
+	r.NoError(src.Err())
 
 	a.NoError(c.Close())
 

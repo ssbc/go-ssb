@@ -1,4 +1,6 @@
-// blatent grep of github.com/agl/ed25519/extra25519 until we have a better solution
+// Package extra25519 is blatent grep of github.com/agl/ed25519/extra25519 until we have a better solution
+//
+// See https://github.com/cryptoscope/ssb/issues/44 for more.
 package extra25519
 
 import (

@@ -12,11 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/ssb"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"go.cryptoscope.co/ssb"
 )
 
 func TestSignatureVerify(t *testing.T) {
@@ -221,7 +220,6 @@ func runCompatScript(t *testing.T, env []string) string {
 	cmd.Env = env
 
 	err := cmd.Run()
-	err = errors.Wrap(err, "failed to run nodejs command")
 	r.NoError(err)
 
 	return buf.String()

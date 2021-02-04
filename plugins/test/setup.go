@@ -3,7 +3,6 @@
 package test
 
 import (
-	"context"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,9 +14,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/debug"
-	muxtest "go.cryptoscope.co/muxrpc/test"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/debug"
+	muxtest "go.cryptoscope.co/muxrpc/v2/test"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
@@ -43,7 +42,7 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	return dstRepo, dstPath
 }
 
-func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Packer, muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
+func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Packer, *muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
 	keyAlice, err := repo.DefaultKeyPair(alice)
 	r.NoError(err, "error opening alice's key pair")
@@ -81,9 +80,6 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 	//conn1 = muxtest.WrapConn(&ts, conn1)
 
 	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), &ts, func(rpc1, rpc2 muxrpc.Endpoint) func() {
-		ctx := context.Background()
-		ctx, cancel := context.WithCancel(ctx)
-
 		var (
 			wg         sync.WaitGroup
 			err1, err2 error
@@ -91,18 +87,16 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (muxrpc.Pac
 
 		wg.Add(2)
 		go func() {
-			err1 = rpc1.(muxrpc.Server).Serve(ctx)
+			err1 = rpc1.(muxrpc.Server).Serve()
 			wg.Done()
 		}()
 
 		go func() {
-			err2 = rpc2.(muxrpc.Server).Serve(ctx)
+			err2 = rpc2.(muxrpc.Server).Serve()
 			wg.Done()
 		}()
 
 		return func() {
-			cancel()
-
 			r.NoError(rpc1.Terminate())
 			r.NoError(rpc2.Terminate())
 

@@ -8,13 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
-	"go.cryptoscope.co/muxrpc/codec"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -87,32 +85,31 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	r.True(ok, "no endpoint for alice")
 
 	ctx := context.TODO()
-	src, err := aliceEdp.Source(ctx, codec.Body{}, muxrpc.Method{"gabbygrove", "binaryStream"})
+	src, err := aliceEdp.Source(ctx, 0, muxrpc.Method{"gabbygrove", "binaryStream"})
 	r.NoError(err)
 
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
 	aliceAsGabby := *alice
 	aliceAsGabby.Algo = refs.RefAlgoFeedGabby
-	store := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if err != nil {
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-		_, err = s.RootLog.Append(val)
-		return errors.Wrap(err, "failed to append verified message to rootLog")
-	})
-	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, store, nil)
 
-	err = luigi.Pump(ctx, snk, src)
-	r.NoError(err)
+	var saver = message.MargaretSaver{s.ReceiveLog}
+
+	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+
+	for src.Next(ctx) {
+
+		b, err := src.Bytes()
+		r.NoError(err)
+
+		err = snk.Verify(b)
+		r.NoError(err)
+	}
 
 	// test is currently borked because we get fake messages back
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	demoLog, err := uf.Get(aliceAsGabby.StoredAddr())
+	demoLog, err := uf.Get(storedrefs.Feed(&aliceAsGabby))
 	r.NoError(err)
 
 	demoLogSeq, err := demoLog.Seq().Value()
@@ -122,7 +119,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	for demoFeedSeq := margaret.BaseSeq(1); demoFeedSeq < 3; demoFeedSeq++ {
 		seqMsg, err := demoLog.Get(demoFeedSeq - 1)
 		r.NoError(err)
-		msg, err := s.RootLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)

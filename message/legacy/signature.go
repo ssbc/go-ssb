@@ -4,9 +4,9 @@ package legacy
 
 import (
 	"encoding/base64"
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
 )
@@ -37,7 +37,11 @@ func (s Signature) Algo() SigAlgo {
 }
 
 func (s Signature) Raw() ([]byte, error) {
-	b64 := strings.Split(string(s), ".")[0]
+	parts := strings.Split(string(s), ".")
+	if n := len(parts); n < 1 {
+		return nil, fmt.Errorf("signature: expected at least one part - got %d", n)
+	}
+	b64 := parts[0]
 	return base64.StdEncoding.DecodeString(b64)
 }
 
@@ -45,17 +49,17 @@ func (s Signature) Verify(content []byte, r *refs.FeedRef) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
 		if r.Algo != refs.RefAlgoFeedSSB1 {
-			return errors.Errorf("sbot: invalid signature algorithm")
+			return fmt.Errorf("verify: invalid feed algorithm")
 		}
 		b, err := s.Raw()
 		if err != nil {
-			return errors.Wrap(err, "verify: raw unpack failed")
+			return fmt.Errorf("verify: unpack failed: %w", err)
 		}
 		if ed25519.Verify(r.PubKey(), content, b) {
 			return nil
 		}
-		return errors.Errorf("sbot: invalid signature")
+		return fmt.Errorf("verify: invalid signature")
 	default:
-		return errors.Errorf("verify: unknown Algo")
+		return fmt.Errorf("verify: unknown signature algorithm")
 	}
 }

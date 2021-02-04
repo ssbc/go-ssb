@@ -5,29 +5,43 @@ package private
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+
+	"github.com/cryptix/go/logging"
+	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
-
-	"go.cryptoscope.co/ssb"
-
-	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
 )
 
 type handler struct {
 	info logging.Interface
 
+	author  *refs.FeedRef
 	publish ssb.Publisher
 	read    margaret.Log
+
+	mngr *private.Manager
 }
 
-func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (handler) Handled(m muxrpc.Method) bool {
+	if len(m) != 2 {
+		return false
+	}
+
+	if m[0] != "private" {
+		return false
+	}
+
+	return m[1] == "publish" || m[1] == "read"
+}
+
+func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	var closed bool
 	checkAndClose := func(err error) {
 		if err != nil {
@@ -36,7 +50,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		if err != nil {
 			closed = true
 			closeErr := req.Stream.CloseWithError(err)
-			err := errors.Wrapf(closeErr, "error closeing request")
+			err := fmt.Errorf("error closeing request: %w", closeErr)
 			if err != nil {
 				h.info.Log("event", "closing", "method", req.Method, "err", err)
 			}
@@ -45,7 +59,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 	defer func() {
 		if !closed {
-			err := errors.Wrapf(req.Stream.Close(), "gossip: error closing call")
+			err := fmt.Errorf("gossip: error closing call: %w", req.Stream.Close())
 			if err != nil {
 				h.info.Log("event", "closing", "method", req.Method, "err", err)
 			}
@@ -59,19 +73,19 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 			req.Type = "async"
 		}
 		if n := len(req.Args()); n != 2 {
-			req.CloseWithError(errors.Errorf("private/publish: bad request. expected 2 argument got %d", n))
+			req.CloseWithError(fmt.Errorf("private/publish: bad request. expected 2 argument got %d", n))
 			return
 		}
 
 		msg, err := json.Marshal(req.Args()[0])
 		if err != nil {
-			req.CloseWithError(errors.Wrap(err, "failed to encode message"))
+			req.CloseWithError(fmt.Errorf("failed to encode message: %w", err))
 			return
 		}
 
 		rcps, ok := req.Args()[1].([]interface{})
 		if !ok {
-			req.CloseWithError(errors.Errorf("private/publish: wrong argument type. expected []strings but got %T", req.Args()[1]))
+			req.CloseWithError(fmt.Errorf("private/publish: wrong argument type. expected []strings but got %T", req.Args()[1]))
 			return
 		}
 
@@ -79,12 +93,13 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 		for i, rv := range rcps {
 			rstr, ok := rv.(string)
 			if !ok {
-				req.CloseWithError(errors.Errorf("private/publish: wrong argument type. expected strings but got %T", rv))
+				req.CloseWithError(fmt.Errorf("private/publish: wrong argument type. expected strings but got %T", rv))
 				return
 			}
+			// TODO: box2 message ref
 			rcpsRefs[i], err = refs.ParseFeedRef(rstr)
 			if err != nil {
-				req.CloseWithError(errors.Wrapf(err, "private/publish: failed to parse recp %d", i))
+				req.CloseWithError(fmt.Errorf("private/publish: failed to parse recp %d: %w", i, err))
 				return
 			}
 		}
@@ -106,13 +121,13 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc
 
 	case "private.read":
 		if req.Type != "source" {
-			checkAndClose(errors.Errorf("private.read: wrong request type. %s", req.Type))
+			checkAndClose(fmt.Errorf("private.read: wrong request type. %s", req.Type))
 			return
 		}
 		h.privateRead(ctx, req)
 
 	default:
-		checkAndClose(errors.Errorf("private: unknown command: %s", req.Method))
+		checkAndClose(fmt.Errorf("private: unknown command: %s", req.Method))
 	}
 }
 
@@ -128,12 +143,12 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 		case map[string]interface{}:
 			q, err := message.NewCreateHistArgsFromMap(v)
 			if err != nil {
-				req.CloseWithError(errors.Wrap(err, "privateRead: bad request"))
+				req.CloseWithError(fmt.Errorf("privateRead: bad request: %w", err))
 				return
 			}
 			qry = *q
 		default:
-			req.CloseWithError(errors.Errorf("privateRead: invalid argument type %T", args[0]))
+			req.CloseWithError(fmt.Errorf("privateRead: invalid argument type %T", args[0]))
 			return
 		}
 
@@ -152,28 +167,38 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live))
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "private/read: failed to create query"))
+		req.CloseWithError(fmt.Errorf("private/read: failed to create query: %w", err))
 		return
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	snk, err := req.ResponseSink()
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "private/read: message pump failed"))
+		req.CloseWithError(err)
+		return
+	}
+
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
+	if err != nil {
+		req.CloseWithError(fmt.Errorf("private/read: message pump failed: %w", err))
 		return
 	}
 	req.Close()
 }
 
 func (h handler) privatePublish(msg []byte, recps []*refs.FeedRef) (*refs.MessageRef, error) {
-	boxedMsg, err := private.Box(msg, recps...)
-	if err != nil {
-		return nil, errors.Wrap(err, "private/publish: failed to box message")
 
+	boxedMsg, err := h.mngr.EncryptBox1(msg, recps...)
+	if err != nil {
+		return nil, fmt.Errorf("private/publish: failed to box message: %w", err)
+	}
+
+	if h.author.Algo == refs.RefAlgoFeedGabby {
+		boxedMsg = append([]byte("box1:"), boxedMsg...)
 	}
 
 	ref, err := h.publish.Publish(boxedMsg)
 	if err != nil {
-		return nil, errors.Wrap(err, "private/publish: pour failed")
+		return nil, fmt.Errorf("private/publish: pour failed: %w", err)
 
 	}
 

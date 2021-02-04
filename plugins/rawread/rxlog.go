@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/transform"
@@ -46,23 +45,22 @@ type rxLogHandler struct {
 	root margaret.Log
 }
 
-func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-}
+func (rxLogHandler) Handled(m muxrpc.Method) bool { return m.String() == "createLogStream" }
 
-func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (g rxLogHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
+
+func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// fmt.Fprintln(os.Stderr, "createLogStream args:", string(req.RawArgs))
 	var qry message.CreateLogArgs
-	if len(req.Args()) == 1 {
-		var args []message.CreateLogArgs
-		err := json.Unmarshal(req.RawArgs, &args)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(errors.Wrap(err, "bad request data"))
-			return
-		}
-		if len(args) == 1 {
-			qry = args[0]
-		}
+	var args []message.CreateLogArgs
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
+		req.CloseWithError(fmt.Errorf("bad request data: %w", err))
+		return
+	}
+	if len(args) == 1 {
+		qry = args[0]
 	} else {
 		// Defaults for no arguments
 		qry.Keys = true
@@ -81,7 +79,7 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		sv, err := g.root.Seq().Value()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(errors.Wrap(err, "logStream: failed to qry current seq"))
+			req.CloseWithError(fmt.Errorf("logStream: failed to qry current seq: %w", err))
 			return
 		}
 
@@ -98,16 +96,21 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp m
 		margaret.Reverse(qry.Reverse),
 	)
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "logStream: failed to qry tipe"))
+		req.CloseWithError(fmt.Errorf("logStream: failed to qry tipe: %w", err))
 		return
 	}
 
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(req.Stream, qry.Keys), src)
+	snk, err := req.ResponseSink()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-		req.CloseWithError(errors.Wrap(err, "logStream: failed to pump msgs"))
+		req.CloseWithError(err)
 		return
 	}
-	req.Stream.Close()
+	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "createLogStream err:", err)
+		req.CloseWithError(fmt.Errorf("logStream: failed to pump msgs: %w", err))
+		return
+	}
+	snk.Close()
 	// fmt.Fprintln(os.Stderr, "createLogStream closed:", err, "after:", time.Since(start))
 }

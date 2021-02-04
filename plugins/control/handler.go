@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: MIT
 
+// Package control offers muxrpc helpers to connect to remote peers.
+//
+// TODO: this is a naming hack, supplies ctrl.connect which should actually be gossip.connect.
 package control
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb/internal/muxmux"
+
 	multiserver "go.mindeco.de/ssb-multiserver"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -34,10 +38,10 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 		repl: r,
 	}
 
-	mux := muxmux.New(i)
+	mux := typemux.New(i)
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, muxmux.AsyncFunc(h.connect))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, muxmux.AsyncFunc(h.disconnect))
+	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, typemux.AsyncFunc(h.connect))
+	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, typemux.AsyncFunc(h.disconnect))
 
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "replicate"}, unmarshalActionMap(h.replicate))
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "block"}, unmarshalActionMap(h.block))
@@ -50,8 +54,8 @@ type actionFn func(context.Context, actionMap) error
 
 // muxrpc always passes an array of option arguments
 // this hack unboxes [{ feed:bool, feed2:bool, ...}] and [feed1,feed2,...] (all implicit true) into an actionMap and passes it to next
-func unmarshalActionMap(next actionFn) muxmux.AsyncFunc {
-	return muxmux.AsyncFunc(func(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
+func unmarshalActionMap(next actionFn) typemux.AsyncFunc {
+	return typemux.AsyncFunc(func(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
 		var refMap actionMap
 		var args []map[string]bool
 		err := json.Unmarshal(r.RawArgs, &args)
@@ -82,7 +86,10 @@ func unmarshalActionMap(next actionFn) muxmux.AsyncFunc {
 		if err := next(ctx, refMap); err != nil {
 			return nil, err
 		}
-		return fmt.Sprintf("updated %d feeds", len(refMap)), nil
+		return struct {
+			Action string
+			Feeds  interface{}
+		}{"updated", len(refMap)}, nil
 	})
 }
 
@@ -114,22 +121,28 @@ func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
-	if len(req.Args()) != 1 {
+	var args []string
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.connect call: invalid arguments: %w", err)
+	}
+	if len(args) != 1 {
 		h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
 		return nil, errors.New("usage: ctrl.connect host:port:key")
 	}
-	dest, ok := req.Args()[0].(string)
-	if !ok {
-		return nil, errors.Errorf("ctrl.connect call: expected argument to be string, got %T", req.Args()[0])
-	}
+	dest := args[0]
+
 	msaddr, err := multiserver.ParseNetAddress([]byte(dest))
 	if err != nil {
-		return nil, errors.Wrapf(err, "ctrl.connect call: failed to parse input: %s", dest)
+		return nil, fmt.Errorf("ctrl.connect call: failed to parse input %q: %w", dest, err)
 	}
 
 	wrappedAddr := netwrap.WrapAddr(&msaddr.Addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
 	level.Info(h.info).Log("event", "doing gossip.connect", "remote", msaddr.Ref.ShortRef())
 	// TODO: add context to tracker to cancel connections
 	err = h.node.Connect(context.Background(), wrappedAddr)
-	return nil, errors.Wrapf(err, "ctrl.connect call: error connecting to %q", msaddr.Addr)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
+	}
+	return "connected", nil
 }

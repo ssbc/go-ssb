@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+// Package tests contains test scenarios and helpers to run interoparability tests against the javascript implementation.
 package tests
 
 import (
@@ -9,6 +10,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	mrand "math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -17,9 +19,8 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -100,12 +101,6 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbot.WithListenAddr("localhost:0"),
 		sbot.WithRepoPath(ts.repo),
 		sbot.WithContext(ctx),
-
-		// TODO: the close handling on the debug wrapper is bugged, using it stalls the tests at the end
-		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
-		// 	return debug.WrapConn(log.With(info, "remote", fr.ShortRef()), conn), err
-		// }),
 	}, sbotOpts...)
 
 	if ts.keySHS != nil {
@@ -115,13 +110,11 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbotOpts = append(sbotOpts, sbot.WithHMACSigning(ts.keyHMAC))
 	}
 
-	if os.Getenv("MUXDBG") != "" {
-		sbotOpts = append(sbotOpts,
-			sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-				return debug.WrapConn(ts.info, conn), nil
-			}),
-		)
-	}
+	sbotOpts = append(sbotOpts,
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join("testrun", ts.t.Name(), "muxdump"), conn)
+		}),
+	)
 
 	sbot, err := sbot.New(sbotOpts...)
 	r.NoError(err, "failed to init test go-sbot")
@@ -132,8 +125,9 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	go func() {
 		err := sbot.Network.Serve(ctx)
 		if err != nil {
-			errc <- errors.Wrap(err, "node serve exited")
+			errc <- fmt.Errorf("node serve exited: %w", err)
 		}
+		// ts.t.Log("go-sbot: serve exited", err)
 		close(done)
 		close(errc)
 	}()
@@ -153,16 +147,17 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) *refs.FeedRef {
 
 // returns the jsbots pubkey
 func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.FeedRef {
+	ts.t.Log("starting client", name)
 	r := require.New(ts.t)
-	cmd := exec.Command("node", "./sbot.js")
+	cmd := exec.Command("node", "./sbot_client.js")
 	cmd.Stderr = os.Stderr
+
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
 	if name == "" {
 		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
 	}
-
 	jsBotCnt++
 	env := []string{
 		"TEST_NAME=" + name,
@@ -171,11 +166,10 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
 	}
-	jsBotCnt++
+
 	if ts.keySHS != nil {
 		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
 	}
-
 	if ts.keyHMAC != nil {
 		env = append(env, "TEST_HMACKEY="+base64.StdEncoding.EncodeToString(ts.keyHMAC))
 	}
@@ -187,22 +181,79 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			errc <- errors.Wrap(err, "cmd wait failed")
+			errc <- fmt.Errorf("cmd wait failed: %w", err)
 		}
 		close(done)
 		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
 		close(errc)
 	}()
-	ts.doneJS = done
+	ts.doneJS = done // TODO: multiple
 	ts.backgroundErrs = append(ts.backgroundErrs, errc)
 
 	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
-	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be alices pubkey/id")
+	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be %s pubkey/id", name)
 
-	alice, err := refs.ParseFeedRef(pubScanner.Text())
-	r.NoError(err, "failed to get alice key from JS process")
-	ts.t.Logf("JS alice: %d  %s", jsBotCnt, alice.Ref())
-	return alice
+	jsBotRef, err := refs.ParseFeedRef(pubScanner.Text())
+	r.NoError(err, "failed to get %s key from JS process")
+	ts.t.Logf("JS %s:%d %s", name, jsBotCnt, jsBotRef.Ref())
+	return jsBotRef
+}
+
+func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs.FeedRef, int) {
+	ts.t.Log("starting srv", name)
+	r := require.New(ts.t)
+	cmd := exec.Command("node", "./sbot_serv.js")
+	cmd.Stderr = os.Stderr
+
+	outrc, err := cmd.StdoutPipe()
+	r.NoError(err)
+
+	if name == "" {
+		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+	}
+	jsBotCnt++
+
+	var port = 1024 + mrand.Intn(23000)
+
+	env := []string{
+		"TEST_NAME=" + name,
+		"TEST_BOB=" + ts.gobot.KeyPair.Id.Ref(),
+		fmt.Sprintf("TEST_PORT=%d", port),
+		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
+		"TEST_AFTER=" + writeFile(ts.t, jsafter),
+	}
+	if ts.keySHS != nil {
+		env = append(env, "TEST_APPKEY="+base64.StdEncoding.EncodeToString(ts.keySHS))
+	}
+	if ts.keyHMAC != nil {
+		ts.t.Fatal("fix HMAC setup")
+		env = append(env, "TEST_HMACKEY="+base64.StdEncoding.EncodeToString(ts.keyHMAC))
+	}
+	cmd.Env = env
+
+	r.NoError(cmd.Start(), "failed to init test js-sbot")
+
+	var done = make(chan struct{})
+	var errc = make(chan error, 1)
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			errc <- fmt.Errorf("cmd wait failed: %w", err)
+		}
+		close(done)
+		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
+		close(errc)
+	}()
+	ts.doneJS = done // TODO: multiple
+	ts.backgroundErrs = append(ts.backgroundErrs, errc)
+
+	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
+	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be %s pubkey/id", name)
+
+	srvRef, err := refs.ParseFeedRef(pubScanner.Text())
+	r.NoError(err, "failed to get srvRef key from JS process")
+	ts.t.Logf("JS %s: %s port: %d", name, srvRef.Ref(), port)
+	return srvRef, port
 }
 
 func (ts *testSession) wait() {
@@ -214,12 +265,12 @@ func (ts *testSession) wait() {
 		case <-ts.doneJS:
 
 		case <-ts.doneGo:
-			closeErrc <- ts.gobot.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 
 		case <-tick.C:
 			ts.t.Log("timeout")
 		}
 
+		require.NoError(ts.t, ts.gobot.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences)))
 		ts.gobot.Shutdown()
 		closeErrc <- ts.gobot.Close()
 		close(closeErrc)

@@ -2,6 +2,7 @@ package sbot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -10,11 +11,11 @@ import (
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/machinebox/progress"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -125,10 +126,10 @@ func (s *Sbot) FSCK(opts ...FSCKOption) error {
 
 	switch opt.mode {
 	case FSCKModeLength:
-		return lengthFSCK(opt.feedsIdx, s.RootLog)
+		return lengthFSCK(opt.feedsIdx, s.ReceiveLog)
 
 	case FSCKModeSequences:
-		return sequenceFSCK(s.RootLog, opt.progressFn)
+		return sequenceFSCK(s.ReceiveLog, opt.progressFn)
 
 	default:
 		return errors.New("sbot: unknown fsck mode")
@@ -145,12 +146,8 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 	}
 
 	for _, author := range feeds {
-		var sr refs.StorageRef
-		err := sr.Unmarshal([]byte(author))
-		if err != nil {
-			return err
-		}
-		authorRef, err := sr.FeedRef()
+		var sr tfk.Feed
+		err := sr.UnmarshalBinary([]byte(author))
 		if err != nil {
 			return err
 		}
@@ -185,7 +182,7 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 		// margaret indexes are 0-based, therefore +1
 		if msg.Seq() != currentSeqFromIndex.Seq()+1 {
 			return ssb.ErrWrongSequence{
-				Ref:     authorRef,
+				Ref:     sr.Feed(),
 				Stored:  currentSeqFromIndex,
 				Logical: msg,
 			}
@@ -361,9 +358,9 @@ func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 	it := report.Sequences.Iterator()
 	for it.HasNext() {
 		seq := it.Next()
-		err := s.RootLog.Null(margaret.BaseSeq(seq))
+		err := s.ReceiveLog.Null(margaret.BaseSeq(seq))
 		if err != nil {
-			return errors.Wrapf(err, "failed to null message (%d) in receive log", seq)
+			return fmt.Errorf("failed to null message (%d) in receive log: %w", seq, err)
 		}
 	}
 
@@ -371,7 +368,7 @@ func (s *Sbot) HealRepo(report ErrConsistencyProblems) error {
 	for i, constErr := range report.Errors {
 		err := s.NullFeed(constErr.Ref)
 		if err != nil {
-			return errors.Wrapf(err, "heal(%d): failed to null broken feed", i)
+			return fmt.Errorf("heal(%d): failed to null broken feed: %w", i, err)
 		}
 		level.Debug(funcLog).Log("feed", constErr.Ref.Ref())
 	}

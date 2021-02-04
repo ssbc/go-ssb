@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// +build ignore
+
 package names
 
 import (
@@ -89,7 +91,7 @@ func XTestNames(t *testing.T) {
 		r.EqualValues(seq, v.(margaret.Seq).Seq())
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)

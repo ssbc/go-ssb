@@ -3,23 +3,24 @@
 package sbot
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"sort"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/netwrap"
+
 	"go.cryptoscope.co/ssb"
 	multiserver "go.mindeco.de/ssb-multiserver"
 )
 
 func (sbot *Sbot) Status() (ssb.Status, error) {
-	v, err := sbot.RootLog.Seq().Value()
+	v, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
-		return ssb.Status{}, errors.Wrap(err, "failed to get root log sequence")
+		return ssb.Status{}, fmt.Errorf("failed to get root log sequence: %w", err)
 	}
 
 	s := ssb.Status{

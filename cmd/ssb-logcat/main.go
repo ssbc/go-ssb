@@ -9,12 +9,11 @@ import (
 	"runtime/debug"
 	"strconv"
 
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
-
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/luigi"
 )
 
 func check(err error) {
@@ -56,7 +55,7 @@ func main() {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrap(err, "push failed")
+			return fmt.Errorf("push failed: %w", err)
 		}
 
 		sw := v.(margaret.SeqWrapper)

@@ -4,6 +4,8 @@ package graph
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -11,7 +13,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
@@ -21,10 +22,8 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -80,7 +79,7 @@ func TestBadger(t *testing.T) {
 
 func makeTypedLog(t *testing.T) testStore {
 	r := require.New(t)
-	info := testutils.NewRelativeTimeLogger(nil)
+	// info := testutils.NewRelativeTimeLogger(nil)
 
 	tRepoPath, err := ioutil.TempDir("", "test_mlog")
 	r.NoError(err)
@@ -99,23 +98,25 @@ func makeTypedLog(t *testing.T) testStore {
 	tc.root = tRootLog
 	tc.userLogs = uf
 
-	mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
-	r.NoError(err, "sbot: failed to open message type sublogs")
-	mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT, true)
+	panic("TODO: plugin refactor")
+	/*
+		mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
+		r.NoError(err, "sbot: failed to open message type sublogs")
+		mtErrc := serveLog(ctx, "type logs", tRootLog, serveMT, true)
 
-	contactLog, err := mt.Get(librarian.Addr("contact"))
-	r.NoError(err, "sbot: failed to open message contact sublog")
+		contactLog, err := mt.Get(librarian.Addr("contact"))
+		r.NoError(err, "sbot: failed to open message contact sublog")
 
-	directedContactLog := mutil.Indirect(tRootLog, contactLog)
-	tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
-	r.NoError(err, "sbot: NewLogBuilder failed")
-
+		directedContactLog := mutil.Indirect(tRootLog, contactLog)
+		tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
+		r.NoError(err, "sbot: NewLogBuilder failed")
+	*/
 	tc.close = func() {
 		r.NoError(uf.Close())
-		r.NoError(mt.Close())
+		// r.NoError(mt.Close())
 		cancel()
 
-		for err := range mergedErrors(ufErrc, mtErrc) {
+		for err := range mergedErrors(ufErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")
@@ -261,14 +262,14 @@ func serveLog(ctx context.Context, name string, l margaret.Log, snk librarian.Si
 		src, err := l.Query(snk.QuerySpec(), margaret.Live(live))
 		if err != nil {
 			log.Println("got err for", name, err)
-			errc <- errors.Wrapf(err, "%s query failed", name)
+			errc <- fmt.Errorf("%s query failed: %w", name, err)
 			return
 		}
 
 		err = luigi.Pump(ctx, snk, src)
-		if err != nil && errors.Cause(err) != ssb.ErrShuttingDown {
+		if err != nil && !errors.Is(err, ssb.ErrShuttingDown) {
 			log.Println("got err for", name, err)
-			errc <- errors.Wrapf(err, "%s serve exited", name)
+			errc <- fmt.Errorf("%s serve exited: %w", name, err)
 		}
 	}()
 	return errc

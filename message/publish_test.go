@@ -15,6 +15,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
@@ -47,7 +48,7 @@ func TestSignMessages(t *testing.T) {
 	testAuthor, err := ssb.NewKeyPair(staticRand)
 	r.NoError(err)
 
-	authorLog, err := userFeeds.Get(testAuthor.Id.StoredAddr())
+	authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.Id))
 	r.NoError(err)
 
 	w, err := OpenPublishLog(rl, userFeeds, testAuthor)

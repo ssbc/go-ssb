@@ -5,24 +5,27 @@ package blobstore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
-var ErrBlobBlocked = errors.New("blobstore: unable to receive blob")
+// ErrBlobBlocked is returned if the want manager is unable to receive a blob after multiple tries
+var ErrBlobBlocked = errors.New("ssb: unable to receive blob correctly")
 
+// NewWantManager returns the configured WantManager, using bs for storage and opts to configure it.
 func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager {
 	wmgr := &wantManager{
 		bs:        bs,
@@ -37,7 +40,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 	for i, o := range opts {
 		if err := o(wmgr); err != nil {
-			panic(errors.Wrapf(err, "NewWantManager called with invalid option #%d", i))
+			panic(fmt.Errorf("NewWantManager called with invalid option #%d: %w", i, err))
 		}
 	}
 
@@ -61,7 +64,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 		n, ok := v.(ssb.BlobStoreNotification)
 		if !ok {
-			return errors.Errorf("blob change: unhandled notification type: %T", v)
+			return fmt.Errorf("blob change: unhandled notification type: %T", v)
 		}
 		wmgr.promEvent(n.Op.String(), 1)
 
@@ -79,16 +82,15 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 	go func() {
 	workChan:
 		for has := range wmgr.available {
-			sz, _ := wmgr.bs.Size(has.Want.Ref)
-			if sz > 0 {
-				level.Debug(wmgr.info).Log("msg", "skipping already stored blob")
+			sz, _ := wmgr.bs.Size(has.want.Ref)
+			if sz > 0 { // already received
 				continue
 			}
 
-			initialFrom := has.Proc.edp.Remote().String()
+			initialFrom := has.remote.Remote().String()
 
 			// trying the one we got it from first
-			err := wmgr.getBlob(has.Proc.rootCtx, has.Proc.edp, has.Want.Ref)
+			err := wmgr.getBlob(has.connCtx, has.remote, has.want.Ref)
 			if err == nil {
 				continue
 			}
@@ -99,13 +101,15 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 				if remote == initialFrom {
 					continue
 				}
-
-				err := wmgr.getBlob(proc.rootCtx, proc.edp, has.Want.Ref)
+				ctx, cancel := context.WithTimeout(has.connCtx, 3*time.Minute)
+				err := wmgr.getBlob(ctx, proc.edp, has.want.Ref)
+				cancel()
 				if err == nil {
+					wmgr.l.Unlock()
 					continue workChan
 				}
 			}
-			delete(wmgr.wants, has.Want.Ref.Ref())
+			delete(wmgr.wants, has.want.Ref.Ref())
 			level.Warn(wmgr.info).Log("event", "blob retreive failed", "n", len(wmgr.procs))
 			wmgr.l.Unlock()
 		}
@@ -115,7 +119,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 }
 
 type wantManager struct {
-	luigi.Broadcast
+	luigi.Broadcast // todo: replace with a typed broadcast
 
 	longCtx context.Context
 
@@ -128,7 +132,7 @@ type wantManager struct {
 
 	// our own set of wants
 	wants    map[string]int64
-	wantSink luigi.Sink
+	wantSink luigi.Sink // todo: replace with a typed broadcast
 
 	// the set of peers we interact with
 	procs map[string]*wantProc
@@ -142,13 +146,19 @@ type wantManager struct {
 	gauge  metrics.Gauge
 }
 
+type hasBlob struct {
+	want    ssb.BlobWant
+	remote  muxrpc.Endpoint
+	connCtx context.Context
+}
+
 func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *refs.BlobRef) error {
 	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
-	src, err := edp.Source(ctx, []byte{}, muxrpc.Method{"blobs", "get"}, arg)
+	src, err := edp.Source(ctx, 0, muxrpc.Method{"blobs", "get"}, arg)
 	if err != nil {
-		err = errors.Wrap(err, "blob create source failed")
+		err = fmt.Errorf("blob create source failed: %w", err)
 		level.Warn(log).Log("err", err)
 		return err
 	}
@@ -157,7 +167,7 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	r = io.LimitReader(r, int64(wmgr.maxSize))
 	newBr, err := wmgr.bs.Put(r)
 	if err != nil {
-		err = errors.Wrap(err, "blob data piping failed")
+		err = fmt.Errorf("blob data piping failed: %w", err)
 		level.Warn(log).Log("err", err)
 		return err
 	}
@@ -171,11 +181,6 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *
 	sz, _ := wmgr.bs.Size(newBr)
 	level.Info(log).Log("msg", "stored", "ref", ref.ShortRef(), "sz", sz)
 	return nil
-}
-
-type hasBlob struct {
-	Want ssb.BlobWant
-	Proc *wantProc
 }
 
 func (wmgr *wantManager) promEvent(name string, n float64) {
@@ -201,6 +206,7 @@ func (wmgr *wantManager) promGaugeSet(name string, n int) {
 func (wmgr *wantManager) Close() error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
+	// TODO: wait for wantproce
 	close(wmgr.available)
 	return nil
 }
@@ -212,7 +218,7 @@ func (wmgr *wantManager) AllWants() []ssb.BlobWant {
 	for ref, dist := range wmgr.wants {
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			panic(errors.Wrap(err, "invalid blob ref in want manager"))
+			panic(fmt.Errorf("invalid blob ref in want manager: %w", err))
 		}
 		bws = append(bws, ssb.BlobWant{
 			Ref:  br,
@@ -259,14 +265,20 @@ func (wmgr *wantManager) WantWithDist(ref *refs.BlobRef, dist int64) error {
 	wmgr.promGaugeSet("nwants", len(wmgr.wants))
 
 	err = wmgr.wantSink.Pour(wmgr.longCtx, ssb.BlobWant{Ref: ref, Dist: dist})
-	err = errors.Wrap(err, "error pouring want to broadcast")
-	return err
+	if err != nil {
+		return fmt.Errorf("error pouring want to broadcast: %w", err)
+	}
+
+	return nil
 }
 
-func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp muxrpc.Endpoint) luigi.Sink {
+func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
-	err := sink.Pour(ctx, wmgr.wants)
+
+	sink.SetEncoding(muxrpc.TypeJSON)
+	enc := json.NewEncoder(sink)
+	err := enc.Encode(wmgr.wants)
 	if err != nil {
 		if !muxrpc.IsSinkClosed(err) {
 			level.Error(wmgr.info).Log("event", "wantProc.init/Pour", "err", err.Error())
@@ -278,7 +290,8 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink luigi.Sink, edp m
 		rootCtx:     ctx,
 		bs:          wmgr.bs,
 		wmgr:        wmgr,
-		out:         sink,
+		out:         enc,
+		outSink:     sink,
 		remoteWants: make(map[string]int64),
 		edp:         edp,
 	}
@@ -321,11 +334,12 @@ type wantProc struct {
 
 	info log.Logger
 
-	bs   ssb.BlobStore
-	wmgr *wantManager
-	out  luigi.Sink
-	done func(func())
-	edp  muxrpc.Endpoint
+	bs      ssb.BlobStore
+	wmgr    *wantManager
+	out     *json.Encoder
+	outSink *muxrpc.ByteSink
+	done    func(func())
+	edp     muxrpc.Endpoint
 
 	l           sync.Mutex
 	remoteWants map[string]int64
@@ -343,17 +357,17 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 			return nil
 		}
 		dbg.Log("cause", "update error", "err", err)
-		return errors.Wrap(err, "blobstore broadcast error")
+		return fmt.Errorf("blobstore broadcast error: %w", err)
 	}
 
 	notif, ok := v.(ssb.BlobStoreNotification)
 	if !ok {
-		err = errors.Errorf("wantProc: unhandled notification type: %T", v)
+		err = fmt.Errorf("wantProc: unhandled notification type: %T", v)
 		level.Error(proc.info).Log("warning", "invalid type", "err", err)
 		return err
 	}
-	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 
+	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
 	if _, wants := proc.remoteWants[notif.Ref.Ref()]; !wants {
@@ -362,14 +376,17 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 
 	sz, err := proc.bs.Size(notif.Ref)
 	if err != nil {
-		return errors.Wrap(err, "error getting blob size")
+		return fmt.Errorf("error getting blob size: %w", err)
 	}
 
 	m := map[string]int64{notif.Ref.Ref(): sz}
-	err = proc.out.Pour(ctx, m)
-	dbg.Log("cause", "broadcasting received blob", "sz", sz)
-	return errors.Wrap(err, "errors pouring into sink")
+	err = proc.out.Encode(m)
+	if err != nil {
+		return fmt.Errorf("errors pouring into sink: %w", err)
+	}
 
+	dbg.Log("cause", "broadcasting received blob", "sz", sz)
+	return nil
 }
 
 //
@@ -380,14 +397,14 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 			return nil
 		}
 		dbg.Log("cause", "broadcast error", "err", err)
-		return errors.Wrap(err, "wmanager broadcast error")
+		return fmt.Errorf("wmanager broadcast error: %w", err)
 	}
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
 	w, ok := v.(ssb.BlobWant)
 	if !ok {
-		err := errors.Errorf("wrong type: %T", v)
+		err := fmt.Errorf("wrong type: %T", v)
 		return err
 	}
 	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortRef(), "dist", w.Dist)
@@ -410,9 +427,11 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 
 	newW := WantMsg{w}
 	// dbg.Log("op", "sending want we now want", "wantCount", len(proc.wmgr.wants))
-	return proc.out.Pour(ctx, newW)
+	return proc.out.Encode(newW)
 }
 
+// GetWithSize is a muxrpc argument helper.
+// It can be used to request a blob named _key_ with a different maximum size than the default.
 type GetWithSize struct {
 	Key *refs.BlobRef `json:"key"`
 	Max uint          `json:"max"`
@@ -421,17 +440,23 @@ type GetWithSize struct {
 func (proc *wantProc) Close() error {
 	// TODO: unwant open wants
 	defer proc.done(nil)
-	return errors.Wrap(proc.out.Close(), "error in lower-layer close")
+	if err := proc.outSink.Close(); err != nil {
+		return fmt.Errorf("error in lower-layer close: %w", err)
+	}
+	return nil
 }
 
 func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "createWants.In")
 
-	mIn := v.(*WantMsg)
+	mIn, ok := v.(WantMsg)
+	if !ok {
+		return fmt.Errorf("wantProc: unexpected type %T", v)
+	}
 	mOut := make(map[string]int64)
 
-	for _, w := range *mIn {
+	for _, w := range mIn {
 		if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
 			continue
 		}
@@ -449,12 +474,12 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 
 					wErr := proc.wmgr.WantWithDist(w.Ref, w.Dist-1)
 					if wErr != nil {
-						return errors.Wrap(err, "forwarding want faild")
+						return fmt.Errorf("forwarding want faild: %w", err)
 					}
 					continue
 				}
 
-				return errors.Wrap(err, "error getting blob size")
+				return fmt.Errorf("error getting blob size: %w", err)
 			}
 
 			proc.l.Lock()
@@ -464,7 +489,6 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		} else {
 			if proc.wmgr.Wants(w.Ref) {
 				if uint(w.Dist) > proc.wmgr.maxSize {
-					dbg.Log("msg", "blob we wanted is larger then our max setting", "ref", w.Ref.ShortRef(), "diff", uint(w.Dist)-proc.wmgr.maxSize)
 					proc.wmgr.l.Lock()
 					delete(proc.wmgr.wants, w.Ref.Ref())
 					proc.wmgr.l.Unlock()
@@ -472,8 +496,9 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 				}
 
 				proc.wmgr.available <- &hasBlob{
-					Want: w,
-					Proc: proc,
+					connCtx: ctx,
+					want:    w,
+					remote:  proc.edp,
 				}
 			}
 		}
@@ -484,28 +509,31 @@ func (proc *wantProc) Pour(ctx context.Context, v interface{}) error {
 		return nil
 	}
 
-	err := proc.out.Pour(ctx, mOut)
-	return errors.Wrap(err, "error responding to wants")
+	err := proc.out.Encode(mOut)
+	if err != nil {
+		return fmt.Errorf("error responding to wants: %w", err)
+	}
+	return nil
 }
 
+// WantMsg is an array of _wants_, a blob reference with a distance.
 type WantMsg []ssb.BlobWant
 
-/* turns a blobwant array into one object ala
-{
-	ref1:dist1,
-	ref2:dist2,
-	...
-}
-*/
+// MarshalJSON turns a BlobWant slice into one object.
+// for example: { ref1:dist1, ref2:dist2, ... }
 func (msg WantMsg) MarshalJSON() ([]byte, error) {
 	wantsMap := make(map[*refs.BlobRef]int64, len(msg))
 	for _, want := range msg {
 		wantsMap[want.Ref] = want.Dist
 	}
 	data, err := json.Marshal(wantsMap)
-	return data, errors.Wrap(err, "WantMsg: error marshalling map?")
+	if err != nil {
+		return nil, fmt.Errorf("WantMsg: error marshalling map: %w", err)
+	}
+	return data, nil
 }
 
+// UnmarshalJSON turns an object of {ref:dist, ...} relations into a slice of BlobWants.
 func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	var directWants []ssb.BlobWant
 	err := json.Unmarshal(data, &directWants)
@@ -517,14 +545,14 @@ func (msg *WantMsg) UnmarshalJSON(data []byte) error {
 	var wantsMap map[string]int64
 	err = json.Unmarshal(data, &wantsMap)
 	if err != nil {
-		return errors.Wrap(err, "WantMsg: error parsing into map")
+		return fmt.Errorf("WantMsg: error parsing into map: %w", err)
 	}
 
 	var wants []ssb.BlobWant
 	for ref, dist := range wantsMap {
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			fmt.Println(errors.Wrap(err, "WantMsg: error parsing blob reference"))
+			fmt.Println(fmt.Errorf("WantMsg: error parsing blob reference: %w", err))
 			continue
 		}
 

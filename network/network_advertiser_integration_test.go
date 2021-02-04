@@ -14,13 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/netwrap"
-	multiserver "go.mindeco.de/ssb-multiserver"
 
 	"go.cryptoscope.co/ssb"
+	multiserver "go.mindeco.de/ssb-multiserver"
 )
 
 // To ensure this works, add this to the SUDO file, where USER is your username.
@@ -59,18 +58,18 @@ func createTestNetwork(name string, gateway NetConfig) error {
 	}
 	err = sudo("brctl", "stp", name, "off").Run()
 	if err != nil {
-		return errors.Wrap(err, "stp")
+		return fmt.Errorf("stp: %w", err)
 	}
 	err = sudo("ip", "link", "set", "dev", name, "up").Run()
 	if err != nil {
-		return errors.Wrap(err, "setting dev up")
+		return fmt.Errorf("setting dev up: %w", err)
 	}
 
 	// Set gateway address
 	if gateway.Address != "" {
 		err = sudo("ip", "addr", "add", gateway.Address, "dev", name).Run()
 		if err != nil {
-			return errors.Wrap(err, "setting gateway address")
+			return fmt.Errorf("setting gateway address: %w", err)
 		}
 	}
 
@@ -94,33 +93,33 @@ func addNode(nodeName string, netName string, addresses ...NetConfig) error {
 		vethNode, "type", "veth", "peer", "name", vethHost,
 	).Run()
 	if err != nil {
-		return errors.Wrap(err, "adding veth "+vethHost)
+		return fmt.Errorf("adding veth %s: %w", vethHost, err)
 	}
 
 	// Add to test net using bridge
 	err = sudo("brctl", "addif", bridgeName, vethHost).Run()
 	if err != nil {
-		return errors.Wrap(err, "brctl addif")
+		return fmt.Errorf("brctl addif: %w", err)
 	}
 
 	// Setup node's network namespace
 	err = sudo("ip", "netns", "add", netns).Run()
 	if err != nil {
-		return errors.Wrap(err, "ip netns add")
+		return fmt.Errorf("ip netns add: %w", err)
 	}
 	err = sudo("ip", "link", "set", vethNode, "netns", netns).Run()
 	if err != nil {
-		return errors.Wrap(err, "ip link set netns")
+		return fmt.Errorf("ip link set netns: %w", err)
 	}
 
 	// Bring up
 	err = sudo("ip", "link", "set", "dev", vethHost, "up").Run()
 	if err != nil {
-		return errors.Wrap(err, "setting "+vethHost+" up")
+		return fmt.Errorf("setting "+vethHost+" up: %w", err)
 	}
 	err = sudo("ip", "netns", "exec", netns, "ip", "link", "set", "dev", vethNode, "up").Run()
 	if err != nil {
-		return errors.Wrap(err, "setting "+vethNode+" up")
+		return fmt.Errorf("setting "+vethNode+" up: %w", err)
 	}
 
 	// Set up IP addresses
@@ -131,13 +130,13 @@ func addNode(nodeName string, netName string, addresses ...NetConfig) error {
 		}
 		cmd = append(cmd, "dev", vethNode)
 		err = sudo(cmd...).Run()
-		err = errors.Wrap(err, "setting "+address.Address+" up")
+		err = fmt.Errorf("setting "+address.Address+" up: %w", err)
 		if err != nil {
 			return err
 		}
 		if address.Gateway != "" {
 			err = sudo("ip", "netns", "exec", netns, "ip", "route", "add", "default", "via", address.Gateway).Run()
-			err = errors.Wrap(err, "setting route up")
+			err = fmt.Errorf("setting route up: %w", err)
 			if err != nil {
 				return err
 			}
@@ -152,7 +151,7 @@ func assertSendAdvertisement(nodeName string, keyPair *ssb.KeyPair) (*exec.Cmd, 
 	value := bytes.NewBuffer(nil)
 	err := json.NewEncoder(value).Encode(keyPair)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to encode keypair")
+		return nil, fmt.Errorf("failed to encode keypair: %w", err)
 	}
 
 	user := os.Getenv("USER")

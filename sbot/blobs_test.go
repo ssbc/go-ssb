@@ -6,16 +6,18 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"
@@ -24,6 +26,8 @@ import (
 )
 
 const blobSize = 1024 * 512
+
+const testDelay = 7 * time.Second
 
 func TestBlobsPair(t *testing.T) {
 	defer leakcheck.Check(t)
@@ -50,15 +54,13 @@ func TestBlobsPair(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(aliLog),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
-		// }),
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join("testrun", t.Name(), "muxdump"), conn)
+		}),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(ali))
 
 	bobLog := log.With(info, "peer", "bob")
@@ -67,12 +69,8 @@ func TestBlobsPair(t *testing.T) {
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithInfo(bobLog),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(bobLog, conn), nil
-		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
@@ -107,20 +105,24 @@ func TestBlobsPair(t *testing.T) {
 		t.Run("noop/"+tc.name, tc.tf)
 	}
 
-	info.Log("block1", "done")
+	info.Log("phase1", "done")
 
 	aliCT := ali.Network.GetConnTracker()
 	bobCT := bob.Network.GetConnTracker()
 	aliCT.CloseAll()
 	bobCT.CloseAll()
 	i := 0
-	for aliCT.Count() != 0 || bobCT.Count() != 0 {
+	an := aliCT.Count()
+	bn := bobCT.Count()
+	for an != 0 || bn != 0 {
 		time.Sleep(750 * time.Millisecond)
-		info.Log("XXXX", "waited after close", "i", i, "a", aliCT.Count(), "b", bobCT.Count())
+		info.Log("event", "waited after close", "i", i, "a", an, "b", bn)
 		i++
 		if i > 10 {
 			t.Fatal("retried waiting for close")
 		}
+		an = aliCT.Count()
+		bn = bobCT.Count()
 	}
 
 	// disconnect and reconnect
@@ -132,7 +134,7 @@ func TestBlobsPair(t *testing.T) {
 		assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 		err := bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 		r.NoError(err)
-		time.Sleep(2 * time.Second)
+		time.Sleep(testDelay)
 		assert.EqualValues(t, 1, aliCT.Count(), "a: want 1 conn")
 		assert.EqualValues(t, 1, bobCT.Count(), "b: want 1 conn")
 	}
@@ -144,7 +146,7 @@ func TestBlobsPair(t *testing.T) {
 
 	aliCT.CloseAll()
 	bobCT.CloseAll()
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 	assert.EqualValues(t, 0, aliCT.Count(), "a: not all closed")
 	assert.EqualValues(t, 0, bobCT.Count(), "b: not all closed")
 
@@ -206,7 +208,7 @@ func (s *session) simple(t *testing.T) {
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -229,7 +231,7 @@ func (s *session) wantFirst(t *testing.T) {
 
 	s.redial(t)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -261,7 +263,7 @@ func (s *session) eachOne(t *testing.T) {
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -294,7 +296,7 @@ func (s *session) eachOneConnet(t *testing.T) {
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testDelay)
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -362,7 +364,6 @@ func TestBlobsWithHops(t *testing.T) {
 		WithInfo(log.With(mainLog, "peer", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(ali))
@@ -379,7 +380,6 @@ func TestBlobsWithHops(t *testing.T) {
 		// 	return debug.WrapConn(log.With(mainLog, "remote", addr.String()[1:5]), conn), nil
 		// }),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
@@ -475,7 +475,7 @@ func TestBlobsTooBig(t *testing.T) {
 		srvGroup.Go(func() error {
 			err := bot.Network.Serve(ctx)
 			if err != nil && err != context.Canceled {
-				return errors.Wrapf(err, "bot %s serve exited", name)
+				return fmt.Errorf("bot %s serve exited: %w", name, err)
 			}
 			return nil
 		})
@@ -492,7 +492,6 @@ func TestBlobsTooBig(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	srvBot(ali, "ali")
@@ -508,7 +507,6 @@ func TestBlobsTooBig(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 	srvBot(bob, "bob")

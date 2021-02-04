@@ -4,10 +4,10 @@ package names
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -16,54 +16,40 @@ type hImagesFor struct {
 	log logging.Interface
 }
 
-func (hImagesFor) HandleConnect(context.Context, muxrpc.Endpoint) {}
-
-func (h hImagesFor) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
+func (h hImagesFor) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 
 	ref, err := parseFeedRefFromArgs(req)
 	if err != nil {
-		checkAndLog(h.log, err)
-		return
+		return nil, err
 	}
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(errors.Errorf("do not have about for: %s", ref.Ref()))
-		checkAndLog(h.log, errors.Wrap(err, "error closing stream with error"))
-		return
+		return nil, fmt.Errorf("do not have about for: %s", ref.Ref())
 	}
+
 	if ai.Image.Chosen != "" {
-		err = req.Return(ctx, ai.Image.Chosen)
-		checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
-		return
+		return ai.Image.Chosen, nil
 	}
-	var hottest string
+
+	// this is suboptimal, just got started but didnt finish
+	// ideal would take into account who your friends are, not everyone you see
+	var mostSet string
 	var most = 0
 	for v, cnt := range ai.Image.Prescribed {
 		if most > cnt {
 			most = cnt
-			hottest = v
+			mostSet = v
 		}
 	}
-	err = req.Return(ctx, hottest)
-	checkAndLog(h.log, errors.Wrap(err, "error returning chosen value"))
-	return
-}
 
-func checkAndLog(log logging.Interface, err error) {
-	if err != nil {
-		log.Log("handlerErr", err)
-	}
+	return mostSet, nil
 }
 
 func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
 	args := req.Args()
 	if len(args) != 1 {
-		return nil, errors.Errorf("not enough args")
+		return nil, fmt.Errorf("not enough args")
 	}
 
 	var refStr string
@@ -76,7 +62,7 @@ func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
 
 	ref, err := refs.ParseFeedRef(refStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing feed reference")
+		return nil, fmt.Errorf("error parsing feed reference: %w", err)
 	}
 
 	return ref, nil

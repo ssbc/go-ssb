@@ -7,11 +7,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	refs "go.mindeco.de/ssb-refs"
@@ -36,7 +36,6 @@ func TestPublishUnicode(t *testing.T) {
 		WithInfo(mainLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -44,7 +43,7 @@ func TestPublishUnicode(t *testing.T) {
 	go func() {
 		err := ali.Network.Serve(ctx)
 		if err != nil && err != context.Canceled {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
+			aliErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(aliErrc)
 	}()
@@ -60,7 +59,7 @@ func TestPublishUnicode(t *testing.T) {
 	_, err = ali.PublishLog.Append(newMsg)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

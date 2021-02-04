@@ -8,7 +8,8 @@ import (
 	"io"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -49,12 +50,13 @@ type BlobStore interface {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
 type WantManager interface {
 	io.Closer
-	luigi.Broadcast
+	luigi.Broadcast // todo: replace with a typed broadcast
+
 	Want(ref *refs.BlobRef) error
 	Wants(ref *refs.BlobRef) bool
 	WantWithDist(ref *refs.BlobRef, dist int64) error
 	//Unwant(ref *refs.BlobRef) error
-	CreateWants(context.Context, luigi.Sink, muxrpc.Endpoint) luigi.Sink
+	CreateWants(context.Context, *muxrpc.ByteSink, muxrpc.Endpoint) luigi.Sink
 
 	AllWants() []BlobWant
 }

@@ -5,21 +5,23 @@ package graph
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
+	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 // Builder can build a trust graph and answer other questions
@@ -79,7 +81,7 @@ func (b *builder) indexUpdateFunc(ctx context.Context, seq margaret.Seq, val int
 
 	abs, ok := val.(refs.Message)
 	if !ok {
-		err := errors.Errorf("graph/idx: invalid msg value %T", val)
+		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
 		b.log.Log("msg", "contact eval failed", "reason", err)
 		return err
 	}
@@ -92,8 +94,8 @@ func (b *builder) indexUpdateFunc(ctx context.Context, seq margaret.Seq, val int
 		return nil
 	}
 
-	addr := abs.Author().StoredAddr()
-	addr += c.Contact.StoredAddr()
+	addr := storedrefs.Feed(abs.Author())
+	addr += storedrefs.Feed(c.Contact)
 	switch {
 	case c.Following:
 		err = idx.Set(ctx, addr, 1)
@@ -107,7 +109,7 @@ func (b *builder) indexUpdateFunc(ctx context.Context, seq margaret.Seq, val int
 		// err = idx.Delete(ctx, librarian.Addr(addr))
 	}
 	if err != nil {
-		return errors.Wrapf(err, "db/idx contacts: failed to update index. %+v", c)
+		return fmt.Errorf("db/idx contacts: failed to update index. %+v: %w", c, err)
 	}
 
 	b.cachedGraph = nil
@@ -130,13 +132,13 @@ func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(who.StoredAddr())
+		prefix := []byte(storedrefs.Feed(who))
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 
 			k := it.Key()
 			if err := txn.Delete(k); err != nil {
-				return errors.Wrapf(err, "DeleteAuthor: failed to drop record %x", k)
+				return fmt.Errorf("DeleteAuthor: failed to drop record %x: %w", k, err)
 			}
 		}
 		return nil
@@ -169,33 +171,30 @@ func (b *builder) Build() (*Graph, error) {
 		for iter.Rewind(); iter.Valid(); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if len(k) != 66 {
+			if len(k) != 68 {
 				continue
 			}
 
-			rawFrom := k[:33]
-			rawTo := k[33:]
+			rawFrom := k[:34]
+			rawTo := k[34:]
 
 			if bytes.Equal(rawFrom, rawTo) {
 				// contact self?!
 				continue
 			}
 
-			var to, from refs.StorageRef
-			if err := from.Unmarshal(rawFrom); err != nil {
-				return errors.Wrapf(err, "builder: couldnt idx key value (from)")
+			var to, from tfk.Feed
+			if err := from.UnmarshalBinary(rawFrom); err != nil {
+				return fmt.Errorf("builder: couldnt idx key value (from): %w", err)
 			}
-			if err := to.Unmarshal(rawTo); err != nil {
-				return errors.Wrap(err, "builder: couldnt idx key value (to)")
+			if err := to.UnmarshalBinary(rawTo); err != nil {
+				return fmt.Errorf("builder: couldnt idx key value (to): %w", err)
 			}
 
 			bfrom := librarian.Addr(rawFrom)
 			nFrom, has := dg.lookup[bfrom]
 			if !has {
-				fromRef, err := from.FeedRef()
-				if err != nil {
-					return err
-				}
+				fromRef := from.Feed()
 
 				nFrom = &contactNode{dg.NewNode(), fromRef.Copy(), ""}
 				dg.AddNode(nFrom)
@@ -205,10 +204,7 @@ func (b *builder) Build() (*Graph, error) {
 			bto := librarian.Addr(rawTo)
 			nTo, has := dg.lookup[bto]
 			if !has {
-				toRef, err := to.FeedRef()
-				if err != nil {
-					return err
-				}
+				toRef := to.Feed()
 				nTo = &contactNode{dg.NewNode(), toRef.Copy(), ""}
 				dg.AddNode(nTo)
 				dg.lookup[bto] = nTo
@@ -228,13 +224,13 @@ func (b *builder) Build() (*Graph, error) {
 					case '2':
 						w = math.Inf(1)
 					default:
-						return errors.Errorf("barbage value in graph strore")
+						return fmt.Errorf("barbage value in graph strore")
 					}
 				}
 				return nil
 			})
 			if err != nil {
-				return errors.Wrapf(err, "failed to get value from item:%q", string(k))
+				return fmt.Errorf("failed to get value from item:%q: %w", string(k), err)
 			}
 
 			if math.IsInf(w, -1) {
@@ -260,7 +256,7 @@ type Lookup struct {
 }
 
 func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
-	bto := to.StoredAddr()
+	bto := storedrefs.Feed(to)
 	nTo, has := l.lookup[bto]
 	if !has {
 		return nil, math.Inf(-1)
@@ -277,7 +273,7 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(forRef.StoredAddr())
+		prefix := []byte(storedrefs.Feed(forRef))
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -286,19 +282,19 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 				if len(v) >= 1 && v[0] == '1' {
 					// extract 2nd feed ref out of db key
 					// TODO: use compact StoredAddr
-					var sr refs.StorageRef
-					err := sr.Unmarshal(k[33:])
+					var sr tfk.Feed
+					err := sr.UnmarshalBinary(k[34:])
 					if err != nil {
-						return errors.Wrapf(err, "follows(%s): invalid ref entry in db for feed", forRef.Ref())
+						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
 					}
-					if err := fs.AddStored(&sr); err != nil {
-						return errors.Wrapf(err, "follows(%s): couldn't add parsed ref feed", forRef.Ref())
+					if err := fs.AddRef(sr.Feed()); err != nil {
+						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
 					}
 				}
 				return nil
 			})
 			if err != nil {
-				return errors.Wrap(err, "failed to get value from iter")
+				return fmt.Errorf("failed to get value from iter: %w", err)
 			}
 		}
 		return nil
@@ -334,23 +330,23 @@ func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, f
 
 	fromFollows, err := b.Follows(from)
 	if err != nil {
-		return errors.Wrapf(err, "recurseHops(%d): from follow listing failed", depth)
+		return fmt.Errorf("recurseHops(%d): from follow listing failed: %w", depth, err)
 	}
 
 	followLst, err := fromFollows.List()
 	if err != nil {
-		return errors.Wrapf(err, "recurseHops(%d): invalid entry in feed set", depth)
+		return fmt.Errorf("recurseHops(%d): invalid entry in feed set: %w", depth, err)
 	}
 
 	for i, followedByFrom := range followLst {
 		err := walked.AddRef(followedByFrom)
 		if err != nil {
-			return errors.Wrapf(err, "recurseHops(%d): add list entry(%d) failed", depth, i)
+			return fmt.Errorf("recurseHops(%d): add list entry(%d) failed: %w", depth, i, err)
 		}
 
 		dstFollows, err := b.Follows(followedByFrom)
 		if err != nil {
-			return errors.Wrapf(err, "recurseHops(%d): follows from entry(%d) failed", depth, i)
+			return fmt.Errorf("recurseHops(%d): follows from entry(%d) failed: %w", depth, i, err)
 		}
 
 		isF := dstFollows.Has(from)

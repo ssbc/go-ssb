@@ -4,15 +4,17 @@ go 1.13
 
 require (
 	github.com/RoaringBitmap/roaring v0.4.21-0.20190925020156-96f2302555b6
+	github.com/VividCortex/gohistogram v1.0.0
 	github.com/cryptix/go v1.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v2.0.0-rc2+incompatible
-	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.10.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/keks/nocomment v0.0.0-20181007001506-30c6dcb4a472
+	github.com/keks/persist v0.0.0-20191006175951-43c124092b8b
+	github.com/keks/testops v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1
 	github.com/machinebox/progress v0.2.0
@@ -26,17 +28,17 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	go.cryptoscope.co/librarian v0.2.1-0.20200604160012-d85e03a70e79
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
-	go.cryptoscope.co/margaret v0.1.7-0.20200923095707-356f025760f5
-	go.cryptoscope.co/muxrpc v1.5.4-0.20200527143049-1c5d85371ced
+	go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0
+	go.cryptoscope.co/muxrpc/v2 v2.0.0-20210202162901-fe642d405dc6
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
-	go.mindeco.de/ssb-refs v0.0.0-20200615121534-e677c80c4097
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
-	golang.org/x/text v0.3.2
+	golang.org/x/text v0.3.3
 	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
@@ -50,3 +52,5 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
+
+// replace go.cryptoscope.co/muxrpc/v2 => /home/cryptix/go-repos/muxrpc

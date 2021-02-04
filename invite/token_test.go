@@ -5,7 +5,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -67,7 +66,7 @@ func TestParseParseLegacyToken(t *testing.T) {
 
 			a.Equal(tok.String(), tc.want.String(), "test %d input<>output failed", i)
 		} else {
-			a.EqualError(errors.Cause(err), tc.err.Error(), "%d wrong error", i)
+			a.EqualError(err, tc.err.Error(), "%d wrong error", i)
 		}
 	}
 }

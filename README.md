@@ -95,8 +95,8 @@ package main
 
 import (
 	"log"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/sbot"
@@ -106,7 +106,7 @@ func main() {
 	sbot, err := sbot.New()
 	check(err)
 
-	publish, err := multilogs.OpenPublishLog(sbot.RootLog, sbot.UserFeeds, *sbot.KeyPair)
+	publish, err := multilogs.OpenPublishLog(sbot.ReceiveLog, sbot.UserFeeds, *sbot.KeyPair)
 	check(err)
 
 	alice, err := refs.ParseFeedRef("@alicesKeyInActualBase64Bytes.ed25519")
@@ -135,7 +135,7 @@ func main() {
 	}
 	for i, msg := range someMsgs {
 		newSeq, err := publish.Append(msg)
-		check(errors.Wrapf(err, "failed to publish test message %d", i))
+		check(fmt.Errorf("failed to publish test message %d: %w", i, err))
 		log.Println("new message:", newSeq)
 	}
 

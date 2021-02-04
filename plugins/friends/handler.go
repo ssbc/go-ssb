@@ -1,27 +1,24 @@
 // SPDX-License-Identifier: MIT
 
+// Package friends supplies some of npm:ssb-friends, namly isFollowing, isBlocking and hops but not hopStream, onEdge or createLayer.
 package friends
 
 import (
 	"github.com/cryptix/go/logging"
 	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 )
 
 /*
 
   isFollowing: 'async',
   isBlocking: 'async',
-  hops: 'async',
-
-extra:
-
-  follows: 'source',
+  hops: 'source',
   blocks: 'source',
 
 */
@@ -38,7 +35,7 @@ func checkAndLog(log logging.Interface, err error) {
 }
 
 func New(log logging.Interface, self refs.FeedRef, b graph.Builder) ssb.Plugin {
-	rootHdlr := muxmux.New(log)
+	rootHdlr := typemux.New(log)
 
 	rootHdlr.RegisterAsync(muxrpc.Method{"friends", "isFollowing"}, isFollowingH{
 		log:     log,
@@ -90,18 +87,3 @@ func (plugin) Method() muxrpc.Method {
 func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
-
-// not sure what this was about
-func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
-	return endpoint{edp}
-}
-
-type endpoint struct {
-	edp muxrpc.Endpoint
-}
-
-/*
-func (edp endpoint) Add(ctx context.Context) (refs.MessageRef, error) {
-	return refs.MessageRef{}, errors.New("not implemented yet")
-}
-*/

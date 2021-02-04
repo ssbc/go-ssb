@@ -7,12 +7,11 @@ import (
 	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-	refs "go.mindeco.de/ssb-refs"
+	"go.cryptoscope.co/muxrpc/v2"
 
-	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type hasHandler struct {
@@ -22,7 +21,7 @@ type hasHandler struct {
 
 func (hasHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h hasHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 	// TODO: push manifest check into muxrpc
 	if req.Type == "" {
 		req.Type = "async"
@@ -31,8 +30,7 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 	if len(req.Args()) != 1 {
 		// TODO: change from generic handlers to typed once (source, sink, async..)
 		// async then would have to return a value or an error and not fall into this trap of not closing a stream
-		req.Stream.CloseWithError(fmt.Errorf("bad request - wrong args"))
-		return
+		return nil, fmt.Errorf("bad request - wrong args")
 	}
 
 	switch v := req.Args()[0].(type) {
@@ -40,8 +38,7 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 		ref, err := refs.ParseBlobRef(v)
 		if err != nil {
-			req.Stream.CloseWithError(errors.Wrap(err, "error parsing blob reference"))
-			return
+			return nil, fmt.Errorf("error parsing blob reference: %w", err)
 		}
 
 		_, err = h.bs.Get(ref)
@@ -51,14 +48,11 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 		if err == blobstore.ErrNoSuchBlob {
 			has = false
 		} else if err != nil {
-			err = errors.Wrap(err, "error looking up blob")
-			err = req.Stream.CloseWithError(err)
-			checkAndLog(h.log, err)
-			return
+			err = fmt.Errorf("error looking up blob: %w", err)
+			return nil, err
 		}
 
-		err = req.Return(ctx, has)
-		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+		return has, nil
 
 	case []interface{}:
 		var has = make([]bool, len(v))
@@ -67,13 +61,11 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 
 			blobStr, ok := blobRef.(string)
 			if !ok {
-				req.Stream.CloseWithError(fmt.Errorf("bad request - unhandled type"))
-				return
+				return nil, fmt.Errorf("bad request - unhandled type")
 			}
 			ref, err := refs.ParseBlobRef(blobStr)
-			checkAndLog(h.log, errors.Wrap(err, "error parsing blob reference"))
 			if err != nil {
-				return
+				return nil, fmt.Errorf("error parsing blob reference: %w", err)
 			}
 
 			_, err = h.bs.Get(ref)
@@ -83,20 +75,15 @@ func (h hasHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp mux
 			if err == blobstore.ErrNoSuchBlob {
 				has[k] = false
 			} else if err != nil {
-				err = errors.Wrap(err, "error looking up blob")
-				err = req.Stream.CloseWithError(err)
-				checkAndLog(h.log, err)
-				return
+				err = fmt.Errorf("error looking up blob: %w", err)
+				return nil, err
 			}
 
 		}
-
-		err := req.Return(ctx, has)
-		checkAndLog(h.log, errors.Wrap(err, "error returning value"))
+		return has, nil
 
 	default:
-		req.Stream.CloseWithError(fmt.Errorf("bad request - unhandled type"))
-		return
+		return nil, fmt.Errorf("bad request - unhandled type")
 	}
 
 }

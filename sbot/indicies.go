@@ -4,6 +4,7 @@ package sbot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/machinebox/progress"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -24,27 +24,27 @@ import (
 func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 	return func(s *Sbot) error {
 		if wrl, ok := plug.(plugins2.NeedsRootLog); ok {
-			wrl.WantRootLog(s.RootLog)
+			wrl.WantRootLog(s.ReceiveLog)
 		}
 
 		if wrl, ok := plug.(plugins2.NeedsMultiLog); ok {
 			err := wrl.WantMultiLog(s)
 			if err != nil {
-				return errors.Wrap(err, "sbot/mount plug: failed to fulfill multilog requirement")
+				return fmt.Errorf("sbot/mount plug: failed to fulfill multilog requirement: %w", err)
 			}
 		}
 
 		if slm, ok := plug.(repo.SimpleIndexMaker); ok {
 			err := MountSimpleIndex(plug.Name(), slm.MakeSimpleIndex)(s)
 			if err != nil {
-				return errors.Wrap(err, "sbot/mount plug failed to make simple index")
+				return fmt.Errorf("sbot/mount plug failed to make simple index: %w", err)
 			}
 		}
 
 		if mlm, ok := plug.(repo.MultiLogMaker); ok {
 			err := MountMultiLog(plug.Name(), mlm.MakeMultiLog)(s)
 			if err != nil {
-				return errors.Wrap(err, "sbot/mount plug failed to make multilog")
+				return fmt.Errorf("sbot/mount plug failed to make multilog: %w", err)
 			}
 		}
 
@@ -65,7 +65,7 @@ func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
 	return func(s *Sbot) error {
 		mlog, updateSink, err := fn(repo.New(s.repoPath))
 		if err != nil {
-			return errors.Wrapf(err, "sbot/index: failed to open idx %s", name)
+			return fmt.Errorf("sbot/index: failed to open idx %s: %w", name, err)
 		}
 		s.closers.addCloser(updateSink)
 		s.closers.addCloser(mlog)
@@ -79,7 +79,7 @@ func MountSimpleIndex(name string, fn repo.MakeSimpleIndex) Option {
 	return func(s *Sbot) error {
 		idx, updateSink, err := fn(repo.New(s.repoPath))
 		if err != nil {
-			return errors.Wrapf(err, "sbot/index: failed to open idx %s", name)
+			return fmt.Errorf("sbot/index: failed to open idx %s: %w", name, err)
 		}
 		s.closers.addCloser(updateSink)
 		s.serveIndex(name, updateSink)
@@ -121,7 +121,18 @@ func (s *Sbot) WaitUntilIndexesAreSynced() {
 	s.idxInSync.Wait()
 }
 
+// the default is to fill an index with all messages
 func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
+	s.serveIndexFrom(name, snk, s.ReceiveLog)
+}
+
+/* some indexes just require a certain kind of message, like type:contact or type:about.
+
+contactLog, err := s.ByType.Get(librarian.Addr("contact"))
+if err != nil { ... }
+msgs := mutil.Indirect(s.ReceiveLog, contactLog)
+*/
+func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margaret.Log) {
 	s.idxInSync.Add(1)
 
 	s.indexStateMu.Lock()
@@ -130,15 +141,17 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 	s.idxDone.Go(func() error {
 
-		src, err := s.RootLog.Query(margaret.Live(false), margaret.SeqWrap(true), snk.QuerySpec())
+		src, err := msgs.Query(margaret.Live(false), margaret.SeqWrap(true), snk.QuerySpec())
 		if err != nil {
-			return errors.Wrapf(err, "sbot index(%s) error querying receiveLog for message backlog", name)
+			return fmt.Errorf("sbot index(%s) error querying receiveLog for message backlog: %w", name, err)
 		}
 
-		currentSeqV, err := s.RootLog.Seq().Value()
+		currentSeqV, err := msgs.Seq().Value()
 		if err != nil {
 			return err
 		}
+
+		logger := log.With(s.info, "index", name)
 
 		var ps progressSink
 		ps.backing = snk
@@ -147,8 +160,8 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 		ctx, cancel := context.WithCancel(s.rootCtx)
 		go func() {
-			p := progress.NewTicker(ctx, &ps, totalMessages, 3*time.Second)
-			pinfo := log.With(level.Info(s.info), "index", name, "event", "index-progress")
+			p := progress.NewTicker(ctx, &ps, totalMessages, 7*time.Second)
+			pinfo := log.With(level.Info(logger), "event", "index-progress")
 			for remaining := range p {
 				// how much time until it's done?
 				estDone := remaining.Estimated()
@@ -164,11 +177,15 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 
 		err = luigi.Pump(s.rootCtx, &ps, src)
 		cancel()
-		if err == ssb.ErrShuttingDown || err == context.Canceled {
+		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrapf(err, "sbot index(%s) update of backlog failed", name)
+			s.indexStateMu.Lock()
+			s.indexStates[name] = err.Error()
+			s.indexStateMu.Unlock()
+			level.Warn(logger).Log("event", "index stopped", "err", err)
+			return fmt.Errorf("sbot index(%s) update of backlog failed: %w", name, err)
 		}
 		s.idxInSync.Done()
 
@@ -176,9 +193,9 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 			return nil
 		}
 
-		src, err = s.RootLog.Query(margaret.Live(true), margaret.SeqWrap(true), snk.QuerySpec())
+		src, err = msgs.Query(margaret.Live(true), margaret.SeqWrap(true), snk.QuerySpec())
 		if err != nil {
-			return errors.Wrapf(err, "sbot index(%s) failed to query receive log for live updates", name)
+			return fmt.Errorf("sbot index(%s) failed to query receive log for live updates: %w", name, err)
 		}
 
 		s.indexStateMu.Lock()
@@ -186,11 +203,15 @@ func (s *Sbot) serveIndex(name string, snk librarian.SinkIndex) {
 		s.indexStateMu.Unlock()
 
 		err = luigi.Pump(s.rootCtx, snk, src)
-		if err == ssb.ErrShuttingDown || err == context.Canceled {
+		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 			return nil
 		}
 		if err != nil {
-			return errors.Wrapf(err, "sbot index(%s) live update failed", name)
+			s.indexStateMu.Lock()
+			s.indexStates[name] = err.Error()
+			s.indexStateMu.Unlock()
+			level.Warn(logger).Log("event", "index stopped", "err", err)
+			return fmt.Errorf("sbot index(%s) live update failed: %w", name, err)
 		}
 		return nil
 	})

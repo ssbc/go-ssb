@@ -3,18 +3,14 @@
 package main
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/cryptix/go/logging/countconn"
 	"github.com/go-kit/kit/metrics/prometheus"
-	"github.com/pkg/errors"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
 	"go.cryptoscope.co/netwrap"
 )
 
@@ -22,10 +18,11 @@ var (
 	SystemEvents  *prometheus.Counter
 	SystemSummary *prometheus.Summary
 	RepoStats     *prometheus.Gauge
-
-	muxrpcSummary *prometheus.Summary
 )
 
+//	muxrpcSummary *prometheus.Summary
+
+/*
 type latencyMuxH struct {
 	root muxrpc.Handler
 	sum  *prometheus.Summary
@@ -52,6 +49,7 @@ func HandlerWithLatency(s *prometheus.Summary) muxrpc.HandlerWrapper {
 		}
 	}
 }
+*/
 
 func startDebug() {
 	if debugAddr == "" {
@@ -70,11 +68,11 @@ func startDebug() {
 		Name:      "ssb_repostats",
 	}, []string{"part"})
 
-	muxrpcSummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-		Namespace: "gossb",
-		Subsystem: "muxrpc",
-		Name:      "muxrpc_durrations_seconds",
-	}, []string{"method", "type", "error"})
+	// muxrpcSummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+	// 	Namespace: "gossb",
+	// 	Subsystem: "muxrpc",
+	// 	Name:      "muxrpc_durrations_seconds",
+	// }, []string{"method", "type", "error"})
 
 	SystemSummary = prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
 		Namespace: "gossb",
@@ -90,6 +88,7 @@ func startDebug() {
 	}()
 }
 
+/* TODO: refactor for luigi-less api
 type latencyWrapper struct {
 	start time.Time
 	root  muxrpc.Endpoint
@@ -106,14 +105,14 @@ func EndpointWithLatency(sum *prometheus.Summary) func(r muxrpc.Endpoint) muxrpc
 	}
 }
 
-func (lw *latencyWrapper) Async(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (interface{}, error) {
+func (lw *latencyWrapper) Async(ctx context.Context, ret interface{}, tipe muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) error {
 	start := time.Now()
-	val, err := lw.root.Async(ctx, tipe, method, args...)
+	err := lw.root.Async(ctx, ret, tipe, method, args...)
 	lw.sum.With("method", method.String(), "type", "async", "error", err.Error()).Observe(time.Since(start).Seconds())
-	return val, err
+	return err
 }
 
-func (lw *latencyWrapper) Source(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
+func (lw *latencyWrapper) Source(ctx context.Context, tipe muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
 	start := time.Now()
 	rootSrc, err := lw.root.Source(ctx, tipe, method, args...)
 	if err != nil {
@@ -124,7 +123,7 @@ func (lw *latencyWrapper) Source(ctx context.Context, tipe interface{}, method m
 	pSrc, pSink := luigi.NewPipe()
 	go func() {
 		var errStr = "nil"
-		err := luigi.Pump(ctx, pSink, rootSrc)
+		err := luigi.Pump(ctx, pSink, rootSrc.AsStream())
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
@@ -135,9 +134,9 @@ func (lw *latencyWrapper) Source(ctx context.Context, tipe interface{}, method m
 	return pSrc, nil
 }
 
-func (lw *latencyWrapper) Sink(ctx context.Context, method muxrpc.Method, args ...interface{}) (luigi.Sink, error) {
+func (lw *latencyWrapper) Sink(ctx context.Context, tipe muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (luigi.Sink, error) {
 	start := time.Now()
-	rootSink, err := lw.root.Sink(ctx, method, args...)
+	rootSink, err := lw.root.Sink(ctx, tipe, method, args...)
 	if err != nil {
 		lw.sum.With("method", method.String(), "type", "sink", "error", err.Error()).Observe(time.Since(start).Seconds())
 		return nil, err
@@ -146,7 +145,7 @@ func (lw *latencyWrapper) Sink(ctx context.Context, method muxrpc.Method, args .
 	pSrc, pSink := luigi.NewPipe()
 	go func() {
 		var errStr = "nil"
-		err := luigi.Pump(ctx, rootSink, pSrc)
+		err := luigi.Pump(ctx, rootSink.AsStream(), pSrc)
 		if err != nil {
 			errStr = errors.Cause(err).Error()
 		}
@@ -157,7 +156,7 @@ func (lw *latencyWrapper) Sink(ctx context.Context, method muxrpc.Method, args .
 	return pSink, nil
 }
 
-func (lw *latencyWrapper) Duplex(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, luigi.Sink, error) {
+func (lw *latencyWrapper) Duplex(ctx context.Context, tipe muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (*muxrpc.ByteSource, *muxrpc.ByteSink, error) {
 	start := time.Now()
 	rootSrc, rootSink, err := lw.root.Duplex(ctx, tipe, method, args...)
 	if err != nil {
@@ -205,14 +204,15 @@ func (lw *latencyWrapper) Remote() net.Addr {
 	return lw.root.Remote()
 }
 
-func (lw *latencyWrapper) Serve(ctx context.Context) error {
+func (lw *latencyWrapper) Serve() error {
 	srv, ok := lw.root.(muxrpc.Server)
 	if !ok {
-		return errors.Errorf("latencywrapper: server interface not implemented")
+		return fmt.Errorf("latencywrapper: server interface not implemented")
 	}
 	// this looses the wrapped endpoint again maybe?
-	return srv.Serve(ctx)
+	return srv.Serve()
 }
+*/
 
 type promCount struct {
 	*countconn.Reader

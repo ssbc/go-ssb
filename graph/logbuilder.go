@@ -4,14 +4,15 @@ package graph
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
 	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -41,8 +42,11 @@ func NewLogBuilder(logger kitlog.Logger, contacts margaret.Log) (*logBuilder, er
 	}
 
 	_, err := lb.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build graph: %w", err)
+	}
 
-	return &lb, errors.Wrap(err, "failed to build graph")
+	return &lb, nil
 }
 
 func (b *logBuilder) Close() error { return nil }
@@ -50,7 +54,7 @@ func (b *logBuilder) Close() error { return nil }
 func (b *logBuilder) startQuery(ctx context.Context) {
 	src, err := b.contactsLog.Query(margaret.Live(true))
 	if err != nil {
-		err = errors.Wrap(err, "failed to make live query for contacts")
+		err = fmt.Errorf("failed to make live query for contacts: %w", err)
 		level.Error(b.logger).Log("err", err, "event", "query build failed")
 		return
 	}
@@ -110,7 +114,7 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 
 	abs, ok := v.(refs.Message)
 	if !ok {
-		err := errors.Errorf("graph/idx: invalid msg value %T", v)
+		err := fmt.Errorf("graph/idx: invalid msg value %T", v)
 		return err
 	}
 
@@ -129,35 +133,18 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 		return nil
 	}
 
-	bfrom := author.StoredAddr()
+	bfrom := storedrefs.Feed(author)
 	nFrom, has := b.current.lookup[bfrom]
 	if !has {
-		// stupid copy
-		sr, err := refs.NewStorageRef(author)
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		fr, err := sr.FeedRef()
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		nFrom = &contactNode{dg.NewNode(), fr, ""}
+		nFrom = &contactNode{dg.NewNode(), author.Copy(), ""}
 		dg.AddNode(nFrom)
 		b.current.lookup[bfrom] = nFrom
 	}
 
-	bto := contact.StoredAddr()
+	bto := storedrefs.Feed(contact)
 	nTo, has := b.current.lookup[bto]
 	if !has {
-		sr, err := refs.NewStorageRef(contact)
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for contact")
-		}
-		fr, err := sr.FeedRef()
-		if err != nil {
-			return errors.Wrap(err, "failed to create graph node for author")
-		}
-		nTo = &contactNode{dg.NewNode(), fr, ""}
+		nTo = &contactNode{dg.NewNode(), contact.Copy(), ""}
 		dg.AddNode(nTo)
 		b.current.lookup[bto] = nTo
 	}
@@ -186,9 +173,9 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 func (b *logBuilder) Follows(from *refs.FeedRef) (*ssb.StrFeedSet, error) {
 	g, err := b.Build()
 	if err != nil {
-		return nil, errors.Wrap(err, "follows: couldn't build graph")
+		return nil, fmt.Errorf("follows: couldn't build graph: %w", err)
 	}
-	fb := from.StoredAddr()
+	fb := storedrefs.Feed(from)
 	nFrom, has := g.lookup[fb]
 	if !has {
 		return nil, ErrNoSuchFrom{from}
@@ -218,7 +205,7 @@ func (b *logBuilder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
 	}
 	b.current.Lock()
 	defer b.current.Unlock()
-	fb := from.StoredAddr()
+	fb := storedrefs.Feed(from)
 	nFrom, has := g.lookup[fb]
 	if !has {
 		fs := ssb.NewFeedSet(1)

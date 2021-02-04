@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
+
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -21,70 +21,39 @@ type getMessagesOfTypeHandler struct {
 	bytype *roaring.MultiLog
 }
 
-func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk luigi.Sink) error {
-	if len(req.Args()) < 1 {
-		return errors.Errorf("invalid arguments")
+func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
+	var args []struct {
+		ID *refs.FeedRef
+
+		Type string
+
+		Keys bool
 	}
-	var (
-		feed *refs.FeedRef
-		tipe string
-
-		keys bool
-
-		err error
-	)
-	switch v := req.Args()[0].(type) {
-
-	case map[string]interface{}:
-		refV, ok := v["id"]
-		if !ok {
-			return errors.Errorf("invalid argument - missing 'id' in map")
-		}
-
-		ref, ok := refV.(string)
-		if !ok {
-			return errors.Errorf("invalid argument - 'id' field is not a string")
-		}
-
-		feed, err = refs.ParseFeedRef(ref)
-		if err != nil {
-			return fmt.Errorf("invalid argument: %w", err)
-		}
-
-		typeV, ok := v["type"]
-		if !ok {
-			return errors.Errorf("invalid argument - missing 'type' in map")
-		}
-
-		tipe = typeV.(string)
-
-		if keysV, has := v["keys"]; has {
-			if yes, ok := keysV.(bool); ok {
-				keys = yes
-			}
-		}
-
-	default:
-		return errors.Errorf("invalid argument type %T", req.Args()[0])
-
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return fmt.Errorf("invalid arguments: %w", err)
 	}
+	arg := args[0]
 
-	workSet, err := h.feeds.LoadInternalBitmap(feed.StoredAddr())
+	fmt.Printf("by type: %+v\n", arg)
+
+	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(arg.ID))
 	if err != nil {
 		// TODO actual assert not found error.
-		// errors.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
+		// fmt.Errorf("failed to load feed %s bitmap: %s", feed.ShortRef(), err.Error())
 		snk.Close()
 		return nil
 
 	}
 
-	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr(tipe))
+	tipeSeqs, err := h.bytype.LoadInternalBitmap(librarian.Addr("string:" + arg.Type))
 	if err != nil {
-		// return errors.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
+		// return fmt.Errorf("failed to load msg type %s bitmap: %s", tipe, err.Error())
 		snk.Close()
 		return nil
-
 	}
+
+	snk.SetEncoding(muxrpc.TypeJSON)
 
 	// which sequences are in both?
 	workSet.And(tipeSeqs)
@@ -100,22 +69,22 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 
 		msg, ok := msgv.(refs.Message)
 		if !ok {
-			return errors.Errorf("invalid msg type %T", msgv)
+			return fmt.Errorf("invalid msg type %T", msgv)
 		}
-		if keys {
+		if arg.Keys {
 			var kv refs.KeyValueRaw
 			kv.Key_ = msg.Key()
 			kv.Value = *msg.ValueContent()
 			b, err := json.Marshal(kv)
 			if err != nil {
-				return errors.Errorf("failed to encode json: %w", err)
+				return fmt.Errorf("failed to encode json: %w", err)
 			}
-			err = snk.Pour(ctx, json.RawMessage(b))
+			_, err = snk.Write(json.RawMessage(b))
 			if err != nil {
 				return fmt.Errorf("failed to send json data: %w", err)
 			}
 		} else {
-			err = snk.Pour(ctx, msg.ValueContentJSON())
+			_, err = snk.Write(msg.ValueContentJSON())
 			if err != nil {
 				return fmt.Errorf("failed to send json data: %w", err)
 			}

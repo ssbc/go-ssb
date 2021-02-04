@@ -3,17 +3,16 @@ package partial
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/transform"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -32,11 +31,11 @@ func (h getTangleHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) 
 	}
 
 	if len(mrs) != 1 {
-		return nil, errors.Errorf("no args")
+		return nil, fmt.Errorf("no args")
 	}
 	msg, err := h.get.Get(mrs[0])
 	if err != nil {
-		return nil, errors.Wrap(err, "getTangle: root message not found")
+		return nil, fmt.Errorf("getTangle: root message not found: %w", err)
 	}
 
 	vals := []interface{}{
@@ -45,18 +44,19 @@ func (h getTangleHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) 
 
 	threadLog, err := h.roots.Get(librarian.Addr(msg.Key().Hash))
 	if err != nil {
-		return nil, errors.Wrap(err, "getTangle: failed to load thread")
+		return nil, fmt.Errorf("getTangle: failed to load thread: %w", err)
 	}
 
 	src, err := mutil.Indirect(h.rxlog, threadLog).Query()
 	if err != nil {
-		return nil, errors.Wrap(err, "getTangle: failed to qry tipe")
+		return nil, fmt.Errorf("getTangle: failed to qry tipe: %w", err)
 	}
 
 	snk := luigi.NewSliceSink(&vals)
-	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, false), src)
+	err = luigi.Pump(ctx, snk, src)
 	if err != nil {
-		return nil, errors.Wrap(err, "getTangle: failed to pump msgs")
+		return nil, fmt.Errorf("getTangle: failed to pump msgs: %w", err)
 	}
+	return nil, fmt.Errorf("partial: TODO refactor")
 	return vals, nil
 }

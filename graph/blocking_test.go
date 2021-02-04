@@ -2,9 +2,7 @@
 
 package graph
 
-import (
-	"github.com/pkg/errors"
-)
+import "fmt"
 
 /*
 Quoting from https://github.com/ssbc/ssb-friends README.md
@@ -184,7 +182,7 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 			set := g.BlockedList(pFrom.key.Id)
 			got := set.Count()
 			if got != len(who) {
-				return errors.Errorf("BlockedList() wrong length: %d", got)
+				return fmt.Errorf("BlockedList() wrong length: %d", got)
 			}
 
 			for _, want := range who {

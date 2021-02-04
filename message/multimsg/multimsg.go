@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 
+// Package multimsg implements a margaret codec to encode multiple kinds of messages to disk.
+// Currently _legacy_ and _gabbygrove_ but should be easily extendable.
 package multimsg
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
@@ -49,7 +51,7 @@ func (mm MultiMessage) MarshalBinary() ([]byte, error) {
 	case Legacy:
 		legacy, ok := mm.AsLegacy()
 		if !ok {
-			return nil, errors.Errorf("multiMessage: not a legacy message: %T", mm.Message)
+			return nil, fmt.Errorf("multiMessage: not a legacy message: %T", mm.Message)
 		}
 		err = enc.Encode(legacy)
 	case Gabby:
@@ -57,19 +59,22 @@ func (mm MultiMessage) MarshalBinary() ([]byte, error) {
 		meta.ReceivedTime = mm.Received()
 		gabby, ok := mm.AsGabby()
 		if !ok {
-			return nil, errors.Errorf("multiMessage: wrong type of message: %T", mm.Message)
+			return nil, fmt.Errorf("multiMessage: wrong type of message: %T", mm.Message)
 		}
 		meta.Transfer = *gabby
 		err = enc.Encode(meta)
 	default:
-		return nil, errors.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
+		return nil, fmt.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
 	}
-	return buf.Bytes(), errors.Wrapf(err, "multiMessage(%v): data encoding failed", mm.tipe)
+	if err != nil {
+		return nil, fmt.Errorf("multiMessage(%v): data encoding failed: %w", mm.tipe, err)
+	}
+	return buf.Bytes(), nil
 }
 
 func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 	if len(data) < 1 {
-		return errors.Errorf("multiMessage: data to short")
+		return fmt.Errorf("multiMessage: data to short")
 	}
 	var mh codec.CborHandle
 	mh.StructToArray = true
@@ -81,7 +86,7 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		var msg legacy.StoredMessage
 		err := dec.Decode(&msg)
 		if err != nil {
-			return errors.Wrap(err, "multiMessage: legacy decoding failed")
+			return fmt.Errorf("multiMessage: legacy decoding failed: %w", err)
 		}
 		mm.received = msg.Timestamp_
 		mm.Message = &msg
@@ -90,13 +95,13 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		var msg ggWithMetadata
 		err := dec.Decode(&msg)
 		if err != nil {
-			return errors.Wrap(err, "multiMessage: gabby decoding failed")
+			return fmt.Errorf("multiMessage: gabby decoding failed: %w", err)
 		}
 		mm.received = msg.ReceivedTime
 		mm.Message = &msg.Transfer
 		mm.key = msg.Key()
 	default:
-		return errors.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
+		return fmt.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
 	}
 	return nil
 }

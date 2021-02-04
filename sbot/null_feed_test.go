@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -63,7 +63,6 @@ func TestNullFeed(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "main")),
 		WithHops(2),
 		WithHMACSigning(hk),
-		LateOption(MountSimpleIndex("get", indexes.OpenGet)),
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
@@ -76,9 +75,9 @@ func TestNullFeed(t *testing.T) {
 	}{
 		{"arny", refs.NewContactFollow(kpBert.Id)},
 		{"bert", refs.NewContactFollow(kpArny.Id)},
-		{"arny", map[string]interface{}{"hello": 123}},
-		{"bert", map[string]interface{}{"world": 456}},
-		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
+		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
+		{"bert", map[string]interface{}{"type": "test", "world": 456}},
+		{"bert", map[string]interface{}{"type": "test", "spew": true, "delete": "me"}},
 	}
 
 	for idx, intro := range intros {
@@ -106,7 +105,7 @@ func TestNullFeed(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(kp.Id.StoredAddr())
+		l, err := uf.Get(storedrefs.Feed(kp.Id))
 		r.NoError(err)
 
 		return l
@@ -118,7 +117,7 @@ func TestNullFeed(t *testing.T) {
 		checkLogSeq(l, seq)
 	}
 
-	checkLogSeq(mainbot.RootLog, len(intros)-1) // got all the messages
+	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 1)
@@ -221,7 +220,6 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -237,7 +235,6 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -247,7 +244,8 @@ func TestNullFetched(t *testing.T) {
 	bob.Replicate(ali.KeyPair.Id)
 
 	for i := 1000; i > 0; i-- {
-		_, err = bob.PublishLog.Publish(i)
+		c := map[string]interface{}{"test:": i, "type": "test"}
+		_, err = bob.PublishLog.Publish(c)
 		r.NoError(err)
 	}
 
@@ -257,7 +255,7 @@ func TestNullFetched(t *testing.T) {
 	aliUF, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
 
-	alisVersionOfBobsLog, err := aliUF.Get(bob.KeyPair.Id.StoredAddr())
+	alisVersionOfBobsLog, err := aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
@@ -290,7 +288,7 @@ func TestNullFetched(t *testing.T) {
 	r.NoError(err)
 
 	mainLog.Log("msg", "get a fresh view (shoild be empty now)")
-	alisVersionOfBobsLog, err = aliUF.Get(bob.KeyPair.Id.StoredAddr())
+	alisVersionOfBobsLog, err = aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "sync should give us the messages again")

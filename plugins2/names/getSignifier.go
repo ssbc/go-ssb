@@ -4,10 +4,10 @@ package names
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cryptix/go/logging"
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 type hGetSignifier struct {
@@ -15,26 +15,16 @@ type hGetSignifier struct {
 	log logging.Interface
 }
 
-func (hGetSignifier) HandleConnect(context.Context, muxrpc.Endpoint) {}
-
-func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
-
+func (h hGetSignifier) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 	ref, err := parseFeedRefFromArgs(req)
 	if err != nil {
-		checkAndLog(h.log, err)
-		req.CloseWithError(err)
-		return
+		return nil, err
 	}
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		err = req.Stream.CloseWithError(errors.Wrapf(err, "do not have about for: %s", ref.Ref()))
-		checkAndLog(h.log, errors.Wrap(err, "error closing stream with error"))
-		return
+		return nil, fmt.Errorf("do not have about for: %s: %w", ref.Ref(), err)
+
 	}
 	var name = ai.Name.Chosen
 	if name == "" {
@@ -47,7 +37,5 @@ func (h hGetSignifier) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		}
 	}
 
-	err = req.Return(ctx, name)
-	checkAndLog(h.log, errors.Wrap(err, "error returning all values"))
-	return
+	return name, nil
 }

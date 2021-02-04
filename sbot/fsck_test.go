@@ -95,7 +95,7 @@ func testFSCKdouble(t *testing.T) {
 	// now do some nasty magic, double the log by appending it to itself again
 	// TODO: refactor to only have Add() on the bot, not the internal rootlog
 	// Add() should do the append logic
-	src, err := theBot.RootLog.Query(margaret.Limit(n))
+	src, err := theBot.ReceiveLog.Query(margaret.Limit(n))
 	r.NoError(err)
 
 	for {
@@ -107,20 +107,20 @@ func testFSCKdouble(t *testing.T) {
 			r.NoError(err)
 		}
 
-		seq, err := theBot.RootLog.Append(v)
+		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
 		t.Log("doubled:", seq.Seq())
 	}
 
 	// check duplication
-	seqv, err := theBot.RootLog.Seq().Value()
+	seqv, err := theBot.ReceiveLog.Seq().Value()
 	r.NoError(err)
 	seq := seqv.(margaret.Seq)
 	r.EqualValues(seq.Seq()+1, n*2)
 
 	// more valid messages
 	for i := 64; i > 32; i-- {
-		_, err := theBot.PublishLog.Publish(i)
+		_, err := theBot.PublishLog.Publish(map[string]interface{}{"test:": i, "type": "test"})
 		r.NoError(err)
 	}
 
@@ -168,8 +168,8 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 	// create some messages
 	intros := []struct {
-		as string      // nick name
-		c  interface{} // content
+		as string                 // nick name
+		c  map[string]interface{} // content
 	}{
 		{"one", map[string]interface{}{"hello": 123}},
 		{"one", map[string]interface{}{"world": 456}},
@@ -178,13 +178,14 @@ func testFSCKmultipleFeeds(t *testing.T) {
 		{"two", map[string]interface{}{"test": 789}},
 	}
 	for idx, intro := range intros {
+		intro.c["type"] = "test"
 		ref, err := theBot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
 	}
 
 	// copy the messages from one and two (leaving "main" intact)
-	src, err := theBot.RootLog.Query(
+	src, err := theBot.ReceiveLog.Query(
 		margaret.Gt(margaret.BaseSeq(n-1)),
 		margaret.Limit(5))
 	r.NoError(err)
@@ -200,7 +201,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 		msg, ok := v.(refs.Message)
 		r.True(ok)
 
-		seq, err := theBot.RootLog.Append(v)
+		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
 		t.Log("doubled:", msg.Author().ShortRef(), seq.Seq())
 	}
@@ -247,7 +248,7 @@ func testFSCKrepro(t *testing.T) {
 
 	theBot, _ := makeTestBot(t)
 
-	seqV, err := theBot.RootLog.Seq().Value()
+	seqV, err := theBot.ReceiveLog.Seq().Value()
 	r.NoError(err)
 	latestSeq := seqV.(margaret.Seq)
 	r.EqualValues(latestSeq.Seq(), 6699)

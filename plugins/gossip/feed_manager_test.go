@@ -3,12 +3,16 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"go.cryptoscope.co/muxrpc/v2/codec"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
@@ -17,9 +21,11 @@ import (
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
@@ -152,42 +158,42 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			create(t, userFeedLen, "prefill")
 			t.Log("created prefil")
-			log, err := userFeeds.Get(keyPair.Id.StoredAddr())
+			log, err := userFeeds.Get(storedrefs.Feed(keyPair.Id))
 			r.NoError(err)
 			seqv, err := log.Seq().Value()
 			r.NoError(err)
 			r.EqualValues(userFeedLen-1, seqv)
 
 			test.Args.ID = keyPair.Id
-			var sink countSink
-			sink.info = infoAlice
+			var buf = new(bytes.Buffer)
+			var sink = muxrpc.NewTestSink(buf)
 
 			fm := NewFeedManager(context.TODO(), rootLog, userFeeds, infoAlice, nil, nil)
 
-			err = fm.CreateStreamHistory(ctx, &sink, &test.Args)
+			err = fm.CreateStreamHistory(ctx, sink, &test.Args)
 			r.NoError(err)
 			t.Log("serving")
 			create(t, test.LiveMessages, "post/live")
-			time.Sleep(200 * time.Millisecond)
 
-			require.Equal(t, sink.cnt, test.TotalReceived)
+			cnt := len(readAllPackets(buf))
+			// -1 for the EndErr packet (which isnt a message)
+			require.Equal(t, cnt-1, test.TotalReceived)
 		})
 	}
 }
 
-type countSink struct {
-	cnt  int
-	info log.Logger
-}
-
-func (cs *countSink) Pour(ctx context.Context, val interface{}) error {
-	cs.info.Log("countSink", "got", "cnt", cs.cnt, "val", val)
-	cs.cnt++
-	return nil
-}
-
-func (cs *countSink) Close() error {
-	cs.info.Log(
-		"countSink", "closed")
-	return nil
+func readAllPackets(r io.Reader) []*codec.Packet {
+	var pkts []*codec.Packet
+	cr := codec.NewReader(r)
+	for {
+		pkt, err := cr.ReadPacket()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			panic(err)
+		}
+		pkts = append(pkts, pkt)
+	}
+	return pkts
 }

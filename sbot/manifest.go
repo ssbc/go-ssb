@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 )
 
 type namedPlugin struct {
@@ -25,39 +25,41 @@ func (np namedPlugin) Handler() muxrpc.Handler {
 
 type manifestHandler string
 
+func (manifestHandler) Handled(m muxrpc.Method) bool { return m.String() == "manifest" }
+
 func (manifestHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
 
-func (h manifestHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h manifestHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	err := req.Return(ctx, json.RawMessage(h))
 	if err != nil {
 		fmt.Println("manifest err", err)
 	}
 }
 
+func init() {
+	if !json.Valid([]byte(manifestBlob)) {
+		manifestMap := make(map[string]interface{})
+		err := json.Unmarshal([]byte(manifestBlob), &manifestMap)
+		fmt.Println(err)
+		panic("manifestBlob is broken json")
+	}
+}
+
 // this is a very simple hardcoded manifest.json dump which oasis' ssb-client expects to do it's magic.
-const manifestBlob = `
+const manifestBlob manifestHandler = `
 {
-	"auth": "async",
-	"address": "sync",
 	"manifest": "sync",
 
-	"multiserverNet": {},
 	"get": "async",
 	"createFeedStream": "source",
 	"createUserStream": "source",
-	"createWriteStream": "sink",
-	"links": "source",
-
-	"add": "async",
-
-	"getLatest": "async",
-	"latest": "source",
-	"latestSequence": "async",
 
 	"createSequenceStream": "source",
 	"createLogStream": "source",
 	"messagesByType": "source",
 	"createHistoryStream": "source",
+
+	"ebt": { "replicate": "duplex" },
 
 	"partialReplication":{
 	 	"getFeed": "source",
@@ -66,8 +68,14 @@ const manifestBlob = `
 	 	"getMessagesOfType": "source"
 	},
 
+	"private": {
+		"read":"source"
+	},
 
-	"tangles": "source",
+	"tangles": {
+      "replies": "source"
+	},
+
     "names": {
         "get": "async",
         "getImageFor": "async",
@@ -89,6 +97,11 @@ const manifestBlob = `
 	"replicate": {
 	  "upto": "source"
 	},
+
+    "groups": {
+      "create":"async",
+      "publishTo":"async"
+    },
 
 	"blobs": {
 	  "get": "source",

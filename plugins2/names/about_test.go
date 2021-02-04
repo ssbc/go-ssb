@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+// TODO: move these into the sbot package
+
+// +build ignore
+
 package names_test
 
 import (
@@ -11,7 +15,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 
@@ -48,7 +51,7 @@ func TestAboutNames(t *testing.T) {
 	go func() {
 		err := ali.Network.Serve(ctx)
 		if err != nil && err != context.Canceled {
-			aliErrc <- errors.Wrap(err, "ali serve exited")
+			aliErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(aliErrc)
 	}()
@@ -61,7 +64,7 @@ func TestAboutNames(t *testing.T) {
 	_, err = ali.PublishLog.Publish(newName)
 	r.NoError(err)
 
-	src, err := ali.RootLog.Query()
+	src, err := ali.ReceiveLog.Query()
 	r.NoError(err)
 	var i = 0
 	for {

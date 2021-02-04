@@ -3,28 +3,27 @@ package legacyinvites
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
-	"go.cryptoscope.co/muxrpc"
-	refs "go.mindeco.de/ssb-refs"
+	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type acceptHandler struct {
 	service *Service
 }
 
+func (acceptHandler) Handled(m muxrpc.Method) bool { return m.String() == "invite.use" }
+
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
-func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxrpc.Endpoint) {
+func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	h.service.mu.Lock()
 	defer h.service.mu.Unlock()
-	if req.Method.String() != "invite.use" {
-		req.CloseWithError(fmt.Errorf("unknown method"))
-		return
-	}
 
 	// parse passed arguments
 	var args []struct {
@@ -40,9 +39,9 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 	}
 	arg := args[0]
 
-	guestRef, err := ssb.GetFeedRefFromAddr(edp.Remote())
+	guestRef, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())
 	if err != nil {
-		req.CloseWithError(errors.Wrap(err, "no guest ref!?"))
+		req.CloseWithError(fmt.Errorf("no guest ref!?: %w", err))
 		return
 	}
 
@@ -52,7 +51,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp 
 		return
 	}
 
-	kvKey := []byte(guestRef.StoredAddr())
+	kvKey := []byte(storedrefs.Feed(guestRef))
 
 	has, err := h.service.kv.Get(nil, kvKey)
 	if err != nil {

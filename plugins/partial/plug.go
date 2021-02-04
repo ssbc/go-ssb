@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 
+// Package partial is a helper module for ssb-browser-core, enabling to fetch subsets of feeds.
+// See https://github.com/arj03/ssb-partial-replication for more.
 package partial
 
 import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/muxmux"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 )
 
@@ -30,20 +32,13 @@ func (p plugin) Handler() muxrpc.Handler {
 	return p.h
 }
 
-// "partialReplication":{
-// 	getFeed: 'source',
-// 	getFeedReverse: 'source',
-// 	getTangle: 'async',
-// 	getMessagesOfType: 'source'
-//   }
-
 func New(log logging.Interface,
 	fm *gossip.FeedManager,
 	feeds, bytype, roots *roaring.MultiLog,
 	rxlog margaret.Log,
 	get ssb.Getter,
 ) ssb.Plugin {
-	rootHdlr := muxmux.New(log)
+	rootHdlr := typemux.New(log)
 
 	rootHdlr.RegisterAsync(muxrpc.Method{name, "getTangle"}, getTangleHandler{
 		roots: roots,

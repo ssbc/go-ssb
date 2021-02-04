@@ -5,23 +5,26 @@ package private_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestPrivatePublish(t *testing.T) {
@@ -45,23 +48,22 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			srvLog = kitlog.NewJSONLogger(os.Stderr)
 		}
 
-		mlogPriv := multilogs.NewPrivateRead(kitlog.With(srvLog, "module", "privLogs"), alice)
-
 		srv, err := sbot.New(
 			sbot.WithKeyPair(alice),
 			sbot.WithInfo(srvLog),
 			sbot.WithRepoPath(srvRepo),
 			sbot.WithListenAddr(":0"),
 			sbot.LateOption(sbot.WithUNIXSocket()),
-			sbot.LateOption(sbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)),
 		)
+		r.NoError(err, "failed to init sbot")
 
 		const n = 32
 		for i := n; i > 0; i-- {
 			_, err := srv.PublishLog.Publish(struct {
+				Type string `json:"type"`
 				Text string
 				I    int
-			}{"clear text!", i})
+			}{"test", "clear text!", i})
 			r.NoError(err)
 		}
 
@@ -71,7 +73,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		r.NoError(err, "failed to make client connection")
 
 		type msg struct {
-			Type string
+			Type string `json:"type"`
 			Msg  string
 		}
 		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.Id)
@@ -81,42 +83,49 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		src, err := c.PrivateRead()
 		r.NoError(err, "failed to open private stream")
 
-		v, err := src.Next(context.TODO())
+		more := src.Next(context.TODO())
+		r.True(more, "expected to get a message")
+
+		var savedMsg refs.KeyValueRaw
+		rawMsg, err := src.Bytes()
 		r.NoError(err, "failed to get msg")
+		err = json.Unmarshal(rawMsg, &savedMsg)
+		r.NoError(err, "failed to unnpack msg")
 
-		savedMsg, ok := v.(refs.Message)
-		r.True(ok, "wrong type: %T", v)
-		r.Equal(savedMsg.Key().Ref(), ref.Ref())
+		if !a.True(savedMsg.Key().Equal(ref)) {
+			whoops, err := srv.Get(*ref)
+			r.NoError(err)
+			t.Log(string(whoops.ContentBytes()))
+		}
 
-		v, err = src.Next(context.TODO())
-		r.Error(err)
-		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
+		more = src.Next(context.TODO())
+		r.False(more)
 
 		// try with seqwrapped query
-		pl, ok := srv.GetMultiLog("privLogs")
+		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
 		r.True(ok)
 
-		userPrivs, err := pl.Get(srv.KeyPair.Id.StoredAddr())
+		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.Id))
 		r.NoError(err)
 
-		unboxlog := private.NewUnboxerLog(srv.RootLog, userPrivs, srv.KeyPair)
+		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)
 
-		src, err = unboxlog.Query(margaret.SeqWrap(true))
+		lsrc, err := unboxlog.Query(margaret.SeqWrap(true))
 		r.NoError(err)
 
-		v, err = src.Next(context.TODO())
+		v, err := lsrc.Next(context.TODO())
 		r.NoError(err, "failed to get msg")
 
 		sw, ok := v.(margaret.SeqWrapper)
 		r.True(ok, "wrong type: %T", v)
 		wrappedVal := sw.Value()
-		savedMsg, ok = wrappedVal.(refs.Message)
+		wrappedMsg, ok := wrappedVal.(refs.Message)
 		r.True(ok, "wrong type: %T", wrappedVal)
-		r.Equal(savedMsg.Key().Ref(), ref.Ref())
+		r.Equal(wrappedMsg.Key().Ref(), ref.Ref())
 
-		v, err = src.Next(context.TODO())
+		v, err = lsrc.Next(context.TODO())
 		r.Error(err)
-		r.EqualError(luigi.EOS{}, errors.Cause(err).Error())
+		r.True(errors.Is(err, luigi.EOS{}))
 
 		// shutdown
 		a.NoError(c.Close())

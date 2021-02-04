@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+// go-sbot hosts the database and p2p server for replication.
+// It supplies various flags to contol options.
+// See 'go-sbot -h' for a list and their usage.
 package main
 
 import (
@@ -20,23 +23,17 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/cryptix/go/logging"
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc/debug"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/bytype"
-	"go.cryptoscope.co/ssb/plugins2/names"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
-	"go.cryptoscope.co/ssb/repo"
 	mksbot "go.cryptoscope.co/ssb/sbot"
 )
 
@@ -52,14 +49,15 @@ var (
 	flagEnDiscov bool
 	flagPromisc  bool
 
-	flagDecryptPrivate  bool
+	flagEnableEBT bool
+
 	flagDisableUNIXSock bool
 
-	listenAddr string
-	wsLisAddr  string
-	debugAddr  string
-	repoDir    string
-	dbgLogDir  string
+	repoDir     string
+	listenAddr  string
+	wsLisAddr   string
+	debugAddr   string
+	debugLogDir string
 
 	// helper
 	log        logging.Interface
@@ -80,6 +78,7 @@ var (
 
 func checkAndLog(err error) {
 	if err != nil {
+		level.Error(log).Log("event", "fatal error", "err", err)
 		if err := logging.LogPanicWithStack(log, "checkAndLog", err); err != nil {
 			panic(err)
 		}
@@ -96,21 +95,21 @@ func initFlags() {
 	flag.StringVar(&appKey, "shscap", "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", "secret-handshake app-key (or capability)")
 	flag.StringVar(&hmacSec, "hmac", "", "if set, sign with hmac hash of msg, instead of plain message object, using this key")
 
-	flag.StringVar(&listenAddr, "l", ":8008", "address to listen on")
+	flag.StringVar(&listenAddr, "lis", ":8008", "address to listen on")
 	flag.BoolVar(&flagEnAdv, "localadv", false, "enable sending local UDP brodcasts")
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
 
 	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
 
-	flag.BoolVar(&flagDecryptPrivate, "decryptprivate", false, "store which messages can be decrypted")
+	flag.BoolVar(&flagEnableEBT, "enable-ebt", false, "enable syncing by using epidemic-broadcast-trees (new code, test with caution)")
+
 	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
 
-	flag.StringVar(&debugAddr, "dbg", "localhost:6078", "listen addr for metrics and pprof HTTP server")
-	flag.StringVar(&dbgLogDir, "dbgdir", "", "where to write debug output to")
+	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
+	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
-	flag.BoolVar(&flagFatBot, "fatbot", false, "if set, sbot loads additional index plugins (bytype, get, tangles)")
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
@@ -122,8 +121,8 @@ func initFlags() {
 
 	flag.Parse()
 
-	if dbgLogDir != "" {
-		logDir := filepath.Join(repoDir, dbgLogDir)
+	if debugLogDir != "" {
+		logDir := filepath.Join(repoDir, debugLogDir)
 		os.MkdirAll(logDir, 0700) // nearly everything is a log here so..
 		logFileName := fmt.Sprintf("%s-%s.log",
 			filepath.Base(os.Args[0]),
@@ -172,46 +171,17 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
+		// enabling this might consume a lot of resources
+		mksbot.DisableLegacyLiveReplication(true),
+		// new code, test with caution
+		mksbot.DisableEBT(!flagEnableEBT),
 	}
 
 	if !flagDisableUNIXSock {
 		opts = append(opts, mksbot.LateOption(mksbot.WithUNIXSocket()))
 	}
 
-	if flagDecryptPrivate {
-		// TODO: refactor into plugins2
-		r := repo.New(repoDir)
-		kpsByPath, err := repo.AllKeyPairs(r)
-		if err != nil {
-			return errors.Wrap(err, "sbot: failed to open all keypairs in repo")
-		}
-
-		var kps []*ssb.KeyPair
-		for _, v := range kpsByPath {
-			kps = append(kps, v)
-		}
-
-		defKP, err := repo.DefaultKeyPair(r)
-		if err != nil {
-			return errors.Wrap(err, "sbot: failed to open default keypair")
-		}
-		kps = append(kps, defKP)
-
-		mlogPriv := multilogs.NewPrivateRead(kitlog.With(log, "module", "privLogs"), kps...)
-
-		opts = append(opts, mksbot.LateOption(mksbot.MountMultiLog("privLogs", mlogPriv.OpenRoaring)))
-	}
-
-	if flagFatBot {
-		opts = append(opts,
-			mksbot.LateOption(mksbot.MountSimpleIndex("get", indexes.OpenGet)), // todo muxrpc plugin is hardcoded
-			mksbot.LateOption(mksbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
-			mksbot.LateOption(mksbot.MountPlugin(&names.Plugin{}, plugins2.AuthMaster)),
-			mksbot.LateOption(mksbot.MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
-		)
-	}
-
-	if dbgLogDir != "" {
+	if debugLogDir != "" {
 		opts = append(opts, mksbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			parts := strings.Split(conn.RemoteAddr().String(), "|")
 
@@ -221,7 +191,7 @@ func runSbot() error {
 
 			muxrpcDumpDir := filepath.Join(
 				repoDir,
-				dbgLogDir,
+				debugLogDir,
 				parts[1], // key first
 				parts[0],
 			)
@@ -240,14 +210,14 @@ func runSbot() error {
 	if hmacSec != "" {
 		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
 		if err != nil {
-			return errors.Wrap(err, "HMAC")
+			return errors.Wrap(err, "invalid base64 string for HMAC signing secret")
 		}
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
 	sbot, err := mksbot.New(opts...)
 	if err != nil {
-		return errors.Wrap(err, "scuttlebot")
+		return errors.Wrap(err, "failed to instantiate ssb server")
 	}
 
 	c := make(chan os.Signal)
@@ -348,7 +318,7 @@ func runSbot() error {
 	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	rseq, err := sbot.RootLog.Seq().Value()
+	rseq, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
 		return errors.Wrap(err, "could not get root log sequence number")
 	}
@@ -387,7 +357,7 @@ func runSbot() error {
 		}
 
 		for _, blocked := range lst {
-			isStored, err := multilog.Has(uf, blocked.StoredAddr())
+			isStored, err := multilog.Has(uf, storedrefs.Feed(blocked))
 			if err != nil {
 				return errors.Wrap(err, "blocked lookup in multilog")
 			}
@@ -408,7 +378,7 @@ func runSbot() error {
 	level.Info(log).Log("event", "serving", "ID", id.Ref(), "addr", listenAddr, "version", Version, "build", Build)
 	for {
 		// Note: This is where the serving starts ;)
-		err = sbot.Network.Serve(ctx, HandlerWithLatency(muxrpcSummary))
+		err = sbot.Network.Serve(ctx)
 		if err != nil {
 			level.Warn(log).Log("event", "sbot node.Serve returned", "err", err)
 		}
@@ -416,7 +386,8 @@ func runSbot() error {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
-			return nil
+			err := sbot.Close()
+			return err
 		default:
 		}
 	}

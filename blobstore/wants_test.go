@@ -3,6 +3,7 @@
 package blobstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -12,14 +13,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc"
-	mmock "go.cryptoscope.co/muxrpc/mock"
+	"go.cryptoscope.co/muxrpc/v2"
+	mmock "go.cryptoscope.co/muxrpc/v2/mock"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
@@ -103,14 +102,14 @@ func TestWantManager(t *testing.T) {
 			}
 
 			for refStr, dist := range tc.localWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				a.NoError(wmgr.WantWithDist(ref, dist), "error wanting local ref")
 			}
 
 			for refStr := range tc.localWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				a.Equal(true, wmgr.Wants(ref), "expected want manager to want ref %q, but it doesn't", ref.Ref())
@@ -118,24 +117,28 @@ func TestWantManager(t *testing.T) {
 
 			var wmsg WantMsg
 			for refStr, dist := range tc.remoteWants {
-				ref, err := parseBlobRef(refStr)
+				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
 				wmsg = append(wmsg, ssb.BlobWant{Ref: ref, Dist: dist})
 			}
 
-			var outSlice []interface{}
-			out := luigi.NewSliceSink(&outSlice)
+			// var outSlice []interface{}
+			// out := luigi.NewSliceSink(&outSlice)
+
+			var outBuf bytes.Buffer
+			out := muxrpc.NewTestSink(&outBuf)
+
 			ctx := context.Background()
 			edp := &mmock.FakeEndpoint{
-				SourceStub: func(ctx context.Context, tipe interface{}, method muxrpc.Method, args ...interface{}) (luigi.Source, error) {
+				SourceStub: func(ctx context.Context, enc muxrpc.RequestEncoding, method muxrpc.Method, args ...interface{}) (*muxrpc.ByteSource, error) {
 					if len(args) != 1 {
-						return nil, errors.Errorf("expected one argument, got %v", len(args))
+						return nil, fmt.Errorf("expected one argument, got %v", len(args))
 					}
 
 					arg, ok := args[0].(GetWithSize)
 					if !ok {
-						return nil, errors.Errorf("expected a string argument, got type %T", args[0])
+						return nil, fmt.Errorf("expected a string argument, got type %T", args[0])
 					}
 
 					sz, ok := tc.remoteWants[arg.Key.Ref()]
@@ -145,9 +148,7 @@ func TestWantManager(t *testing.T) {
 
 					data := tc.blobs[arg.Key.Ref()]
 
-					return (*luigi.SliceSource)(&[]interface{}{
-						[]byte(data),
-					}), nil
+					return muxrpc.NewTestSource([]byte(data)), nil
 				},
 				RemoteStub: func() net.Addr {
 					return &net.TCPAddr{Port: 666}

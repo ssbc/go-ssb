@@ -4,6 +4,8 @@ package client_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -13,9 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc"
+	"go.cryptoscope.co/muxrpc/v2"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -23,8 +24,6 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/network"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/tangles"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -58,7 +57,10 @@ func TestUnixSock(t *testing.T) {
 	var msgs []*refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
-		ref, err := c.Publish(struct{ I int }{i})
+		ref, err := c.Publish(struct {
+			Type string `json:"type"`
+			Test int
+		}{"test", i})
 		r.NoError(err)
 		r.NotNil(ref)
 		msgs = append(msgs, ref)
@@ -68,29 +70,25 @@ func TestUnixSock(t *testing.T) {
 	var o message.CreateHistArgs
 	o.ID = srv.KeyPair.Id
 	o.Keys = true
-	o.MarshalType = refs.KeyValueRaw{}
+	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)
 	r.NoError(err)
 	r.NotNil(src)
 
 	ctx := context.TODO()
 	i := 0
-	for {
-		v, err := src.Next(ctx)
-		if err != nil {
-			if luigi.IsEOS(err) {
-				break
-			}
-			r.NoError(err)
-		}
-		r.NotNil(v)
+	for src.Next(ctx) {
 
-		msg, ok := v.(refs.Message)
-		r.True(ok, "%d: wrong type: %T", i, v)
+		var msg refs.KeyValueRaw
+		err = src.Reader(func(r io.Reader) error {
+			return json.NewDecoder(r).Decode(&msg)
+		})
+		r.NoError(err)
 
-		r.True(msg.Key().Equal(*msgs[i]), "wrong message %d", i)
+		r.True(msg.Key().Equal(msgs[i]), "wrong message %d", i)
 		i++
 	}
+	r.NoError(src.Err())
 	r.Equal(msgCount, i, "did not get all messages")
 
 	a.NoError(c.Close())
@@ -199,7 +197,7 @@ func TestStatusCalls(t *testing.T) {
 		go func() {
 			err := srv.Network.Serve(ctx)
 			t.Log("tcp bot serve exited", err)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				panic(err)
 			}
 		}()
@@ -287,7 +285,8 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 						return errors.Wrapf(err, "tick%p failed", tick)
 					}
 
-					_, err = c.Async(ctx, map[string]interface{}{}, muxrpc.Method{"status"})
+					var status map[string]interface{}
+					err = c.Async(ctx, &status, muxrpc.TypeJSON, muxrpc.Method{"status"})
 					if err != nil {
 						causeErr := errors.Cause(err)
 						if causeErr == context.Canceled || causeErr == muxrpc.ErrSessionTerminated {
@@ -313,21 +312,24 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 		lopt.Live = true
 		lopt.Keys = true
 		lopt.Limit = -1
-		lopt.MarshalType = refs.KeyValueRaw{}
 		src, err := c.CreateLogStream(lopt)
 		r.NoError(err)
 
 		for i := 25; i > 0; i-- {
 			time.Sleep(500 * time.Millisecond)
-			ref, err := c.Publish(struct{ Test int }{i})
+			ref, err := c.Publish(struct {
+				Type string `json:"type"`
+				Test int
+			}{"test", i})
 			r.NoError(err, "publish %d errored", i)
 			r.NotNil(ref)
 
-			v, err := src.Next(ctx)
+			r.True(src.Next(ctx))
+			var msg refs.KeyValueRaw
+			err = src.Reader(func(r io.Reader) error {
+				return json.NewDecoder(r).Decode(&msg)
+			})
 			r.NoError(err, "message live err %d errored", i)
-
-			msg, ok := v.(refs.Message)
-			r.True(ok, "not a message: %T", v)
 
 			a.Equal(msg.Key().Hash, ref.Hash, "wrong message: %d - %s", i, ref.Ref())
 		}
@@ -339,13 +341,19 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		a.GreaterOrEqual(statusCalls, uint32(1000), "expected more status calls")
 
-		v, err := srv.RootLog.Seq().Value()
+		v, err := srv.ReceiveLog.Seq().Value()
 		r.NoError(err)
 		r.EqualValues(24, v)
 
 		srv.Shutdown()
 		r.NoError(srv.Close())
 	}
+}
+
+type testMsg struct {
+	Type string `json:"type"`
+	Foo  string
+	Bar  int
 }
 
 func TestPublish(t *testing.T) {
@@ -381,25 +389,21 @@ func TestPublish(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.RootLog.Seq().Value()
+	seqv, err := srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	r.Equal(margaret.SeqEmpty, seqv)
 
-	type testMsg struct {
-		Foo string
-		Bar int
-	}
-	msg := testMsg{"hello", 23}
+	msg := testMsg{"test", "hello", 23}
 	ref, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(ref)
 
 	// get stored message from the log
-	seqv, err = srv.RootLog.Seq().Value()
+	seqv, err = srv.ReceiveLog.Seq().Value()
 	r.NoError(err, "failed to get root log sequence")
 	wantSeq := margaret.BaseSeq(0)
 	a.Equal(wantSeq, seqv)
-	msgv, err := srv.RootLog.Get(wantSeq)
+	msgv, err := srv.ReceiveLog.Get(wantSeq)
 	r.NoError(err)
 	newMsg, ok := msgv.(refs.Message)
 	r.True(ok)
@@ -408,20 +412,20 @@ func TestPublish(t *testing.T) {
 	opts := message.CreateLogArgs{}
 	opts.Limit = 1
 	opts.Keys = true
-	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.CreateLogStream(opts)
 	r.NoError(err)
 
-	streamV, err := src.Next(context.TODO())
+	r.True(src.Next(context.TODO()))
+	var streamMsg refs.KeyValueRaw
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok := streamV.(refs.Message)
-	r.True(ok, "acutal type: %T", streamV)
+
 	a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
 	a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	r.False(src.Next(context.TODO()))
 
 	a.NoError(c.Close())
 
@@ -442,7 +446,6 @@ func TestTangles(t *testing.T) {
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.MountPlugin(&tangles.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -464,48 +467,50 @@ func TestTangles(t *testing.T) {
 	// end test boilerplate
 
 	type testMsg struct {
+		Type string `json:"type"`
 		Foo  string
 		Bar  int
 		Root *refs.MessageRef `json:"root,omitempty"`
 	}
-	msg := testMsg{"hello", 23, nil}
+	msg := testMsg{"test", "hello", 23, nil}
 	rootRef, err := c.Publish(msg)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rootRef)
 
-	rep1 := testMsg{"reply", 1, rootRef}
+	rep1 := testMsg{"test", "reply", 1, rootRef}
 	rep1Ref, err := c.Publish(rep1)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep1Ref)
-	rep2 := testMsg{"reply", 2, rootRef}
+	rep2 := testMsg{"test", "reply", 2, rootRef}
 	rep2Ref, err := c.Publish(rep2)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep2Ref)
 
 	opts := message.TanglesArgs{}
-	opts.Root = *rootRef
+	opts.Root = rootRef
 	opts.Limit = 2
 	opts.Keys = true
-	opts.MarshalType = refs.KeyValueRaw{}
 	src, err := c.Tangles(opts)
 	r.NoError(err)
 
-	streamV, err := src.Next(context.TODO())
+	ctx := context.TODO()
+	r.True(src.Next(ctx))
+	var streamMsg refs.KeyValueRaw
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok := streamV.(refs.Message)
-	r.True(ok)
-
 	a.EqualValues(2, streamMsg.Seq())
 
-	streamV, err = src.Next(context.TODO())
+	r.True(src.Next(ctx))
+	err = src.Reader(func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(&streamMsg)
+	})
 	r.NoError(err)
-	streamMsg, ok = streamV.(refs.Message)
-	r.True(ok)
 	a.EqualValues(3, streamMsg.Seq())
 
-	v, err := src.Next(context.TODO())
-	a.Nil(v)
-	a.Equal(luigi.EOS{}, errors.Cause(err))
+	r.False(src.Next(ctx))
+	r.NoError(src.Err())
 
 	a.NoError(c.Close())
 

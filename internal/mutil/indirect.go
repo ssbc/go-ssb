@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 
+// Package mutil offers some margaret utilities.
 package mutil
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
@@ -15,6 +17,8 @@ type indirectLog struct {
 	root, indirect margaret.Log
 }
 
+// Indirect returns a new Log uses the "indirection Log" to lookup entries in the "root log".
+// This helps with the existing database abstraction where indexes just point to entries in the root log by sequence numbers.
 func Indirect(root, indirect margaret.Log) margaret.Log {
 	il := indirectLog{
 		root:     root,
@@ -30,18 +34,21 @@ func (il indirectLog) Seq() luigi.Observable {
 func (il indirectLog) Get(seq margaret.Seq) (interface{}, error) {
 	v, err := il.indirect.Get(seq)
 	if err != nil {
-		return nil, errors.Wrap(err, "indirect: 1st lookup failed")
+		return nil, fmt.Errorf("indirect: 1st lookup failed: %w", err)
 	}
 
 	rv, err := il.root.Get(v.(margaret.Seq))
-	return rv, errors.Wrap(err, "indirect: root lookup failed")
+	if err != nil {
+		return nil, fmt.Errorf("indirect: root lookup failed: %w", err)
+	}
+	return rv, nil
 }
 
 // Query returns a stream that is constrained by the passed query specification
 func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 	src, err := il.indirect.Query(args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "error querying")
+		return nil, fmt.Errorf("error querying: %w", err)
 	}
 
 	return mfr.SourceMap(src, func(ctx context.Context, v interface{}) (interface{}, error) {

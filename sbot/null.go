@@ -4,18 +4,19 @@ package sbot
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/indexes"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -26,18 +27,18 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 
 	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
-		return errors.Errorf("NullFeed: failed to open multilog")
+		return fmt.Errorf("NullFeed: failed to open multilog")
 	}
 
-	feedAddr := ref.StoredAddr()
+	feedAddr := storedrefs.Feed(ref)
 	userSeqs, err := uf.Get(feedAddr)
 	if err != nil {
-		return errors.Wrap(err, "NullFeed: failed to open log for feed argument")
+		return fmt.Errorf("NullFeed: failed to open log for feed argument: %w", err)
 	}
 
 	src, err := userSeqs.Query()
 	if err != nil {
-		return errors.Wrap(err, "NullFeed: failed create user seqs query")
+		return fmt.Errorf("NullFeed: failed create user seqs query: %w", err)
 	}
 
 	for {
@@ -50,9 +51,9 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		}
 		seq, ok := v.(margaret.Seq)
 		if !ok {
-			return errors.Errorf("NullFeed: not a sequence from userlog query")
+			return fmt.Errorf("NullFeed: not a sequence from userlog query")
 		}
-		err = s.RootLog.Null(seq)
+		err = s.ReceiveLog.Null(seq)
 		if err != nil {
 			return err
 		}
@@ -60,13 +61,20 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 
 	err = uf.Delete(feedAddr)
 	if err != nil {
-		return errors.Wrapf(err, "NullFeed: error while deleting feed from userFeeds index")
+		return fmt.Errorf("NullFeed: error while deleting feed from userFeeds index: %w", err)
 	}
 
 	err = s.GraphBuilder.DeleteAuthor(ref)
 	if err != nil {
-		return errors.Wrapf(err, "NullFeed: error while deleting feed from graph index")
+		return fmt.Errorf("NullFeed: error while deleting feed from graph index: %w", err)
 	}
+
+	// delete my ebt state
+	sfn, err := s.ebtState.StateFileName(s.KeyPair.Id)
+	if err != nil {
+		return fmt.Errorf("NullFeed: error while deleting ebt state file: %w", err)
+	}
+	os.Remove(sfn)
 
 	return nil
 }
@@ -85,7 +93,7 @@ func DropIndicies(r repo.Interface) error {
 		dbPath := r.GetPath(repo.PrefixMultiLog, i)
 		err := os.RemoveAll(dbPath)
 		if err != nil {
-			err = errors.Wrapf(err, "mkdir error for %q", dbPath)
+			err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
 			return err
 		}
 	}
@@ -96,7 +104,7 @@ func DropIndicies(r repo.Interface) error {
 		dbPath := r.GetPath(repo.PrefixIndex, i)
 		err := os.RemoveAll(dbPath)
 		if err != nil {
-			err = errors.Wrapf(err, "mkdir error for %q", dbPath)
+			err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
 			return err
 		}
 	}
@@ -107,12 +115,12 @@ func DropIndicies(r repo.Interface) error {
 func RebuildIndicies(path string) error {
 	fi, err := os.Stat(path)
 	if err != nil {
-		err = errors.Wrap(err, "RebuildIndicies: failed to open sbot")
+		err = fmt.Errorf("RebuildIndicies: failed to open sbot: %w", err)
 		return err
 	}
 
 	if !fi.IsDir() {
-		return errors.Errorf("RebuildIndicies: repo path is not a directory")
+		return fmt.Errorf("RebuildIndicies: repo path is not a directory")
 	}
 
 	// rebuilding indexes
@@ -122,7 +130,7 @@ func RebuildIndicies(path string) error {
 		DisableLiveIndexMode(),
 	)
 	if err != nil {
-		err = errors.Wrap(err, "failed to open sbot")
+		err = fmt.Errorf("failed to open sbot: %w", err)
 		return err
 	}
 
@@ -146,5 +154,8 @@ func RebuildIndicies(path string) error {
 	log.Println("started sbot for re-indexing")
 	err = sbot.Close()
 	log.Println("re-indexing took:", time.Since(start))
-	return errors.Wrap(err, "RebuildIndicies: failed to close sbot")
+	if err != nil {
+		return fmt.Errorf("RebuildIndicies: failed to close sbot: %w", err)
+	}
+	return nil
 }
