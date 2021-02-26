@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
@@ -43,14 +42,17 @@ var publishRawCmd = &cli.Command{
 			return err
 		}
 
-		type reply map[string]interface{}
-		var v reply
-		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, content)
+		var v string
+		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, content)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
-		log.Log("event", "published", "type", "raw")
-		goon.Dump(v)
+		newMsg, err := refs.ParseMessageRef(v)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "published", "type", "raw", "ref", newMsg.Ref())
+
 		return nil
 	},
 }
@@ -84,23 +86,26 @@ var publishPostCmd = &cli.Command{
 			return err
 		}
 
-		type reply map[string]interface{}
-		var v interface{}
+		var v string
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
 			err = client.Async(longctx, &v,
-				muxrpc.TypeJSON,
+				muxrpc.TypeString,
 				muxrpc.Method{"private", "publish"}, arg, recps)
 		} else {
 			err = client.Async(longctx, &v,
-				muxrpc.TypeJSON,
+				muxrpc.TypeString,
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
 
-		log.Log("event", "published", "type", "post")
-		goon.Dump(v)
+		newMsg, err := refs.ParseMessageRef(v)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "published", "type", "post", "ref", newMsg.Ref())
+
 		return nil
 	},
 }
@@ -147,23 +152,27 @@ var publishVoteCmd = &cli.Command{
 			return err
 		}
 
-		type reply map[string]interface{}
-		var v interface{}
+		var v string
 		if recps := ctx.StringSlice("recps"); len(recps) > 0 {
 			err = client.Async(longctx, &v,
-				muxrpc.TypeJSON,
+				muxrpc.TypeString,
 				muxrpc.Method{"private", "publish"}, arg, recps)
 		} else {
 			err = client.Async(longctx, &v,
-				muxrpc.TypeJSON,
+				muxrpc.TypeString,
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
 
-		log.Log("event", "published", "type", "vote")
-		goon.Dump(v)
+		newMsg, err := refs.ParseMessageRef(v)
+		if err != nil {
+			return err
+		}
+
+		log.Log("event", "published", "type", "vote", "ref", newMsg.Ref())
+
 		return nil
 	},
 }
@@ -200,14 +209,16 @@ var publishAboutCmd = &cli.Command{
 			return err
 		}
 
-		type reply map[string]interface{}
-		var v reply
-		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, arg)
+		var v string
+		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, arg)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
-		log.Log("event", "published", "type", "about")
-		goon.Dump(v)
+		newMsg, err := refs.ParseMessageRef(v)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "published", "type", "about", "ref", newMsg.Ref())
 		return nil
 	},
 }
@@ -241,14 +252,18 @@ var publishContactCmd = &cli.Command{
 			return err
 		}
 
-		type reply map[string]interface{}
-		var v reply
-		err = client.Async(longctx, &v, muxrpc.TypeJSON, muxrpc.Method{"publish"}, arg)
+		var v string
+		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, arg)
 		if err != nil {
 			return errors.Wrapf(err, "publish call failed.")
 		}
-		log.Log("event", "published", "type", "contact")
-		goon.Dump(v)
+
+		newMsg, err := refs.ParseMessageRef(v)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "published", "type", "contact", "ref", newMsg.Ref())
+
 		return nil
 	},
 }

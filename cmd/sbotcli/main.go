@@ -28,11 +28,12 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"golang.org/x/crypto/ed25519"
+	cli "gopkg.in/urfave/cli.v2"
+
 	"go.cryptoscope.co/ssb"
 	ssbClient "go.cryptoscope.co/ssb/client"
 	refs "go.mindeco.de/ssb-refs"
-	"golang.org/x/crypto/ed25519"
-	cli "gopkg.in/urfave/cli.v2"
 )
 
 // Version and Build are set by ldflags
