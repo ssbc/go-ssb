@@ -71,6 +71,8 @@ type testHandler struct {
 	wantServer bool
 }
 
+func (th testHandler) Handled(muxrpc.Method) bool { return true }
+
 func (th testHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
 	require.Equal(th.t, th.wantServer, muxrpc.IsServer(e), "server assertion failed")
 }
