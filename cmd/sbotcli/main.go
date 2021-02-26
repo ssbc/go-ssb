@@ -338,13 +338,13 @@ var connectCmd = &cli.Command{
 			return err
 		}
 
-		var val interface{}
-		err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"ctrl", "connect"}, to)
+		var val string
+		err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"ctrl", "connect"}, to)
 		if err != nil {
 			level.Warn(log).Log("event", "connect command failed", "err", err)
 
 			// js fallback (our mux doesnt support authed namespaces)
-			err = client.Async(longctx, &val, muxrpc.TypeJSON, muxrpc.Method{"gossip", "connect"}, to)
+			err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
 				return errors.Wrapf(err, "connect: async call failed.")
 			}
