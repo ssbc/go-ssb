@@ -31,7 +31,7 @@ type createHandler struct {
 	service *Service
 }
 
-type createArguments struct {
+type CreateArguments struct {
 	// how many times this invite should be useable
 	Uses uint `json:"uses"`
 
@@ -45,7 +45,7 @@ func (h createHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// parse passed arguments
-	var args createArguments
+	var args CreateArguments
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
 		args.Uses = 1
 	}

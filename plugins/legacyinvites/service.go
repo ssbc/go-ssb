@@ -167,7 +167,7 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 }
 
 type inviteState struct {
-	createArguments
+	CreateArguments
 
 	Used uint // how many times this invite was used already
 }

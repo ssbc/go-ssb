@@ -33,6 +33,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	ssbClient "go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/plugins/legacyinvites"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -83,6 +84,7 @@ var app = cli.App{
 		blobsCmd,
 		blockCmd,
 		friendsCmd,
+		inviteCmds,
 		logStreamCmd,
 		sortedStreamCmd,
 		typeStreamCmd,
@@ -506,6 +508,46 @@ var groupsPublishToCmd = &cli.Command{
 var groupsJoinCmd = &cli.Command{
 	Name:   "join",
 	Usage:  "manually join a group by adding the group key",
+	Action: todo,
+}
+
+var inviteCmds = &cli.Command{
+	Name: "invite",
+	Subcommands: []*cli.Command{
+		inviteCreateCmd,
+		inviteAcceptCmd,
+	},
+}
+
+var inviteCreateCmd = &cli.Command{
+	Name:  "create",
+	Usage: "register and return an invite for somebody else to accept",
+	Flags: []cli.Flag{
+		&cli.UintFlag{Name: "uses", Value: 1, Usage: "How many times an invite can be used"},
+	},
+	Action: func(ctx *cli.Context) error {
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		var args legacyinvites.CreateArguments
+		args.Uses = ctx.Uint("uses")
+
+		var code string
+		err = client.Async(longctx, &code, muxrpc.TypeString, muxrpc.Method{"invite", "create"}, args)
+		if err != nil {
+			return err
+		}
+		fmt.Println(code)
+		return nil
+	},
+}
+
+var inviteAcceptCmd = &cli.Command{
+	Name:   "accept",
+	Usage:  "use an invite code",
 	Action: todo,
 }
 

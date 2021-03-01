@@ -3,6 +3,7 @@ package main_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"os"
 	"os/exec"
@@ -76,7 +77,7 @@ func TestWhoami(t *testing.T) {
 
 	go func() {
 		err = srv.Network.Serve(ctx)
-		r.NoError(err)
+		t.Log("warning: Serve exited", err)
 	}()
 
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
@@ -115,7 +116,7 @@ func TestPublish(t *testing.T) {
 
 	go func() {
 		err = srv.Network.Serve(ctx)
-		r.NoError(err)
+		t.Log("warning: Serve exited", err)
 	}()
 
 	v, err := srv.ReceiveLog.Seq().Value()
@@ -149,4 +150,48 @@ func TestPublish(t *testing.T) {
 	srv.Shutdown()
 	err = srv.Close()
 	r.NoError(err)
+}
+
+func TestInviteCreate(t *testing.T) {
+	cliPath := buildCLI(t)
+
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
+	r, a := require.New(t), assert.New(t)
+
+	srvRepo := filepath.Join("testrun", t.Name(), "serv")
+	os.RemoveAll(srvRepo)
+	srvLog := testutils.NewRelativeTimeLogger(os.Stderr)
+
+	srv, err := sbot.New(
+		sbot.WithInfo(srvLog),
+		sbot.WithRepoPath(srvRepo),
+		sbot.WithContext(ctx),
+		sbot.WithListenAddr(":0"),
+		sbot.LateOption(sbot.WithUNIXSocket()),
+	)
+	r.NoError(err, "sbot srv init failed")
+
+	go func() {
+		err = srv.Network.Serve(ctx)
+		t.Log("warning: Serve exited", err)
+	}()
+
+	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
+
+	out := sbotcli("invite", "create")
+
+	has := bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.Pair.Public)))
+	a.True(has, "should have the srv's public key in it")
+
+	// TODO: accept the invite
+
+	out = sbotcli("invite", "create", "--uses", "25")
+	has = bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.Pair.Public)))
+	a.True(has, "should have the srv's public key in it")
+
+	// TODO: accept the invite
+
 }
