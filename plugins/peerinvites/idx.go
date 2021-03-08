@@ -222,6 +222,8 @@ type handler struct {
 	pub ssb.Publisher
 }
 
+func (h handler) Handled(m muxrpc.Method) bool { return len(m) > 1 && m[0] == "peerInvites" }
+
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
