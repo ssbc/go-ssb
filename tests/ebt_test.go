@@ -22,7 +22,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func TestEpidemic(t *testing.T) {
+func XTestEpidemic(t *testing.T) {
 	r := require.New(t)
 
 	// ts := newRandomSession(t)
@@ -73,15 +73,14 @@ func TestEpidemic(t *testing.T) {
 			n = 5
 			let extra = []
 			for (var i = n; i>0; i--) {
-				extra.push(mkextra({type:"extra", i:i}))
+				extra.push(mkextra({type:"extra", "i":i}))
 			}
 			require('run-series')(extra, (err, res) => {
 				t.error(err)
-				// t.comment(JSON.stringify(res))
 				sbot.replicate.request(id, true)
 				sbot.publish({type:"follow-test", id:id}, (err) => {
 					t.error(err)
-					ready() // triggers connect and after block
+					ready()
 				})
 			})
 		})

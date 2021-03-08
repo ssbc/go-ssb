@@ -32,9 +32,6 @@ type StateMatrix struct {
 
 	self string // whoami
 
-	currSeq  CurrentSequencer
-	wantList ssb.ReplicationLister
-
 	mu   sync.Mutex
 	open currentFrontiers
 }
@@ -42,11 +39,7 @@ type StateMatrix struct {
 // map[peer reference]frontier
 type currentFrontiers map[string]ssb.NetworkFrontier
 
-type CurrentSequencer interface {
-	CurrentSequence(*refs.FeedRef) (ssb.Note, error)
-}
-
-func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSequencer) (*StateMatrix, error) {
+func New(base string, self *refs.FeedRef) (*StateMatrix, error) {
 
 	os.MkdirAll(base, onlyOwnerPerms)
 
@@ -54,9 +47,6 @@ func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSe
 		basePath: base,
 
 		self: self.Ref(),
-
-		wantList: wl,
-		currSeq:  cs,
 
 		open: make(currentFrontiers),
 	}
@@ -69,13 +59,12 @@ func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSe
 	return &sm, nil
 }
 
-/*
-func (sm *StateMatrix) Open(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
+// Inspect returns the current frontier for the passed peer
+func (sm *StateMatrix) Inspect(peer *refs.FeedRef) (ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return sm.loadFrontier(peer)
 }
-*/
 
 func (sm *StateMatrix) StateFileName(peer *refs.FeedRef) (string, error) {
 	peerTfk, err := tfk.Encode(peer)
@@ -282,76 +271,40 @@ func (sm *StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, e
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	var err error
-
 	selfNf, err := sm.loadFrontier(self)
 	if err != nil {
 		return nil, err
 	}
 
-	// no state yet
-	if len(selfNf) == 0 {
-		// use the replication lister and determine the stored feeds lengths
-		lister := sm.wantList.ReplicationList()
-		feeds, err := lister.List()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get userlist: %w", err)
-		}
-
-		for i, feed := range feeds {
-			if feed.Algo != refs.RefAlgoFeedSSB1 {
-				// skip other formats (TODO: gg support)
-				continue
-			}
-
-			seq, err := sm.currSeq.CurrentSequence(feed)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
-			}
-			selfNf[feed.Ref()] = seq
-		}
-
-		selfNf[self.Ref()], err = sm.currSeq.CurrentSequence(self)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get our sequence: %w", err)
-		}
-
-		sm.open[sm.self] = selfNf
-		err = sm.save(self)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	peerNf, err := sm.loadFrontier(peer)
 	if err != nil {
-		fmt.Println("ebt/warning: remote peer state loading error:", err)
-		return selfNf, nil
+		return nil, err
 	}
 
-	// just the ones that differ
-	changedFrontier := make(ssb.NetworkFrontier)
+	// calculate the subset of what self wants and peer wants to hear about
+	relevant := make(ssb.NetworkFrontier)
 
-	for myFeed, myNote := range selfNf {
-		theirNote, has := peerNf[myFeed]
+	for wantedFeed, myNote := range selfNf {
+		theirNote, has := peerNf[wantedFeed]
 		if !has && myNote.Receive {
 			// they don't have it, but tell them we want it
-			changedFrontier[myFeed] = myNote
+			relevant[wantedFeed] = myNote
 			continue
 		}
 
-		if !theirNote.Receive {
+		if !theirNote.Replicate {
+			continue
+		}
+
+		if !theirNote.Receive && wantedFeed != peer.Ref() {
 			// they dont care about this feed
 			continue
 		}
 
-		if myNote.Seq > theirNote.Seq {
-			// we have more then them, tell them how much
-			changedFrontier[myFeed] = myNote
-		}
+		relevant[wantedFeed] = myNote
 	}
 
-	return changedFrontier, nil
+	return relevant, nil
 }
 
 type ObservedFeed struct {
@@ -380,9 +333,7 @@ func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ss
 	return current, nil
 }
 
-// Fill updates the current frontier state.
-//
-// It might be deprecated.
+// Fill updates who's frontier state with a list of observed feeds.
 func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -392,13 +343,12 @@ func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 		return err
 	}
 
-	for _, of := range feeds {
-
-		if of.Replicate {
-			nf[of.Feed.Ref()] = of.Note
+	for _, updatedFeed := range feeds {
+		if updatedFeed.Replicate {
+			nf[updatedFeed.Feed.Ref()] = updatedFeed.Note
 		} else {
 			// seq == -1 means drop it
-			delete(nf, of.Feed.Ref())
+			delete(nf, updatedFeed.Feed.Ref())
 		}
 	}
 

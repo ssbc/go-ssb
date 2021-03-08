@@ -25,7 +25,6 @@ import (
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
-// TODO: need to rework EBT for gabby grove support
 func XTestFeedsGabbySync(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
@@ -52,6 +51,7 @@ func XTestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "ali")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
+		DisableEBT(true), // no multi-format support yet
 	)
 	r.NoError(err)
 
@@ -70,6 +70,7 @@ func XTestFeedsGabbySync(t *testing.T) {
 		WithInfo(log.With(mainLog, "unit", "bob")),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
+		DisableEBT(true), // no multi-format support yet
 	)
 	r.NoError(err)
 

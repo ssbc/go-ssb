@@ -90,6 +90,14 @@ const manifestBlob manifestHandler = `
 	"publish": "async",
 	"whoami": "sync",
 	"status": "sync",
+	
+	"ctrl": {
+		"replicate": "async",
+		"connect": "async",
+		"disconenct": "async",
+		"dialViaRoom": "async"
+	},
+	
 	"gossip": {
 	  "connect": "async",
 	  "ping": "duplex"

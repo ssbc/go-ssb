@@ -31,7 +31,7 @@ func TestFeedFromJS(t *testing.T) {
 	// just for keygen, needed later
 	claire := ts.startJSBotWithName("claire", `exit()`, "")
 
-	alice := ts.startJSBot(fmt.Sprintf(`
+	alice := ts.startJSBotWithName("alice", fmt.Sprintf(`
 	let claireRef = %q
 	function mkMsg(msg) {
 		return function(cb) {

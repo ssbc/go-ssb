@@ -175,20 +175,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 	}
 
-	// which feeds to replicate
-	if s.Replicator == nil {
-		s.Replicator, err = s.newGraphReplicator()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// TODO: decouple from replicator
 	sm, err := statematrix.New(
 		r.GetPath("ebt-state-matrix"),
 		s.KeyPair.Id,
-		s.Replicator.Lister(),
-		s,
 	)
 	if err != nil {
 		return nil, err
@@ -366,6 +355,53 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	s.closers.addCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
+
+	// which feeds to replicate
+	if s.Replicator == nil {
+		s.Replicator, err = s.newGraphReplicator()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	selfNf, err := s.ebtState.Inspect(s.KeyPair.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	// no ebt state yet
+	if len(selfNf) == 0 {
+		// use the replication lister and determin the stored feeds lenghts
+		lister := s.Replicator.Lister().ReplicationList()
+
+		feeds, err := lister.List()
+		if err != nil {
+			return nil, fmt.Errorf("ebt init state: failed to get userlist: %w", err)
+		}
+
+		for i, feed := range feeds {
+			if feed.Algo != refs.RefAlgoFeedSSB1 {
+				// skip other formats (TODO: gg support)
+				continue
+			}
+
+			seq, err := s.CurrentSequence(feed)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
+			}
+			selfNf[feed.Ref()] = seq
+		}
+
+		selfNf[s.KeyPair.Id.Ref()], err = s.CurrentSequence(s.KeyPair.Id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get our sequence: %w", err)
+		}
+
+		_, err = s.ebtState.Update(s.KeyPair.Id, selfNf)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// from here on just network related stuff
 	if s.disableNetwork {
@@ -710,9 +746,9 @@ func (s *Sbot) CurrentSequence(feed *refs.FeedRef) (ssb.Note, error) {
 	}
 
 	currSeq := sv.(margaret.BaseSeq)
-	// margaret is 0-indexed
-	currSeq++
-	fmt.Println("sequence for:", feed.Ref(), currSeq)
+	if currSeq != -1 {
+		currSeq++
+	}
 
 	return ssb.Note{
 		Seq:       currSeq.Seq(),

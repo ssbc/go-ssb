@@ -539,15 +539,18 @@ initialSync:
 				break initialSync
 			}
 			botX.Network.GetConnTracker().CloseAll()
-			t.Log("continuing initialSync..", z)
+			t.Log("continuing initialSync.. bots complete:", complete)
 		}
 	}
 
+	var failed bool
 	// check fsck,sequences and and disconnect
 	for i, bot := range theBots {
 		sv, err := bot.ReceiveLog.Seq().Value()
 		r.NoError(err)
-		a.EqualValues(expectedMsgCount, sv.(margaret.Seq).Seq()+1, "wrong rxSeq on bot %d", i)
+		if !a.EqualValues(expectedMsgCount, sv.(margaret.Seq).Seq()+1, "wrong rxSeq on bot %d", i) {
+			failed = true
+		}
 		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		r.NoError(err, "FSCK error on bot %d", i)
 		ct := bot.Network.GetConnTracker()
@@ -556,6 +559,9 @@ initialSync:
 		r.EqualValues(ct.Count(), 0, "%d still has connectons", i)
 	}
 
+	if failed {
+		t.Fatal("initial replication failed")
+	}
 }
 
 func makeChanWaiter(ctx context.Context, src luigi.Source, gotMsg chan<- refs.Message) func() error {

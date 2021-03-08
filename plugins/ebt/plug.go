@@ -3,6 +3,8 @@
 package ebt
 
 import (
+	"sync"
+
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -39,6 +41,7 @@ func NewPlug(
 		verify: v,
 
 		Sessions: Sessions{
+			mu:   new(sync.Mutex),
 			open: make(map[string]*session),
 
 			waitingFor: make(map[string]chan<- struct{}),

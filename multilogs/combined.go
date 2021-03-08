@@ -171,7 +171,7 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	if !ok {
 		return fmt.Errorf("error casting seq wrapper. got type %T", swv)
 	}
-	seq := sw.Seq()
+	seq := sw.Seq() //received as
 
 	// todo: defer state save!?
 	err := persist.Save(slog.file, seq)
@@ -201,7 +201,8 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	return slog.update(seq.Seq(), msg)
 }
 
-func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
+// update all the indexes with this new message which was stored as rxSeq (received sequence number)
+func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	// TODO[major/pgroups] fix storage and resumption
 	// err := slog.seqresolver.Append(seq, msg.Seq(), msg.Claimed(), msg.Received())
 	// if err != nil {
@@ -215,7 +216,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	if err != nil {
 		return fmt.Errorf("error opening sublog: %w", err)
 	}
-	_, err = authorLog.Append(margaret.BaseSeq(seq))
+	_, err = authorLog.Append(margaret.BaseSeq(rxSeq))
 	if err != nil {
 		return fmt.Errorf("error updating author sublog: %w", err)
 	}
@@ -237,7 +238,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 	content := msg.ContentBytes()
 	// TODO: gabby grove
 	if content[0] != '{' { // assuming all other content is json objects
-		cleartext, err := slog.tryDecrypt(msg, seq)
+		cleartext, err := slog.tryDecrypt(msg, rxSeq)
 		if err != nil {
 			if err == errSkip {
 				// yes it's a boxed message but we can't read it (yet)
@@ -281,7 +282,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		if err != nil {
 			return err
 		}
-		_, err = sl.Append(seq)
+		_, err = sl.Append(rxSeq)
 		if err != nil {
 			return err
 		}
@@ -292,7 +293,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		return fmt.Errorf("error opening sublog: %w", err)
 	}
 
-	_, err = typedLog.Append(seq)
+	_, err = typedLog.Append(rxSeq)
 	if err != nil {
 		return fmt.Errorf("error updating byType sublog: %w", err)
 	}
@@ -304,7 +305,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
 		}
-		_, err = tangleLog.Append(seq)
+		_, err = tangleLog.Append(rxSeq)
 		if err != nil {
 			return fmt.Errorf("error updating v1 tangle sublog: %w", err)
 		}
@@ -319,7 +320,7 @@ func (slog *CombinedIndex) update(seq int64, msg refs.Message) error {
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
 		}
-		_, err = tangleLog.Append(seq)
+		_, err = tangleLog.Append(rxSeq)
 		if err != nil {
 			return fmt.Errorf("error updating v2 tangle sublog: %w", err)
 		}

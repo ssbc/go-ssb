@@ -11,6 +11,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
@@ -82,7 +83,7 @@ func (b *builder) indexUpdateFunc(ctx context.Context, seq margaret.Seq, val int
 	abs, ok := val.(refs.Message)
 	if !ok {
 		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
-		b.log.Log("msg", "contact eval failed", "reason", err)
+		level.Warn(b.log).Log("msg", "contact eval failed", "reason", err)
 		return err
 	}
 
