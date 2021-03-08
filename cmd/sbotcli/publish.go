@@ -52,7 +52,7 @@ var publishRawCmd = &cli.Command{
 			return err
 		}
 		log.Log("event", "published", "type", "raw", "ref", newMsg.Ref())
-
+		fmt.Fprintln(os.Stdout, newMsg.Ref())
 		return nil
 	},
 }
@@ -105,7 +105,7 @@ var publishPostCmd = &cli.Command{
 			return err
 		}
 		log.Log("event", "published", "type", "post", "ref", newMsg.Ref())
-
+		fmt.Fprintln(os.Stdout, newMsg.Ref())
 		return nil
 	},
 }
@@ -172,7 +172,7 @@ var publishVoteCmd = &cli.Command{
 		}
 
 		log.Log("event", "published", "type", "vote", "ref", newMsg.Ref())
-
+		fmt.Fprintln(os.Stdout, newMsg.Ref())
 		return nil
 	},
 }
@@ -219,6 +219,7 @@ var publishAboutCmd = &cli.Command{
 			return err
 		}
 		log.Log("event", "published", "type", "about", "ref", newMsg.Ref())
+		fmt.Fprintln(os.Stdout, newMsg.Ref())
 		return nil
 	},
 }
@@ -263,7 +264,7 @@ var publishContactCmd = &cli.Command{
 			return err
 		}
 		log.Log("event", "published", "type", "contact", "ref", newMsg.Ref())
-
+		fmt.Fprintln(os.Stdout, newMsg.Ref())
 		return nil
 	},
 }

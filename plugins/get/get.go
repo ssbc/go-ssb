@@ -5,6 +5,7 @@ package get
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -43,47 +44,39 @@ func (handler) Handled(m muxrpc.Method) bool { return m.String() == "get" }
 
 func (h handler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
+type Option struct {
+	ID      refs.MessageRef `json:"id"`
+	Private bool            `json:"private"`
+}
+
 func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	if len(req.Args()) < 1 {
-		req.CloseWithError(fmt.Errorf("invalid arguments"))
+	var args []json.RawMessage
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		req.CloseWithError(err)
 		return
 	}
-	var (
-		input  string
-		parsed *refs.MessageRef
-		err    error
 
-		// decrypt a private message
-		unboxPrivate bool
-	)
-	switch v := req.Args()[0].(type) {
-	case string:
-		input = v
-	case map[string]interface{}:
-		refV, ok := v["id"]
-		if !ok {
-			req.CloseWithError(fmt.Errorf("invalid argument - missing 'id' in map"))
+	if n := len(args); n < 1 {
+		req.CloseWithError(fmt.Errorf("invalid argument count. Wanted 1 got %d", n))
+		return
+	}
+
+	var o Option
+	optErr := json.Unmarshal(args[0], &o)
+	if optErr != nil {
+
+		var asString refs.MessageRef
+		strErr := json.Unmarshal(args[0], &asString)
+		if strErr != nil {
+			req.CloseWithError(fmt.Errorf("failed to parse argument as object (%s) and as string(%s)", optErr, strErr))
 			return
 		}
-		input = refV.(string)
 
-		if v, has := v["private"]; has {
-			if yes, isBool := v.(bool); isBool {
-				unboxPrivate = yes
-			}
-		}
-	default:
-		req.CloseWithError(fmt.Errorf("invalid argument type %T", req.Args()[0]))
-		return
+		o.ID = asString
 	}
 
-	parsed, err = refs.ParseMessageRef(input)
-	if err != nil {
-		req.CloseWithError(fmt.Errorf("failed to parse arguments: %w", err))
-		return
-	}
-
-	msg, err := h.get.Get(*parsed)
+	msg, err := h.get.Get(o.ID)
 	if err != nil {
 		req.CloseWithError(fmt.Errorf("failed to load message: %w", err))
 		return
@@ -92,7 +85,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	kv.Key_ = msg.Key()
 	kv.Value = *msg.ValueContent()
 
-	if unboxPrivate {
+	if o.Private {
 		cleartext, err := h.unboxer.DecryptMessage(msg)
 		if err == nil {
 			kv.Value.Meta = make(map[string]interface{}, 1)
@@ -107,6 +100,6 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	err = req.Return(ctx, kv)
 	if err != nil {
-		log.Printf("get(%s): failed? to return message: %s", parsed.Ref(), err)
+		log.Printf("get(%s): failed? to return message: %s", o.ID.Ref(), err)
 	}
 }

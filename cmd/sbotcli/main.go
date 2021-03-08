@@ -84,6 +84,7 @@ var app = cli.App{
 		blobsCmd,
 		blockCmd,
 		friendsCmd,
+		getCmd,
 		inviteCmds,
 		logStreamCmd,
 		sortedStreamCmd,
@@ -94,7 +95,6 @@ var app = cli.App{
 		repliesStreamCmd,
 		callCmd,
 		sourceCmd,
-		getCmd,
 		connectCmd,
 		publishCmd,
 		groupsCmd,
@@ -297,7 +297,10 @@ var sourceCmd = &cli.Command{
 var getCmd = &cli.Command{
 	Name:  "get",
 	Usage: "get a signle message from the database by key (%...)",
-	Flags: []cli.Flag{&cli.BoolFlag{Name: "private"}},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{Name: "private"},
+		&cli.StringFlag{Name: "format", Value: "json"},
+	},
 	Action: func(ctx *cli.Context) error {
 		key, err := refs.ParseMessageRef(ctx.Args().First())
 		if err != nil {
@@ -319,8 +322,19 @@ var getCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "get reply")
-		fmt.Printf("%+v\n", val)
+		format := strings.ToLower(ctx.String("format"))
+		log.Log("event", "get reply", "format", format)
+		switch format {
+		case "json":
+			indented, err := json.MarshalIndent(val, "", "  ")
+			if err != nil {
+				return err
+			}
+			os.Stdout.Write(indented)
+
+		default:
+			fmt.Printf("%+v\n", val)
+		}
 		return nil
 
 	},
@@ -392,6 +406,32 @@ var queryCmd = &cli.Command{
 	Name:   "qry",
 	Action: todo, //query,
 }
+
+/*
+var getCmd = &cli.Command{
+	Name:  "create",
+	Usage: "create a new empty group",
+	Action: func(ctx *cli.Context) error {
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		getRef, err := refs.PraseMessageRef(ctx.Args().First())
+		if err != nil {
+			return err
+		}
+
+		msg, err = client.Get(getRef)
+		if err != nil {
+			return err
+		}
+		log.Log("event", "get response")
+		goon.Dump(msg)
+		return nil
+	},
+}
+*/
 
 var groupsCmd = &cli.Command{
 	Name:  "groups",
