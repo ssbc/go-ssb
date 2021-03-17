@@ -105,19 +105,18 @@ func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, er
 			return nil, err
 		}
 
+		// new file, nothing to see here
 		curr = make(ssb.NetworkFrontier)
-	} else {
-		defer peerFile.Close()
-
-		var nf ssb.NetworkFrontier
-		err = json.NewDecoder(peerFile).Decode(&nf)
-		if err != nil {
-			return nil, err
-		}
-
-		curr = nf
+		sm.open[peer.Ref()] = curr
+		return curr, nil
 	}
+	defer peerFile.Close()
 
+	curr = make(ssb.NetworkFrontier)
+	err = json.NewDecoder(peerFile).Decode(&curr)
+	if err != nil {
+		return nil, err
+	}
 	sm.open[peer.Ref()] = curr
 	return curr, nil
 }
