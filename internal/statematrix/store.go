@@ -25,6 +25,8 @@ import (
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
+const onlyOwnerPerms = 0700
+
 type StateMatrix struct {
 	basePath string
 
@@ -46,7 +48,7 @@ type CurrentSequencer interface {
 
 func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSequencer) (*StateMatrix, error) {
 
-	os.MkdirAll(base, 0700)
+	os.MkdirAll(base, onlyOwnerPerms)
 
 	sm := StateMatrix{
 		basePath: base,
@@ -148,7 +150,7 @@ func (sm *StateMatrix) save(peer *refs.FeedRef) error {
 	newPeerFileName := peerFileName + ".new"
 
 	// truncate the file for overwriting, create it if it doesnt exist
-	peerFile, err := os.OpenFile(newPeerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0700)
+	peerFile, err := os.OpenFile(newPeerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, onlyOwnerPerms)
 	if err != nil {
 		return err
 	}
