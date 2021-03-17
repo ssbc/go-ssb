@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-/*Package statematrix stores and provides useful operations on an state matrix for a epidemic broadcast tree protocol.
+/*
+Package statematrix stores and provides useful operations on an state matrix for the Epidemic Broadcast Tree protocol.
 
 The state matrix represents multiple _network frontiers_ (or vector clock).
 
@@ -36,7 +37,7 @@ type StateMatrix struct {
 	open currentFrontiers
 }
 
-// map[peer refernce]frontier
+// map[peer reference]frontier
 type currentFrontiers map[string]ssb.NetworkFrontier
 
 type CurrentSequencer interface {
@@ -288,7 +289,7 @@ func (sm *StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, e
 
 	// no state yet
 	if len(selfNf) == 0 {
-		// use the replication lister and determin the stored feeds lenghts
+		// use the replication lister and determine the stored feeds lengths
 		lister := sm.wantList.ReplicationList()
 		feeds, err := lister.List()
 		if err != nil {
@@ -377,7 +378,9 @@ func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ss
 	return current, nil
 }
 
-// Fill might be deprecated. It just updates the current frontier state
+// Fill updates the current frontier state.
+//
+// It might be deprecated.
 func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
