@@ -83,7 +83,8 @@ func (sm *StateMatrix) StateFileName(peer *refs.FeedRef) (string, error) {
 		return "", err
 	}
 
-	peerFileName := filepath.Join(sm.basePath, fmt.Sprintf("%x", peerTfk))
+	hexPeerTfk := fmt.Sprintf("%x", peerTfk)
+	peerFileName := filepath.Join(sm.basePath, hexPeerTfk)
 	return peerFileName, nil
 }
 
