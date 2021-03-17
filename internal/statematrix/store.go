@@ -144,9 +144,10 @@ func (sm *StateMatrix) save(peer *refs.FeedRef) error {
 	if err != nil {
 		return err
 	}
+	newPeerFileName := peerFileName + ".new"
 
 	// truncate the file for overwriting, create it if it doesnt exist
-	peerFile, err := os.OpenFile(peerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0700)
+	peerFile, err := os.OpenFile(newPeerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0700)
 	if err != nil {
 		return err
 	}
@@ -161,9 +162,14 @@ func (sm *StateMatrix) save(peer *refs.FeedRef) error {
 		return err
 	}
 
-	err = peerFile.Close()
-	if err != nil {
+	// avoid weird behavior for renaming an open file.
+	if err := peerFile.Close(); err != nil {
 		return err
+	}
+
+	err = os.Rename(newPeerFileName, peerFileName)
+	if err != nil {
+		return fmt.Errorf("failed to replace %s with %s: %w", peerFileName, newPeerFileName, err)
 	}
 
 	return nil
