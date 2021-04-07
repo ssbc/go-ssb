@@ -40,6 +40,8 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 
 	mux := typemux.New(i)
 
+	mux.RegisterAsync(muxrpc.Method{"ctrl", "dialViaRoom"}, typemux.AsyncFunc(h.dialViaRoom))
+
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, typemux.AsyncFunc(h.connect))
 	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, typemux.AsyncFunc(h.disconnect))
 
@@ -144,5 +146,30 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
 	}
+	return "connected", nil
+}
+
+func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
+	var args []string
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.dialViaRoom: invalid arguments: %w", err)
+	}
+	if len(args) != 1 {
+		h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
+		return nil, errors.New("usage: ctrl.dialViaRoom tunnel:@roomID.ed25519:@target.ed25519~target")
+	}
+	dest := args[0]
+
+	tunAddr, err := multiserver.ParseTunnelAddress(dest)
+	if err != nil {
+		return nil, fmt.Errorf("ctrl.dialViaRoom: failed to parse input %q: %w", dest, err)
+	}
+
+	err = h.node.DialViaRoom(tunAddr.Intermediary, tunAddr.Target)
+	if err != nil {
+		return nil, err
+	}
+
 	return "connected", nil
 }

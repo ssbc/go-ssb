@@ -628,7 +628,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		WebsocketAddr: s.websocketAddr,
 	}
 
-	s.Network, err = network.New(opts)
+	networkNode, err := network.New(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create network node: %w", err)
 	}
@@ -663,13 +663,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			level.Error(log).Log("http-blob", err.Error())
 		}
 	}))
-	s.Network.HandleHTTP(h)
+	networkNode.HandleHTTP(h)
 
 	inviteService, err = legacyinvites.New(
 		kitlog.With(log, "unit", "legacyInvites"),
 		r,
 		s.KeyPair.Id,
-		s.Network,
+		networkNode,
 		s.PublishLog,
 		s.ReceiveLog,
 	)
@@ -679,8 +679,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), s.Network, s))
+	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
 	s.master.Register(status.New(s))
+
+	s.public.Register(networkNode.TunnelPlugin())
+	s.Network = networkNode
 
 	return s, nil
 }
