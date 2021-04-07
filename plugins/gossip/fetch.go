@@ -59,7 +59,12 @@ func (h *LegacyGossip) FetchAll(
 func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef, withLive bool) func() error {
 	return func() error {
 		err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
-		if muxrpc.IsSinkClosed(err) || errors.Is(err, context.Canceled) || errors.Is(err, muxrpc.ErrSessionTerminated) || neterr.IsConnBrokenErr(err) {
+		var callErr *muxrpc.CallError
+		if muxrpc.IsSinkClosed(err) ||
+			errors.As(err, &callErr) ||
+			errors.Is(err, context.Canceled) ||
+			errors.Is(err, muxrpc.ErrSessionTerminated) ||
+			neterr.IsConnBrokenErr(err) {
 			return err
 		} else if err != nil {
 			// just logging the error assuming forked feed for instance
