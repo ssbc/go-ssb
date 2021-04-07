@@ -91,7 +91,7 @@ type node struct {
 	httpHandler http.Handler
 }
 
-func New(opts Options) (ssb.Network, error) {
+func New(opts Options) (*node, error) {
 	n := &node{
 		opts:    opts,
 		remotes: make(map[string]muxrpc.Endpoint),
