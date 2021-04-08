@@ -21,8 +21,9 @@ const (
 	BlobStoreOpRm BlobStoreOp = "rm"
 )
 
-// BlobStore is the interface of our blob store
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/blobstore.go . BlobStore
+
+// BlobStore is the storage interface to read/write blobs as well as list and remove them and get updated about changes to it.
 type BlobStore interface {
 	// Get returns a reader of the blob with given ref.
 	Get(ref *refs.BlobRef) (io.Reader, error)
@@ -48,6 +49,8 @@ type BlobStore interface {
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
+
+// WantManager handles acquiting new blobs via `createWant` muxrpc streams.
 type WantManager interface {
 	io.Closer
 	luigi.Broadcast // todo: replace with a typed broadcast
