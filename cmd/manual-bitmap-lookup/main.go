@@ -8,13 +8,13 @@ import (
 	"sort"
 
 	"github.com/RoaringBitmap/roaring"
-	"github.com/cryptix/go/logging"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/margaret/offset2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb/message/multimsg"
 	refs "go.mindeco.de/ssb-refs"

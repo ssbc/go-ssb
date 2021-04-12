@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"io"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -72,7 +72,7 @@ func (h connectHandler) HandleDuplex(ctx context.Context, req *muxrpc.Request, p
 	tc.WriteCloser = muxrpc.NewSinkWriter(peerSnk)
 	tc.local = h.network.opts.ListenAddr
 	tc.remote = tunnelHost{
-		Host: *portal,
+		Host: portal,
 	}
 	ctx, tc.cancel = context.WithCancel(ctx)
 

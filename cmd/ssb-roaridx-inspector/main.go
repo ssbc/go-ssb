@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
+	"go.mindeco.de/logging"
 )
 
 var check = logging.CheckFatal

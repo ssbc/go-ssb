@@ -20,7 +20,7 @@ func DefaultKeyPair(r Interface) (*ssb.KeyPair, error) {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("repo: error opening key pair: %w", err)
 		}
-		keyPair, err = ssb.NewKeyPair(nil)
+		keyPair, err = ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 		if err != nil {
 			return nil, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
 		}
@@ -32,15 +32,15 @@ func DefaultKeyPair(r Interface) (*ssb.KeyPair, error) {
 	return keyPair, nil
 }
 
-func NewKeyPair(r Interface, name, algo string) (*ssb.KeyPair, error) {
+func NewKeyPair(r Interface, name string, algo refs.RefAlgo) (*ssb.KeyPair, error) {
 	return newKeyPair(r, name, algo, nil)
 }
 
-func NewKeyPairFromSeed(r Interface, name, algo string, seed io.Reader) (*ssb.KeyPair, error) {
+func NewKeyPairFromSeed(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (*ssb.KeyPair, error) {
 	return newKeyPair(r, name, algo, seed)
 }
 
-func newKeyPair(r Interface, name, algo string, seed io.Reader) (*ssb.KeyPair, error) {
+func newKeyPair(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (*ssb.KeyPair, error) {
 	var secPath string
 	if name == "-" {
 		secPath = r.GetPath("secret")
@@ -57,11 +57,10 @@ func newKeyPair(r Interface, name, algo string, seed io.Reader) (*ssb.KeyPair, e
 	if _, err := ssb.LoadKeyPair(secPath); err == nil {
 		return nil, fmt.Errorf("new key-pair name already taken")
 	}
-	keyPair, err := ssb.NewKeyPair(seed)
+	keyPair, err := ssb.NewKeyPair(seed, algo)
 	if err != nil {
 		return nil, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
 	}
-	keyPair.Id.Algo = algo
 	if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
 		return nil, fmt.Errorf("repo: error saving new identity file: %w", err)
 	}

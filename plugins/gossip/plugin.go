@@ -6,8 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -15,6 +13,8 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/repo"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -31,7 +31,7 @@ func NewFetcher(
 	ctx context.Context,
 	log logging.Interface,
 	r repo.Interface,
-	id *refs.FeedRef,
+	id refs.FeedRef,
 	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	fm *FeedManager,
@@ -82,7 +82,7 @@ func NewFetcher(
 func NewServer(
 	ctx context.Context,
 	log logging.Interface,
-	id *refs.FeedRef,
+	id refs.FeedRef,
 	rxlog margaret.Log,
 	userFeeds multilog.MultiLog,
 	wantList ssb.ReplicationLister,

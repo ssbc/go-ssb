@@ -30,18 +30,23 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	return out, sig, nil
 }
 
+var (
+	emptyMsgRef = refs.MessageRef{}
+	emptyDMsg   = DeserializedMessage{}
+)
+
 // Verify takes an slice of bytes (like json.RawMessage) and uses EncodePreserveOrder to pretty print it.
 // It then uses ExtractSignature and verifies the found signature against the author field of the message.
 // If hmacSecret is non nil, it uses that as the Key for NACL crypto_auth() and verifies the signature against the hash of the message.
 // At last it uses internalV8Binary to create a the SHA256 hash for the message key.
 // If you find a buggy message, use `node ./encode_test.js $feedID` to generate a new testdata.zip
-func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMessage, error) {
+func Verify(raw []byte, hmacSecret *[32]byte) (refs.MessageRef, DeserializedMessage, error) {
 	enc, err := EncodePreserveOrder(raw)
 	if err != nil {
 		if len(raw) > 15 {
 			raw = raw[:15]
 		}
-		return nil, nil, fmt.Errorf("ssb Verify: could not encode message (%q): %w", raw, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not encode message (%q): %w", raw, err)
 	}
 
 	// destroys it for the network layer but makes it easier to access its values
@@ -50,12 +55,12 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMe
 		if len(raw) > 15 {
 			raw = raw[:15]
 		}
-		return nil, nil, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
 
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 
 	if hmacSecret != nil {
@@ -63,21 +68,18 @@ func Verify(raw []byte, hmacSecret *[32]byte) (*refs.MessageRef, *DeserializedMe
 		woSig = mac[:]
 	}
 
-	if err := sig.Verify(woSig, &dmsg.Author); err != nil {
-		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could not verify message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+	if err := sig.Verify(woSig, dmsg.Author); err != nil {
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not verify message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string
 	v8warp, err := InternalV8Binary(enc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))
 
-	mr := refs.MessageRef{
-		Hash: h.Sum(nil),
-		Algo: refs.RefAlgoMessageSSB1,
-	}
-	return &mr, &dmsg, nil
+	mr, err := refs.NewMessageRefFromBytes(h.Sum(nil), refs.RefAlgoMessageSSB1)
+	return mr, dmsg, err
 }

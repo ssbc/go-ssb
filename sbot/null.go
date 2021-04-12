@@ -22,7 +22,7 @@ import (
 )
 
 // NullFeed overwrites all the entries from ref in repo with zeros
-func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
+func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	ctx := context.Background()
 
 	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)

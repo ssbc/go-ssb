@@ -27,7 +27,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	// parse passed arguments
 	var args []struct {
-		Feed *refs.FeedRef `json:"feed"`
+		Feed refs.FeedRef `json:"feed"`
 	}
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
 		req.CloseWithError(fmt.Errorf("invalid arguments (%w)", err))
@@ -110,7 +110,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	// publish follow for requested Feed
 	var contactWithNote struct {
-		*refs.Contact
+		refs.Contact
 		Note string `json:"note,omitempty"`
 		Pub  bool   `json:"pub"`
 	}

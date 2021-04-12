@@ -11,12 +11,12 @@ import (
 
 	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"

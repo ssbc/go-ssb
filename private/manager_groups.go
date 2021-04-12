@@ -22,15 +22,17 @@ type groupInit struct {
 	Tangles refs.Tangles `json:"tangles"`
 }
 
+var emptyMsgRef = refs.MessageRef{}
+
 // Create returns cloaked id and public root of a new group
-func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, error) {
+func (mgr *Manager) Create(name string) (refs.MessageRef, refs.MessageRef, error) {
 	// roll new key
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
 	r.Key = make([]byte, 32) // TODO: key size const
 	_, err := rand.Read(r.Key)
 	if err != nil {
-		return nil, nil, err
+		return emptyMsgRef, emptyMsgRef, err
 	}
 
 	// prepare init content
@@ -43,20 +45,20 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 
 	jsonContent, err := json.Marshal(gi)
 	if err != nil {
-		return nil, nil, err
+		return emptyMsgRef, emptyMsgRef, err
 	}
 
 	// encrypt the group/init message
 	publicRoot, err := mgr.encryptAndPublish(jsonContent, keys.Recipients{r})
 	if err != nil {
-		return nil, nil, err
+		return emptyMsgRef, emptyMsgRef, err
 	}
 
 	r.Metadata.GroupRoot = publicRoot
 
 	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
 	if err != nil {
-		return nil, nil, err
+		return emptyMsgRef, emptyMsgRef, err
 	}
 
 	return cloakedID, publicRoot, nil
@@ -65,13 +67,13 @@ func (mgr *Manager) Create(name string) (*refs.MessageRef, *refs.MessageRef, err
 // Join is called with a groupKey and the tangle root for the group.
 // It adds the key to the keystore so that messages to this group can be decrypted.
 // It returns the cloaked message reference or an error.
-func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageRef, error) {
+func (mgr *Manager) Join(groupKey []byte, root refs.MessageRef) (refs.MessageRef, error) {
 	var r keys.Recipient
 	r.Scheme = keys.SchemeLargeSymmetricGroup
 	r.Key = make([]byte, 32) // TODO: key size const
 
 	if n := len(groupKey); n != 32 {
-		return nil, fmt.Errorf("groups/join: passed key length (%d)", n)
+		return emptyMsgRef, fmt.Errorf("groups/join: passed key length (%d)", n)
 	}
 	copy(r.Key, groupKey)
 
@@ -79,62 +81,61 @@ func (mgr *Manager) Join(groupKey []byte, root *refs.MessageRef) (*refs.MessageR
 
 	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
 	return cloakedID, nil
 }
 
-func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (*refs.MessageRef, error) {
-	var cloakedID refs.MessageRef
-	cloakedID.Algo = refs.RefAlgoCloakedGroup
-	cloakedID.Hash = make([]byte, 32)
+func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageRef, error) {
 
 	if k.Key == nil {
-		return nil, fmt.Errorf("deriveCloaked: nil recipient key")
-	}
-
-	if k.Metadata.GroupRoot == nil {
-		return nil, fmt.Errorf("deriveCloaked: groupRoot nil")
+		return emptyMsgRef, fmt.Errorf("deriveCloaked: nil recipient key")
 	}
 
 	// TODO: might find a way without this 2nd roundtrip of getting the message.
-	initMsg, err := mgr.receiveByRef.Get(*k.Metadata.GroupRoot)
+	initMsg, err := mgr.receiveByRef.Get(k.Metadata.GroupRoot)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
 	ctxt, err := box2.GetCiphertextFromMessage(initMsg)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
-	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), initMsg.Previous(), keys.Recipients{k})
+	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), *initMsg.Previous(), keys.Recipients{k})
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
 	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
-	err = box2.DeriveTo(cloakedID.Hash, readKey, []byte("cloaked_msg_id"), rootAsTFK)
+	var cloakedID = make([]byte, 32)
+	err = box2.DeriveTo(cloakedID, readKey, []byte("cloaked_msg_id"), rootAsTFK)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
-	err = mgr.keymgr.AddKey(cloakedID.Hash, k)
+	err = mgr.keymgr.AddKey(cloakedID, k)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
-	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID), k)
+	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey()), k)
 	if err != nil {
-		return nil, err
+		return emptyMsgRef, err
 	}
 
-	return &cloakedID, nil
+	cloakedRef, err := refs.NewMessageRefFromBytes(cloakedID, refs.RefAlgoCloakedGroup)
+	if err != nil {
+		return emptyMsgRef, err
+	}
+
+	return cloakedRef, nil
 }
 
 // GroupAddMember is a JSON serialization helper.
@@ -146,7 +147,7 @@ type GroupAddMember struct {
 	Version string `json:"version"`
 
 	GroupKey keys.Base64String `json:"groupKey"`
-	Root     *refs.MessageRef  `json:"root"` // initial message
+	Root     refs.MessageRef   `json:"root"` // initial message
 
 	Recps []string `json:"recps"`
 
@@ -154,23 +155,23 @@ type GroupAddMember struct {
 }
 
 // AddMember creates, encrypts and publishes a GroupAddMember message.
-func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome string) (*refs.MessageRef, error) {
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("not a group")
+func (mgr *Manager) AddMember(groupID refs.MessageRef, r refs.FeedRef, welcome string) (refs.MessageRef, error) {
+	if groupID.Algo() != refs.RefAlgoCloakedGroup {
+		return refs.MessageRef{}, fmt.Errorf("not a group")
 	}
 
-	gskey, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	gskey, err := mgr.keymgr.GetKeysForMessage(keys.SchemeLargeSymmetricGroup, groupID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get key for group: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("failed to get key for group: %w", err)
 	}
 
 	if n := len(gskey); n != 1 {
-		return nil, fmt.Errorf("inconsistent group-key count: %d", n)
+		return refs.MessageRef{}, fmt.Errorf("inconsistent group-key count: %d", n)
 	}
 
 	sk, err := mgr.GetOrDeriveKeyFor(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive key for feed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("failed to derive key for feed: %w", err)
 	}
 	gskey = append(gskey, sk...)
 
@@ -193,23 +194,23 @@ func (mgr *Manager) AddMember(groupID *refs.MessageRef, r *refs.FeedRef, welcome
 
 	jsonContent, err := json.Marshal(ga)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	return mgr.encryptAndPublish(jsonContent, gskey)
 }
 
 // PublishTo encrypts and publishes a json blob as content to a group.
-func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.MessageRef, error) {
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("not a group")
+func (mgr *Manager) PublishTo(groupID refs.MessageRef, content []byte) (refs.MessageRef, error) {
+	if groupID.Algo() != refs.RefAlgoCloakedGroup {
+		return refs.MessageRef{}, fmt.Errorf("not a group")
 	}
-	rs, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	rs, err := mgr.keymgr.GetKeysForMessage(keys.SchemeLargeSymmetricGroup, groupID)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 	if nr := len(rs); nr != 1 {
-		return nil, fmt.Errorf("expected 1 key for group, got %d", nr)
+		return refs.MessageRef{}, fmt.Errorf("expected 1 key for group, got %d", nr)
 	}
 	r := rs[0]
 
@@ -217,7 +218,7 @@ func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.M
 	var decodedContent map[string]interface{}
 	err = json.Unmarshal(content, &decodedContent)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	var groupState = map[string]refs.TanglePoint{}
@@ -226,7 +227,7 @@ func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.M
 
 	updatedContent, err := json.Marshal(decodedContent)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	return mgr.encryptAndPublish(updatedContent, rs)
@@ -234,17 +235,17 @@ func (mgr *Manager) PublishTo(groupID *refs.MessageRef, content []byte) (*refs.M
 
 // PublishPostTo publishes a new post to a group.
 // TODO: reply root?
-func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.MessageRef, error) {
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("not a group")
+func (mgr *Manager) PublishPostTo(groupID refs.MessageRef, text string) (refs.MessageRef, error) {
+	if groupID.Algo() != refs.RefAlgoCloakedGroup {
+		return refs.MessageRef{}, fmt.Errorf("not a group")
 	}
-	rs, err := mgr.keymgr.GetKeys(keys.SchemeLargeSymmetricGroup, groupID.Hash)
+	rs, err := mgr.keymgr.GetKeysForMessage(keys.SchemeLargeSymmetricGroup, groupID)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	if nr := len(rs); nr != 1 {
-		return nil, fmt.Errorf("expected 1 key for group, got %d", nr)
+		return refs.MessageRef{}, fmt.Errorf("expected 1 key for group, got %d", nr)
 	}
 	r := rs[0]
 
@@ -258,7 +259,7 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 
 	content, err := json.Marshal(p)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 	return mgr.encryptAndPublish(content, rs)
 }
@@ -266,48 +267,60 @@ func (mgr *Manager) PublishPostTo(groupID *refs.MessageRef, text string) (*refs.
 // utils
 
 // TODO: protect against race of changing previous
-func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (*refs.MessageRef, error) {
+func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (refs.MessageRef, error) {
 	if !json.Valid(c) {
-		return nil, fmt.Errorf("box2 manager: passed content is not valid JSON")
+		return refs.MessageRef{}, fmt.Errorf("box2 manager: passed content is not valid JSON")
 	}
 
 	prev, err := mgr.getPrevious()
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
+
 	// now create the ciphertext
 	bxr := box2.NewBoxer(mgr.rand)
+
+	// TODO: maybe fix prev:null case by passing an empty ref instead of nil
 	ciphertext, err := bxr.Encrypt(c, mgr.author.Id, prev, recps)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	return mgr.publishCiphertext(ciphertext)
 }
 
-func (mgr *Manager) getPrevious() (*refs.MessageRef, error) {
-	// get previous
+func (mgr *Manager) getPrevious() (refs.MessageRef, error) {
+	// get current sequence
 	currSeqV, err := mgr.publog.Seq().Value()
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 	currSeq := currSeqV.(margaret.Seq)
+
+	// if first message
+	if currSeq.Seq() == margaret.SeqEmpty.Seq() {
+		return refs.MessageRef{}, nil
+	}
+
+	// else get the message
 	msgV, err := mgr.publog.Get(currSeq)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 	msg := msgV.(refs.Message)
+
+	// and its key is the previous for that message
 	prev := msg.Key()
 	return prev, nil
 }
 
-func (mgr *Manager) publishCiphertext(ctxt []byte) (*refs.MessageRef, error) {
+func (mgr *Manager) publishCiphertext(ctxt []byte) (refs.MessageRef, error) {
 	// TODO: format check for gabbygrove
 	content := base64.StdEncoding.EncodeToString(ctxt) + ".box2"
 
 	r, err := mgr.publog.Publish(content)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 	return r, nil
 }

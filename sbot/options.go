@@ -15,15 +15,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cryptix/go/logging"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -220,7 +220,7 @@ func WithUNIXSocket() Option {
 		if s.KeyPair == nil {
 			return fmt.Errorf("sbot/unixsock: keypair is nil. please use unixSocket with LateOption")
 		}
-		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.ID)
+		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.PubKey())
 
 		r := repo.New(s.repoPath)
 		sockPath := r.GetPath("socket")

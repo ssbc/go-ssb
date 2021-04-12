@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"sync"
 
-	kitlog "github.com/go-kit/kit/log"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	kitlog "go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"modernc.org/kv"
 
@@ -24,7 +24,7 @@ import (
 type Service struct {
 	logger kitlog.Logger
 
-	self    *refs.FeedRef
+	self    refs.FeedRef
 	network ssb.Network
 
 	publish    ssb.Publisher
@@ -46,7 +46,7 @@ func (s *Service) MasterPlugin() ssb.Plugin {
 	}
 }
 
-func (s *Service) Authorize(to *refs.FeedRef) error {
+func (s *Service) Authorize(to refs.FeedRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -86,7 +86,7 @@ var _ ssb.Authorizer = (*Service)(nil)
 func New(
 	logger kitlog.Logger,
 	r repo.Interface,
-	self *refs.FeedRef,
+	self refs.FeedRef,
 	nw ssb.Network,
 	publish ssb.Publisher,
 	rlog margaret.Log,
@@ -121,11 +121,11 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 
 	// roll seed
 	var inv invite.Token
-	var seedRef *refs.FeedRef
+	var seedRef refs.FeedRef
 	for {
 		rand.Read(inv.Seed[:])
 
-		inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(inv.Seed[:]))
+		inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(inv.Seed[:]), refs.RefAlgoFeedSSB1)
 		if err != nil {
 			s.kv.Rollback()
 			return nil, fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
@@ -159,7 +159,7 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 		return nil, fmt.Errorf("invite/create: failed to store state data (%w)", err)
 	}
 
-	inv.Peer = *s.self
+	inv.Peer = s.self
 	// TODO: external host configuration?
 	inv.Address = s.network.GetListenAddr()
 

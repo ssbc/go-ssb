@@ -12,14 +12,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -37,7 +37,7 @@ import (
 type LegacyGossip struct {
 	repo repo.Interface
 
-	Id         *refs.FeedRef
+	Id         refs.FeedRef
 	ReceiveLog margaret.Log
 	UserFeeds  multilog.MultiLog
 	WantList   ssb.ReplicationLister
@@ -225,7 +225,7 @@ func (g *LegacyGossip) HandleCall(
 			// dbgLog.Log("msg", "feed access granted")
 		}
 
-		err = g.feedManager.CreateStreamHistory(ctx, snk, &query)
+		err = g.feedManager.CreateStreamHistory(ctx, snk, query)
 		if err != nil {
 			if luigi.IsEOS(err) {
 				req.Stream.Close()

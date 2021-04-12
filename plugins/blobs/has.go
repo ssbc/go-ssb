@@ -4,10 +4,11 @@ package blobs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -19,56 +20,21 @@ type hasHandler struct {
 	log logging.Interface
 }
 
-func (hasHandler) HandleConnect(context.Context, muxrpc.Endpoint) {}
-
 func (h hasHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
-	// TODO: push manifest check into muxrpc
-	if req.Type == "" {
-		req.Type = "async"
-	}
+	var blobRef refs.BlobRef
 
-	if len(req.Args()) != 1 {
-		// TODO: change from generic handlers to typed once (source, sink, async..)
-		// async then would have to return a value or an error and not fall into this trap of not closing a stream
-		return nil, fmt.Errorf("bad request - wrong args")
-	}
+	err := json.Unmarshal(req.RawArgs, &blobRef)
 
-	switch v := req.Args()[0].(type) {
-	case string:
-
-		ref, err := refs.ParseBlobRef(v)
+	if err != nil { // assume list of refs
+		var blobRefs []refs.BlobRef
+		err := json.Unmarshal(req.RawArgs, &blobRefs)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing blob reference: %w", err)
+			return nil, fmt.Errorf("bad request - unhandled type %s", err)
 		}
+		var has = make([]bool, len(blobRefs))
 
-		_, err = h.bs.Get(ref)
-
-		has := true
-
-		if err == blobstore.ErrNoSuchBlob {
-			has = false
-		} else if err != nil {
-			err = fmt.Errorf("error looking up blob: %w", err)
-			return nil, err
-		}
-
-		return has, nil
-
-	case []interface{}:
-		var has = make([]bool, len(v))
-
-		for k, blobRef := range v {
-
-			blobStr, ok := blobRef.(string)
-			if !ok {
-				return nil, fmt.Errorf("bad request - unhandled type")
-			}
-			ref, err := refs.ParseBlobRef(blobStr)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing blob reference: %w", err)
-			}
-
-			_, err = h.bs.Get(ref)
+		for k, blobRef := range blobRefs {
+			_, err = h.bs.Size(blobRef)
 
 			has[k] = true
 
@@ -77,13 +43,23 @@ func (h hasHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (inter
 			} else if err != nil {
 				err = fmt.Errorf("error looking up blob: %w", err)
 				return nil, err
+
 			}
 
 		}
 		return has, nil
 
-	default:
-		return nil, fmt.Errorf("bad request - unhandled type")
 	}
 
+	_, err = h.bs.Size(blobRef)
+
+	has := true
+
+	if err == blobstore.ErrNoSuchBlob {
+		has = false
+	} else if err != nil {
+		err = fmt.Errorf("error looking up blob: %w", err)
+		return nil, err
+	}
+	return has, nil
 }

@@ -99,8 +99,8 @@ type CreateHistArgs struct {
 	CommonArgs
 	StreamArgs
 
-	ID  *refs.FeedRef `json:"id,omitempty"`
-	Seq int64         `json:"seq,omitempty"`
+	ID  refs.FeedRef `json:"id,omitempty"`
+	Seq int64        `json:"seq,omitempty"`
 
 	AsJSON bool `json:"asJSON,omitempty"`
 }
@@ -124,7 +124,7 @@ type TanglesArgs struct {
 	CommonArgs
 	StreamArgs
 
-	Root *refs.MessageRef `json:"root"`
+	Root refs.MessageRef `json:"root"`
 
 	// indicate the v2 subtangle (group, ...)
 	// empty string for v1 tangle

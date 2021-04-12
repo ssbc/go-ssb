@@ -9,10 +9,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cryptix/go/encodedTime"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/encodedTime"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private/box"
@@ -95,7 +95,7 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 	author := amsg.Author()
 
 	var boxedContent []byte
-	switch author.Algo {
+	switch author.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		input := amsg.ContentBytes()
 		if !(input[0] == '"' && input[len(input)-1] == '"') {
@@ -126,8 +126,8 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 	msg.Key_ = amsg.Key()
 	msg.Timestamp = encodedTime.Millisecs(amsg.Received())
 	msg.Value.Previous = amsg.Previous()
-	msg.Value.Author = *author
-	msg.Value.Sequence = margaret.BaseSeq(amsg.Seq())
+	msg.Value.Author = author
+	msg.Value.Sequence = amsg.Seq()
 	msg.Value.Timestamp = encodedTime.Millisecs(amsg.Claimed())
 	msg.Value.Hash = "go-ssb-unboxed"
 	msg.Value.Content = clearContent

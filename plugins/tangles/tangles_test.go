@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/repo"
+	"go.mindeco.de/log"
 )
 
 func TestTangles(t *testing.T) {

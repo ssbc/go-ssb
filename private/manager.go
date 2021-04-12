@@ -11,11 +11,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/cryptix/go/encodedTime"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.mindeco.de/encodedTime"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 
@@ -64,8 +64,8 @@ var (
 )
 
 // GetOrDeriveKeyFor derives an encryption key for 1:1 private messages with an other feed.
-func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, error) {
-	ourID := keys.ID(sortAndConcat(mgr.author.Id.ID, other.ID))
+func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, error) {
+	ourID := keys.ID(sortAndConcat(mgr.author.Id.PubKey(), other.PubKey()))
 	scheme := keys.SchemeDiffieStyleConvertedED25519
 
 	ks, err := mgr.keymgr.GetKeys(scheme, ourID)
@@ -144,7 +144,7 @@ func (mgr *Manager) GetOrDeriveKeyFor(other *refs.FeedRef) (keys.Recipients, err
 }
 
 // EncryptBox1 creates box1 ciphertext that is readable by the recipients.
-func (mgr *Manager) EncryptBox1(content []byte, rcpts ...*refs.FeedRef) ([]byte, error) {
+func (mgr *Manager) EncryptBox1(content []byte, rcpts ...refs.FeedRef) ([]byte, error) {
 	bxr := box.NewBoxer(mgr.rand)
 	ctxt, err := bxr.Encrypt(content, rcpts...)
 	if err != nil {
@@ -154,7 +154,7 @@ func (mgr *Manager) EncryptBox1(content []byte, rcpts ...*refs.FeedRef) ([]byte,
 }
 
 // EncryptBox2 creates box2 ciphertext
-func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []refs.Ref) ([]byte, error) {
+func (mgr *Manager) EncryptBox2(content []byte, prev refs.MessageRef, recpts []refs.Ref) ([]byte, error) {
 
 	// first, look up keys
 	var (
@@ -165,14 +165,17 @@ func (mgr *Manager) EncryptBox2(content []byte, prev *refs.MessageRef, recpts []
 
 	for _, rcpt := range recpts {
 		switch ref := rcpt.(type) {
-		case *refs.FeedRef:
+		case refs.FeedRef:
 			keyScheme = keys.SchemeDiffieStyleConvertedED25519
-			keyID = keys.ID(sortAndConcat(mgr.author.Id.ID, ref.ID))
+			keyID = keys.ID(sortAndConcat(mgr.author.Id.PubKey(), ref.PubKey()))
 			// roll key if not exist?
-		case *refs.MessageRef:
+		case refs.MessageRef:
 			// TODO: maybe verify this is a group message?
 			keyScheme = keys.SchemeLargeSymmetricGroup
-			keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
+			panic("TODO: fix sortAndConcat")
+			// keyID = keys.ID(sortAndConcat(ref.Hash)) // actually just copy
+		default:
+			return nil, fmt.Errorf("TODO: unhandled recipient reference type: %T", ref)
 		}
 
 		if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
@@ -219,11 +222,11 @@ func (mgr *Manager) DecryptBox1(ctxt []byte) ([]byte, error) {
 }
 
 // DecryptBox2 decrypts box2 messages, using the keys that were previously stored/received.
-func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef) ([]byte, error) {
+func (mgr *Manager) DecryptBox2(ctxt []byte, author refs.FeedRef, prev refs.MessageRef) ([]byte, error) {
 	// assumes 1:1 pm
 	// fetch feed2feed shared key
 	keyScheme := keys.SchemeDiffieStyleConvertedED25519
-	keyID := sortAndConcat(mgr.author.Id.ID, author.ID)
+	keyID := sortAndConcat(mgr.author.Id.PubKey(), author.PubKey())
 	var allKeys keys.Recipients
 	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
 		allKeys = append(allKeys, ks...)
@@ -231,7 +234,7 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author *refs.FeedRef, prev *refs.Me
 
 	// try my groups
 	keyScheme = keys.SchemeLargeSymmetricGroup
-	keyID = sortAndConcat(mgr.author.Id.ID, mgr.author.Id.ID)
+	keyID = sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey())
 	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
 		allKeys = append(allKeys, ks...)
 	}
@@ -281,7 +284,7 @@ func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
 		return nil, err
 	}
 
-	return mgr.DecryptBox2(ctxt, m.Author(), m.Previous())
+	return mgr.DecryptBox2(ctxt, m.Author(), *m.Previous())
 }
 
 func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
@@ -301,9 +304,9 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 
 		var rv refs.KeyValueRaw
 		rv.Key_ = msg.Key()
-		rv.Value.Author = *msg.Author()
+		rv.Value.Author = msg.Author()
 		rv.Value.Previous = msg.Previous()
-		rv.Value.Sequence = margaret.BaseSeq(msg.Seq())
+		rv.Value.Sequence = msg.Seq()
 		rv.Value.Timestamp = encodedTime.NewMillisecs(msg.Claimed().Unix())
 		rv.Value.Signature = "reboxed"
 

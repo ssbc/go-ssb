@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"

@@ -25,23 +25,23 @@ const (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/blobstore.go . BlobStore
 type BlobStore interface {
 	// Get returns a reader of the blob with given ref.
-	Get(ref *refs.BlobRef) (io.Reader, error)
+	Get(ref refs.BlobRef) (io.ReadCloser, error)
 
 	// Put stores the data in the reader in the blob store and returns the address.
-	Put(blob io.Reader) (*refs.BlobRef, error)
+	Put(blob io.Reader) (refs.BlobRef, error)
 
 	// PutExpected makes sure the added blob really is the passedBlobref
 	// helpful for want/get operations which don't want to wast resources
 	// PutExpected(io.Reader, *refs.BlobRef) error
 
 	// Delete deletes a blob from the blob store.
-	Delete(ref *refs.BlobRef) error
+	Delete(ref refs.BlobRef) error
 
 	// List returns a source of the refs of all stored blobs.
 	List() luigi.Source
 
 	// Size returns the size of the blob with given ref.
-	Size(ref *refs.BlobRef) (int64, error)
+	Size(ref refs.BlobRef) (int64, error)
 
 	// Changes returns a broadcast that emits put and remove notifications.
 	Changes() luigi.Broadcast
@@ -52,17 +52,17 @@ type WantManager interface {
 	io.Closer
 	luigi.Broadcast // todo: replace with a typed broadcast
 
-	Want(ref *refs.BlobRef) error
-	Wants(ref *refs.BlobRef) bool
-	WantWithDist(ref *refs.BlobRef, dist int64) error
-	//Unwant(ref *refs.BlobRef) error
+	Want(ref refs.BlobRef) error
+	Wants(ref refs.BlobRef) bool
+	WantWithDist(ref refs.BlobRef, dist int64) error
+	//Unwant(ref refs.BlobRef) error
 	CreateWants(context.Context, *muxrpc.ByteSink, muxrpc.Endpoint) luigi.Sink
 
 	AllWants() []BlobWant
 }
 
 type BlobWant struct {
-	Ref *refs.BlobRef
+	Ref refs.BlobRef
 
 	// if Dist is negative, it is the hop count to the original wanter.
 	// if it is positive, it is the size of the blob.
@@ -77,7 +77,7 @@ func (w BlobWant) String() string {
 // Op is either "rm" or "put".
 type BlobStoreNotification struct {
 	Op  BlobStoreOp
-	Ref *refs.BlobRef
+	Ref refs.BlobRef
 }
 
 func (bn BlobStoreNotification) String() string {

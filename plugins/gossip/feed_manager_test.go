@@ -14,8 +14,8 @@ import (
 
 	"go.cryptoscope.co/muxrpc/v2/codec"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/librarian"
@@ -35,7 +35,7 @@ import (
 func requireFeedRef(
 	t *testing.T,
 	arg string,
-) *refs.FeedRef {
+) refs.FeedRef {
 	ret, err := refs.ParseFeedRef(arg)
 	require.NoError(t, err)
 	return ret
@@ -170,7 +170,7 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			fm := NewFeedManager(context.TODO(), rootLog, userFeeds, infoAlice, nil, nil)
 
-			err = fm.CreateStreamHistory(ctx, sink, &test.Args)
+			err = fm.CreateStreamHistory(ctx, sink, test.Args)
 			r.NoError(err)
 			t.Log("serving")
 			create(t, test.LiveMessages, "post/live")

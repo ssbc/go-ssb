@@ -11,17 +11,17 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (sbot *Sbot) PublishAs(nick string, val interface{}) (*refs.MessageRef, error) {
+func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.MessageRef, error) {
 	r := repo.New(sbot.repoPath)
 
 	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
-		return nil, fmt.Errorf("requried idx not present: userFeeds")
+		return refs.MessageRef{}, fmt.Errorf("requried idx not present: userFeeds")
 	}
 
 	kp, err := repo.LoadKeyPair(r, nick)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	var pubopts = []message.PublishOption{
@@ -33,7 +33,7 @@ func (sbot *Sbot) PublishAs(nick string, val interface{}) (*refs.MessageRef, err
 
 	pl, err := message.OpenPublishLog(sbot.ReceiveLog, uf, kp, pubopts...)
 	if err != nil {
-		return nil, fmt.Errorf("publishAs: failed to create publish log: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("publishAs: failed to create publish log: %w", err)
 	}
 
 	return pl.Publish(val)

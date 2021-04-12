@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -152,7 +152,7 @@ type hasBlob struct {
 	connCtx context.Context
 }
 
-func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref *refs.BlobRef) error {
+func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref refs.BlobRef) error {
 	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
@@ -228,7 +228,7 @@ func (wmgr *wantManager) AllWants() []ssb.BlobWant {
 	return bws
 }
 
-func (wmgr *wantManager) Wants(ref *refs.BlobRef) bool {
+func (wmgr *wantManager) Wants(ref refs.BlobRef) bool {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
@@ -236,11 +236,11 @@ func (wmgr *wantManager) Wants(ref *refs.BlobRef) bool {
 	return ok
 }
 
-func (wmgr *wantManager) Want(ref *refs.BlobRef) error {
+func (wmgr *wantManager) Want(ref refs.BlobRef) error {
 	return wmgr.WantWithDist(ref, -1)
 }
 
-func (wmgr *wantManager) WantWithDist(ref *refs.BlobRef, dist int64) error {
+func (wmgr *wantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.ShortRef(), "dist", dist)
 	dbg = level.Debug(dbg)
 	_, err := wmgr.bs.Size(ref)
@@ -433,8 +433,8 @@ func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error)
 // GetWithSize is a muxrpc argument helper.
 // It can be used to request a blob named _key_ with a different maximum size than the default.
 type GetWithSize struct {
-	Key *refs.BlobRef `json:"key"`
-	Max uint          `json:"max"`
+	Key refs.BlobRef `json:"key"`
+	Max uint         `json:"max"`
 }
 
 func (proc *wantProc) Close() error {
@@ -522,9 +522,9 @@ type WantMsg []ssb.BlobWant
 // MarshalJSON turns a BlobWant slice into one object.
 // for example: { ref1:dist1, ref2:dist2, ... }
 func (msg WantMsg) MarshalJSON() ([]byte, error) {
-	wantsMap := make(map[*refs.BlobRef]int64, len(msg))
+	wantsMap := make(map[string]int64, len(msg))
 	for _, want := range msg {
-		wantsMap[want.Ref] = want.Dist
+		wantsMap[want.Ref.Ref()] = want.Dist
 	}
 	data, err := json.Marshal(wantsMap)
 	if err != nil {

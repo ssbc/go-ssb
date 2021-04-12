@@ -3,8 +3,8 @@ package blobstore
 import (
 	"context"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"go.mindeco.de/log"
 )
 
 // WantManagerOption is used to tune different aspects of the WantManager.

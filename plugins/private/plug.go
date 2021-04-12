@@ -6,11 +6,11 @@
 package private
 
 import (
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -18,7 +18,7 @@ type privatePlug struct {
 	h muxrpc.Handler
 }
 
-func NewPlug(i logging.Interface, author *refs.FeedRef, mngr *private.Manager, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
+func NewPlug(i logging.Interface, author refs.FeedRef, mngr *private.Manager, publish ssb.Publisher, readIdx margaret.Log) ssb.Plugin {
 	return &privatePlug{h: handler{
 		author:  author,
 		mngr:    mngr,

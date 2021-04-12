@@ -102,7 +102,7 @@ func (ts testMessage) Received() time.Time {
 	return time.Now()
 }
 
-func (ts testMessage) Key() *refs.MessageRef {
+func (ts testMessage) Key() refs.MessageRef {
 	panic("not implemented")
 }
 
@@ -110,7 +110,7 @@ func (ts testMessage) Previous() *refs.MessageRef {
 	panic("not implemented")
 }
 
-func (ts testMessage) Author() *refs.FeedRef {
+func (ts testMessage) Author() refs.FeedRef {
 	panic("not implemented")
 }
 

@@ -6,11 +6,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"go.mindeco.de/log"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 )
 
 type Plugin struct {

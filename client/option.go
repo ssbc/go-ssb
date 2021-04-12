@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/go-kit/kit/log"
+	"go.mindeco.de/log"
 )
 
 type Option func(*Client) error

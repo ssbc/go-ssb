@@ -21,7 +21,7 @@ import (
 )
 
 type testMessage struct {
-	Author          *refs.FeedRef
+	Author          refs.FeedRef
 	Hash, Signature string
 	Input, NoSig    []byte
 }
@@ -79,13 +79,9 @@ func init() {
 		if !has {
 			checkPanic(fmt.Errorf("test(%d) - expected author in value field", i))
 		}
-		r, err := refs.ParseRef(a.(string))
+
+		testMessages[seq].Author, err = refs.ParseFeedRef(a.(string))
 		checkPanic(errors.Wrapf(err, "test(%d) - failed to parse author ref", i))
-		fr, ok := r.(*refs.FeedRef)
-		if !ok {
-			checkPanic(fmt.Errorf("test(%d) - expected valid author ref", i))
-		}
-		testMessages[seq].Author = fr
 
 		// copy input
 		rc, err := input.Open()

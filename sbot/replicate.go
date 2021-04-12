@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -38,7 +38,7 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 }
 
 // makeUpdater returns a func that does the hop-walk and block checks, used together with debounce
-func (r *graphReplicator) makeUpdater(log log.Logger, self *refs.FeedRef, hopCount int) func() {
+func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCount int) func() {
 	return func() {
 		start := time.Now()
 		newWants := r.bot.GraphBuilder.Hops(self, hopCount)
@@ -109,11 +109,11 @@ func debounce(ctx context.Context, interval time.Duration, obs luigi.Observable,
 	}
 }
 
-func (r *graphReplicator) Block(ref *refs.FeedRef)   { r.current.blocked.AddRef(ref) }
-func (r *graphReplicator) Unblock(ref *refs.FeedRef) { r.current.blocked.Delete(ref) }
+func (r *graphReplicator) Block(ref refs.FeedRef)   { r.current.blocked.AddRef(ref) }
+func (r *graphReplicator) Unblock(ref refs.FeedRef) { r.current.blocked.Delete(ref) }
 
-func (r *graphReplicator) Replicate(ref *refs.FeedRef)     { r.current.feedWants.AddRef(ref) }
-func (r *graphReplicator) DontReplicate(ref *refs.FeedRef) { r.current.feedWants.Delete(ref) }
+func (r *graphReplicator) Replicate(ref refs.FeedRef)     { r.current.feedWants.AddRef(ref) }
+func (r *graphReplicator) DontReplicate(ref refs.FeedRef) { r.current.feedWants.Delete(ref) }
 
 func (r *graphReplicator) Lister() ssb.ReplicationLister { return r.current }
 
@@ -129,7 +129,7 @@ func newLister() *lister {
 	}
 }
 
-func (l lister) Authorize(remote *refs.FeedRef) error {
+func (l lister) Authorize(remote refs.FeedRef) error {
 	if l.blocked.Has(remote) {
 		return errors.New("peer blocked")
 	}

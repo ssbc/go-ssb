@@ -12,11 +12,13 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
-	addr := librarian.Addr(append([]byte("v2:"+tname+":"), root.Hash...))
+func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.TanglePoint {
+	var h = make([]byte, 32)
+	root.CopyHashTo(h)
+	addr := librarian.Addr(append([]byte("v2:"+tname+":"), h...))
 	thandle, err := mgr.tangles.Get(addr)
 	if err != nil {
-		return refs.TanglePoint{Root: root, Previous: []*refs.MessageRef{root}}
+		return refs.TanglePoint{Root: root, Previous: []refs.MessageRef{root}}
 	}
 
 	heads, err := mgr.getLooseEnds(thandle, tname)
@@ -77,19 +79,19 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 }
 
 type tangledPost struct {
-	*refs.MessageRef
+	refs.MessageRef
 
 	refs.Tangles
 }
 
-func (tm tangledPost) Key() *refs.MessageRef {
+func (tm tangledPost) Key() refs.MessageRef {
 	return tm.MessageRef
 }
 
-func (tm tangledPost) Tangle(name string) (*refs.MessageRef, refs.MessageRefs) {
+func (tm tangledPost) Tangle(name string) (refs.MessageRef, refs.MessageRefs) {
 	tp, has := tm.Tangles[name]
 	if !has {
-		return nil, nil
+		return refs.MessageRef{}, nil
 	}
 
 	return tp.Root, tp.Previous

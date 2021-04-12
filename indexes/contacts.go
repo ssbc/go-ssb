@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger"
-	kitlog "github.com/go-kit/kit/log"
 	"go.cryptoscope.co/librarian"
+	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/repo"

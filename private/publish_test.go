@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"

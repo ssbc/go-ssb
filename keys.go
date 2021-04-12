@@ -17,30 +17,31 @@ import (
 )
 
 type KeyPair struct {
-	Id   *refs.FeedRef
+	Id   refs.FeedRef
 	Pair secrethandshake.EdKeyPair
 }
 
 // the format of the .ssb/secret file as defined by the js implementations
 type ssbSecret struct {
-	Curve   string        `json:"curve"`
-	ID      *refs.FeedRef `json:"id"`
-	Private string        `json:"private"`
-	Public  string        `json:"public"`
+	Curve   string       `json:"curve"`
+	ID      refs.FeedRef `json:"id"`
+	Private string       `json:"private"`
+	Public  string       `json:"public"`
 }
 
 // IsValidFeedFormat checks if the passed FeedRef is for one of the two supported formats,
 // legacy/crapp or GabbyGrove.
-func IsValidFeedFormat(r *refs.FeedRef) error {
-	if r.Algo != refs.RefAlgoFeedSSB1 && r.Algo != refs.RefAlgoFeedGabby {
-		return fmt.Errorf("ssb: unsupported feed format:%s", r.Algo)
+func IsValidFeedFormat(r refs.FeedRef) error {
+	ra := r.Algo()
+	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby {
+		return fmt.Errorf("ssb: unsupported feed format: %s", r.Algo())
 	}
 	return nil
 }
 
 // NewKeyPair generates a fresh KeyPair using the passed io.Reader as a seed.
 // Passing nil is fine and will use crypto/rand.
-func NewKeyPair(r io.Reader) (*KeyPair, error) {
+func NewKeyPair(r io.Reader, algo refs.RefAlgo) (*KeyPair, error) {
 
 	// generate new keypair
 	kp, err := secrethandshake.GenEdKeyPair(r)
@@ -49,8 +50,12 @@ func NewKeyPair(r io.Reader) (*KeyPair, error) {
 	}
 
 	keyPair := KeyPair{
-		Id:   &refs.FeedRef{ID: kp.Public[:], Algo: refs.RefAlgoFeedSSB1},
 		Pair: *kp,
+	}
+
+	keyPair.Id, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
+	if err != nil {
+		return nil, err
 	}
 
 	return &keyPair, nil

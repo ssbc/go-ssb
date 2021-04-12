@@ -13,6 +13,7 @@ import (
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -43,7 +44,8 @@ func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librar
 		}
 		return fmt.Errorf("index/get: unexpected message type: %T", val)
 	}
-	err := idx.Set(ctx, librarian.Addr(msg.Key().Hash), seq.Seq())
+
+	err := idx.Set(ctx, storedrefs.Message(msg.Key()), seq.Seq())
 	if err != nil {
 		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Ref(), seq.Seq(), err)
 	}

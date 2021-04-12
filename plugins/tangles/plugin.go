@@ -10,16 +10,17 @@ import (
 
 	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/transform"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/private"
@@ -88,7 +89,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		if err != nil {
 			return fmt.Errorf("bad request - invalid root (string?): %w", err)
 		}
-		qry.Root = &ref
+		qry.Root = ref
 		qry.Limit = -1
 		qry.Keys = true
 	} else {
@@ -120,9 +121,9 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	lsnk := transform.NewKeyValueWrapper(snk, qry.Keys)
 
 	// lookup address depending if we have a name for the tangle or not
-	addr := librarian.Addr(append([]byte("v1:"), qry.Root.Hash...))
+	addr := storedrefs.TangleV1(qry.Root)
 	if qry.Name != "" {
-		addr = librarian.Addr("v2:"+qry.Name+":") + librarian.Addr(qry.Root.Hash)
+		addr = storedrefs.TangleV2(qry.Name, qry.Root)
 	}
 
 	// TODO: needs same kind of refactor that messagesByType needs

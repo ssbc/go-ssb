@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.mindeco.de/log"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -34,7 +34,7 @@ func (h getHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 		req.Type = "source"
 	}
 
-	var wantedRef *refs.BlobRef
+	var wantedRef refs.BlobRef
 	var maxSize uint = blobstore.DefaultMaxSize
 
 	var justTheRef []refs.BlobRef
@@ -52,7 +52,7 @@ func (h getHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 		if len(justTheRef) != 1 {
 			return errors.New("bad request")
 		}
-		wantedRef = &justTheRef[0]
+		wantedRef = justTheRef[0]
 	}
 
 	sz, err := h.bs.Size(wantedRef)

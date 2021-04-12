@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
+	"go.mindeco.de/log"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"

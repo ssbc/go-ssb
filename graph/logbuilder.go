@@ -8,11 +8,11 @@ import (
 	"math"
 	"time"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -65,7 +65,7 @@ func (b *logBuilder) startQuery(ctx context.Context) {
 }
 
 // DeleteAuthor just triggers a rebuild (and expects the author to have dissapeard from the message source)
-func (b *logBuilder) DeleteAuthor(who *refs.FeedRef) error {
+func (b *logBuilder) DeleteAuthor(who refs.FeedRef) error {
 	b.current.Lock()
 	defer b.current.Unlock()
 
@@ -79,7 +79,7 @@ func (b *logBuilder) DeleteAuthor(who *refs.FeedRef) error {
 	return nil
 }
 
-func (b *logBuilder) Authorizer(from *refs.FeedRef, maxHops int) ssb.Authorizer {
+func (b *logBuilder) Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer {
 	return &authorizer{
 		b:       b,
 		from:    from,
@@ -136,7 +136,7 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 	bfrom := storedrefs.Feed(author)
 	nFrom, has := b.current.lookup[bfrom]
 	if !has {
-		nFrom = &contactNode{dg.NewNode(), author.Copy(), ""}
+		nFrom = &contactNode{dg.NewNode(), author, ""}
 		dg.AddNode(nFrom)
 		b.current.lookup[bfrom] = nFrom
 	}
@@ -144,7 +144,7 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 	bto := storedrefs.Feed(contact)
 	nTo, has := b.current.lookup[bto]
 	if !has {
-		nTo = &contactNode{dg.NewNode(), contact.Copy(), ""}
+		nTo = &contactNode{dg.NewNode(), contact, ""}
 		dg.AddNode(nTo)
 		b.current.lookup[bto] = nTo
 	}
@@ -170,7 +170,7 @@ func (b *logBuilder) buildGraph(ctx context.Context, v interface{}, err error) e
 	return nil
 }
 
-func (b *logBuilder) Follows(from *refs.FeedRef) (*ssb.StrFeedSet, error) {
+func (b *logBuilder) Follows(from refs.FeedRef) (*ssb.StrFeedSet, error) {
 	g, err := b.Build()
 	if err != nil {
 		return nil, fmt.Errorf("follows: couldn't build graph: %w", err)
@@ -198,7 +198,7 @@ func (b *logBuilder) Follows(from *refs.FeedRef) (*ssb.StrFeedSet, error) {
 	return refs, nil
 }
 
-func (b *logBuilder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
+func (b *logBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	g, err := b.Build()
 	if err != nil {
 		panic(err)
@@ -245,7 +245,7 @@ func (b *logBuilder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
 	return fs
 }
 
-func (bld *logBuilder) State(a, b *refs.FeedRef) int {
+func (bld *logBuilder) State(a, b refs.FeedRef) int {
 	g, err := bld.Build()
 	if err != nil {
 		panic(err)

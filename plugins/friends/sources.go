@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/graph"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -40,7 +40,7 @@ func (h blocksSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk *m
 		return err
 	}
 
-	set := g.BlockedList(&who)
+	set := g.BlockedList(who)
 	lst, err := set.List()
 	if err != nil {
 		return err
@@ -78,16 +78,16 @@ func (h hopsSrc) HandleSource(ctx context.Context, req *muxrpc.Request, snk *mux
 	}
 
 	var (
-		start *refs.FeedRef
+		start refs.FeedRef
 		dist  uint
 	)
 	if len(args) == 1 {
-		start = args[0].Start
+		if s := args[0].Start; s != nil {
+			start = *s
+		} else {
+			start = h.self
+		}
 		dist = args[0].Max
-	}
-
-	if start == nil {
-		start = &h.self
 	}
 
 	set := h.builder.Hops(start, int(dist))

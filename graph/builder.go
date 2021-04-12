@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -32,13 +32,13 @@ type Builder interface {
 	Build() (*Graph, error)
 
 	// Follows returns a set of all people ref follows
-	Follows(*refs.FeedRef) (*ssb.StrFeedSet, error)
+	Follows(refs.FeedRef) (*ssb.StrFeedSet, error)
 
-	Hops(*refs.FeedRef, int) *ssb.StrFeedSet
+	Hops(refs.FeedRef, int) *ssb.StrFeedSet
 
-	Authorizer(from *refs.FeedRef, maxHops int) ssb.Authorizer
+	Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer
 
-	DeleteAuthor(who *refs.FeedRef) error
+	DeleteAuthor(who refs.FeedRef) error
 }
 
 type IndexingBuilder interface {
@@ -125,7 +125,7 @@ func (b *builder) OpenIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
 	return b.idx, b.idxSink
 }
 
-func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
+func (b *builder) DeleteAuthor(who refs.FeedRef) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
 	b.cachedGraph = nil
@@ -146,7 +146,7 @@ func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
 	})
 }
 
-func (b *builder) Authorizer(from *refs.FeedRef, maxHops int) ssb.Authorizer {
+func (b *builder) Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer {
 	return &authorizer{
 		b:       b,
 		from:    from,
@@ -195,9 +195,12 @@ func (b *builder) Build() (*Graph, error) {
 			bfrom := librarian.Addr(rawFrom)
 			nFrom, has := dg.lookup[bfrom]
 			if !has {
-				fromRef := from.Feed()
+				fromRef, err := from.Feed()
+				if err != nil {
+					return err
+				}
 
-				nFrom = &contactNode{dg.NewNode(), fromRef.Copy(), ""}
+				nFrom = &contactNode{dg.NewNode(), fromRef, ""}
 				dg.AddNode(nFrom)
 				dg.lookup[bfrom] = nFrom
 			}
@@ -205,8 +208,11 @@ func (b *builder) Build() (*Graph, error) {
 			bto := librarian.Addr(rawTo)
 			nTo, has := dg.lookup[bto]
 			if !has {
-				toRef := to.Feed()
-				nTo = &contactNode{dg.NewNode(), toRef.Copy(), ""}
+				toRef, err := to.Feed()
+				if err != nil {
+					return err
+				}
+				nTo = &contactNode{dg.NewNode(), toRef, ""}
 				dg.AddNode(nTo)
 				dg.lookup[bto] = nTo
 			}
@@ -256,7 +262,7 @@ type Lookup struct {
 	lookup key2node
 }
 
-func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
+func (l Lookup) Dist(to refs.FeedRef) ([]graph.Node, float64) {
 	bto := storedrefs.Feed(to)
 	nTo, has := l.lookup[bto]
 	if !has {
@@ -265,10 +271,7 @@ func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
-	if forRef == nil {
-		panic("nil feed ref")
-	}
+func (b *builder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -288,7 +291,11 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 					if err != nil {
 						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
 					}
-					if err := fs.AddRef(sr.Feed()); err != nil {
+					fr, err := sr.Feed()
+					if err != nil {
+						return err
+					}
+					if err := fs.AddRef(fr); err != nil {
 						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
 					}
 				}
@@ -307,7 +314,7 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 // max == 0: only direct follows of from
 // max == 1: max:0 + follows of friends of from
 // max == 2: max:1 + follows of their friends
-func (b *builder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
+func (b *builder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	max++
 	walked := ssb.NewFeedSet(0)
 	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)
@@ -320,7 +327,7 @@ func (b *builder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
 	return walked
 }
 
-func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from *refs.FeedRef, depth int) error {
+func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from refs.FeedRef, depth int) error {
 	if depth == 0 {
 		return nil
 	}

@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 )

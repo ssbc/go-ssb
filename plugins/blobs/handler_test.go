@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -48,8 +48,8 @@ func TestReplicate(t *testing.T) {
 	// do the dance
 	pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
-	pi1 := New(srcLog, *srcKP.Id, srcBS, srcWM)
-	pi2 := New(dstLog, *dstKP.Id, dstBS, dstWM)
+	pi1 := New(srcLog, srcKP.Id, srcBS, srcWM)
+	pi2 := New(dstLog, dstKP.Id, dstBS, dstWM)
 
 	ref, err := srcBS.Put(strings.NewReader("testString"))
 	r.NoError(err, "error putting blob at src")

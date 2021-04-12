@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
@@ -22,7 +22,7 @@ import (
 type handler struct {
 	info logging.Interface
 
-	author  *refs.FeedRef
+	author  refs.FeedRef
 	publish ssb.Publisher
 	read    margaret.Log
 
@@ -89,7 +89,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 			return
 		}
 
-		rcpsRefs := make([]*refs.FeedRef, len(rcps))
+		rcpsRefs := make([]refs.FeedRef, len(rcps))
 		for i, rv := range rcps {
 			rstr, ok := rv.(string)
 			if !ok {
@@ -185,20 +185,20 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 	req.Close()
 }
 
-func (h handler) privatePublish(msg []byte, recps []*refs.FeedRef) (*refs.MessageRef, error) {
+func (h handler) privatePublish(msg []byte, recps []refs.FeedRef) (refs.MessageRef, error) {
 
 	boxedMsg, err := h.mngr.EncryptBox1(msg, recps...)
 	if err != nil {
-		return nil, fmt.Errorf("private/publish: failed to box message: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("private/publish: failed to box message: %w", err)
 	}
 
-	if h.author.Algo == refs.RefAlgoFeedGabby {
+	if h.author.Algo() == refs.RefAlgoFeedGabby {
 		boxedMsg = append([]byte("box1:"), boxedMsg...)
 	}
 
 	ref, err := h.publish.Publish(boxedMsg)
 	if err != nil {
-		return nil, fmt.Errorf("private/publish: pour failed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("private/publish: pour failed: %w", err)
 
 	}
 

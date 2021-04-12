@@ -58,7 +58,7 @@ func TestMultiMsgGabby(t *testing.T) {
 	authorRef, err := gabbygrove.NewBinaryRef(kp.Id)
 	r.NoError(err)
 
-	cref := &refs.ContentRef{
+	cref := &gabbygrove.ContentRef{
 		Hash: kpSeed,
 		Algo: refs.RefAlgoContentGabby,
 	}

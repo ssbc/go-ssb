@@ -11,15 +11,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cryptix/go/logging"
 	"github.com/dgraph-io/badger"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/librarian"
 	libbadger "go.cryptoscope.co/librarian/badger"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 	"golang.org/x/crypto/nacl/auth"
 
 	"go.cryptoscope.co/ssb"

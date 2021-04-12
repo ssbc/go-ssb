@@ -23,6 +23,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.3.0
 	github.com/rs/cors v1.7.0
+	github.com/rs/zerolog v1.22.0 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
 	github.com/stretchr/testify v1.6.1
 	github.com/ugorji/go/codec v1.1.7
@@ -32,14 +33,14 @@ require (
 	go.cryptoscope.co/muxrpc/v2 v2.0.5
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
+	go.mindeco.de v1.12.0 // indirect
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.1.1
-	go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870
+	go.mindeco.de/ssb-refs v0.1.1-0.20210413150817-0208d30b0130
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/text v0.3.3
-	golang.org/x/tools v0.0.0-20200509030707-2212a7e161a5 // indirect
 	gonum.org/v1/gonum v0.0.0-20190904110519-2065cbd6b42a
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
 	modernc.org/kv v1.0.0
@@ -52,3 +53,9 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
+
+replace go.mindeco.de/ssb-refs => /home/cryptix/go-repos/ssb-refs
+
+replace go.mindeco.de/ssb-multiserver => /home/cryptix/go-repos/ssb-multiserver
+
+replace go.mindeco.de/ssb-gabbygrove => /home/cryptix/go-repos/gabbygrove

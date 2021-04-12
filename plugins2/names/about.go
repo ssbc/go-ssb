@@ -51,7 +51,7 @@ func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 			if err != nil {
 				return err
 			}
-			br = *newBlobR
+			br = newBlobR
 			return nil
 		})
 		if err != nil {
@@ -115,7 +115,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 	return ngr, err
 }
 
-func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
+func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 	addr := []byte(ref.Ref() + ":")
 	// from self
 	// addr = append(addr, ref.ID...)

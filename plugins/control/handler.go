@@ -11,12 +11,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	multiserver "go.mindeco.de/ssb-multiserver"
 	refs "go.mindeco.de/ssb-refs"
@@ -50,7 +50,7 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 	return &mux
 }
 
-type actionMap map[*refs.FeedRef]bool
+type actionMap map[refs.FeedRef]bool
 
 type actionFn func(context.Context, actionMap) error
 
@@ -63,7 +63,7 @@ func unmarshalActionMap(next actionFn) typemux.AsyncFunc {
 		err := json.Unmarshal(r.RawArgs, &args)
 		if err != nil {
 			// failed, trying array of feed strings
-			var ref []*refs.FeedRef
+			var ref []refs.FeedRef
 			err = json.Unmarshal(r.RawArgs, &ref)
 			if err != nil {
 				return nil, fmt.Errorf("action unmarshal: bad arguments: %w", err)

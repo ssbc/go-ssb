@@ -28,28 +28,23 @@ type publishLog struct {
 	create creater
 }
 
-func (p *publishLog) Publish(content interface{}) (*refs.MessageRef, error) {
+func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
 	seq, err := p.Append(content)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
 	val, err := p.rootLog.Get(seq)
 	if err != nil {
-		return nil, fmt.Errorf("publish: failed to get new stored message: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}
 
 	kv, ok := val.(refs.Message)
 	if !ok {
-		return nil, fmt.Errorf("publish: unsupported keyer %T", val)
+		return refs.MessageRef{}, fmt.Errorf("publish: unsupported keyer %T", val)
 	}
 
-	key := kv.Key()
-	if key == nil {
-		return nil, fmt.Errorf("publish: nil key for new message %d", seq.Seq())
-	}
-
-	return key, nil
+	return kv.Key(), nil
 }
 
 // Get retreives the message object by traversing the authors sublog to the root log
@@ -79,8 +74,8 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 
 	// current state of the local sig-chain
 	var (
-		nextPrevious *refs.MessageRef // = invalid
-		nextSequence = margaret.SeqEmpty
+		nextPrevious refs.MessageRef
+		nextSequence = int64(-1)
 	)
 
 	currSeq, err := pl.Seq().Value()
@@ -97,7 +92,6 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
 	}
 	if luigi.IsEOS(err) { // new feed
-		nextPrevious = nil
 		nextSequence = 1
 	} else {
 		currMM, err := pl.rootLog.Get(currRootSeq.(margaret.Seq))
@@ -109,7 +103,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 			return nil, fmt.Errorf("publishLog: invalid value at sequence %v: %T", currSeq, currMM)
 		}
 		nextPrevious = mm.Key()
-		nextSequence = margaret.BaseSeq(mm.Seq() + 1)
+		nextSequence = mm.Seq() + 1
 	}
 
 	nextMsg, err := pl.create.Create(val, nextPrevious, nextSequence)
@@ -142,7 +136,7 @@ func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.Key
 		rootLog: rootLog,
 	}
 
-	switch kp.Id.Algo {
+	switch kp.Id.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		pl.create = &legacyCreate{
 			key: *kp,
@@ -197,7 +191,7 @@ func UseNowTimestamps(yes bool) PublishOption {
 }
 
 type creater interface {
-	Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error)
+	Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error)
 }
 
 type legacyCreate struct {
@@ -206,7 +200,7 @@ type legacyCreate struct {
 	setTimestamp bool
 }
 
-func (lc legacyCreate) Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error) {
+func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
 	// prepare persisted message
 	var stored legacy.StoredMessage
 	stored.Timestamp_ = time.Now() // "rx"
@@ -216,8 +210,10 @@ func (lc legacyCreate) Create(val interface{}, prev *refs.MessageRef, seq margar
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
 	newMsg.Author = lc.key.Id.Ref()
-	newMsg.Previous = prev
-	newMsg.Sequence = margaret.BaseSeq(seq.Seq())
+	if seq > 1 {
+		newMsg.Previous = &prev
+	}
+	newMsg.Sequence = margaret.BaseSeq(seq)
 
 	if bindata, ok := val.([]byte); ok {
 		bindata = bytes.TrimPrefix(bindata, []byte("box1:"))
@@ -246,16 +242,12 @@ type gabbyCreate struct {
 	enc *gabbygrove.Encoder
 }
 
-func (pc gabbyCreate) Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error) {
-	var br *gabbygrove.BinaryRef
-	if prev != nil {
-		var err error
-		br, err = gabbygrove.NewBinaryRef(prev)
-		if err != nil {
-			return nil, err
-		}
+func (pc gabbyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
+	br, err := gabbygrove.NewBinaryRef(prev)
+	if err != nil {
+		return nil, err
 	}
-	nextSeq := uint64(seq.Seq())
+	nextSeq := uint64(seq)
 	tr, _, err := pc.enc.Encode(nextSeq, br, val)
 	if err != nil {
 		return nil, fmt.Errorf("gabby: failed to encode content: %w", err)

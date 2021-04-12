@@ -27,17 +27,15 @@ func NewFeedSet(size int) *StrFeedSet {
 	}
 }
 
-func (fs *StrFeedSet) AddRef(ref *refs.FeedRef) error {
+func (fs *StrFeedSet) AddRef(ref refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	copied := ref.Copy()
-
-	fs.set[storedrefs.Feed(copied)] = struct{}{}
+	fs.set[storedrefs.Feed(ref)] = struct{}{}
 	return nil
 }
 
-func (fs *StrFeedSet) Delete(ref *refs.FeedRef) error {
+func (fs *StrFeedSet) Delete(ref refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	delete(fs.set, storedrefs.Feed(ref))
@@ -50,10 +48,10 @@ func (fs *StrFeedSet) Count() int {
 	return len(fs.set)
 }
 
-func (fs StrFeedSet) List() ([]*refs.FeedRef, error) {
+func (fs StrFeedSet) List() ([]refs.FeedRef, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	var lst = make([]*refs.FeedRef, len(fs.set))
+	var lst = make([]refs.FeedRef, len(fs.set))
 
 	i := 0
 
@@ -64,13 +62,16 @@ func (fs StrFeedSet) List() ([]*refs.FeedRef, error) {
 			return nil, fmt.Errorf("failed to decode map entry: %w", err)
 		}
 		// log.Printf("dbg List(%d) %s", i, ref.Ref())
-		lst[i] = sr.Feed().Copy()
+		lst[i], err = sr.Feed()
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode map entry: %w", err)
+		}
 		i++
 	}
 	return lst, nil
 }
 
-func (fs StrFeedSet) Has(ref *refs.FeedRef) bool {
+func (fs StrFeedSet) Has(ref refs.FeedRef) bool {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	_, has := fs.set[storedrefs.Feed(ref)]

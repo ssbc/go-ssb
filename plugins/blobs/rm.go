@@ -4,11 +4,12 @@ package blobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -27,25 +28,21 @@ func (h rmHandler) HandleCall(ctx context.Context, req *muxrpc.Request, edp muxr
 		req.Type = "async"
 	}
 
-	if len(req.Args()) != 1 {
+	var refs []refs.BlobRef
+
+	err := json.Unmarshal(req.RawArgs, &refs)
+	if err != nil {
+		checkAndLog(h.log, fmt.Errorf("error parsing blob reference: %w", err))
+		return
+	}
+	if len(refs) != 1 {
 		// TODO: change from generic handlers to typed once (source, sink, async..)
 		// async then would have to return a value or an error and not fall into this trap of not closing a stream
 		req.Stream.CloseWithError(errors.New("bad request - wrong args"))
 		return
 	}
 
-	ref, err := refs.ParseRef(req.Args()[0].(string))
-	if err != nil {
-		checkAndLog(h.log, fmt.Errorf("error parsing blob reference: %w", err))
-		return
-	}
-
-	br, ok := ref.(*refs.BlobRef)
-	if !ok {
-		err = fmt.Errorf("expected blob reference, got %T", ref)
-		checkAndLog(h.log, err)
-		return
-	}
+	br := refs[0]
 
 	err = h.bs.Delete(br)
 	if err != nil {

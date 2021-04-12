@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"

@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2/debug"
+	"go.mindeco.de/log"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"

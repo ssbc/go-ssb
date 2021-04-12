@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
@@ -40,8 +40,8 @@ func (h create) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 	level.Info(h.log).Log("event", "group created", "cloaked", cloaked.Ref())
 
 	return struct {
-		Group *refs.MessageRef `json:"group_id"`
-		Root  *refs.MessageRef `json:"root"`
+		Group refs.MessageRef `json:"group_id"`
+		Root  refs.MessageRef `json:"root"`
 	}{cloaked, root}, err
 }
 
@@ -66,11 +66,11 @@ func (h publishTo) HandleAsync(ctx context.Context, req *muxrpc.Request) (interf
 		return nil, fmt.Errorf("groupID needs to be a valid message ref: %w", err)
 	}
 
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
+	if groupID.Algo() != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
 	}
 
-	newMsg, err := h.groups.PublishTo(&groupID, args[1])
+	newMsg, err := h.groups.PublishTo(groupID, args[1])
 	if err != nil {
 		return nil, fmt.Errorf("failed to publish message to group")
 	}
@@ -99,7 +99,7 @@ func (h invite) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 		return nil, fmt.Errorf("groupID needs to be a valid message ref: %w", err)
 	}
 
-	if groupID.Algo != refs.RefAlgoCloakedGroup {
+	if groupID.Algo() != refs.RefAlgoCloakedGroup {
 		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
 	}
 
@@ -109,7 +109,7 @@ func (h invite) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 		return nil, fmt.Errorf("member needs to be a valid feed ID: %w", err)
 	}
 
-	newMsg, err := h.groups.AddMember(&groupID, &newMember, "")
+	newMsg, err := h.groups.AddMember(groupID, newMember, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to publish invite to group")
 	}

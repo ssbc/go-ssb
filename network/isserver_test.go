@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-kit/kit/log"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"

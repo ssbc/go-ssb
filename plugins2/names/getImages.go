@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -46,10 +46,10 @@ func (h hImagesFor) HandleAsync(ctx context.Context, req *muxrpc.Request) (inter
 	return mostSet, nil
 }
 
-func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
+func parseFeedRefFromArgs(req *muxrpc.Request) (refs.FeedRef, error) {
 	args := req.Args()
 	if len(args) != 1 {
-		return nil, fmt.Errorf("not enough args")
+		return refs.FeedRef{}, fmt.Errorf("not enough args")
 	}
 
 	var refStr string
@@ -62,7 +62,7 @@ func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
 
 	ref, err := refs.ParseFeedRef(refStr)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing feed reference: %w", err)
+		return refs.FeedRef{}, fmt.Errorf("error parsing feed reference: %w", err)
 	}
 
 	return ref, nil

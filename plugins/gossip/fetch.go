@@ -10,9 +10,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -56,7 +56,7 @@ func (h *LegacyGossip) FetchAll(
 	return err
 }
 
-func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *refs.FeedRef, withLive bool) func() error {
+func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref refs.FeedRef, withLive bool) func() error {
 	return func() error {
 		err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
 		var callErr *muxrpc.CallError
@@ -80,7 +80,7 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *r
 // fetchFeed requests the feed fr from endpoint e into the repo of the handler
 func (h *LegacyGossip) fetchFeed(
 	ctx context.Context,
-	fr *refs.FeedRef,
+	fr refs.FeedRef,
 	edp muxrpc.Endpoint,
 	started time.Time,
 	withLive bool,
@@ -125,7 +125,7 @@ func (h *LegacyGossip) fetchFeed(
 	method := muxrpc.Method{"createHistoryStream"}
 
 	var src *muxrpc.ByteSource
-	switch fr.Algo {
+	switch fr.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		src, err = edp.Source(ctx, muxrpc.TypeJSON, method, q)
 	case refs.RefAlgoFeedGabby:

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.cryptoscope.co/librarian"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // Q: what's the relation of ID and key?
@@ -79,7 +80,16 @@ func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 	return mgr.Index.Delete(todoCtx, librarian.Addr(idxkBs))
 }
 
+func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipients, error) {
+	panic("TODO")
+	// return mgr.getKeys(ks, id)
+}
+
 func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
+	return mgr.getKeys(ks, id)
+}
+
+func (mgr *Store) getKeys(ks KeyScheme, id ID) (Recipients, error) {
 	if !ks.Valid() {
 		return nil, Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
 	}

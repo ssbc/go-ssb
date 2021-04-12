@@ -64,7 +64,7 @@ var ErrUnuspportedFormat = fmt.Errorf("ssb: unsupported format")
 // ErrWrongSequence is returned if there is a glitch on the current
 // sequence number on the feed between in the offsetlog and the logical entry on the feed
 type ErrWrongSequence struct {
-	Ref             *refs.FeedRef
+	Ref             refs.FeedRef
 	Logical, Stored margaret.Seq
 }
 

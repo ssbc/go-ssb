@@ -31,7 +31,7 @@ func newSession(remote net.Addr) *session {
 }
 
 // Subscribed registers the cancel function for that stream in the session
-func (s *session) Subscribed(feed *refs.FeedRef, cancelFn context.CancelFunc) {
+func (s *session) Subscribed(feed refs.FeedRef, cancelFn context.CancelFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -45,7 +45,7 @@ func (s *session) Subscribed(feed *refs.FeedRef, cancelFn context.CancelFunc) {
 }
 
 // Unubscribe checks to see if there is one and cancels it
-func (s *session) Unubscribe(feed *refs.FeedRef) {
+func (s *session) Unubscribe(feed refs.FeedRef) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cryptix/go/encodedTime"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/luigi/mfr"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/encodedTime"
 
 	"go.cryptoscope.co/ssb/message/multimsg"
 	refs "go.mindeco.de/ssb-refs"

@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/rs/cors"
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
@@ -22,6 +20,8 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/muxrpc/v2"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -57,7 +57,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (sbot *Sbot) Replicate(r *refs.FeedRef) {
+func (sbot *Sbot) Replicate(r refs.FeedRef) {
 	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {
 		panic(err)
@@ -76,7 +76,7 @@ func (sbot *Sbot) Replicate(r *refs.FeedRef) {
 	sbot.Replicator.Replicate(r)
 }
 
-func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
+func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
 	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {
 		panic(err)
@@ -380,7 +380,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		for i, feed := range feeds {
-			if feed.Algo != refs.RefAlgoFeedSSB1 {
+			if feed.Algo() != refs.RefAlgoFeedSSB1 {
 				// skip other formats (TODO: gg support)
 				continue
 			}
@@ -471,12 +471,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		// shit - don't see a way to pass being a different feedtype with shs1
 		// we also need to pass this up the stack...!
-		remote.Algo = refs.RefAlgoFeedGabby
-		err = auth.Authorize(remote)
-		if err == nil {
-			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
-			return s.public.MakeHandler(conn)
-		}
+		// remote.Algo = refs.RefAlgoFeedGabby
+		// err = auth.Authorize(remote)
+		// if err == nil {
+		// 	level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
+		// 	return s.public.MakeHandler(conn)
+		// }
+
+		// TOFU restore/resync
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			s.Replicate(s.KeyPair.Id)
@@ -511,7 +513,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
+	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -615,7 +617,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// raw log plugins
 
-	sc := selfChecker{*s.KeyPair.Id}
+	sc := selfChecker{s.KeyPair.Id}
 	s.master.Register(rawread.NewByTypePlugin(
 		s.info,
 		s.ReceiveLog,
@@ -632,7 +634,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
-	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
+	s.master.Register(friends.New(log, s.KeyPair.Id, s.GraphBuilder))
 
 	mh := namedPlugin{
 		h:    manifestBlob,
@@ -729,14 +731,14 @@ type selfChecker struct {
 	me refs.FeedRef
 }
 
-func (sc selfChecker) Authorize(remote *refs.FeedRef) error {
+func (sc selfChecker) Authorize(remote refs.FeedRef) error {
 	if sc.me.Equal(remote) {
 		return nil
 	}
 	return fmt.Errorf("not authorized")
 }
 
-func (s *Sbot) CurrentSequence(feed *refs.FeedRef) (ssb.Note, error) {
+func (s *Sbot) CurrentSequence(feed refs.FeedRef) (ssb.Note, error) {
 	l, err := s.Users.Get(storedrefs.Feed(feed))
 	if err != nil {
 		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)

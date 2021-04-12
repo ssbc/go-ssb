@@ -36,9 +36,6 @@ func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, m
 	}
 
 	author := abstractMsg.Author()
-	if author == nil {
-		return fmt.Errorf("nil author on message?! %v (%d)", value, seq.Seq())
-	}
 
 	authorLog, err := mlog.Get(storedrefs.Feed(author))
 	if err != nil {

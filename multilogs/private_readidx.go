@@ -9,11 +9,11 @@ import (
 	"errors"
 	"fmt"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -69,7 +69,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 	}
 
 	var boxedContent []byte
-	switch msg.Author().Algo {
+	switch msg.Author().Algo() {
 	case refs.RefAlgoFeedSSB1:
 		input := msg.ContentBytes()
 		if !(input[0] == '"' && input[len(input)-1] == '"') {

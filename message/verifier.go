@@ -36,7 +36,7 @@ type VerifySink struct {
 	sinks verifyFanIn
 }
 
-func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
+func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -66,18 +66,17 @@ func (ms MargaretSaver) Save(msg refs.Message) error {
 	return err
 }
 
-func firstMessage(r *refs.FeedRef) refs.KeyValueRaw {
-	author := r.Copy()
+func firstMessage(author refs.FeedRef) refs.KeyValueRaw {
 	return refs.KeyValueRaw{
 		Value: refs.Value{
 			Previous: nil,
-			Author:   *author,
-			Sequence: margaret.BaseSeq(0),
+			Author:   author,
+			Sequence: 0,
 		},
 	}
 }
 
-func (vs VerifySink) getLatestMsg(ref *refs.FeedRef) (refs.Message, error) {
+func (vs VerifySink) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
 	frAddr := storedrefs.Feed(ref)
 	userLog, err := vs.feeds.Get(frAddr)
 	if err != nil {

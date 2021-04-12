@@ -30,7 +30,7 @@ const (
 type MultiMessage struct {
 	refs.Message
 	tipe MessageType
-	key  *refs.MessageRef
+	key  refs.MessageRef
 
 	// metadata
 	received time.Time

@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/VividCortex/gohistogram"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"

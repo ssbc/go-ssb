@@ -35,7 +35,7 @@ type Boxer struct {
 	rand io.Reader
 }
 
-func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...*refs.FeedRef) ([]byte, error) {
+func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...refs.FeedRef) ([]byte, error) {
 	n := len(rcpts)
 	if n <= 0 || n > maxRecps {
 		return nil, fmt.Errorf("encrypt pm: wrong number of recipients: %d", n)

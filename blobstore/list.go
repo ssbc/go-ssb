@@ -94,8 +94,5 @@ func (src *listSource) Next(ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("error decoding hex file name %q: %w", file, err)
 	}
 
-	return &refs.BlobRef{
-		Algo: "sha256",
-		Hash: raw,
-	}, nil
+	return refs.NewBlobRefFromBytes(raw, refs.RefAlgoBlobSSB1)
 }

@@ -5,8 +5,8 @@ package sbot
 import (
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -15,7 +15,8 @@ func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 	if !ok {
 		return nil, fmt.Errorf("sbot: get index disabled")
 	}
-	obs, err := getIdx.Get(s.rootCtx, librarian.Addr(ref.Hash))
+
+	obs, err := getIdx.Get(s.rootCtx, storedrefs.Message(ref))
 	if err != nil {
 		return nil, fmt.Errorf("sbot/get: failed to get seq val from index: %w", err)
 	}

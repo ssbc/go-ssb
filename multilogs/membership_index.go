@@ -10,6 +10,7 @@ import (
 	"go.cryptoscope.co/librarian"
 	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
@@ -20,7 +21,7 @@ type Members map[string]bool
 // MembershipStore isn't strictly a multilog but putting it in package private gave cyclic import
 type MembershipStore struct {
 	idx         librarian.SeqSetterIndex
-	self        *refs.FeedRef
+	self        refs.FeedRef
 	unboxer     *private.Manager
 	combinedidx *CombinedIndex
 }
@@ -28,7 +29,7 @@ type MembershipStore struct {
 var _ io.Closer = (*MembershipStore)(nil)
 
 // NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
-func NewMembershipIndex(r repo.Interface, self *refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
+func NewMembershipIndex(r repo.Interface, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
 	pth := r.GetPath(repo.PrefixIndex, "groups", "members", "mkv")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {
@@ -77,11 +78,11 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		return nil // invalid message
 	}
 
-	var groupID *refs.MessageRef
-	var newMembers []*refs.FeedRef
+	var groupID refs.MessageRef
+	var newMembers []refs.FeedRef
 	for _, r := range addMemberMsg.Recps {
 		rcp, err := refs.ParseMessageRef(r)
-		if err == nil && rcp.Algo == refs.RefAlgoCloakedGroup {
+		if err == nil && rcp.Algo() == refs.RefAlgoCloakedGroup {
 			groupID = rcp
 			continue
 		}
@@ -93,10 +94,6 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		newMembers = append(newMembers, m)
 	}
 
-	if groupID == nil {
-		return nil // invalid message
-	}
-
 	/* TODO? not really required but would fit into the existing scheme
 	   then again, we would need to allocate a value in tfk for this...
 
@@ -106,7 +103,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		}
 	*/
 
-	idxAddr := librarian.Addr(groupID.Hash)
+	idxAddr := storedrefs.Message(groupID)
 	state, err := mc.idx.Get(ctx, idxAddr)
 	if err != nil {
 		return err

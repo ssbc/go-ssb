@@ -17,7 +17,7 @@ type Publisher interface {
 	margaret.Log
 
 	// Publish is a utility wrapper around append which returns the new message reference key
-	Publish(content interface{}) (*refs.MessageRef, error)
+	Publish(content interface{}) (refs.MessageRef, error)
 }
 
 type Getter interface {
@@ -41,10 +41,10 @@ type Indexer interface {
 
 // Replicator is used to tell the bot which feeds to copy from other peers and which ones to block
 type Replicator interface {
-	Replicate(*refs.FeedRef)
-	DontReplicate(*refs.FeedRef)
-	Block(*refs.FeedRef)
-	Unblock(*refs.FeedRef)
+	Replicate(refs.FeedRef)
+	DontReplicate(refs.FeedRef)
+	Block(refs.FeedRef)
+	Unblock(refs.FeedRef)
 
 	Lister() ReplicationLister
 }
@@ -82,7 +82,7 @@ type IndexState struct {
 }
 
 type ContentNuller interface {
-	NullContent(feed *refs.FeedRef, seq uint) error
+	NullContent(feed refs.FeedRef, seq uint) error
 }
 
 // this is one message of replicate.upto
@@ -114,7 +114,10 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 		if err != nil {
 			return nil, fmt.Errorf("feedSrc(%d): invalid storage ref: %w", i, err)
 		}
-		authorRef := sr.Feed()
+		authorRef, err := sr.Feed()
+		if err != nil {
+			return nil, fmt.Errorf("feedSrc(%d): failed to get feed: %w", i, err)
+		}
 
 		subLog, err := feedIndex.Get(author)
 		if err != nil {
@@ -127,7 +130,7 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 		}
 
 		elem := ReplicateUpToResponse{
-			ID:       *authorRef,
+			ID:       authorRef,
 			Sequence: currSeq.(margaret.Seq).Seq() + 1,
 		}
 		feedsWithSeqs = append(feedsWithSeqs, elem)

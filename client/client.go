@@ -12,11 +12,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/crypto/ed25519"
 
 	"go.cryptoscope.co/ssb"
@@ -217,7 +217,7 @@ func (c Client) BlobsHas(ref *refs.BlobRef) (bool, error) {
 
 }
 
-func (c Client) BlobsGet(ref *refs.BlobRef) (io.Reader, error) {
+func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	args := blobstore.GetWithSize{Key: ref, Max: blobstore.DefaultMaxSize}
 	v, err := c.Source(c.rootCtx, 0, muxrpc.Method{"blobs", "get"}, args)
 	if err != nil {
@@ -271,48 +271,43 @@ func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	return name, nil
 }
 
-func (c Client) NamesImageFor(ref refs.FeedRef) (*refs.BlobRef, error) {
+func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	var blobRef string
 	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeJSON, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
 	}
 	c.logger.Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
 	return refs.ParseBlobRef(blobRef)
 }
 
-func (c Client) Publish(v interface{}) (*refs.MessageRef, error) {
+func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 	var resp string
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeString, muxrpc.Method{"publish"}, v)
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: publish call failed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("ssbClient: publish call failed: %w", err)
 	}
 	msgRef, err := refs.ParseMessageRef(resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse new message reference: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("failed to parse new message reference: %w", err)
 	}
 	return msgRef, nil
 }
 
-func (c Client) PrivatePublish(v interface{}, recps ...*refs.FeedRef) (*refs.MessageRef, error) {
+func (c Client) PrivatePublish(v interface{}, recps ...*refs.FeedRef) (refs.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
 		if ref == nil {
-			return nil, fmt.Errorf("ssbClient: bad call - recp%d is nil", i)
+			return refs.MessageRef{}, fmt.Errorf("ssbClient: bad call - recp%d is nil", i)
 		}
 		recpRefs[i] = ref.Ref()
 	}
-	var resp string
+	var resp refs.MessageRef
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"private", "publish"}, v, recpRefs)
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
 	}
-	msgRef, err := refs.ParseMessageRef(resp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse new message reference (%q): %w", resp, err)
-	}
-
-	return msgRef, nil
+	return resp, nil
 }
 
 func (c Client) PrivateRead() (*muxrpc.ByteSource, error) {

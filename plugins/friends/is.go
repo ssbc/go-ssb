@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/graph"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -42,7 +42,7 @@ func (h isFollowingH) HandleAsync(ctx context.Context, req *muxrpc.Request) (int
 		return nil, err
 	}
 
-	return g.Follows(&a.Source, &a.Dest), nil
+	return g.Follows(a.Source, a.Dest), nil
 }
 
 type isBlockingH struct {
@@ -68,7 +68,7 @@ func (h isBlockingH) HandleAsync(ctx context.Context, req *muxrpc.Request) (inte
 		return nil, err
 	}
 
-	return g.Blocks(&a.Source, &a.Dest), nil
+	return g.Blocks(a.Source, a.Dest), nil
 }
 
 type plotSVGHandler struct {

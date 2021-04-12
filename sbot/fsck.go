@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/machinebox/progress"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
 
@@ -181,8 +181,12 @@ func lengthFSCK(authorMlog multilog.MultiLog, receiveLog margaret.Log) error {
 
 		// margaret indexes are 0-based, therefore +1
 		if msg.Seq() != currentSeqFromIndex.Seq()+1 {
+			fr, err := sr.Feed()
+			if err != nil {
+				panic(err)
+			}
 			return ssb.ErrWrongSequence{
-				Ref:     sr.Feed(),
+				Ref:     fr,
 				Stored:  currentSeqFromIndex,
 				Logical: msg,
 			}

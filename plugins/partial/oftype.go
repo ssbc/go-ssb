@@ -23,7 +23,7 @@ type getMessagesOfTypeHandler struct {
 
 func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
 	var args []struct {
-		ID *refs.FeedRef
+		ID refs.FeedRef
 
 		Type string
 

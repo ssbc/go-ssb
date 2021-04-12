@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/machinebox/progress"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -19,6 +17,8 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/repo"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 )
 
 func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {

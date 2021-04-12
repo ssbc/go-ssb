@@ -35,7 +35,7 @@ import (
 func NewCombinedIndex(
 	repoPath string,
 	box *private.Manager,
-	self *refs.FeedRef,
+	self refs.FeedRef,
 	rxlog margaret.Log,
 	// res *repo.SequenceResolver, // TODO[major/pgroups] fix storage and resumption
 	u, p, bt, tan *roaring.MultiLog,
@@ -83,7 +83,7 @@ func NewCombinedIndex(
 var _ librarian.SinkIndex = (*CombinedIndex)(nil)
 
 type CombinedIndex struct {
-	self  *refs.FeedRef
+	self  refs.FeedRef
 	boxer *private.Manager
 
 	rxlog margaret.Log
@@ -108,7 +108,7 @@ type CombinedIndex struct {
 //	1) taking private:meta:box2
 //	2) ANDing it with the one of the author (intersection)
 //	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
-func (slog *CombinedIndex) Box2Reindex(author *refs.FeedRef) error {
+func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	slog.l.Lock()
 	defer slog.l.Unlock()
 
@@ -300,7 +300,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 
 	// tangles v1 and v2
 	if jsonContent.Root != nil {
-		addr := librarian.Addr(append([]byte("v1:"), jsonContent.Root.Hash...))
+		addr := storedrefs.TangleV1(*jsonContent.Root)
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
@@ -315,7 +315,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 		if tname == "" {
 			continue
 		}
-		addr := librarian.Addr(append([]byte("v2:"+tname+":"), tip.Root.Hash...))
+		addr := storedrefs.TangleV2(tname, tip.Root)
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
@@ -402,7 +402,11 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 		idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
 		cleartext = content
 	} else if box2 != nil {
-		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), msg.Previous())
+		prev := refs.MessageRef{}
+		if p := msg.Previous(); p != nil {
+			prev = *p
+		}
+		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), prev)
 		if err != nil {
 			return nil, errSkip
 		}
@@ -437,7 +441,7 @@ var (
 // if err == errSkip, this message couldn't be decrypted
 // everything else is a broken message (TODO: and should be... ignored?)
 func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
-	switch msg.Author().Algo {
+	switch msg.Author().Algo() {
 
 	// on the _crappy_ format, we need to base64 decode the data
 	case refs.RefAlgoFeedSSB1:

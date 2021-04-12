@@ -20,14 +20,14 @@ import (
 	"syscall"
 	"time"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/go-kit/kit/log/term"
 	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/log/term"
 	"golang.org/x/crypto/ed25519"
 	cli "gopkg.in/urfave/cli.v2"
 

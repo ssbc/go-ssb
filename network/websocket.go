@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
 )
 
 func websockHandler(n *node) http.HandlerFunc {

@@ -46,7 +46,7 @@ func (h getFeedHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 
 	snk.SetEncoding(muxrpc.TypeJSON)
 
-	err = h.fm.CreateStreamHistory(ctx, snk, &query)
+	err = h.fm.CreateStreamHistory(ctx, snk, query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()
@@ -89,7 +89,7 @@ func (h getFeedReverseHandler) HandleSource(ctx context.Context, req *muxrpc.Req
 
 	snk.SetEncoding(muxrpc.TypeJSON)
 
-	err = h.fm.CreateStreamHistory(ctx, snk, &query)
+	err = h.fm.CreateStreamHistory(ctx, snk, query)
 	if err != nil {
 		if luigi.IsEOS(err) {
 			req.Stream.Close()
