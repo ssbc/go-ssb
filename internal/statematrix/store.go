@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-/*Package statematrix stores and provides useful operations on an state matrix for a epidemic broadcast tree protocol.
+/*
+Package statematrix stores and provides useful operations on an state matrix for the Epidemic Broadcast Tree protocol.
 
 The state matrix represents multiple _network frontiers_ (or vector clock).
 
@@ -24,6 +25,8 @@ import (
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
+const onlyOwnerPerms = 0700
+
 type StateMatrix struct {
 	basePath string
 
@@ -36,7 +39,7 @@ type StateMatrix struct {
 	open currentFrontiers
 }
 
-// map[peer refernce]frontier
+// map[peer reference]frontier
 type currentFrontiers map[string]ssb.NetworkFrontier
 
 type CurrentSequencer interface {
@@ -45,7 +48,7 @@ type CurrentSequencer interface {
 
 func New(base string, self *refs.FeedRef, wl ssb.ReplicationLister, cs CurrentSequencer) (*StateMatrix, error) {
 
-	os.MkdirAll(base, 0700)
+	os.MkdirAll(base, onlyOwnerPerms)
 
 	sm := StateMatrix{
 		basePath: base,
@@ -80,7 +83,8 @@ func (sm *StateMatrix) StateFileName(peer *refs.FeedRef) (string, error) {
 		return "", err
 	}
 
-	peerFileName := filepath.Join(sm.basePath, fmt.Sprintf("%x", peerTfk))
+	hexPeerTfk := fmt.Sprintf("%x", peerTfk)
+	peerFileName := filepath.Join(sm.basePath, hexPeerTfk)
 	return peerFileName, nil
 }
 
@@ -101,19 +105,18 @@ func (sm *StateMatrix) loadFrontier(peer *refs.FeedRef) (ssb.NetworkFrontier, er
 			return nil, err
 		}
 
+		// new file, nothing to see here
 		curr = make(ssb.NetworkFrontier)
-	} else {
-		defer peerFile.Close()
-
-		var nf ssb.NetworkFrontier
-		err = json.NewDecoder(peerFile).Decode(&nf)
-		if err != nil {
-			return nil, err
-		}
-
-		curr = nf
+		sm.open[peer.Ref()] = curr
+		return curr, nil
 	}
+	defer peerFile.Close()
 
+	curr = make(ssb.NetworkFrontier)
+	err = json.NewDecoder(peerFile).Decode(&curr)
+	if err != nil {
+		return nil, err
+	}
 	sm.open[peer.Ref()] = curr
 	return curr, nil
 }
@@ -144,9 +147,10 @@ func (sm *StateMatrix) save(peer *refs.FeedRef) error {
 	if err != nil {
 		return err
 	}
+	newPeerFileName := peerFileName + ".new"
 
 	// truncate the file for overwriting, create it if it doesnt exist
-	peerFile, err := os.OpenFile(peerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0700)
+	peerFile, err := os.OpenFile(newPeerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, onlyOwnerPerms)
 	if err != nil {
 		return err
 	}
@@ -161,9 +165,14 @@ func (sm *StateMatrix) save(peer *refs.FeedRef) error {
 		return err
 	}
 
-	err = peerFile.Close()
-	if err != nil {
+	// avoid weird behavior for renaming an open file.
+	if err := peerFile.Close(); err != nil {
 		return err
+	}
+
+	err = os.Rename(newPeerFileName, peerFileName)
+	if err != nil {
+		return fmt.Errorf("failed to replace %s with %s: %w", peerFileName, newPeerFileName, err)
 	}
 
 	return nil
@@ -282,7 +291,7 @@ func (sm *StateMatrix) Changed(self, peer *refs.FeedRef) (ssb.NetworkFrontier, e
 
 	// no state yet
 	if len(selfNf) == 0 {
-		// use the replication lister and determin the stored feeds lenghts
+		// use the replication lister and determine the stored feeds lengths
 		lister := sm.wantList.ReplicationList()
 		feeds, err := lister.List()
 		if err != nil {
@@ -371,7 +380,9 @@ func (sm *StateMatrix) Update(who *refs.FeedRef, update ssb.NetworkFrontier) (ss
 	return current, nil
 }
 
-// Fill might be deprecated. It just updates the current frontier state
+// Fill updates the current frontier state.
+//
+// It might be deprecated.
 func (sm *StateMatrix) Fill(who *refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
