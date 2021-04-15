@@ -31,6 +31,8 @@ type Network interface {
 
 	GetConnTracker() ConnTracker
 
+	DialViaRoom(portal, target refs.FeedRef) error
+
 	// websock hack
 	HandleHTTP(handler http.Handler)
 
