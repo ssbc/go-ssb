@@ -81,6 +81,7 @@ var app = cli.App{
 
 	Before: initClient,
 	Commands: []*cli.Command{
+		aliasCmd,
 		blobsCmd,
 		blockCmd,
 		friendsCmd,

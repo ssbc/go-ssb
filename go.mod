@@ -29,11 +29,11 @@ require (
 	go.cryptoscope.co/librarian v0.2.1-0.20200604160012-d85e03a70e79
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
 	go.cryptoscope.co/margaret v0.1.7-0.20201027171711-332f00d22dd0
-	go.cryptoscope.co/muxrpc/v2 v2.0.0-beta.1.0.20210308090127-5f1f5f9cbb59
+	go.cryptoscope.co/muxrpc/v2 v2.0.1
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
-	go.mindeco.de/ssb-multiserver v0.0.0-20200615120544-ce4da9d56996
+	go.mindeco.de/ssb-multiserver v0.1.1
 	go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
@@ -52,5 +52,3 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
-
-//replace go.cryptoscope.co/muxrpc/v2 => /home/cryptix/go-repos/muxrpc

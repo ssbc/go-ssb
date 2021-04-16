@@ -91,7 +91,7 @@ type node struct {
 	httpHandler http.Handler
 }
 
-func New(opts Options) (ssb.Network, error) {
+func New(opts Options) (*node, error) {
 	n := &node{
 		opts:    opts,
 		remotes: make(map[string]muxrpc.Endpoint),
@@ -193,10 +193,7 @@ func (n *node) GetConnTracker() ssb.ConnTracker {
 // GetEndpointFor returns a muxrpc endpoint to call the remote identified by the passed feed ref
 // retruns false if there is no such connection
 // TODO: merge with conntracker
-func (n *node) GetEndpointFor(ref *refs.FeedRef) (muxrpc.Endpoint, bool) {
-	if ref == nil {
-		return nil, false
-	}
+func (n *node) GetEndpointFor(ref refs.FeedRef) (muxrpc.Endpoint, bool) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 
