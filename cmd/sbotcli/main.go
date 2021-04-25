@@ -297,7 +297,7 @@ var sourceCmd = &cli.Command{
 
 var getCmd = &cli.Command{
 	Name:  "get",
-	Usage: "get a signle message from the database by key (%...)",
+	Usage: "get a single message from the database by key (%...)",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
