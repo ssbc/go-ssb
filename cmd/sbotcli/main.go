@@ -76,7 +76,7 @@ var app = cli.App{
 		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
 
-		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a durration (like 3s or 5m) after which it times out, empty string to disable"},
+		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a duration (like 3s or 5m) after which it times out, empty string to disable"},
 	},
 
 	Before: initClient,
@@ -297,7 +297,7 @@ var sourceCmd = &cli.Command{
 
 var getCmd = &cli.Command{
 	Name:  "get",
-	Usage: "get a signle message from the database by key (%...)",
+	Usage: "get a single message from the database by key (%...)",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
