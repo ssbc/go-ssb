@@ -76,7 +76,7 @@ var app = cli.App{
 		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
 
-		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a durration (like 3s or 5m) after which it times out, empty string to disable"},
+		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a duration (like 3s or 5m) after which it times out, empty string to disable"},
 	},
 
 	Before: initClient,
