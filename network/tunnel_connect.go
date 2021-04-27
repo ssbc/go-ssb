@@ -71,22 +71,24 @@ func (h connectHandler) HandleDuplex(ctx context.Context, req *muxrpc.Request, p
 	tc.Reader = muxrpc.NewSourceReader(peerSrc)
 	tc.WriteCloser = muxrpc.NewSinkWriter(peerSnk)
 	tc.local = h.network.opts.ListenAddr
-
 	tc.remote = tunnelHost{
 		Host: *portal,
 	}
+	ctx, tc.cancel = context.WithCancel(ctx)
 
 	authWrapper := h.network.secretServer.ConnWrapper()
 
 	conn, err := authWrapper(tc)
 	if err != nil {
 		level.Warn(portalLogger).Log("event", "tunnel.connect failed to authenticate", "err", err)
+		tc.cancel()
 		return err
 	}
 
 	origin, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 	if err != nil {
 		level.Warn(portalLogger).Log("event", "failed to get feed for remote tunnel", "err", err)
+		tc.cancel()
 		return err
 	}
 

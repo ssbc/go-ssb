@@ -3,6 +3,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -32,6 +33,13 @@ type tunnelConn struct {
 
 	io.Reader
 	io.WriteCloser
+
+	cancel context.CancelFunc
+}
+
+func (c tunnelConn) Close() error {
+	c.cancel()
+	return c.WriteCloser.Close()
 }
 
 var _ net.Conn = tunnelConn{}
