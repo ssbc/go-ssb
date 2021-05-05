@@ -16,7 +16,6 @@ import (
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/debug"
-	muxtest "go.cryptoscope.co/muxrpc/v2/test"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 
@@ -42,7 +41,7 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 	return dstRepo, dstPath
 }
 
-func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Packer, *muxrpc.Packer, *muxtest.Transcript, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
+func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Packer, *muxrpc.Packer, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
 	keyAlice, err := repo.DefaultKeyPair(alice)
 	r.NoError(err, "error opening alice's key pair")
@@ -75,11 +74,7 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Pa
 		conn2 = debug.WrapConn(infoBob, conn2)
 	}
 
-	var ts muxtest.Transcript
-
-	//conn1 = muxtest.WrapConn(&ts, conn1)
-
-	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), &ts, func(rpc1, rpc2 muxrpc.Endpoint) func() {
+	return muxrpc.NewPacker(conn1), muxrpc.NewPacker(conn2), func(rpc1, rpc2 muxrpc.Endpoint) func() {
 		var (
 			wg         sync.WaitGroup
 			err1, err2 error
