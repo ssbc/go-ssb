@@ -87,13 +87,27 @@ const manifestBlob manifestHandler = `
 	  "isBlocking": "async"
 	},
 
+	"tunnel": {
+		"connect": "duplex",
+		"isRoom": "async"
+	},
+
 	"publish": "async",
 	"whoami": "sync",
 	"status": "sync",
+	
+	"ctrl": {
+		"replicate": "async",
+		"connect": "async",
+		"disconenct": "async",
+		"dialViaRoom": "async"
+	},
+	
 	"gossip": {
 	  "connect": "async",
 	  "ping": "duplex"
 	},
+
 	"replicate": {
 	  "upto": "source"
 	},

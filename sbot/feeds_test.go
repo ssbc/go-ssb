@@ -3,6 +3,7 @@
 package sbot
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -37,6 +38,11 @@ func TestFeedsOneByOne(t *testing.T) {
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
+	seed := bytes.Repeat([]byte{1}, 32)
+	aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	r.NoError(err)
+	t.Log("ali is", aliKey.Id.Ref())
+
 	botgroup, ctx := errgroup.WithContext(ctx)
 
 	mainLog := testutils.NewRelativeTimeLogger(nil)
@@ -45,13 +51,13 @@ func TestFeedsOneByOne(t *testing.T) {
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
+		WithKeyPair(aliKey),
 		WithInfo(log.With(mainLog, "unit", "ali")),
 		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
-		// LateOption(MountPlugin(&bytype.Plugin{}, plugins2.AuthMaster)),
 	)
 	r.NoError(err)
 
@@ -66,10 +72,16 @@ func TestFeedsOneByOne(t *testing.T) {
 		return err
 	})
 
+	seed = bytes.Repeat([]byte{2}, 32)
+	bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	r.NoError(err)
+	t.Log("bob is", bobKey.Id.Ref())
+
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
+		WithKeyPair(bobKey),
 		WithInfo(log.With(mainLog, "unit", "bob")),
 		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(bobLog, conn), nil
@@ -117,6 +129,12 @@ func TestFeedsOneByOne(t *testing.T) {
 		r.NoError(err)
 		time.Sleep(250 * time.Millisecond)
 		bob.Network.GetConnTracker().CloseAll()
+
+		// check the note is updated correctly
+		aliHas, err := bob.ebtState.Inspect(ali.KeyPair.Id)
+		r.NoError(err)
+		alisNoteAtBob := aliHas[ali.KeyPair.Id.Ref()]
+		a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 
 		seqv, err := alisLog.Seq().Value()
 		r.NoError(err)

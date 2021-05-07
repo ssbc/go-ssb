@@ -307,11 +307,12 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 		h = hw(h)
 	}
 
-	pkr := muxrpc.NewPacker(conn)
-	filtered := level.NewFilter(n.log, level.AllowInfo())
-	edp := muxrpc.Handle(pkr, h,
+	connLogger := n.log
+	connLogger = level.NewFilter(connLogger, level.AllowInfo())
+
+	edp := muxrpc.Handle(muxrpc.NewPacker(conn), h,
 		muxrpc.WithContext(ctx),
-		muxrpc.WithLogger(filtered),
+		muxrpc.WithLogger(connLogger),
 		// _isServer_ defines _are we a server_.
 		// the muxrpc option asks are we _talking_ to a server > inverted
 		muxrpc.WithIsServer(!isServer))

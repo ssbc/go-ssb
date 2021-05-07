@@ -46,7 +46,7 @@ func TestReplicate(t *testing.T) {
 	dstWM := blobstore.NewWantManager(dstBS, blobstore.WantWithLogger(dstLog))
 
 	// do the dance
-	pkr1, pkr2, _, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
+	pkr1, pkr2, serve := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
 	pi1 := New(srcLog, *srcKP.Id, srcBS, srcWM)
 	pi2 := New(dstLog, *dstKP.Id, dstBS, dstWM)
@@ -62,6 +62,7 @@ func TestReplicate(t *testing.T) {
 	dstBS.Changes().Register(
 		luigi.FuncSink(
 			func(ctx context.Context, v interface{}, err error) error {
+				t.Log("blob notification", v)
 				n := v.(ssb.BlobStoreNotification)
 				if n.Op == ssb.BlobStoreOpPut {
 					if n.Ref.Ref() == ref.Ref() {
@@ -93,43 +94,6 @@ func TestReplicate(t *testing.T) {
 	r.NoError(err, "failed to read blob")
 
 	r.Equal("testString", string(blobStr), "blob value mismatch")
-
-	/* TODO test transcript here
-
-	spec := muxtest.MergeTranscriptSpec(
-		muxtest.UniqueMatchTranscriptSpec(
-			muxtest.MergePacketSpec(
-				muxtest.CallPacketSpec(true, true, muxrpc.Method{"blobs", "createWants"}, "source"),
-				muxtest.ReqPacketSpec(1),
-				muxtest.DirPacketSpec(muxtest.DirOut),
-			),
-		),
-		muxtest.UniqueMatchTranscriptSpec(
-			muxtest.MergePacketSpec(
-				muxtest.CallPacketSpec(true, true, muxrpc.Method{"blobs", "createWants"}, "source"),
-				muxtest.ReqPacketSpec(1),
-				muxtest.DirPacketSpec(muxtest.DirIn),
-			),
-		),
-
-		/* TODO currently fails.
-		muxtest.MatchCountTranscriptSpec(
-			muxtest.MergePacketSpec(
-				muxtest.ReqPacketSpec(-1),
-				muxtest.BodyPacketSpec(
-					muxtest.EqualBodySpec(codec.Body("{}")),
-				),
-			),
-		0),
-
-	)
-
-
-		for i, dpkt := range ts.Get() {
-			t.Logf("%3d: dir:%6s %v", i, dpkt.Dir, dpkt.Packet)
-		}
-		spec(t, ts)
-	*/
 
 	if !t.Failed() {
 		os.RemoveAll(dstPath)

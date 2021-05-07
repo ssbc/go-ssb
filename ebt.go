@@ -32,7 +32,11 @@ func (s Note) MarshalJSON() ([]byte, error) {
 	if !s.Replicate {
 		return []byte("-1"), nil
 	}
-	i = s.Seq << 1
+	i = s.Seq
+	if i == -1 { // -1 is margarets way of saying "no msgs in this feed"
+		i = 0
+	}
+	i = i << 1 // times 2 (to make room for the rx bit)
 	if s.Receive {
 		i |= 0
 	} else {

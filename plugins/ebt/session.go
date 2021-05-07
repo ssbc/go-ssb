@@ -57,7 +57,7 @@ func (s *session) Unubscribe(feed *refs.FeedRef) {
 }
 
 type Sessions struct {
-	mu   sync.Mutex
+	mu   *sync.Mutex
 	open map[string]*session
 	// to be able to correctly trigger fallback on the server we need to be able to wait for incoming sessions
 	waitingFor map[string]chan<- struct{}

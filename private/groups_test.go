@@ -192,7 +192,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("reply:", reply.ShortRef())
 
 	// reconnect to get the reply
-	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.Id)
+	edp, has := srh.Network.GetEndpointFor(*tal.KeyPair.Id)
 	r.True(has)
 	edp.Terminate()
 	time.Sleep(1 * time.Second)

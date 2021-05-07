@@ -45,7 +45,7 @@ type MUXRPCHandler struct {
 }
 
 func (h *MUXRPCHandler) check(err error) {
-	if err != nil {
+	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Error(h.info).Log("error", err)
 	}
 }

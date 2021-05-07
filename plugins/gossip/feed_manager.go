@@ -282,7 +282,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 
 	default:
-		return fmt.Errorf("unsupported feed format.")
+		return fmt.Errorf("unsupported feed format")
 	}
 
 	sent := 0
@@ -293,7 +293,7 @@ func (m *FeedManager) CreateStreamHistory(
 		m.sysCtr.With("event", "gossiptx").Add(float64(sent))
 	} else {
 		if sent > 0 {
-			level.Debug(feedLogger).Log("event", "gossiptx", "n", sent)
+			level.Debug(feedLogger).Log("event", "gossiptx", "n", sent, "starting", arg.Seq)
 		}
 	}
 

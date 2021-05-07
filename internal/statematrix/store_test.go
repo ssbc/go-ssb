@@ -117,3 +117,33 @@ func testFeed(i int) *refs.FeedRef {
 		ID:   k,
 	}
 }
+
+func TestChanged(t *testing.T) {
+	r := require.New(t)
+	os.RemoveAll("testrun")
+	os.Mkdir("testrun", 0700)
+	m, err := New("testrun/new", testFeed(0))
+	r.NoError(err)
+
+	// 0 has seen feed(1) up until 2
+	feeds := []ObservedFeed{
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 2}},
+	}
+	r.NoError(m.Fill(testFeed(0), feeds))
+
+	// feed(1) already has 25 tho
+	feeds = []ObservedFeed{
+		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 25}},
+	}
+	r.NoError(m.Fill(testFeed(1), feeds))
+
+	changed, err := m.Changed(testFeed(0), testFeed(1))
+	r.NoError(err)
+
+	// changed should have 1 as two still (to get just 3)
+	note, has := changed[testFeed(1).Ref()]
+	r.True(has, "changed doesnt have feed(1) (has %d entries)", len(changed))
+	r.Equal(int64(2), note.Seq)
+	r.True(note.Replicate)
+	r.True(note.Receive)
+}

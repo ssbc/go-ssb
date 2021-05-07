@@ -1,5 +1,3 @@
-// +build ignore
-
 package sbot
 
 import (
@@ -13,11 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
@@ -40,6 +39,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	netOpts := []Option{
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
+		// DisableEBT(true),
 	}
 
 	botA := makeNamedTestBot(t, "A", netOpts)
@@ -49,7 +49,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	botgroup.Go(bs.Serve(botI))
 
 	var bLeafs []*Sbot
-	botCnt := 8
+	botCnt := 5
 	for i := 0; i < botCnt; i++ {
 		botBi := makeNamedTestBot(t, fmt.Sprintf("B%0d", i), netOpts)
 		botgroup.Go(bs.Serve(botBi))
@@ -60,18 +60,33 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	theBots = append(theBots, bLeafs...)
 
 	// be-friend the network
-	_, err := botA.PublishLog.Append(ssb.NewContactFollow(botI.KeyPair.Id))
+	_, err := botA.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
 	r.NoError(err)
-	_, err = botI.PublishLog.Append(ssb.NewContactFollow(botA.KeyPair.Id))
+	botA.Replicate(botI.KeyPair.Id)
+	_, err = botI.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
+	botI.Replicate(botA.KeyPair.Id)
 	r.NoError(err)
 	var msgCnt = 2
 
 	for i, bot := range bLeafs {
-		_, err := bot.PublishLog.Append(ssb.NewContactFollow(botI.KeyPair.Id))
+		_, err := bot.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
 		r.NoError(err, "follow b%d>I failed", i)
-		_, err = botI.PublishLog.Append(ssb.NewContactFollow(bot.KeyPair.Id))
+		_, err = botI.PublishLog.Append(refs.NewContactFollow(bot.KeyPair.Id))
 		r.NoError(err, "follow I>b%d failed", i)
 		msgCnt += 2
+
+		bot.Replicate(botI.KeyPair.Id)
+		botI.Replicate(bot.KeyPair.Id)
+
+		// simulate hops
+		bot.Replicate(botA.KeyPair.Id)
+		botA.Replicate(bot.KeyPair.Id)
+		for _, botB := range bLeafs {
+			if botB == bot {
+				continue
+			}
+			botB.Replicate(bot.KeyPair.Id)
+		}
 	}
 
 	var extraTestMessages = 256
@@ -81,7 +96,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	msgCnt += extraTestMessages
 	for n := extraTestMessages; n > 0; n-- {
 		tMsg := fmt.Sprintf("some pre-setup msg %d", n)
-		_, err := botA.PublishLog.Append(tMsg)
+		_, err := botA.PublishLog.Append(refs.NewPost(tMsg))
 		r.NoError(err)
 	}
 
@@ -93,14 +108,14 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	botB0 := bLeafs[0]
 	feedIdxOfB0, ok := botB0.GetMultiLog("userFeeds")
 	r.True(ok)
-	feedAonBotB, err := feedIdxOfB0.Get(botA.KeyPair.Id.StoredAddr())
+	feedAonBotB, err := feedIdxOfB0.Get(storedrefs.Feed(botA.KeyPair.Id))
 	r.NoError(err)
 	seqv, err := feedAonBotB.Seq().Value()
 	r.NoError(err)
 	a.EqualValues(seqOfFeedA, seqv, "botB0 should have all of A's messages")
 
 	// setup live listener
-	liveQry, err := mutil.Indirect(botB0.RootLog, feedAonBotB).Query(
+	liveQry, err := mutil.Indirect(botB0.ReceiveLog, feedAonBotB).Query(
 		margaret.Gt(seqOfFeedA),
 		margaret.Live(true),
 	)
@@ -114,7 +129,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	}
 	for i := 0; i < extraTestMessages; i++ {
 		tMsg := fmt.Sprintf("some fresh msg %d", i)
-		seq, err := botA.PublishLog.Append(tMsg)
+		seq, err := botA.PublishLog.Append(refs.NewPost(tMsg))
 		r.NoError(err)
 		r.EqualValues(msgCnt+i, seq, "new msg %d", i)
 
@@ -142,7 +157,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 			continue
 		}
 
-		msg, ok := v.(ssb.Message)
+		msg, ok := v.(refs.Message)
 		r.True(ok, "got %T", v)
 
 		a.EqualValues(int(seqOfFeedA+2)+i, msg.Seq(), "botB0: wrong seq")
@@ -158,7 +173,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		ufOfBotB, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok)
 
-		feedAonBotB, err := ufOfBotB.Get(botA.KeyPair.Id.StoredAddr())
+		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.Id))
 		r.NoError(err)
 
 		seqv, err := feedAonBotB.Seq().Value()
@@ -169,7 +184,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	// cleanup
 	time.Sleep(1 * time.Second)
 	for bI, bot := range append(bLeafs, botA, botI) {
-		err = bot.FSCK(nil, FSCKModeSequences, nil)
+		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		a.NoError(err, "botB%02d fsck", bI)
 		bot.Shutdown()
 		r.NoError(bot.Close(), "closed botB%02d failed", bI)

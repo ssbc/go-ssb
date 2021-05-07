@@ -121,7 +121,6 @@ func (newConn handleNewConnection) HandleConnect(ctx context.Context, edp muxrpc
 	var yes bool
 	err = edp.Async(ctx, &yes, muxrpc.TypeJSON, muxrpc.Method{"tunnel", "isRoom"})
 	if err != nil || !yes {
-		level.Warn(peerLogger).Log("event", "not a room", "err", err)
 		return
 	}
 

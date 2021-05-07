@@ -287,6 +287,9 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 }
 
 func TestFeedsLiveNetworkDiamond(t *testing.T) {
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+	}
 	r := require.New(t)
 	a := assert.New(t)
 	os.RemoveAll(filepath.Join("testrun", t.Name()))
@@ -294,7 +297,7 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 	ctx, cancel := ShutdownContext(context.Background())
 	botgroup, ctx := errgroup.WithContext(ctx)
 
-	delayHist := gohistogram.NewHistogram(20)
+	delayHist := gohistogram.NewHistogram(5)
 	info := testutils.NewRelativeTimeLogger(nil)
 	bs := newBotServer(ctx, info)
 
@@ -326,7 +329,7 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 		0, 1, 1, 1, 0, 1,
 		1, 0, 0, 1, 1, 0,
 	}
-	// followMsgs := 0
+	followMsgs := 0
 	for i := 0; i < 6; i++ {
 		for j := 0; j < 6; j++ {
 
@@ -338,15 +341,23 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 
 			if fQ == 1 {
 				botI.Replicate(botJ.KeyPair.Id)
-				// _, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.Id))
-				// r.NoError(err)
-				// t.Log(i, "followed", j, ref.Ref()[1:5])
-				// followMsgs++
+				fmsg, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.Id))
+				r.NoError(err)
+				t.Log(i, "followed", j, fmsg.ShortRef())
+				followMsgs++
 			}
 		}
 	}
 
-	// initialSync(t, theBots, followMsgs)
+	// let the graph walk trigger
+	// TODO: have an api for that
+	time.Sleep(5 * time.Second)
+
+	bot0graph, err := theBots[0].GraphBuilder.Build()
+	r.NoError(err)
+	r.True(bot0graph.Follows(theBots[0].KeyPair.Id, theBots[1].KeyPair.Id))
+
+	initialSync(t, theBots, followMsgs)
 
 	// setup connections
 	connectMatrix := []int{
@@ -389,6 +400,7 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 
 	botgroup.Go(makeChanWaiter(ctx, seqSrc, gotMsg))
 
+	timeout := 0
 	// now publish on C and let them bubble to A, live without reconnect
 	for i := 0; i < testMessageCount; i++ {
 		tMsg := refs.NewPost(fmt.Sprintf("some test msg %d", i))
@@ -401,6 +413,10 @@ func TestFeedsLiveNetworkDiamond(t *testing.T) {
 		select {
 		case <-time.After(3 * time.Second):
 			t.Errorf("timeout %d....", i)
+			timeout++
+			if timeout >= 5 {
+				t.Fatal("too many timeouts")
+			}
 		case msg := <-gotMsg:
 			a.EqualValues(margaret.BaseSeq(i+1), msg.Seq(), "wrong seq")
 			delayHist.Add(time.Since(published).Seconds())
