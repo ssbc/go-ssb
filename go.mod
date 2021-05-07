@@ -34,7 +34,7 @@ require (
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
 	go.mindeco.de/ssb-multiserver v0.1.1
-	go.mindeco.de/ssb-refs v0.1.1-0.20210108133850-cf1f44fea870
+	go.mindeco.de/ssb-refs v0.1.1-0.20210508101635-33fbfda76071
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e

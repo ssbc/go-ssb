@@ -1,6 +1,7 @@
 package partial
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,8 +36,6 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 	}
 	arg := args[0]
 
-	fmt.Printf("by type: %+v\n", arg)
-
 	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(arg.ID))
 	if err != nil {
 		// TODO actual assert not found error.
@@ -58,6 +57,8 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 	// which sequences are in both?
 	workSet.And(tipeSeqs)
 
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
 	it := workSet.Iterator()
 	for it.HasNext() {
 
@@ -72,14 +73,16 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 			return fmt.Errorf("invalid msg type %T", msgv)
 		}
 		if arg.Keys {
+			buf.Reset()
 			var kv refs.KeyValueRaw
 			kv.Key_ = msg.Key()
 			kv.Value = *msg.ValueContent()
-			b, err := json.Marshal(kv)
+			err := enc.Encode(kv)
 			if err != nil {
 				return fmt.Errorf("failed to encode json: %w", err)
 			}
-			_, err = snk.Write(json.RawMessage(b))
+			_, err = buf.WriteTo(snk)
+			//_, err = snk.Write(buf.Bytes())
 			if err != nil {
 				return fmt.Errorf("failed to send json data: %w", err)
 			}

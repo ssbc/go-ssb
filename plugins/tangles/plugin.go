@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	bmap "github.com/RoaringBitmap/roaring"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/cryptix/go/encodedTime"
 	"github.com/go-kit/kit/log"
 	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
@@ -30,10 +31,11 @@ type Plugin struct {
 	h muxrpc.Handler
 }
 
-func NewPlugin(rxlog margaret.Log, tangles, private *roaring.MultiLog, unboxer *private.Manager, isSelf ssb.Authorizer) *Plugin {
+func NewPlugin(getter ssb.Getter, rxlog margaret.Log, tangles, private *roaring.MultiLog, unboxer *private.Manager, isSelf ssb.Authorizer) *Plugin {
 	mux := typemux.New(log.NewNopLogger())
 
 	mux.RegisterSource(muxrpc.Method{"tangles", "replies"}, repliesHandler{
+		getter:  getter,
 		rxlog:   rxlog,
 		tangles: tangles,
 
@@ -65,7 +67,9 @@ func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"tangles"} }
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
 type repliesHandler struct {
-	rxlog   margaret.Log
+	getter ssb.Getter
+	rxlog  margaret.Log
+
 	tangles *roaring.MultiLog
 	private *roaring.MultiLog
 
@@ -112,9 +116,6 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	if qry.Private && isSelf != nil {
 		return fmt.Errorf("not authroized")
 	}
-
-	fmt.Println("query for:", qry.Root.Ref())
-	spew.Dump(qry)
 
 	// create toJSON sink
 	lsnk := transform.NewKeyValueWrapper(snk, qry.Keys)
@@ -180,10 +181,25 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		threadBmap.AndNot(box1)
 	}
 
-	// TODO: sort by previous
+	// get root message
+	var tps []refs.TangledPost
+	root, err := g.getter.Get(*qry.Root)
+	if err != nil {
+		return err
+	}
+	var tp tangledPost
+	err = json.Unmarshal(root.ContentBytes(), &tp.Value.Content)
+	if err != nil {
+		return fmt.Errorf("failed to unpack message %s: %w", root.Key().Ref(), err)
+	}
+	tp.TheKey = root.Key()
+	tp.Value.Author = *root.Author()
+	tp.Value.Sequence = margaret.BaseSeq(root.Seq())
+	tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
+	tps = append(tps, tp)
 
+	// get replies and add them to sorter
 	it := threadBmap.Iterator()
-
 	for it.HasNext() {
 		seq := margaret.BaseSeq(it.Next())
 		v, err := g.rxlog.Get(seq)
@@ -197,10 +213,25 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			continue
 		}
 
-		if err := lsnk.Pour(ctx, v); err != nil {
-			fmt.Fprintln(os.Stderr, "tangles failed send:", seq, " with:", err)
-			break
+		msg, ok := v.(refs.Message)
+		if !ok {
+			return fmt.Errorf("not a mesg %T", v)
 		}
+
+		// TODO: unbox private messages
+
+		// find tangles
+		var tp tangledPost
+		err = json.Unmarshal(msg.ContentBytes(), &tp.Value.Content)
+		if err != nil {
+			return fmt.Errorf("failed to unpack message %s: %w", msg.Key().Ref(), err)
+		}
+		tp.TheKey = msg.Key()
+		tp.Value.Author = *msg.Author()
+		tp.Value.Sequence = margaret.BaseSeq(msg.Seq())
+		tp.Value.Timestamp = encodedTime.Millisecs(msg.Claimed())
+
+		tps = append(tps, tp)
 
 		if qry.Limit >= 0 {
 			qry.Limit--
@@ -210,5 +241,52 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		}
 	}
 
-	return lsnk.Close()
+	// sort them
+	sorter := refs.ByPrevious{Items: tps, TangleName: ""}
+	sorter.FillLookup()
+	sort.Sort(sorter)
+
+	// stream them out
+	enc := json.NewEncoder(snk)
+	snk.SetEncoding(muxrpc.TypeJSON)
+	for i, p := range sorter.Items {
+		if qry.Keys {
+			err = enc.Encode(p)
+		} else {
+			err = enc.Encode(p.(tangledPost).Value)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "tangles failed send:", i, " with:", err)
+			break
+		}
+	}
+
+	// return lsnk.Close()
+	return snk.Close()
+}
+
+type tangledPost struct {
+	TheKey *refs.MessageRef `json:"key"`
+	Value  struct {
+		refs.Value
+		// substitute Content with refs.Post
+		Content refs.Post `json:"content"`
+	} `json:"value"`
+}
+
+func (tm tangledPost) Key() *refs.MessageRef {
+	return tm.TheKey
+}
+
+func (tm tangledPost) Tangle(name string) (*refs.MessageRef, refs.MessageRefs) {
+	if name == "" {
+		return tm.Value.Content.Root, tm.Value.Content.Branch
+	}
+
+	tp, has := tm.Value.Content.Tangles[name]
+	if !has {
+		return nil, nil
+	}
+
+	return tp.Root, tp.Previous
 }

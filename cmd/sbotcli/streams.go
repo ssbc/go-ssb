@@ -214,7 +214,7 @@ var repliesStreamCmd = &cli.Command{
 		}
 		targs.Name = ctx.String("tname")
 
-		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "read"}, targs)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "replies"}, targs)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}

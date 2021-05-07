@@ -8,8 +8,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private"
 )
 

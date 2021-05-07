@@ -66,8 +66,8 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 		}
 
 		tps = append(tps, refs.TangledPost(tangledPost{MessageRef: msg.Key(), Tangles: p.Tangles}))
-
 	}
+
 	sorter := refs.ByPrevious{Items: tps, TangleName: tname}
 	sorter.FillLookup()
 	// sort.Sort(sorter) // not required for Heads()

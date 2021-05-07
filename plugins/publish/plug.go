@@ -9,8 +9,8 @@ import (
 	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private"
 )
 

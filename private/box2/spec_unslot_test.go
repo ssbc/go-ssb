@@ -20,8 +20,8 @@ type unslotSpecTestInput struct {
 	FeedID    keys.Base64String `json:"feed_id"`
 	PrevMsgID keys.Base64String `json:"prev_msg_id"`
 	Recipient struct {
-		Key    keys.Base64String         `json:"key"`
-		Scheme keys.KeyScheme `json:"scheme"`
+		Key    keys.Base64String `json:"key"`
+		Scheme keys.KeyScheme    `json:"scheme"`
 	} `json:"recipient"`
 }
 
