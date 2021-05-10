@@ -2,7 +2,9 @@ package multilogs
 
 import (
 	"context"
+	"encoding/json"
 	"math/rand"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
@@ -29,6 +32,13 @@ type tcase struct {
 func TestIndexFixture(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
+
+	f, err := os.Open("v2-sloop-authors.json")
+	r.NoError(err)
+	var feedsSloop tFeedSet
+	err = json.NewDecoder(f).Decode(&feedsSloop)
+	r.NoError(err)
+	f.Close()
 
 	shasum := exec.Command("bash", "./integration_prep.bash")
 	out, err := shasum.CombinedOutput()
