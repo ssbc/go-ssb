@@ -60,7 +60,9 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref *r
 	return func() error {
 		err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
 		var callErr *muxrpc.CallError
+		var noSuchMethodErr muxrpc.ErrNoSuchMethod
 		if muxrpc.IsSinkClosed(err) ||
+			errors.As(err, &noSuchMethodErr) ||
 			errors.As(err, &callErr) ||
 			errors.Is(err, context.Canceled) ||
 			errors.Is(err, muxrpc.ErrSessionTerminated) ||
@@ -153,7 +155,7 @@ func (h *LegacyGossip) fetchFeed(
 	}
 
 	if err := src.Err(); err != nil {
-		return fmt.Errorf("gossip pump failed: %w", err)
+		return fmt.Errorf("fetchFeed(%s:%d) gossip pump failed: %w", fr.Ref(), latestSeq, err)
 	}
 
 	return nil
