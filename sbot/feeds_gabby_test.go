@@ -58,9 +58,8 @@ func XTestFeedsGabbySync(t *testing.T) {
 	botgroup.Go(bs.Serve(ali))
 
 	// bob is the one with the other feed format
-	bobsKey, err := ssb.NewKeyPair(nil)
+	bobsKey, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedGabby)
 	r.NoError(err)
-	bobsKey.Id.Algo = refs.RefAlgoFeedGabby
 
 	bob, err := New(
 		WithAppKey(appKey),

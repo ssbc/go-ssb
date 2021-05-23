@@ -84,7 +84,7 @@ func TestNullFeed(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		msg, err := mainbot.Get(*ref)
+		msg, err := mainbot.Get(ref)
 		r.NoError(err)
 		r.NotNil(msg)
 

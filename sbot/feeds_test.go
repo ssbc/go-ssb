@@ -17,6 +17,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -39,7 +40,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	rand.Read(hmacKey)
 
 	seed := bytes.Repeat([]byte{1}, 32)
-	aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	t.Log("ali is", aliKey.Id.Ref())
 
@@ -73,7 +74,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	})
 
 	seed = bytes.Repeat([]byte{2}, 32)
-	bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	t.Log("bob is", bobKey.Id.Ref())
 

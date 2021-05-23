@@ -73,7 +73,7 @@ func XTestMultipleIdentities(t *testing.T) {
 
 	// boxing helper
 	b := box.NewBoxer(nil)
-	box := func(v interface{}, recpts ...*refs.FeedRef) []byte {
+	box := func(v interface{}, recpts ...refs.FeedRef) []byte {
 		msg, err := json.Marshal(v)
 		r.NoError(err, "failed to marshal privmsg")
 
@@ -106,7 +106,7 @@ func XTestMultipleIdentities(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		msg, err := mainbot.Get(*ref)
+		msg, err := mainbot.Get(ref)
 		r.NoError(err)
 		r.NotNil(msg)
 

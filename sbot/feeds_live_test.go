@@ -57,15 +57,17 @@ func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 
 	// make keys deterministic each run
 	seed := bytes.Repeat([]byte{botCnt}, 32)
-	botsKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
-	r.NoError(err)
+	botCnt++
 
+	algo := refs.RefAlgoFeedSSB1
 	/* TODO: fix gabby support
 	if botCnt%2 == 0 {
-		botsKey.Id.Algo = refs.RefAlgoFeedGabby
+		algo = refs.RefAlgoFeedGabby
 	}
 	*/
-	botCnt++
+
+	botsKey, err := ssb.NewKeyPair(bytes.NewReader(seed), algo)
+	r.NoError(err)
 
 	mainLog := log.NewNopLogger()
 	if testing.Verbose() {
