@@ -307,8 +307,9 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 		h = hw(h)
 	}
 
-	connLogger := n.log
-	connLogger = level.NewFilter(connLogger, level.AllowInfo())
+	// connLogger := n.log
+	// connLogger = level.NewFilter(connLogger, level.AllowInfo())
+	connLogger := log.NewNopLogger()
 
 	edp := muxrpc.Handle(muxrpc.NewPacker(conn), h,
 		muxrpc.WithContext(ctx),

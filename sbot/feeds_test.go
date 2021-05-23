@@ -49,6 +49,7 @@ func TestFeedsOneByOne(t *testing.T) {
 	botgroup, ctx := errgroup.WithContext(ctx)
 
 	mainLog := testutils.NewRelativeTimeLogger(nil)
+	mainLog = level.NewFilter(mainLog, level.AllowInfo())
 
 	aliPath := filepath.Join("testrun", t.Name(), "ali")
 	ali, err := New(

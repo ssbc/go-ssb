@@ -59,3 +59,5 @@ replace go.mindeco.de/ssb-refs => /home/cryptix/go-repos/ssb-refs
 replace go.mindeco.de/ssb-multiserver => /home/cryptix/go-repos/ssb-multiserver
 
 replace go.mindeco.de/ssb-gabbygrove => /home/cryptix/go-repos/gabbygrove
+
+replace go.mindeco.de => /home/cryptix/go-repos/go-toolbelt
