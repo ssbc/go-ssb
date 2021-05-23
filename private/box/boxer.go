@@ -89,7 +89,7 @@ func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...refs.FeedRef) ([]byte, error
 	return cipheredMsg.Bytes(), nil
 }
 
-func (bxr *Boxer) Decrypt(recpt *ssb.KeyPair, rawMsg []byte) ([]byte, error) {
+func (bxr *Boxer) Decrypt(recpt ssb.KeyPair, rawMsg []byte) ([]byte, error) {
 	if len(rawMsg) < 122 {
 		return nil, fmt.Errorf("decode pm: sorry message seems short?")
 	}

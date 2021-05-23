@@ -43,7 +43,7 @@ func TestNullFeed(t *testing.T) {
 	tRepo := repo.New(filepath.Join(tRepoPath, "main"))
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)

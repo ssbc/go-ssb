@@ -204,7 +204,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		err = json.Unmarshal(absMsg.ValueContentJSON(), &m)
 		// t.Logf("msg:%d:%s", i, string(storedMsg.Raw_))
 		r.NoError(err)
-		r.True(alice.Equal(&m.Author), "wrong author")
+		r.True(alice.Equal(m.Author), "wrong author")
 		r.True(strings.HasSuffix(m.Content, ".box"), "test")
 
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(m.Content, ".box"))

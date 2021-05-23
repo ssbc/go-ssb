@@ -200,7 +200,7 @@ func TestBlobWithHop(t *testing.T) {
 	var m testWrap
 	err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
 	r.NoError(err)
-	r.True(alice.Equal(&m.Author), "wrong author")
+	r.True(alice.Equal(m.Author), "wrong author")
 	r.Equal("test", m.Content.Type)
 	r.NotNil(m.Content.Blob)
 
@@ -331,9 +331,9 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10
 	var testData struct {
-		Type  string        `json:"test-data"`
-		Small *refs.BlobRef `json:"small"`
-		Big   *refs.BlobRef `json:"big"`
+		Type  string       `json:"test-data"`
+		Small refs.BlobRef `json:"small"`
+		Big   refs.BlobRef `json:"big"`
 	}
 	for tries > 0 {
 

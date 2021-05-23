@@ -199,7 +199,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 	return jsBotRef
 }
 
-func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs.FeedRef, int) {
+func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.FeedRef, int) {
 	ts.t.Log("starting srv", name)
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot_serv.js")

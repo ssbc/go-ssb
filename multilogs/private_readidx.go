@@ -40,7 +40,7 @@ func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 type Private struct {
 	logger kitlog.Logger
 
-	keyPairs []*ssb.KeyPair
+	keyPairs []ssb.KeyPair
 	boxer    *box.Boxer
 }
 

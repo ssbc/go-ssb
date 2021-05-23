@@ -36,14 +36,14 @@ type Manager struct {
 	publog  ssb.Publisher
 	tangles multilog.MultiLog
 
-	author *ssb.KeyPair
+	author ssb.KeyPair
 
 	keymgr *keys.Store
 	rand   io.Reader
 }
 
 // NewManager creates a new Manager
-func NewManager(author *ssb.KeyPair, publishLog ssb.Publisher, km *keys.Store, rxlog margaret.Log, getter ssb.Getter, tangles multilog.MultiLog) *Manager {
+func NewManager(author ssb.KeyPair, publishLog ssb.Publisher, km *keys.Store, rxlog margaret.Log, getter ssb.Getter, tangles multilog.MultiLog) *Manager {
 	return &Manager{
 		receiveLog:   rxlog,
 		receiveByRef: getter,

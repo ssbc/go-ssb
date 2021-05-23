@@ -125,7 +125,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // these messages are constructed in the legacy SSB way: The poured object is JSON v8-like pretty printed and then NaCL signed,
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
-func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
+func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
 	authorLog, err := sublogs.Get(storedrefs.Feed(kp.Id))
 	if err != nil {
 		return nil, fmt.Errorf("publish: failed to open sublog for author: %w", err)
@@ -138,15 +138,15 @@ func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.Key
 
 	switch kp.Id.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		pl.create = &legacyCreate{
-			key: *kp,
+		pl.create = legacyCreate{
+			key: kp,
 		}
 	case refs.RefAlgoFeedGabby:
-		pl.create = &gabbyCreate{
+		pl.create = gabbyCreate{
 			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
 		}
 	default:
-		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo)
+		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo())
 	}
 
 	for i, o := range opts {
@@ -163,9 +163,9 @@ type PublishOption func(*publishLog) error
 func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
 		switch cv := pl.create.(type) {
-		case *legacyCreate:
+		case legacyCreate:
 			cv.hmac = hmackey
-		case *gabbyCreate:
+		case gabbyCreate:
 			cv.enc.WithHMAC(hmackey[:])
 		default:
 			return fmt.Errorf("hmac: unknown creater: %T", cv)
@@ -177,10 +177,10 @@ func SetHMACKey(hmackey *[32]byte) PublishOption {
 func UseNowTimestamps(yes bool) PublishOption {
 	return func(pl *publishLog) error {
 		switch cv := pl.create.(type) {
-		case *legacyCreate:
+		case legacyCreate:
 			cv.setTimestamp = yes
 
-		case *gabbyCreate:
+		case gabbyCreate:
 			cv.enc.WithNowTimestamps(yes)
 
 		default:

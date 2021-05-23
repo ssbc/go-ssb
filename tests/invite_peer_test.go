@@ -41,7 +41,7 @@ func XTestPeerInviteJSCreate(t *testing.T) {
 	// manual multiserver address
 	addr := fmt.Sprintf("net:%s", netwrap.GetAddr(wrappedAddr, "tcp").String())
 	addr += "~shs:"
-	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.ID)
+	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.PubKey())
 	t.Log("addr:", addr)
 
 	bob.PublishLog.Append(map[string]interface{}{
@@ -105,13 +105,13 @@ func XTestPeerInviteJSCreate(t *testing.T) {
 	seed, err := base64.StdEncoding.DecodeString(invData[0])
 	r.NoError(err)
 	r.Equal(32, len(seed))
-	seedKp, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	seedKp, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// bob has the message
 	invRef, err := refs.ParseMessageRef(invData[1])
 	r.NoError(err)
-	msg, err := bob.Get(*invRef)
+	msg, err := bob.Get(invRef)
 	r.NoError(err)
 
 	// can verify the invite message
@@ -133,13 +133,13 @@ func XTestPeerInviteJSCreate(t *testing.T) {
 
 	// invite data matches
 	var invCore struct {
-		Invite *refs.FeedRef `json:"invite"`
-		Host   *refs.FeedRef `json:"host"`
+		Invite refs.FeedRef `json:"invite"`
+		Host   refs.FeedRef `json:"host"`
 	}
 	err = json.Unmarshal(invmsgWoSig, &invCore)
 	r.NoError(err)
-	r.Equal(alice.ID, invCore.Host.ID)
-	r.Equal(seedKp.Id.ID, invCore.Invite.ID)
+	r.True(alice.Equal(invCore.Host))
+	r.True(seedKp.Id.Equal(invCore.Invite))
 	t.Log("invitee key:", seedKp.Id.Ref())
 
 	// 2nd node does it's dance

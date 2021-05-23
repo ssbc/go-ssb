@@ -21,12 +21,12 @@ import (
 
 type unboxedLog struct {
 	root, seqlog margaret.Log
-	kp           *ssb.KeyPair
+	kp           ssb.KeyPair
 	boxer        *box.Boxer
 }
 
 // NewUnboxerLog expects the sequence numbers, that are returned from seqlog, to be decryptable by kp.
-func NewUnboxerLog(root, seqlog margaret.Log, kp *ssb.KeyPair) margaret.Log {
+func NewUnboxerLog(root, seqlog margaret.Log, kp ssb.KeyPair) margaret.Log {
 	il := unboxedLog{
 		root:   root,
 		seqlog: seqlog,

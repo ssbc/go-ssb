@@ -38,7 +38,7 @@ func XTestMultipleIdentities(t *testing.T) {
 	tRepo := repo.New(tRepoPath)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -56,7 +56,7 @@ func XTestMultipleIdentities(t *testing.T) {
 	r.NoError(err)
 	r.Len(kpsByPath, 3)
 
-	var kps []*ssb.KeyPair
+	var kps []ssb.KeyPair
 	for _, v := range kpsByPath {
 		kps = append(kps, v)
 	}

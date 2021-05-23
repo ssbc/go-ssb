@@ -40,7 +40,7 @@ func XTestLegacyInviteJSCreate(t *testing.T) {
 	// manual multiserver address
 	addr := fmt.Sprintf("net:%s", netwrap.GetAddr(wrappedAddr, "tcp").String())
 	addr += "~shs:"
-	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.ID)
+	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.PubKey())
 	t.Log("addr:", addr)
 
 	bob.PublishLog.Append(map[string]interface{}{
@@ -117,7 +117,7 @@ func XTestLegacyInviteJSCreate(t *testing.T) {
 	<-ts.doneJS
 
 	// now follow alice
-	_, err = bob.PublishLog.Publish(refs.NewContactFollow(&tok.Peer))
+	_, err = bob.PublishLog.Publish(refs.NewContactFollow(tok.Peer))
 	r.NoError(err)
 
 	hasBobsFeed := `
@@ -172,7 +172,7 @@ func XTestLegacyInviteJSAccept(t *testing.T) {
 	// manual multiserver address
 	addr := fmt.Sprintf("net:%s", netwrap.GetAddr(wrappedAddr, "tcp").String())
 	addr += "~shs:"
-	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.ID)
+	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.PubKey())
 	t.Log("addr:", addr)
 
 	bob.PublishLog.Append(map[string]interface{}{

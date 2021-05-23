@@ -87,7 +87,7 @@ type Sbot struct {
 	websocketAddr string
 
 	repoPath string
-	KeyPair  *ssb.KeyPair
+	KeyPair  ssb.KeyPair
 
 	Groups *private.Manager
 
@@ -217,9 +217,6 @@ func WithUNIXSocket() Option {
 	return func(s *Sbot) error {
 		// this races because sbot might not be done with init yet
 		// TODO: refactor network peer code and make unixsock implement that (those will be inited late anyway)
-		if s.KeyPair == nil {
-			return fmt.Errorf("sbot/unixsock: keypair is nil. please use unixSocket with LateOption")
-		}
 		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.PubKey())
 
 		r := repo.New(s.repoPath)
@@ -342,7 +339,7 @@ func WithJSONKeyPair(blob string) Option {
 }
 
 // WithKeyPair exepect a initialized ssb.KeyPair. Useful for testing.
-func WithKeyPair(kp *ssb.KeyPair) Option {
+func WithKeyPair(kp ssb.KeyPair) Option {
 	return func(s *Sbot) error {
 		s.KeyPair = kp
 		return nil
@@ -552,7 +549,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	r := repo.New(s.repoPath)
 
-	if s.KeyPair == nil {
+	if len(s.KeyPair.Pair.Secret) == 0 {
 		var err error
 		s.KeyPair, err = repo.DefaultKeyPair(r)
 		if err != nil {

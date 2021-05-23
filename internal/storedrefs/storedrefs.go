@@ -13,12 +13,12 @@ import (
 func Feed(r refs.FeedRef) librarian.Addr {
 	sr, err := tfk.FeedFromRef(r)
 	if err != nil {
-		panic(fmt.Errorf("failed to make stored ref: %w", err))
+		panic(fmt.Errorf("failed to make stored feed ref: %w", err))
 	}
 
 	b, err := sr.MarshalBinary()
 	if err != nil {
-		panic(fmt.Errorf("error while marshalling stored ref: %w", err))
+		panic(fmt.Errorf("error while marshalling stored feed ref: %w", err))
 	}
 	return librarian.Addr(b)
 }
@@ -27,12 +27,12 @@ func Feed(r refs.FeedRef) librarian.Addr {
 func Message(r refs.MessageRef) librarian.Addr {
 	sr, err := tfk.MessageFromRef(r)
 	if err != nil {
-		panic(fmt.Errorf("failed to make stored ref: %w", err))
+		panic(fmt.Errorf("failed to make stored message ref: %w", err))
 	}
 
 	b, err := sr.MarshalBinary()
 	if err != nil {
-		panic(fmt.Errorf("error while marshalling stored ref: %w", err))
+		panic(fmt.Errorf("error while marshalling stored message ref: %w", err))
 	}
 	return librarian.Addr(b)
 }

@@ -45,7 +45,7 @@ func TestSignMessages(t *testing.T) {
 	errc := asynctesting.ServeLog(killServe, t.Name(), rl, userFeedsSnk, true)
 
 	staticRand := rand.New(rand.NewSource(42))
-	testAuthor, err := ssb.NewKeyPair(staticRand)
+	testAuthor, err := ssb.NewKeyPair(staticRand, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.Id))
@@ -93,9 +93,9 @@ func TestSignMessages(t *testing.T) {
 		t.Logf("msg:%d\n%s", i, storedMsg.ContentBytes())
 		a.NotNil(storedMsg.Key(), "msg:%d - key", i)
 		if i != 0 {
-			// a.NotNil(storedMsg.Previous, "msg:%d - previous", i)
+			a.NotNil(storedMsg.Previous(), "msg:%d - previous", i)
 		} else {
-			// a.Nil(storedMsg.Previous)
+			a.Nil(storedMsg.Previous(), "msg:%d - expected nil previous", i)
 		}
 		// a.NotNil(storedMsg.Raw, "msg:%d - raw", i)
 		// a.Contains(string(storedMsg.Raw), `"signature": "`)

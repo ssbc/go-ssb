@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 )
@@ -49,7 +50,7 @@ func TestCompatHMACVerify(t *testing.T) {
 	r := require.New(t)
 	seed := makeRandBytes(t, 32)
 
-	kp, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	hmacKey := makeRandBytes(t, 32)
@@ -84,7 +85,7 @@ func TestCompatHMACSign(t *testing.T) {
 	r := require.New(t)
 	seed := makeRandBytes(t, 32)
 
-	kp, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	hmacKey := makeRandBytes(t, 32)
@@ -137,7 +138,7 @@ func TestCompatVerify(t *testing.T) {
 	r := require.New(t)
 	seed := makeRandBytes(t, 32)
 
-	kp, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// TODO: be more creative with test data
@@ -167,7 +168,7 @@ func TestCompatSignature(t *testing.T) {
 	r := require.New(t)
 	seed := makeRandBytes(t, 32)
 
-	kp, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// TODO: be more creative with test data

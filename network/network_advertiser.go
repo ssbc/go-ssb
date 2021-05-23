@@ -19,7 +19,7 @@ import (
 )
 
 type Advertiser struct {
-	keyPair *ssb.KeyPair
+	keyPair ssb.KeyPair
 
 	local  *net.UDPAddr // Local listening address, may not be needed (auto-detect?).
 	remote *net.UDPAddr // Address being broadcasted to, this should be deduced form 'local'.
@@ -28,12 +28,12 @@ type Advertiser struct {
 	ticker   *time.Ticker
 }
 
-func newPublicKeyString(keyPair *ssb.KeyPair) string {
+func newPublicKeyString(keyPair ssb.KeyPair) string {
 	publicKey := keyPair.Pair.Public[:]
 	return base64.StdEncoding.EncodeToString(publicKey)
 }
 
-func newAdvertisement(local *net.UDPAddr, keyPair *ssb.KeyPair) (string, error) {
+func newAdvertisement(local *net.UDPAddr, keyPair ssb.KeyPair) (string, error) {
 	if local == nil {
 		return "", errors.New("ssb: passed nil local address")
 	}
@@ -47,7 +47,7 @@ func newAdvertisement(local *net.UDPAddr, keyPair *ssb.KeyPair) (string, error) 
 	return msg, err
 }
 
-func NewAdvertiser(local net.Addr, keyPair *ssb.KeyPair) (*Advertiser, error) {
+func NewAdvertiser(local net.Addr, keyPair ssb.KeyPair) (*Advertiser, error) {
 
 	var udpAddr *net.UDPAddr
 	switch nv := local.(type) {

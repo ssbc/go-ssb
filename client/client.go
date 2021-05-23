@@ -78,7 +78,7 @@ func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
+func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 	c, err := newClientWithOptions(opts)
 	if err != nil {
 		return nil, err

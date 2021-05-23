@@ -36,7 +36,7 @@ type Options struct {
 	AdvertsSend      bool
 	AdvertsConnectTo bool
 
-	KeyPair     *ssb.KeyPair
+	KeyPair     ssb.KeyPair
 	AppKey      []byte
 	MakeHandler func(net.Conn) (muxrpc.Handler, error)
 
