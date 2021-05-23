@@ -138,11 +138,11 @@ func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp ssb.KeyP
 
 	switch kp.Id.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		pl.create = legacyCreate{
+		pl.create = &legacyCreate{
 			key: kp,
 		}
 	case refs.RefAlgoFeedGabby:
-		pl.create = gabbyCreate{
+		pl.create = &gabbyCreate{
 			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
 		}
 	default:
@@ -163,9 +163,9 @@ type PublishOption func(*publishLog) error
 func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
 		switch cv := pl.create.(type) {
-		case legacyCreate:
+		case *legacyCreate:
 			cv.hmac = hmackey
-		case gabbyCreate:
+		case *gabbyCreate:
 			cv.enc.WithHMAC(hmackey[:])
 		default:
 			return fmt.Errorf("hmac: unknown creater: %T", cv)
@@ -177,10 +177,10 @@ func SetHMACKey(hmackey *[32]byte) PublishOption {
 func UseNowTimestamps(yes bool) PublishOption {
 	return func(pl *publishLog) error {
 		switch cv := pl.create.(type) {
-		case legacyCreate:
+		case *legacyCreate:
 			cv.setTimestamp = yes
 
-		case gabbyCreate:
+		case *gabbyCreate:
 			cv.enc.WithNowTimestamps(yes)
 
 		default:

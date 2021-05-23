@@ -1,6 +1,7 @@
 package multimsg
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,10 +39,14 @@ func TestReceivedSet(t *testing.T) {
 	fn := fakeNow{}
 	wl.receivedNow = fn.Now
 
-	bobsKey, err := ssb.NewKeyPair(nil)
+	bobsKey, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
 	// quirky way to make a refs.Message
+
+	msgKey, err := refs.NewMessageRefFromBytes(bytes.Repeat([]byte("acab"), 8), refs.RefAlgoMessageSSB1)
+	r.NoError(err)
+
 	var lm legacy.LegacyMessage
 	lm.Hash = "sha256"
 	lm.Author = bobsKey.Id.Ref()
@@ -49,6 +54,7 @@ func TestReceivedSet(t *testing.T) {
 	lm.Sequence = 666
 
 	newMsg := &legacy.StoredMessage{
+		Key_:      msgKey,
 		Author_:   bobsKey.Id,
 		Previous_: lm.Previous,
 		Sequence_: lm.Sequence,
@@ -73,11 +79,10 @@ func TestReceivedSet(t *testing.T) {
 	r.EqualValues(23, rxt.Unix(), "time: %s", rxt)
 
 	// a gabby message
-	bobsKey.Id.Algo = refs.RefAlgoFeedGabby
 
 	enc := gabbygrove.NewEncoder(bobsKey.Pair.Secret)
 
-	tr, ref, err := enc.Encode(1, nil, "hello, world")
+	tr, ref, err := enc.Encode(1, gabbygrove.BinaryRef{}, "hello, world")
 	r.NoError(err)
 	r.NotNil(ref)
 

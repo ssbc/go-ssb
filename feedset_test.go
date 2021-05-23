@@ -21,7 +21,7 @@ func TestFeedSetEmpty(t *testing.T) {
 
 func TestFeedSetCount(t *testing.T) {
 	r := require.New(t)
-	kps := make([]*KeyPair, 50)
+	kps := make([]KeyPair, 50)
 
 	fs := NewFeedSet(50)
 	for i := 0; i < 50; i++ {

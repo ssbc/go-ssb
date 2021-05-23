@@ -40,9 +40,9 @@ func NewVerifySink(who refs.FeedRef, start margaret.Seq, abs refs.Message, saver
 	}
 	switch who.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		sd.verify = legacyVerify{hmacKey: hmacKey}
+		sd.verify = &legacyVerify{hmacKey: hmacKey}
 	case refs.RefAlgoFeedGabby:
-		sd.verify = gabbyVerify{hmacKey: hmacKey}
+		sd.verify = &gabbyVerify{hmacKey: hmacKey}
 	}
 	return sd
 }

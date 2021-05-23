@@ -69,7 +69,7 @@ func Verify(raw []byte, hmacSecret *[32]byte) (refs.MessageRef, DeserializedMess
 	}
 
 	if err := sig.Verify(woSig, dmsg.Author); err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not verify message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.Ref(), dmsg.Sequence, err)
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string

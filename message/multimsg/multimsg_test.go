@@ -4,6 +4,7 @@ package multimsg
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,10 @@ func TestMultiMsgLegacy(t *testing.T) {
 	r := require.New(t)
 
 	kpSeed := bytes.Repeat([]byte("feed"), 8)
-	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed), refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+
+	msgKey, err := refs.NewMessageRefFromBytes(bytes.Repeat([]byte("acab"), 8), refs.RefAlgoMessageSSB1)
 	r.NoError(err)
 
 	// craft legacy testmessage
@@ -27,6 +31,7 @@ func TestMultiMsgLegacy(t *testing.T) {
 	var lm legacy.StoredMessage
 	lm.Author_ = kp.Id
 	lm.Sequence_ = 123
+	lm.Key_ = msgKey
 	lm.Raw_ = testContent
 
 	var mm MultiMessage
@@ -35,6 +40,9 @@ func TestMultiMsgLegacy(t *testing.T) {
 
 	b, err := mm.MarshalBinary()
 	r.NoError(err)
+
+	t.Log("\n", hex.Dump(b))
+
 	r.Equal(Legacy, MessageType(b[0]))
 
 	var mm2 MultiMessage
@@ -42,6 +50,7 @@ func TestMultiMsgLegacy(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(mm2.Message)
 	r.Equal(Legacy, mm2.tipe)
+	r.True(mm2.key.Equal(msgKey))
 	legacy, ok := mm2.AsLegacy()
 	r.True(ok)
 	r.Equal(testContent, legacy.Raw_)
@@ -52,16 +61,15 @@ func TestMultiMsgGabby(t *testing.T) {
 	r := require.New(t)
 
 	kpSeed := bytes.Repeat([]byte("bee4"), 8)
-	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	authorRef, err := gabbygrove.NewBinaryRef(kp.Id)
 	r.NoError(err)
 
-	cref := &gabbygrove.ContentRef{
-		Hash: kpSeed,
-		Algo: refs.RefAlgoContentGabby,
-	}
+	cref, err := gabbygrove.NewContentRefFromBytes(kpSeed)
+	r.NoError(err)
+
 	payloadRef, err := gabbygrove.NewBinaryRef(cref)
 	r.NoError(err)
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"go.mindeco.de/log"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
@@ -26,10 +27,10 @@ func TestIsServer(t *testing.T) {
 
 	logger := log.NewLogfmtLogger(os.Stderr)
 
-	kpClient, err := ssb.NewKeyPair(nil)
+	kpClient, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	kpServ, err := ssb.NewKeyPair(nil)
+	kpServ, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	client, err := network.New(network.Options{

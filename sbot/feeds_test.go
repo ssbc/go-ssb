@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
@@ -48,16 +50,17 @@ func TestFeedsOneByOne(t *testing.T) {
 
 	mainLog := testutils.NewRelativeTimeLogger(nil)
 
+	aliPath := filepath.Join("testrun", t.Name(), "ali")
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithKeyPair(aliKey),
 		WithInfo(log.With(mainLog, "unit", "ali")),
-		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
-		// }),
-		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join(aliPath, "muxdump"), conn)
+		}),
+		WithRepoPath(aliPath),
 		WithListenAddr(":0"),
 	)
 	r.NoError(err)
@@ -78,15 +81,16 @@ func TestFeedsOneByOne(t *testing.T) {
 	r.NoError(err)
 	t.Log("bob is", bobKey.Id.Ref())
 
+	bobPath := filepath.Join("testrun", t.Name(), "bob")
 	bob, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
 		WithKeyPair(bobKey),
 		WithInfo(log.With(mainLog, "unit", "bob")),
-		// WithConnWrapper(func(conn net.Conn) (net.Conn, error) {
-		// 	return debug.WrapConn(bobLog, conn), nil
-		// }),
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			return debug.WrapDump(filepath.Join(bobPath, "muxdump"), conn)
+		}),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
 	)

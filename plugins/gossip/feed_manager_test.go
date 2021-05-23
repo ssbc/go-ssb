@@ -48,7 +48,7 @@ func loadTestRepo(
 	func(t *testing.T, num int, text string),
 	margaret.Log,
 	multilog.MultiLog,
-	*ssb.KeyPair,
+	ssb.KeyPair,
 ) {
 
 	os.RemoveAll(repoPath)
@@ -70,7 +70,6 @@ func loadTestRepo(
 }
 
 func createMessages(pub ssb.Publisher, fill librarian.SinkIndex, rootLog margaret.Log) func(t *testing.T, num int, text string) {
-
 	return func(t *testing.T, num int, text string) {
 		t.Log("creating", num, text)
 		for i := 0; i < num; i++ {
