@@ -29,7 +29,51 @@ type tcase struct {
 	HeadCount tFeedSet
 }
 
-func TestIndexFixture(t *testing.T) {
+func BenchmarkIndexFixtures(b *testing.B) {
+	r := require.New(b)
+
+	testRepo := filepath.Join("testrun", b.Name())
+
+	fetchFixture := exec.Command("bash", "./integration_prep.bash", filepath.Join(testRepo, "log"))
+	out, err := fetchFixture.CombinedOutput()
+	if err != nil {
+		b.Log(string(out))
+		r.NoError(err)
+	}
+
+	tr := repo.New(filepath.Join("testrun", b.Name()))
+
+	testLog, err := repo.OpenLog(tr)
+	r.NoError(err, "case %s failed to open", b.Name())
+
+	sv, err := testLog.Seq().Value()
+	r.NoError(err)
+	r.EqualValues(100000, sv.(margaret.Seq).Seq()+1, "testLog has wrong number of messages")
+
+	b.ResetTimer()
+	name := "benchidx"
+
+	for n := 0; n < b.N; n++ {
+
+		b.StopTimer()
+		// _, snk, err := repo.OpenMultiLog(tr, name, UserFeedsUpdate) // mkv
+		_, snk, err := repo.OpenFileSystemMultiLog(tr, name, UserFeedsUpdate) // fs-bitmaps
+		r.NoError(err)
+		b.StartTimer()
+
+		src, err := testLog.Query(snk.QuerySpec())
+		r.NoError(err)
+
+		err = luigi.Pump(context.TODO(), snk, src)
+		r.NoError(err)
+		b.StopTimer()
+		snk.Close()
+		os.RemoveAll(tr.GetPath(repo.PrefixMultiLog, name))
+	}
+
+}
+
+func TestIndexFixtures(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 
@@ -40,8 +84,10 @@ func TestIndexFixture(t *testing.T) {
 	r.NoError(err)
 	f.Close()
 
-	shasum := exec.Command("bash", "./integration_prep.bash")
-	out, err := shasum.CombinedOutput()
+	testRepo := filepath.Join("testrun", t.Name())
+
+	fetchFixture := exec.Command("bash", "./integration_prep.bash", filepath.Join(testRepo, "log"))
+	out, err := fetchFixture.CombinedOutput()
 	if err != nil {
 		t.Log(string(out))
 		r.NoError(err)
@@ -54,7 +100,7 @@ func TestIndexFixture(t *testing.T) {
 	}
 	tc := mediumCase
 
-	tr := repo.New(filepath.Join("testrun", t.Name()))
+	tr := repo.New(testRepo)
 
 	testLog, err := repo.OpenLog(tr)
 	r.NoError(err, "case %s failed to open", t.Name())
@@ -116,6 +162,11 @@ func TestIndexFixture(t *testing.T) {
 	r.NoError(err)
 	serve("mkv", snk)
 	compare(mkvMlog)
+
+	fsMlog, snk, err := repo.OpenFileSystemMultiLog(tr, "testfs"+tc.Name, UserFeedsUpdate)
+	r.NoError(err)
+	serve("fs-bitmap", snk)
+	compare(fsMlog)
 }
 
 func benchSequential(i int) func(b *testing.B) {

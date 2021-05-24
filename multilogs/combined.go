@@ -329,9 +329,8 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	return nil
 }
 
-// Close does nothing.
 func (slog *CombinedIndex) Close() error {
-	return nil
+	return slog.file.Close()
 }
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
