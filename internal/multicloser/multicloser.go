@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-package sbot
+package multicloser
 
 import (
 	"fmt"
@@ -10,21 +10,21 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 )
 
-type multiCloser struct {
+type MultiCloser struct {
 	cs []io.Closer
 	l  sync.Mutex
 }
 
-func (mc *multiCloser) addCloser(c io.Closer) {
+func (mc *MultiCloser) AddCloser(c io.Closer) {
 	mc.l.Lock()
 	defer mc.l.Unlock()
 
 	mc.cs = append(mc.cs, c)
 }
 
-var _ io.Closer = (*multiCloser)(nil)
+var _ io.Closer = (*MultiCloser)(nil)
 
-func (mc *multiCloser) Close() error {
+func (mc *MultiCloser) Close() error {
 	mc.l.Lock()
 	defer mc.l.Unlock()
 

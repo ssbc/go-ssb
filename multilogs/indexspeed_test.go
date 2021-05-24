@@ -29,7 +29,7 @@ type tcase struct {
 	HeadCount tFeedSet
 }
 
-func BenchmarkIndexFixtures(b *testing.B) {
+func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 	r := require.New(b)
 
 	testRepo := filepath.Join("testrun", b.Name())
@@ -70,7 +70,6 @@ func BenchmarkIndexFixtures(b *testing.B) {
 		snk.Close()
 		os.RemoveAll(tr.GetPath(repo.PrefixMultiLog, name))
 	}
-
 }
 
 func TestIndexFixtures(t *testing.T) {
@@ -167,6 +166,11 @@ func TestIndexFixtures(t *testing.T) {
 	r.NoError(err)
 	serve("fs-bitmap", snk)
 	compare(fsMlog)
+
+	userMlog, combinedSnk, closer := setupCombinedIndex(t, testLog, makeFsMlog)
+	serve("combined", combinedSnk)
+	compare(userMlog)
+	r.NoError(closer.Close())
 }
 
 func benchSequential(i int) func(b *testing.B) {

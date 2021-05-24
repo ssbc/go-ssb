@@ -28,6 +28,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/graph"
+	"go.cryptoscope.co/ssb/internal/multicloser"
 	"go.cryptoscope.co/ssb/internal/netwraputil"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message/multimsg"
@@ -50,7 +51,7 @@ type Sbot struct {
 
 	rootCtx   context.Context
 	Shutdown  context.CancelFunc
-	closers   multiCloser
+	closers   multicloser.MultiCloser
 	idxDone   errgroup.Group
 	idxInSync sync.WaitGroup
 
@@ -237,7 +238,7 @@ func WithUNIXSocket() Option {
 		if err != nil {
 			return err
 		}
-		s.closers.addCloser(uxLis)
+		s.closers.AddCloser(uxLis)
 
 		go func() {
 
