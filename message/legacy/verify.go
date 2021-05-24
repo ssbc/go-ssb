@@ -41,7 +41,12 @@ var (
 // At last it uses internalV8Binary to create a the SHA256 hash for the message key.
 // If you find a buggy message, use `node ./encode_test.js $feedID` to generate a new testdata.zip
 func Verify(raw []byte, hmacSecret *[32]byte) (refs.MessageRef, DeserializedMessage, error) {
-	enc, err := EncodePreserveOrder(raw)
+	var buf bytes.Buffer
+	return VerifyWithBuffer(raw, hmacSecret, &buf)
+}
+
+func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
+	enc, err := EncodePreserveOrderWithBuffer(raw, buf)
 	if err != nil {
 		if len(raw) > 15 {
 			raw = raw[:15]

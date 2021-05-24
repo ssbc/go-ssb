@@ -4,6 +4,7 @@
 package message
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sync"
@@ -40,7 +41,10 @@ func NewVerifySink(who refs.FeedRef, start margaret.Seq, abs refs.Message, saver
 	}
 	switch who.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		sd.verify = &legacyVerify{hmacKey: hmacKey}
+		sd.verify = &legacyVerify{
+			hmacKey: hmacKey,
+			buf:     new(bytes.Buffer),
+		}
 	case refs.RefAlgoFeedGabby:
 		sd.verify = &gabbyVerify{hmacKey: hmacKey}
 	}
@@ -53,10 +57,13 @@ type verifier interface {
 
 type legacyVerify struct {
 	hmacKey *[32]byte
+
+	buf *bytes.Buffer
 }
 
 func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
-	ref, dmsg, err := legacy.Verify(rmsg, lv.hmacKey)
+	lv.buf.Reset()
+	ref, dmsg, err := legacy.VerifyWithBuffer(rmsg, lv.hmacKey, lv.buf)
 	if err != nil {
 		return nil, err
 	}
