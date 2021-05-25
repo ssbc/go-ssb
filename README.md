@@ -1,7 +1,7 @@
 <h1 align="center">Go-SSB</h1>
 
 <p align="center">
-  <img height="256" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
+  <img style="height: 50vw" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
 [![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
@@ -16,9 +16,10 @@ If you encounter a bug, please refer to our [public issue tracker](https://githu
 
 * [x] Follow-graph implementation (based on [gonum](https://www.gonum.org)) to authorize incoming connections
 * [x] [Blobs](https://ssbc.github.io/scuttlebutt-protocol-guide/#blobs) store and replication
-* [x] _Legacy_ gossip [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream) ([ebt](https://github.com/dominictarr/epidemic-broadcast-trees) not implementation yet)
 * [x] Publishing new messages to the log
-* [x] Invite mechanics ([peer-invites](https://github.com/ssbc/ssb-peer-invites) partially done, too. See [Issue 45](https://github.com/cryptoscope/ssb/issues/45)for more.)
+* [x] _Legacy_ feed [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream)
+* [x] [Epidemic Broadcast Trees (EBT)](https://github.com/dominictarr/epidemic-broadcast-trees) feed replication in beta (use `go-sbot -enable-ebt`)
+* [x] Invite mechanics ([peer-invites](https://github.com/ssbc/ssb-peer-invites) partially done, too. See [Issue 45](https://github.com/cryptoscope/ssb/issues/45) for more.)
 
 ## Installation
 
@@ -37,7 +38,9 @@ Requirements:
 
 ## Running go-sbot
 
-The tool in `cmd/go-sbot` is similar to [ssb-server](https://github.com/ssbc/ssb-server) (previously called scuttlebot or sbot for short)
+The tool in `cmd/go-sbot` is similar to [ssb-server](https://github.com/ssbc/ssb-server) (previously called scuttlebot or sbot for short).
+
+See the [quick start](./docs/quick-start.md) document for a walkthrough and getting started tour.
 
 ## Bootstrapping from an existing key-pair
 

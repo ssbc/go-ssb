@@ -94,7 +94,7 @@ The above commands are to connect to ssb.learningsocieties.org, and the domain a
 This could be done in a number of ways. One way to do this:
 
 Create a file called run-go-sbot.sh with the following:
-```
+```bash
 #!/bin/bash
 while true; do
   go-sbot 
@@ -115,8 +115,8 @@ For your cloud provider, ensure that port 8008 is open for your server.
 
 ## Further Reading
 
-- link to more detailed documentation?
-- link to other ssb stuff?
+- https://dev.scuttlebutt.nz/#/golang/
+- https://scuttlebutt.nz/
 
 
 
