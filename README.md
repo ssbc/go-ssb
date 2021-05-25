@@ -4,7 +4,7 @@
   <img style="height: 50vw" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
-[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
+[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb) [![Go Report Card](https://goreportcard.com/badge/go.cryptoscope.co/ssb)](https://goreportcard.com/report/go.cryptoscope.co/ssb) ![Github Actions](https://github.com/cryptoscope/ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
