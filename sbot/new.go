@@ -150,7 +150,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open rootlog: %w", err)
 	}
-	s.closers.addCloser(s.ReceiveLog.(io.Closer))
+	s.closers.AddCloser(s.ReceiveLog.(io.Closer))
 
 	if s.BlobStore == nil { // load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
@@ -166,7 +166,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		blobstore.WantWithMetrics(s.systemGauge, s.eventCounter),
 	)
 	s.WantManager = wm
-	s.closers.addCloser(wm)
+	s.closers.AddCloser(wm)
 
 	for _, opt := range s.lateInit {
 		err := opt(s)
@@ -182,7 +182,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.closers.addCloser(sm)
+	s.closers.AddCloser(sm)
 	s.ebtState = sm
 
 	// TODO[major/pgroups] fix storage and resumption
@@ -190,7 +190,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// if err != nil {
 	// 	return nil, fmt.Errorf("error opening sequence resolver: %w", err)
 	// }
-	// s.closers.addCloser(s.SeqResolver)
+	// s.closers.AddCloser(s.SeqResolver)
 
 	// default multilogs
 	var mlogs = []struct {
@@ -209,7 +209,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to open multilog %s: %w", index.Name, err)
 		}
-		s.closers.addCloser(ml)
+		s.closers.AddCloser(ml)
 		s.mlogIndicies[index.Name] = ml
 
 		if err := ml.CompressAll(); err != nil {
@@ -251,7 +251,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	ks := &keys.Store{
 		Index: idx,
 	}
-	s.closers.addCloser(idx)
+	s.closers.AddCloser(idx)
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
@@ -262,7 +262,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
 	}
-	s.closers.addCloser(groupsHelperMlog)
+	s.closers.AddCloser(groupsHelperMlog)
 
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
@@ -281,15 +281,15 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to open combined application index: %w", err)
 	}
 	s.serveIndex("combined", combIdx)
-	s.closers.addCloser(combIdx)
+	s.closers.AddCloser(combIdx)
 
 	// groups re-indexing
 	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open group membership index: %w", err)
 	}
-	s.closers.addCloser(members)
-	s.closers.addCloser(membersSnk)
+	s.closers.AddCloser(members)
+	s.closers.AddCloser(membersSnk)
 
 	addMemberIdxAddr := librarian.Addr("string:group/add-member")
 
@@ -337,7 +337,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
-		s.closers.addCloser(seqSetter)
+		s.closers.AddCloser(seqSetter)
 		s.GraphBuilder = gb
 	}
 
@@ -353,7 +353,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open about idx: %w", err)
 	}
-	s.closers.addCloser(aboutSnk)
+	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
 
 	// which feeds to replicate

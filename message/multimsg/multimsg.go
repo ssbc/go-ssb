@@ -6,6 +6,7 @@ package multimsg
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -138,4 +139,19 @@ func NewMultiMessageFromLegacy(msg *legacy.StoredMessage) *MultiMessage {
 	mm.key = msg.Key_
 	mm.Message = msg
 	return &mm
+}
+
+func NewMultiMessageFromKeyValRaw(msg refs.KeyValueRaw, raw json.RawMessage) MultiMessage {
+	var mm MultiMessage
+	mm.tipe = Legacy
+	mm.key = msg.Key_
+	mm.Message = &legacy.StoredMessage{
+		Author_:    msg.Author(),
+		Previous_:  msg.Previous(),
+		Key_:       msg.Key_,
+		Sequence_:  msg.Value.Sequence,
+		Timestamp_: msg.Claimed(),
+		Raw_:       raw,
+	}
+	return mm
 }
