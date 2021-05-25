@@ -1,8 +1,10 @@
+<h1 align="center">Go-SSB</h1>
+
 <p align="center">
-	<img src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
+  <img height="256" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
-# Go-SSB [![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
+[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb)
 
 A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
