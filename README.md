@@ -1,7 +1,7 @@
 <h1 align="center">Go-SSB</h1>
 
 <p align="center">
-  <img style="height: 50vw" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
+  <img height="170px" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
 [![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb) [![Go Report Card](https://goreportcard.com/badge/go.cryptoscope.co/ssb)](https://goreportcard.com/report/go.cryptoscope.co/ssb) ![Github Actions](https://github.com/cryptoscope/ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
