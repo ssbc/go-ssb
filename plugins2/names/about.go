@@ -10,10 +10,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/repo"

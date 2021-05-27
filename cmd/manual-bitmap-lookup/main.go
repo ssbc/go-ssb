@@ -9,8 +9,8 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/pkg/errors"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.cryptoscope.co/margaret/offset2"

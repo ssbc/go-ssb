@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.mindeco.de/log"
 	kitlog "go.mindeco.de/log"

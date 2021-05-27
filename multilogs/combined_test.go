@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"

@@ -9,11 +9,11 @@ import (
 	"math"
 	"os"
 
-	bmap "github.com/RoaringBitmap/roaring"
 	"github.com/davecgh/go-spew/spew"
-	"go.cryptoscope.co/librarian"
+	bmap "github.com/dgraph-io/sroar"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.mindeco.de/log"
@@ -175,14 +175,14 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box1")
-			box1 = bmap.New()
+			box1 = bmap.NewBitmap()
 		}
 
 		box2, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box2"))
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box2")
-			box2 = bmap.New()
+			box2 = bmap.NewBitmap()
 		}
 
 		box1.Or(box2) // all the boxed messages

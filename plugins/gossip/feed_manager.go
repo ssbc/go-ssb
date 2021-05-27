@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.mindeco.de/log"

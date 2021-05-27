@@ -13,8 +13,8 @@ import (
 	"sync"
 
 	"github.com/keks/persist"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 
@@ -137,7 +137,7 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	// 3) subtract those from 2)
 	fromAuthor.AndNot(myReadable)
 
-	it := fromAuthor.Iterator()
+	it := fromAuthor.NewIterator()
 
 	// iterate over those and reindex them
 	for it.HasNext() {

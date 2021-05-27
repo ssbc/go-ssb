@@ -9,10 +9,10 @@ import (
 	"math"
 	"sync"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"gonum.org/v1/gonum/graph"

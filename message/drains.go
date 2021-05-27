@@ -72,7 +72,7 @@ func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
 		Author_:    dmsg.Author,
 		Previous_:  dmsg.Previous,
 		Key_:       ref,
-		Sequence_:  dmsg.Sequence,
+		Sequence_:  int64(dmsg.Sequence),
 		Timestamp_: time.Now(),
 		Raw_:       rmsg,
 	}, nil

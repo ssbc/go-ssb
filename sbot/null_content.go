@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"

@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"

@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
@@ -47,11 +47,6 @@ type Private struct {
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
 func (pr Private) OpenRoaring(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
 	return repo.OpenMultiLog(r, IndexNamePrivates, pr.update)
-}
-
-// OpenBadger uses a pretty memory hungry but battle-tested backend
-func (pr Private) OpenBadger(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
-	return repo.OpenBadgerMultiLog(r, IndexNamePrivates, pr.update)
 }
 
 func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {

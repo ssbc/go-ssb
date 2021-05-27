@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"modernc.org/kv"
 )
 

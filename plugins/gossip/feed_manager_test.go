@@ -18,8 +18,8 @@ import (
 	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"

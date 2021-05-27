@@ -232,7 +232,7 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	}
 
 	stored.Previous_ = newMsg.Previous
-	stored.Sequence_ = newMsg.Sequence
+	stored.Sequence_ = seq
 	stored.Key_ = mr
 	stored.Raw_ = signedMessage
 	return &stored, nil

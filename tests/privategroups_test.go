@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"

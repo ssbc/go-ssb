@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"modernc.org/kv"
 )
 

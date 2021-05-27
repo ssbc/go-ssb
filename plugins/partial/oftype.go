@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 
@@ -58,7 +58,7 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 	// which sequences are in both?
 	workSet.And(tipeSeqs)
 
-	it := workSet.Iterator()
+	it := workSet.NewIterator()
 	for it.HasNext() {
 
 		v := it.Next()

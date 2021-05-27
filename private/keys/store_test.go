@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"modernc.org/kv"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 )
 
 type opDo func(t *testing.T, env interface{})

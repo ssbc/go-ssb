@@ -7,7 +7,7 @@ import (
 	"math"
 	"sync"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"

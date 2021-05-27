@@ -7,9 +7,9 @@ import (
 	"io"
 	"os"
 
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/repo"

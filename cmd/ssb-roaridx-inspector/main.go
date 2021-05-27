@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
 	"go.mindeco.de/logging"

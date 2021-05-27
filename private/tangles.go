@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	refs "go.mindeco.de/ssb-refs"
 )

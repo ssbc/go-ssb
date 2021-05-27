@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	refs "go.mindeco.de/ssb-refs"
 )
 

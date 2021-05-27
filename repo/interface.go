@@ -3,7 +3,7 @@
 package repo
 
 import (
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 )
 

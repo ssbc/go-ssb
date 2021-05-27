@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/rs/cors"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
@@ -212,10 +212,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.closers.AddCloser(ml)
 		s.mlogIndicies[index.Name] = ml
 
-		if err := ml.CompressAll(); err != nil {
-			return nil, fmt.Errorf("sbot: failed compress multilog %s: %w", index.Name, err)
-		}
-
 		*index.Mlog = ml
 	}
 	// publish
@@ -258,7 +254,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	updateHelper := func(ctx context.Context, seq margaret.Seq, v interface{}, mlog multilog.MultiLog) error {
 		return nil
 	}
-	groupsHelperMlog, _, err := repo.OpenBadgerMultiLog(r, "group-member-helper", updateHelper)
+	groupsHelperMlog, _, err := repo.OpenMultiLog(r, "group-member-helper", updateHelper)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
 	}

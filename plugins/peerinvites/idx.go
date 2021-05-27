@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 	kitlog "go.mindeco.de/log"

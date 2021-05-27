@@ -5,8 +5,8 @@ package indexes
 import (
 	"fmt"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
+	"github.com/dgraph-io/badger/v3"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb/graph"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
