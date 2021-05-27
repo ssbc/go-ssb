@@ -16,7 +16,6 @@ import (
 	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -116,7 +115,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 }
 
 func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
-	addr := []byte(ref.Ref() + ":")
+	addr := append(idxKeyPrefix, []byte(ref.Ref()+":")...)
 	// from self
 	// addr = append(addr, ref.ID...)
 
@@ -143,6 +142,7 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 		for iter.Seek(addr); iter.ValidForPrefix(addr); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
+			k = bytes.TrimPrefix(k, idxKeyPrefix)
 			splitted := bytes.Split(k, []byte(":"))
 
 			c, err := refs.ParseFeedRef(string(splitted[0]))
@@ -198,22 +198,31 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 
 const FolderNameAbout = "about"
 
-func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
-	f := func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-		aboutIdx := libbadger.NewIndex(db, 0)
-		snk := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
-		return aboutIdx, snk
-	}
+var idxKeyPrefix = []byte("idx-abouts")
 
-	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting about index: %w", err)
-	}
+func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
+
+	aboutIdx := libbadger.NewIndexWithKeyPrefix(db, 0, idxKeyPrefix)
+	update := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
 
 	plug.about = aboutStore{db}
 
-	return idx, update, err
+	return aboutIdx, update
 }
+
+// func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
+// 	f := func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
+// 		aboutIdx := libbadger.NewIndex(db, 0)
+// 		snk := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
+// 		return aboutIdx, snk
+// 	}
+// 	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("error getting about index: %w", err)
+// 	}
+// 	plug.about = aboutStore{db}
+// 	return idx, update, err
+// }
 
 func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{}, idx librarian.SetterIndex) error {
 	msg, ok := msgv.(refs.Message)

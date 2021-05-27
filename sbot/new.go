@@ -18,7 +18,7 @@ import (
 	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
@@ -192,6 +192,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// }
 	// s.closers.AddCloser(s.SeqResolver)
 
+	mlogStore, err := repo.OpenBadgerDB(r, "shared-multilogs-badger")
+	if err != nil {
+		return nil, err
+	}
+
 	// default multilogs
 	var mlogs = []struct {
 		Name string
@@ -203,17 +208,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		{"tangles", &s.Tangles},
 	}
 	for _, index := range mlogs {
-		mlogPath := r.GetPath(repo.PrefixMultiLog, "combined", index.Name, "fs-bitmaps")
-
-		ml, err := multifs.NewMultiLog(mlogPath)
+		mlog, err := multibadger.NewShared(mlogStore, []byte("mlog-"+index.Name))
 		if err != nil {
-			return nil, fmt.Errorf("sbot: failed to open multilog %s: %w", index.Name, err)
+			return nil, err
 		}
-		s.closers.AddCloser(ml)
-		s.mlogIndicies[index.Name] = ml
+		s.closers.AddCloser(mlog)
+		s.mlogIndicies[index.Name] = mlog
 
-		*index.Mlog = ml
+		*index.Mlog = mlog
 	}
+
+	// need to close mlogStore _after_ the indexes closed and flushed
+	s.closers.AddCloser(mlogStore)
+
 	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
@@ -345,10 +352,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
-	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open about idx: %w", err)
-	}
+	_, aboutSnk := namesPlug.OpenSharedIndex(mlogStore)
+
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
 

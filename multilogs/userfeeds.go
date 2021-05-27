@@ -7,20 +7,12 @@ import (
 	"fmt"
 
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 const IndexNameFeeds = "userFeeds"
-
-func OpenUserFeeds(r repo.Interface) (*roaring.MultiLog, librarian.SinkIndex, error) {
-	fmt.Println("warning: OpenUserFeeds is deprecated for NewCombinedIndex")
-	return repo.OpenFileSystemMultiLog(r, IndexNameFeeds, UserFeedsUpdate)
-}
 
 func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
 	if nulled, ok := value.(error); ok {
