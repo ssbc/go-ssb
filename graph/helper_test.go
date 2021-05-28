@@ -17,18 +17,18 @@ import (
 type publisher struct {
 	r *require.Assertions
 
-	key     *ssb.KeyPair
+	key     ssb.KeyPair
 	publish ssb.Publisher
 }
 
 func newPublisher(t *testing.T, root margaret.Log, users multilog.MultiLog) *publisher {
 	r := require.New(t)
-	kp, err := ssb.NewKeyPair(nil)
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	return newPublisherWithKP(t, root, users, kp)
 }
 
-func newPublisherWithKP(t *testing.T, root margaret.Log, users multilog.MultiLog, kp *ssb.KeyPair) *publisher {
+func newPublisherWithKP(t *testing.T, root margaret.Log, users multilog.MultiLog, kp ssb.KeyPair) *publisher {
 	p := &publisher{}
 	p.r = require.New(t)
 	p.key = kp
@@ -39,7 +39,7 @@ func newPublisherWithKP(t *testing.T, root margaret.Log, users multilog.MultiLog
 	return p
 }
 
-func (p publisher) follow(ref *refs.FeedRef) {
+func (p publisher) follow(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   ref.Ref(),
@@ -49,7 +49,7 @@ func (p publisher) follow(ref *refs.FeedRef) {
 	p.r.NotNil(newSeq)
 }
 
-func (p publisher) unfollow(ref *refs.FeedRef) {
+func (p publisher) unfollow(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
 		"contact":   ref.Ref(),
@@ -59,7 +59,7 @@ func (p publisher) unfollow(ref *refs.FeedRef) {
 	p.r.NotNil(newSeq)
 }
 
-func (p publisher) unblock(ref *refs.FeedRef) {
+func (p publisher) unblock(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
 		"contact":  ref.Ref(),
@@ -69,7 +69,7 @@ func (p publisher) unblock(ref *refs.FeedRef) {
 	p.r.NotNil(newSeq)
 }
 
-func (p publisher) block(ref *refs.FeedRef) {
+func (p publisher) block(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
 		"contact":  ref.Ref(),

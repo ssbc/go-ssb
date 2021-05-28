@@ -39,7 +39,7 @@ func (op PeopleOpNewPeer) Op(state *testState) error {
 
 type PeopleOpNewPeerWithAglo struct {
 	name string
-	algo string
+	algo refs.RefAlgo
 }
 
 var i uint64
@@ -47,11 +47,10 @@ var i uint64
 func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
-	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)), op.algo)
 	if err != nil {
 		state.t.Fatal(err)
 	}
-	kp.Id.Algo = op.algo
 
 	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, kp)
 	state.peers[op.name] = publisher

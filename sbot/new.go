@@ -16,7 +16,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
-	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -192,7 +191,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// }
 	// s.closers.AddCloser(s.SeqResolver)
 
-	mlogStore, err := repo.OpenBadgerDB(r, "shared-multilogs-badger")
+	mlogStore, err := repo.OpenBadgerDB(r.GetPath(repo.PrefixMultiLog, "shared-badger"))
 	if err != nil {
 		return nil, err
 	}
@@ -218,9 +217,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		*index.Mlog = mlog
 	}
 
-	// need to close mlogStore _after_ the indexes closed and flushed
-	s.closers.AddCloser(mlogStore)
-
 	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
@@ -233,10 +229,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to create publish log: %w", err)
 	}
 
-	err = MountSimpleIndex("get", indexes.OpenGet)(s)
-	if err != nil {
-		return nil, err
-	}
+	//
+	getIdx, updateSink := indexes.OpenGet(mlogStore)
+	s.closers.AddCloser(updateSink)
+	s.serveIndex("get", updateSink)
+	s.simpleIndex["get"] = getIdx
 
 	// groups2
 	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
@@ -258,12 +255,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
 
-	updateHelper := func(ctx context.Context, seq margaret.Seq, v interface{}, mlog multilog.MultiLog) error {
-		return nil
-	}
-	groupsHelperMlog, _, err := repo.OpenMultiLog(r, "group-member-helper", updateHelper)
+	groupsHelperMlog, err := multibadger.NewShared(mlogStore, []byte("group-member-helper"))
 	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
+		return nil, err
 	}
 	s.closers.AddCloser(groupsHelperMlog)
 
@@ -287,10 +281,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.AddCloser(combIdx)
 
 	// groups re-indexing
-	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open group membership index: %w", err)
-	}
+	members, membersSnk := multilogs.NewMembershipIndex(mlogStore, s.KeyPair.Id, s.Groups, combIdx)
 	s.closers.AddCloser(members)
 	s.closers.AddCloser(membersSnk)
 
@@ -334,10 +325,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
 		}
 	} else {
-		gb, seqSetter, updateIdx, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
-		if err != nil {
-			return nil, fmt.Errorf("sbot: OpenContacts failed: %w", err)
-		}
+		gb, seqSetter, updateIdx := indexes.OpenContacts(kitlog.With(log, "module", "graph"), mlogStore)
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
 		s.closers.AddCloser(seqSetter)
@@ -356,6 +344,9 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
+
+	// need to close mlogStore _after_ the all the indexes closed and flushed
+	s.closers.AddCloser(mlogStore)
 
 	// which feeds to replicate
 	if s.Replicator == nil {

@@ -28,12 +28,13 @@ func makeSinkIndex(dbPath string, mlog multilog.MultiLog, fn multilog.Func) (lib
 
 const PrefixMultiLog = "sublogs"
 
-func OpenBadgerDB(r Interface, name string) (*badger.DB, error) {
-	opts := badgerOpts(r.GetPath("name"))
+func OpenBadgerDB(path string) (*badger.DB, error) {
+	opts := badgerOpts(path)
 	return badger.Open(opts)
 }
 
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
+	return nil, nil, fmt.Errorf("TODO: deprecate me")
 	dbPath := r.GetPath(PrefixMultiLog, name, "roaring-mkv")
 	err := os.MkdirAll(dbPath, 0700)
 	if err != nil {

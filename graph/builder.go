@@ -59,11 +59,16 @@ type builder struct {
 	cachedGraph *Graph
 }
 
+var (
+	dbKeyPrefix    = []byte("trust-graph")
+	dbKeyPrefixLen = len(dbKeyPrefix)
+)
+
 // NewBuilder creates a Builder that is backed by a badger database
 func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
 	b := &builder{
 		kv:  db,
-		idx: libbadger.NewIndex(db, 0),
+		idx: libbadger.NewIndexWithKeyPrefix(db, 0, dbKeyPrefix),
 		log: log,
 	}
 	return b
@@ -169,15 +174,15 @@ func (b *builder) Build() (*Graph, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		for iter.Rewind(); iter.Valid(); iter.Next() {
+		for iter.Seek(dbKeyPrefix); iter.ValidForPrefix(dbKeyPrefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if len(k) != 68 {
+			if len(k) != 68+dbKeyPrefixLen {
 				continue
 			}
 
-			rawFrom := k[:34]
-			rawTo := k[34:]
+			rawFrom := k[dbKeyPrefixLen : 34+dbKeyPrefixLen]
+			rawTo := k[34+dbKeyPrefixLen:]
 
 			if bytes.Equal(rawFrom, rawTo) {
 				// contact self?!
@@ -277,7 +282,7 @@ func (b *builder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(storedrefs.Feed(forRef))
+		prefix := append(dbKeyPrefix, storedrefs.Feed(forRef)...)
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -287,7 +292,7 @@ func (b *builder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 					// extract 2nd feed ref out of db key
 					// TODO: use compact StoredAddr
 					var sr tfk.Feed
-					err := sr.UnmarshalBinary(k[34:])
+					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
 						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
 					}

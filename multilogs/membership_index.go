@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
-	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
+	libbader "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -28,27 +27,19 @@ type MembershipStore struct {
 
 var _ io.Closer = (*MembershipStore)(nil)
 
-// NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
-func NewMembershipIndex(r repo.Interface, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
-	pth := r.GetPath(repo.PrefixIndex, "groups", "members", "mkv")
-	err := os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: error making index directory: %w", err)
-	}
+var keyPrefix = []byte("group-members")
 
-	db, err := repo.OpenMKV(pth)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
-	}
+// NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
+func NewMembershipIndex(db *badger.DB, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex) {
 	var store = MembershipStore{
-		idx:         libmkv.NewIndex(db, Members{}),
+		idx:         libbader.NewIndexWithKeyPrefix(db, Members{}, keyPrefix),
 		self:        self,
 		unboxer:     unboxer,
 		combinedidx: comb,
 	}
 
 	snk := librarian.NewSinkIndex(store.updateFn, store.idx)
-	return &store, snk, nil
+	return &store, snk
 }
 
 func (mc MembershipStore) Close() error {

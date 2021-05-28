@@ -43,7 +43,7 @@ func NewCombinedIndex(
 	sm *statematrix.StateMatrix,
 ) (*CombinedIndex, error) {
 	r := repo.New(repoPath)
-	statePath := r.GetPath(repo.PrefixMultiLog, "combined", "state.json")
+	statePath := r.GetPath(repo.PrefixMultiLog, "combined-state.json")
 	mode := os.O_RDWR | os.O_EXCL
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		mode |= os.O_CREATE

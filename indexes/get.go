@@ -14,25 +14,14 @@ import (
 	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 
 	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-const FolderNameGet = "get"
-
 // OpenGet supplies the get(msgRef) -> rootLogSeq idx
-func OpenGet(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
-	_, idx, sinkIdx, err := repo.OpenBadgerIndex(r, FolderNameGet, createFn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting get() index: %w", err)
-	}
-	return idx, sinkIdx, nil
-}
-
-func createFn(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-	idx := libbadger.NewIndex(db, margaret.BaseSeq(0))
-	sink := librarian.NewSinkIndex(updateFn, idx)
-	return idx, sink
+func OpenGet(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
+	idx := libbadger.NewIndexWithKeyPrefix(db, margaret.BaseSeq(0), []byte("byMsgRef"))
+	sinkIdx := librarian.NewSinkIndex(updateFn, idx)
+	return idx, sinkIdx
 }
 
 func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {

@@ -225,11 +225,17 @@ func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.S
 // }
 
 func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{}, idx librarian.SetterIndex) error {
-	msg, ok := msgv.(refs.Message)
-	if !ok {
+	var msg refs.Message
+
+	switch tv := msgv.(type) {
+	case refs.Message:
+		msg = tv
+	case error:
 		if margaret.IsErrNulled(msgv.(error)) {
 			return nil
 		}
+		return fmt.Errorf("about(%d): unhandled error type (%T) from index: %w", seq, tv, tv)
+	default:
 		return fmt.Errorf("about(%d): wrong msgT: %T", seq, msgv)
 	}
 

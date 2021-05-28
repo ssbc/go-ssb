@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -18,7 +20,9 @@ import (
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
+
 	"go.cryptoscope.co/margaret/multilog"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
@@ -27,22 +31,45 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+func openUserMultilogs(t *testing.T) (multilog.MultiLog, multilog.Sink) {
+	r := require.New(t)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+
+	db, err := repo.OpenBadgerDB(filepath.Join(tRepoPath, "badgerdb"))
+	r.NoError(err)
+	// seqSetterIdx := libbadger.NewIndex(db, 0)
+
+	uf, err := multibadger.NewShared(db, []byte("userFeeds"))
+	r.NoError(err)
+
+	idxStatePath := filepath.Join(tRepoPath, "idx-state")
+	idxStateFile, err := os.Create(idxStatePath)
+	r.NoError(err)
+
+	serveUF := multilog.NewSink(idxStateFile, uf, multilogs.UserFeedsUpdate)
+
+	return uf, serveUF
+}
+
 func makeBadger(t *testing.T) testStore {
 	r := require.New(t)
 	info := testutils.NewRelativeTimeLogger(nil)
 
-	tRepoPath, err := ioutil.TempDir("", "badgerTest")
-	r.NoError(err)
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
+	os.MkdirAll(tRepoPath, 0700)
 
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+
+	// TODO: try this
+	// tRootLog := mem.New()
 
 	tRepo := repo.New(tRepoPath)
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
-	// TODO: try this
-	// tRootLog := mem.New()
-	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
-	r.NoError(err)
+
+	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var builder *builder
@@ -90,8 +117,7 @@ func makeTypedLog(t *testing.T) testStore {
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
 
-	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
-	r.NoError(err)
+	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var tc testStore

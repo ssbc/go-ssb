@@ -15,7 +15,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
@@ -97,17 +96,18 @@ func DropIndicies(r repo.Interface) error {
 			return err
 		}
 	}
-	var badger = []string{
-		indexes.FolderNameContacts,
-	}
-	for _, i := range badger {
-		dbPath := r.GetPath(repo.PrefixIndex, i)
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
-			return err
-		}
-	}
+	// TODO: shared mlog
+	// var badger = []string{
+	// 	indexes.FolderNameContacts,
+	// }
+	// for _, i := range badger {
+	// 	dbPath := r.GetPath(repo.PrefixIndex, i)
+	// 	err := os.RemoveAll(dbPath)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
+	// 		return err
+	// 	}
+	// }
 	log.Println("removed index folders")
 	return nil
 }
