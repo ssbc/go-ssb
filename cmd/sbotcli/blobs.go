@@ -91,7 +91,7 @@ var blobsWantCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		return client.BlobsWant(*br)
+		return client.BlobsWant(br)
 	},
 }
 

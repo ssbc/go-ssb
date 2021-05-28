@@ -314,8 +314,8 @@ var getCmd = &cli.Command{
 		}
 
 		arg := struct {
-			ID      *refs.MessageRef `json:"id"`
-			Private bool             `json:"private"`
+			ID      refs.MessageRef `json:"id"`
+			Private bool            `json:"private"`
 		}{key, ctx.Bool("private")}
 
 		var val interface{}
@@ -380,7 +380,7 @@ var blockCmd = &cli.Command{
 			return err
 		}
 
-		var blocked = make(map[*refs.FeedRef]bool)
+		var blocked = make(map[string]bool)
 
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
@@ -388,7 +388,7 @@ var blockCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			blocked[fr] = true
+			blocked[fr.Ref()] = true
 		}
 		log.Log("blocking", len(blocked))
 
@@ -486,7 +486,7 @@ var groupsInviteCmd = &cli.Command{
 			return fmt.Errorf("groupID needs to be a valid message ref: %w", err)
 		}
 
-		if groupID.Algo != refs.RefAlgoCloakedGroup {
+		if groupID.Algo() != refs.RefAlgoCloakedGroup {
 			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
 		}
 
@@ -526,7 +526,7 @@ var groupsPublishToCmd = &cli.Command{
 			return fmt.Errorf("groupID needs to be a valid message ref: %w", err)
 		}
 
-		if groupID.Algo != refs.RefAlgoCloakedGroup {
+		if groupID.Algo() != refs.RefAlgoCloakedGroup {
 			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
 		}
 

@@ -48,8 +48,8 @@ var friendsIsFollowingCmd = &cli.Command{
 		}
 
 		var arg = struct {
-			Source *refs.FeedRef `json:"source"`
-			Dest   *refs.FeedRef `json:"dest"`
+			Source refs.FeedRef `json:"source"`
+			Dest   refs.FeedRef `json:"dest"`
 		}{Source: srcRef, Dest: dstRef}
 
 		var is bool
@@ -73,11 +73,11 @@ var friendsHopsCmd = &cli.Command{
 		arg.Max = ctx.Uint("dist")
 
 		if who := ctx.Args().Get(0); who != "" {
-			var err error
-			arg.Start, err = refs.ParseFeedRef(who)
+			startRef, err := refs.ParseFeedRef(who)
 			if err != nil {
 				return err
 			}
+			arg.Start = &startRef
 		}
 
 		client, err := newClient(ctx)

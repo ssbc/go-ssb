@@ -50,8 +50,8 @@ var aliasRegisterCmd = &cli.Command{
 
 		var reg aliases.Registration
 		reg.Alias = alias
-		reg.UserID = *localKey.Id
-		reg.RoomID = *roomID
+		reg.UserID = localKey.Id
+		reg.RoomID = roomID
 
 		conf := reg.Sign(localKey.Pair.Secret)
 		sig := base64.StdEncoding.EncodeToString(conf.Signature) + ".sig.ed25519"

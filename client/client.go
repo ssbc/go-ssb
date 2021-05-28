@@ -179,11 +179,11 @@ func (c Client) Close() error {
 	return nil
 }
 
-func (c Client) Whoami() (*refs.FeedRef, error) {
+func (c Client) Whoami() (refs.FeedRef, error) {
 	var resp message.WhoamiReply
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"whoami"})
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: whoami failed: %w", err)
+		return refs.FeedRef{}, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
 	return resp.ID, nil
 }

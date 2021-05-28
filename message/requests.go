@@ -10,7 +10,7 @@ import (
 )
 
 type WhoamiReply struct {
-	ID *refs.FeedRef `json:"id"`
+	ID refs.FeedRef `json:"id"`
 }
 
 func NewCreateHistArgsFromMap(argMap map[string]interface{}) (*CreateHistArgs, error) {

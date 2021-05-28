@@ -29,7 +29,7 @@ var streamFlags = []cli.Flag{
 }
 
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
-	var ref *refs.FeedRef
+	var ref refs.FeedRef
 	if id := ctx.String("id"); id != "" {
 		var err error
 		ref, err = refs.ParseFeedRef(id)
