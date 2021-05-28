@@ -3,10 +3,9 @@
 package network
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"go.cryptoscope.co/muxrpc/v2"
@@ -118,56 +117,63 @@ func (newConn handleNewConnection) HandleConnect(ctx context.Context, edp muxrpc
 	peerLogger := kitlog.With(newConn.logger, "peer", remote.ShortRef())
 
 	// check tunnel.isRoom
-	var yes bool
-	err = edp.Async(ctx, &yes, muxrpc.TypeJSON, muxrpc.Method{"tunnel", "isRoom"})
-	if err != nil || !yes {
+	var meta interface{}
+	err = edp.Async(ctx, &meta, muxrpc.TypeJSON, muxrpc.Method{"room", "metadata"})
+	yes, isBool := meta.(bool)
+	if err != nil || (isBool && yes == false) {
 		return
 	}
 
-	var val interface{}
-	err = edp.Async(ctx, &val, muxrpc.TypeJSON, muxrpc.Method{"tunnel", "announce"})
-	if err != nil {
-		level.Warn(peerLogger).Log("event", "failed to announce", "err", err)
-		return
-	}
+	level.Info(peerLogger).Log("event", "room connection", "meta", fmt.Sprintf("%+v", meta))
 
 	// open member updates stream
-	src, err := edp.Source(ctx, muxrpc.TypeJSON, muxrpc.Method{"tunnel", "endpoints"})
+	src, err := edp.Source(ctx, muxrpc.TypeJSON, muxrpc.Method{"room", "attendants"})
 	if err != nil {
-		level.Warn(peerLogger).Log("event", "failed to open endpoints stream", "err", err)
+		level.Warn(peerLogger).Log("event", "failed to open attendants stream", "err", err)
 		return
 	}
 
-	// hash of endpoints to deduplicate updates
-	var lastUpdate []byte
+	// fist object: initial state
+	if !src.Next(ctx) {
+		level.Warn(peerLogger).Log("event", "failed to receive first message", "err", src.Err())
+		return
+	}
 
-	// stream updates
+	stateBytes, err := src.Bytes()
+	if err != nil {
+		level.Warn(peerLogger).Log("event", "failed to receive initial state bytes", "err", err, "src", src.Err())
+		return
+	}
+
+	var initState struct {
+		Type string
+		IDs  []refs.FeedRef
+	}
+	err = json.Unmarshal(stateBytes, &initState)
+	if err != nil {
+		level.Warn(peerLogger).Log("event", "failed to decode initial state", "err", err)
+		return
+	}
+	for i, f := range initState.IDs {
+		level.Info(peerLogger).Log("i", i, "attendant", f.Ref())
+	}
+
+	// stream further updates
 	for src.Next(ctx) {
 
-		var (
-			feeds []refs.FeedRef
-			h     = sha256.New()
-		)
+		var stateChange struct {
+			Type string       `json:"type"`
+			ID   refs.FeedRef `json:"id"`
+		}
 
 		err := src.Reader(func(rd io.Reader) error {
-			// wrap the mux stream and write everything to the hasher, too
-			rd = io.TeeReader(rd, h)
-			return json.NewDecoder(rd).Decode(&feeds)
+			return json.NewDecoder(rd).Decode(&stateChange)
 		})
 		if err != nil {
 			level.Warn(peerLogger).Log("event", "failed to read from endpoints", "err", err)
 			break
 		}
-
-		thisUpdate := h.Sum(nil)
-		if !bytes.Equal(lastUpdate, thisUpdate) {
-			lastUpdate = thisUpdate
-			level.Info(peerLogger).Log("event", "endpoints changed", "edps", len(feeds))
-
-			for _, f := range feeds {
-				level.Info(peerLogger).Log("endpoint", f.Ref())
-			}
-		}
+		level.Info(peerLogger).Log(stateChange.Type, stateChange.ID.ShortRef())
 	}
 
 	if err := src.Err(); err != nil {
