@@ -28,13 +28,13 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.2.6
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
-	go.cryptoscope.co/margaret v0.2.0
+	go.cryptoscope.co/margaret v0.2.1-0.20210528083027-be297e72b46b
 	go.cryptoscope.co/muxrpc/v2 v2.0.5
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
 	go.cryptoscope.co/secretstream v1.2.2
 	go.mindeco.de v1.12.0
-	go.mindeco.de/ssb-gabbygrove v0.1.7-0.20200618115102-169cb68d2398
+	go.mindeco.de/ssb-gabbygrove v0.2.0
 	go.mindeco.de/ssb-multiserver v0.1.2
 	go.mindeco.de/ssb-refs v0.3.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
@@ -53,13 +53,3 @@ require (
 // Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
-
-replace go.mindeco.de/ssb-refs => /home/cryptix/go-repos/ssb-refs
-
-replace go.mindeco.de/ssb-multiserver => /home/cryptix/go-repos/ssb-multiserver
-
-replace go.mindeco.de/ssb-gabbygrove => /home/cryptix/go-repos/gabbygrove
-
-replace go.mindeco.de => /home/cryptix/go-repos/go-toolbelt
-
-replace go.cryptoscope.co/margaret => /home/cryptix/go-repos/margaret
