@@ -7,9 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	bmap "github.com/dgraph-io/sroar"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
@@ -17,6 +16,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
@@ -38,6 +38,8 @@ type Plugin struct {
 	res *repo.SequenceResolver
 
 	h muxrpc.Handler
+
+	info log.Logger
 }
 
 func NewByTypePlugin(
@@ -46,8 +48,7 @@ func NewByTypePlugin(
 	ml *roaring.MultiLog,
 	pl *roaring.MultiLog,
 	pm *private.Manager,
-	// TODO[major/pgroups] fix storage and resumption
-	// res *repo.SequenceResolver,
+	res *repo.SequenceResolver,
 	isSelf ssb.Authorizer,
 ) ssb.Plugin {
 	plug := &Plugin{
@@ -58,10 +59,11 @@ func NewByTypePlugin(
 
 		unboxer: pm,
 
-		// TODO[major/pgroups] fix storage and resumption
-		// res: res,
+		res: res,
 
 		isSelf: isSelf,
+
+		info: log,
 	}
 
 	h := typemux.New(log)
@@ -76,8 +78,12 @@ func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
 func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink) error {
-	var qry message.MessagesByTypeArgs
-	var args []message.MessagesByTypeArgs
+	var (
+		start  = time.Now()
+		logger = log.With(g.info, "method", "messagesByType")
+		qry    message.MessagesByTypeArgs
+		args   []message.MessagesByTypeArgs
+	)
 
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
@@ -123,7 +129,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	snk = newSinkCounter(&cnt, snk)
 
 	idxAddr := librarian.Addr("string:" + qry.Type)
-	if true { // TODO[major/pgroups] fix storage and resumption
+	if qry.Live {
 		if qry.Private {
 			return fmt.Errorf("TODO: fix live && private")
 		}
@@ -150,9 +156,6 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		return snk.Close()
 	}
-	// TODO[major/pgroups] fix storage and resumption
-	// TODO: fix seq resolver filling hiccups
-	return snk.Close()
 
 	/* TODO: i'm skipping a fairly big refactor here to find out what works first.
 	   ideallly the live and not-live code would just be the same, somehow shoving it into Query(...).
@@ -163,8 +166,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	// not live
 	typed, err := g.types.LoadInternalBitmap(idxAddr)
 	if err != nil {
+		level.Warn(g.info).Log("event", "failed to load type bitmap", "err", err)
 		return snk.Close()
-		//		return errors.Wrap(err, "failed to load typed log")
 	}
 
 	if qry.Private {
@@ -196,8 +199,6 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		qry.Lt = math.MaxInt64
 	}
 
-	spew.Dump(qry)
-
 	var filter = func(ts int64) bool {
 		isGreater := ts > qry.Gt
 		isSmaller := ts < qry.Lt
@@ -209,18 +210,20 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		return fmt.Errorf("failed to filter bitmap: %w", err)
 	}
 
+	level.Info(logger).Log("event", "sorted seqs", "n", len(sort), "after", time.Since(start))
+
 	for _, res := range sort {
 		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
 		if err != nil {
 			if margaret.IsErrNulled(err) {
 				continue
 			}
-			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err)
+			level.Warn(logger).Log("event", " failed to get seq", "seq", res.Seq, "err", err)
 			continue
 		}
 
 		if err := snk.Pour(ctx, v); err != nil {
-			fmt.Fprintln(os.Stderr, "messagesByType failed send:", res.Seq, " with:", err)
+			level.Warn(logger).Log("event", "messagesByType failed to send", "seq", res.Seq, "err", err)
 			break
 		}
 
@@ -231,7 +234,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 			}
 		}
 	}
-	fmt.Println("streamed", cnt, " for type:", qry.Type)
+
+	level.Info(logger).Log("event", "messages streamed", "cnt", cnt, "type", qry.Type)
 	return snk.Close()
 }
 

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
@@ -22,6 +22,8 @@ import (
 // (log) Fetch messages ordered by the time received.
 // log [--live] [--gt ts] [--lt ts] [--reverse]  [--keys] [--limit n]
 type sortedPlug struct {
+	info log.Logger
+
 	root margaret.Log
 	res  *repo.SequenceResolver
 
@@ -32,6 +34,7 @@ func NewSortedStream(log log.Logger, rootLog margaret.Log, res *repo.SequenceRes
 	plug := &sortedPlug{
 		root: rootLog,
 		res:  res,
+		info: log,
 	}
 
 	h := typemux.New(log)
@@ -48,16 +51,20 @@ func (sortedPlug) Method() muxrpc.Method      { return muxrpc.Method{"createFeed
 func (lt sortedPlug) Handler() muxrpc.Handler { return lt.h }
 
 func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
-	start := time.Now()
+	var (
+		logger = log.With(g.info, "method", "messagesByType")
+		start  = time.Now()
+		args   []json.RawMessage
+	)
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return fmt.Errorf("bad request data: %w", err)
+	}
 	var qry message.CreateLogArgs
-	if len(req.Args()) == 1 {
-		var args []message.CreateLogArgs
-		err := json.Unmarshal(req.RawArgs, &args)
+	if len(args) == 1 {
+		err := json.Unmarshal(args[0], qry)
 		if err != nil {
 			return fmt.Errorf("bad request data: %w", err)
-		}
-		if len(args) == 1 {
-			qry = args[0]
 		}
 	} else {
 		// Defaults for no arguments
@@ -78,23 +85,26 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 		isSmaller := ts < qry.Lt
 		return isGreater && isSmaller
 	}, true)
-
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "createFeedStream sorted seqs:", len(sortedSeqs), "after:", time.Since(start))
+	level.Info(logger).Log("event", "sorted seqs", "n", len(sortedSeqs), "after", time.Since(start))
 
 	toJSON := transform.NewKeyValueWrapper(snk, qry.Keys)
+
+	// wrap it into a counter for debugging
+	var cnt int
+	sender := newSinkCounter(&cnt, toJSON)
 
 	for _, res := range sortedSeqs {
 		v, err := g.root.Get(margaret.BaseSeq(res.Seq))
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "createFeedStream failed to get seq:", res.Seq, " with:", err, "after:", time.Since(start))
+			level.Warn(logger).Log("event", "failed to get seq", "seq", res.Seq, "err", err)
 			continue
 		}
 
-		if err := toJSON.Pour(ctx, v); err != nil {
-			fmt.Fprintln(os.Stderr, "createFeedStream failed send:", res.Seq, " with:", err, "after:", time.Since(start))
+		if err := sender.Pour(ctx, v); err != nil {
+			level.Warn(logger).Log("event", "failed to send", "seq", res.Seq, "err", err)
 			break
 		}
 
@@ -105,6 +115,6 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 			}
 		}
 	}
-	fmt.Fprintln(os.Stderr, "createFeedStream closed after:", time.Since(start))
+	level.Info(logger).Log("event", "messages streamed", "cnt", cnt)
 	return snk.Close()
 }
