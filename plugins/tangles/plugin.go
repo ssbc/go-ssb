@@ -9,15 +9,13 @@ import (
 	"os"
 	"sort"
 
-	"github.com/cryptix/go/encodedTime"
 	bmap "github.com/dgraph-io/sroar"
-	"github.com/go-kit/kit/log"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/encodedTime"
 	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
@@ -186,7 +184,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 
 	// get root message
 	var tps []refs.TangledPost
-	root, err := g.getter.Get(*qry.Root)
+	root, err := g.getter.Get(qry.Root)
 	if err != nil {
 		return err
 	}
@@ -196,8 +194,8 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		return fmt.Errorf("failed to unpack message %s: %w", root.Key().Ref(), err)
 	}
 	tp.TheKey = root.Key()
-	tp.Value.Author = *root.Author()
-	tp.Value.Sequence = margaret.BaseSeq(root.Seq())
+	tp.Value.Author = root.Author()
+	tp.Value.Sequence = root.Seq()
 	tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
 	tps = append(tps, tp)
 
@@ -230,8 +228,8 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			return fmt.Errorf("failed to unpack message %s: %w", msg.Key().Ref(), err)
 		}
 		tp.TheKey = msg.Key()
-		tp.Value.Author = *msg.Author()
-		tp.Value.Sequence = margaret.BaseSeq(msg.Seq())
+		tp.Value.Author = msg.Author()
+		tp.Value.Sequence = msg.Seq()
 		tp.Value.Timestamp = encodedTime.Millisecs(msg.Claimed())
 
 		tps = append(tps, tp)
@@ -269,7 +267,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 }
 
 type tangledPost struct {
-	TheKey *refs.MessageRef `json:"key"`
+	TheKey refs.MessageRef `json:"key"`
 	Value  struct {
 		refs.Value
 		// substitute Content with refs.Post
@@ -277,18 +275,18 @@ type tangledPost struct {
 	} `json:"value"`
 }
 
-func (tm tangledPost) Key() *refs.MessageRef {
+func (tm tangledPost) Key() refs.MessageRef {
 	return tm.TheKey
 }
 
-func (tm tangledPost) Tangle(name string) (*refs.MessageRef, refs.MessageRefs) {
+func (tm tangledPost) Tangle(name string) (refs.MessageRef, refs.MessageRefs) {
 	if name == "" {
-		return tm.Value.Content.Root, tm.Value.Content.Branch
+		return *tm.Value.Content.Root, tm.Value.Content.Branch
 	}
 
 	tp, has := tm.Value.Content.Tangles[name]
 	if !has {
-		return nil, nil
+		return refs.MessageRef{}, nil
 	}
 
 	return tp.Root, tp.Previous
