@@ -4,33 +4,42 @@ package sbot
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v3"
+	"github.com/go-kit/kit/metrics"
 	"github.com/rs/cors"
-	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/netwrap"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/multicloser"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
@@ -55,102 +64,175 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (sbot *Sbot) Replicate(r refs.FeedRef) {
-	slog, err := sbot.Users.Get(storedrefs.Feed(r))
-	if err != nil {
-		panic(err)
-	}
+// Sbot is the database and replication server
+type Sbot struct {
+	info kitlog.Logger
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	// TODO: this thing is way to big right now
+	// because it's options and the resulting thing in one
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
-	})
+	// lateInit are options that need to be applied after others (like plugins that depend on keypairs)
+	lateInit []Option
 
-	sbot.Replicator.Replicate(r)
+	rootCtx context.Context
+	// Shutdown needs to be called to shutdown indexing
+	Shutdown  context.CancelFunc
+	closers   multicloser.MultiCloser
+	idxDone   errgroup.Group
+	idxInSync sync.WaitGroup
+
+	closed   bool
+	closedMu sync.Mutex
+	closeErr error
+
+	promisc  bool
+	hopCount uint
+
+	disableEBT                   bool
+	disableLegacyLiveReplication bool
+
+	Network ssb.Network
+	// TODO: these should all be options that are applied on the network construction...
+	disableNetwork     bool
+	appKey             []byte
+	listenAddr         net.Addr
+	dialer             netwrap.Dialer
+	edpWrapper         MuxrpcEndpointWrapper
+	networkConnTracker ssb.ConnTracker
+	preSecureWrappers  []netwrap.ConnWrapper
+	postSecureWrappers []netwrap.ConnWrapper
+
+	public ssb.PluginManager
+	master ssb.PluginManager
+
+	authorizer ssb.Authorizer
+
+	enableAdverts   bool
+	enableDiscovery bool
+
+	websocketAddr string
+
+	repoPath string
+	KeyPair  ssb.KeyPair
+
+	Groups *private.Manager
+
+	ReceiveLog multimsg.AlterableLog // the stream of messages as they arrived
+
+	SeqResolver *repo.SequenceResolver
+
+	PublishLog     ssb.Publisher
+	signHMACsecret *[32]byte
+
+	// hardcoded default indexes
+	Users   *roaring.MultiLog // one sublog per feed
+	Private *roaring.MultiLog // one sublog per keypair
+	ByType  *roaring.MultiLog // one sublog per type: ... (special cases for private messages by suffix)
+	Tangles *roaring.MultiLog // one sublog per root:%ref (actual root is in the get index)
+
+	indexStore *badger.DB
+
+	// plugin indexes
+	mlogIndicies map[string]multilog.MultiLog
+	simpleIndex  map[string]librarian.Index
+
+	liveIndexUpdates bool
+	indexStateMu     sync.Mutex
+	indexStates      map[string]string
+
+	ebtState *statematrix.StateMatrix
+
+	GraphBuilder graph.Builder
+
+	BlobStore   ssb.BlobStore
+	WantManager ssb.WantManager
+
+	// TODO: wrap better
+	eventCounter metrics.Counter
+	systemGauge  metrics.Gauge
+	latency      metrics.Histogram
+
+	ssb.Replicator
 }
 
-func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
-	slog, err := sbot.Users.Get(storedrefs.Feed(r))
-	if err != nil {
-		panic(err)
-	}
+// New creates an sbot instance using the passed options to configure it.
+func New(fopts ...Option) (*Sbot, error) {
+	var s = new(Sbot)
+	s.liveIndexUpdates = true
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	s.public = ssb.NewPluginManager()
+	s.master = ssb.NewPluginManager()
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
-	})
+	s.mlogIndicies = make(map[string]multilog.MultiLog)
+	s.simpleIndex = make(map[string]librarian.Index)
+	s.indexStates = make(map[string]string)
 
-	sbot.Replicator.DontReplicate(r)
-}
+	s.disableLegacyLiveReplication = true
 
-// ShutdownContext returns a context that returns ssb.ErrShuttingDown when canceld.
-// The server internals use this error to cleanly shut down index processing.
-func ShutdownContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	return ctxutils.WithError(ctx, ssb.ErrShuttingDown)
-}
-
-// Close closes the bot by stopping network connections and closing the internal databases
-func (s *Sbot) Close() error {
-	s.closedMu.Lock()
-	defer s.closedMu.Unlock()
-
-	if s.closed {
-		return s.closeErr
-	}
-
-	closeEvt := kitlog.With(s.info, "event", "sbot closing")
-	s.closed = true
-
-	if s.Network != nil {
-		if err := s.Network.Close(); err != nil {
-			s.closeErr = fmt.Errorf("sbot: failed to close own network node: %w", err)
-			return s.closeErr
+	for i, opt := range fopts {
+		err := opt(s)
+		if err != nil {
+			return nil, fmt.Errorf("error applying option #%d: %w", i, err)
 		}
-		s.Network.GetConnTracker().CloseAll()
-		level.Debug(closeEvt).Log("msg", "connections closed")
 	}
 
-	if err := s.idxDone.Wait(); err != nil {
-		s.closeErr = fmt.Errorf("sbot: index group shutdown failed: %w", err)
-		return s.closeErr
-	}
-	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
+	if s.repoPath == "" {
+		u, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("error getting info on current user: %w", err)
+		}
 
-	if err := s.closers.Close(); err != nil {
-		s.closeErr = err
-		return s.closeErr
+		s.repoPath = filepath.Join(u.HomeDir, ".ssb-go")
 	}
 
-	level.Info(closeEvt).Log("msg", "closers closed")
-	return nil
-}
+	if s.appKey == nil {
+		ak, err := base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode default appkey: %w", err)
+		}
+		s.appKey = ak
+	}
 
-// is called by New() in options, sorry
-func initSbot(s *Sbot) (*Sbot, error) {
+	if s.dialer == nil {
+		s.dialer = netwrap.Dial
+	}
+
+	if s.listenAddr == nil {
+		s.listenAddr = &net.TCPAddr{Port: network.DefaultPort}
+	}
+
+	if s.info == nil {
+		logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stdout))
+		logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
+		s.info = logger
+	}
 	log := s.info
-	var err error
+
+	if s.rootCtx == nil {
+		s.rootCtx, s.Shutdown = ShutdownContext(context.Background())
+	}
 	ctx := s.rootCtx
 
 	r := repo.New(s.repoPath)
 
-	// optionize?!
+	var err error
+	if len(s.KeyPair.Pair.Secret) == 0 {
+		s.KeyPair, err = repo.DefaultKeyPair(r)
+		if err != nil {
+			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
+		}
+	}
+
+	// TODO: optionize
 	s.ReceiveLog, err = repo.OpenLog(r)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open rootlog: %w", err)
 	}
 	s.closers.AddCloser(s.ReceiveLog.(io.Closer))
 
-	if s.BlobStore == nil { // load default, local file blob store
+	// if not configured
+	if s.BlobStore == nil {
+		// load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to open blob store: %w", err)
@@ -720,6 +802,42 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	return s, nil
 }
 
+// Close closes the bot by stopping network connections and closing the internal databases
+func (s *Sbot) Close() error {
+	s.closedMu.Lock()
+	defer s.closedMu.Unlock()
+
+	if s.closed {
+		return s.closeErr
+	}
+
+	closeEvt := kitlog.With(s.info, "event", "sbot closing")
+	s.closed = true
+
+	if s.Network != nil {
+		if err := s.Network.Close(); err != nil {
+			s.closeErr = fmt.Errorf("sbot: failed to close own network node: %w", err)
+			return s.closeErr
+		}
+		s.Network.GetConnTracker().CloseAll()
+		level.Debug(closeEvt).Log("msg", "connections closed")
+	}
+
+	if err := s.idxDone.Wait(); err != nil {
+		s.closeErr = fmt.Errorf("sbot: index group shutdown failed: %w", err)
+		return s.closeErr
+	}
+	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
+
+	if err := s.closers.Close(); err != nil {
+		s.closeErr = err
+		return s.closeErr
+	}
+
+	level.Info(closeEvt).Log("msg", "closers closed")
+	return nil
+}
+
 type selfChecker struct {
 	me refs.FeedRef
 }
@@ -729,26 +847,4 @@ func (sc selfChecker) Authorize(remote refs.FeedRef) error {
 		return nil
 	}
 	return fmt.Errorf("not authorized")
-}
-
-func (s *Sbot) CurrentSequence(feed refs.FeedRef) (ssb.Note, error) {
-	l, err := s.Users.Get(storedrefs.Feed(feed))
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
-	}
-	sv, err := l.Seq().Value()
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
-	}
-
-	currSeq := sv.(margaret.BaseSeq)
-	if currSeq != -1 {
-		currSeq++
-	}
-
-	return ssb.Note{
-		Seq:       currSeq.Seq(),
-		Replicate: true,
-		Receive:   true, // TODO: not exactly... we might be getting this feed from somewhre else
-	}, nil
 }

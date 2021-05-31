@@ -9,6 +9,8 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb/internal/statematrix"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
@@ -17,6 +19,44 @@ import (
 )
 
 var _ ssb.Replicator = (*Sbot)(nil)
+
+func (sbot *Sbot) Replicate(r refs.FeedRef) {
+	slog, err := sbot.Users.Get(storedrefs.Feed(r))
+	if err != nil {
+		panic(err)
+	}
+
+	l := int64(-1)
+	v, err := slog.Seq().Value()
+	if err == nil {
+		l = v.(margaret.Seq).Seq()
+	}
+
+	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
+	})
+
+	sbot.Replicator.Replicate(r)
+}
+
+func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
+	slog, err := sbot.Users.Get(storedrefs.Feed(r))
+	if err != nil {
+		panic(err)
+	}
+
+	l := int64(-1)
+	v, err := slog.Seq().Value()
+	if err == nil {
+		l = v.(margaret.Seq).Seq()
+	}
+
+	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
+	})
+
+	sbot.Replicator.DontReplicate(r)
+}
 
 type graphReplicator struct {
 	bot     *Sbot
