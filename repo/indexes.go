@@ -8,60 +8,15 @@ import (
 	"regexp"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
-	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
-	"modernc.org/kv"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 )
 
 const PrefixIndex = "indexes"
 
-func OpenIndex(r Interface, name string, f func(librarian.SeqSetterIndex) librarian.SinkIndex) (librarian.Index, librarian.SinkIndex, error) {
-	pth := r.GetPath(PrefixIndex, name, "mkv")
-	err := os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: error making index directory: %w", err)
-	}
-
-	db, err := OpenMKV(pth)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
-	}
-
-	idx := libmkv.NewIndex(db, margaret.BaseSeq(0))
-	return idx, f(idx), nil
-}
-
-func OpenMKV(pth string) (*kv.DB, error) {
-	opts := &kv.Options{}
-	os.MkdirAll(pth, 0700)
-	dbname := filepath.Join(pth, "idx.mkv")
-	var db *kv.DB
-	_, err := os.Stat(dbname)
-	if os.IsNotExist(err) {
-		db, err = kv.Create(dbname, opts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create mkv: %w", err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to stat path location: %w", err)
-	} else {
-		db, err = kv.Open(dbname, opts)
-		if err != nil {
-
-			if !isLockFileExistsErr(err) {
-				return nil, err
-			}
-			if err := cleanupLockFiles(pth); err != nil {
-				return nil, fmt.Errorf("failed to recover lockfiles: %w", err)
-			}
-			db, err = kv.Open(dbname, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open mkv: %w", err)
-			}
-		}
-	}
-	return db, nil
+func OpenIndex(db *badger.DB, name string, f func(librarian.SeqSetterIndex) librarian.SinkIndex) (librarian.Index, librarian.SinkIndex, error) {
+	seqSetter := libbadger.NewIndexWithKeyPrefix(db, 0, []byte("index"+name))
+	return seqSetter, f(seqSetter), nil
 }
 
 type LibrarianIndexCreater func(*badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex)

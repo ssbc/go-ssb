@@ -91,6 +91,7 @@ func New(
 	publish ssb.Publisher,
 	rlog margaret.Log,
 ) (*Service, error) {
+
 	kv, err := repo.OpenMKV(r.GetPath("plugin", "legacyinvites"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key-value database: %w", err)

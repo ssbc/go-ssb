@@ -375,7 +375,7 @@ func (sr *SequenceResolver) Load() (int64, error) {
 }
 
 func (sr *SequenceResolver) indexPath(name string) string {
-	return sr.repo.GetPath(PrefixMultiLog, "combined", "seqmaps", name)
+	return sr.repo.GetPath(PrefixIndex, "seqmaps", name)
 }
 
 // Serialize does the reverse from Load. It saves the three domains to disk.

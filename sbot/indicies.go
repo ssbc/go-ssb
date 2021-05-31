@@ -63,7 +63,7 @@ func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 
 func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
 	return func(s *Sbot) error {
-		mlog, updateSink, err := fn(repo.New(s.repoPath))
+		mlog, updateSink, err := fn(s.indexStore)
 		if err != nil {
 			return fmt.Errorf("sbot/index: failed to open idx %s: %w", name, err)
 		}
@@ -77,7 +77,7 @@ func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
 
 func MountSimpleIndex(name string, fn repo.MakeSimpleIndex) Option {
 	return func(s *Sbot) error {
-		idx, updateSink, err := fn(repo.New(s.repoPath))
+		idx, updateSink, err := fn(s.indexStore)
 		if err != nil {
 			return fmt.Errorf("sbot/index: failed to open idx %s: %w", name, err)
 		}

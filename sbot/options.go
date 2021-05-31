@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/go-kit/kit/metrics"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
@@ -103,6 +104,8 @@ type Sbot struct {
 	Private *roaring.MultiLog // one sublog per keypair
 	ByType  *roaring.MultiLog // one sublog per type: ... (special cases for private messages by suffix)
 	Tangles *roaring.MultiLog // one sublog per root:%ref (actual root is in the get index)
+
+	indexStore *badger.DB
 
 	// plugin indexes
 	mlogIndicies map[string]multilog.MultiLog

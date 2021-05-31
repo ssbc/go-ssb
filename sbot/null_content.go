@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
@@ -120,13 +121,13 @@ func (cdr *dropContentTrigger) consume() {
 	}
 }
 
-func (dcr *dropContentTrigger) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
+func (dcr *dropContentTrigger) MakeSimpleIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex, error) {
 
 	// TODO: currently the locking of margaret/offset doesn't allow us to get previous messages while being in an index update
 	// this is realized as an luigi.Broadcast and the current bases of the index update mechanism
 	dcr.check = make(chan *triggerEvent, 10)
 
-	idx, snk, err := repo.OpenIndex(r, FolderNameDelete, dcr.idxupdate)
+	idx, snk, err := repo.OpenIndex(db, FolderNameDelete, dcr.idxupdate)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting dcr trigger index: %w", err)
 	}

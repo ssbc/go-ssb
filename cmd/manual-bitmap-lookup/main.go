@@ -7,12 +7,12 @@ import (
 	"os"
 	"sort"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/dgraph-io/sroar"
 	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/margaret/multilog/roaring/fs"
+	"go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/margaret/offset2"
 	"go.mindeco.de/logging"
 
@@ -32,7 +32,7 @@ func main() {
 
 	dir := os.Args[1]
 
-	mlog, err := fs.NewMultiLog(dir)
+	mlog, err := badger.NewStandalone(dir)
 	check(errors.Wrap(err, "error opening database"))
 
 	addrs, err := mlog.List()
@@ -46,7 +46,7 @@ func main() {
 
 		sorted[i] = countedAddr{
 			addr: a,
-			c:    bmap.GetCardinality(),
+			c:    uint64(bmap.GetCardinality()),
 			bmap: bmap,
 		}
 
@@ -73,7 +73,7 @@ func main() {
 			log, err := offset2.Open(logp, multimsg.MargaretCodec{})
 			check(err)
 
-			it := bmap.Iterator()
+			it := bmap.NewIterator()
 			for it.HasNext() {
 				seq := margaret.BaseSeq(it.Next())
 				sv, err := log.Get(seq)
@@ -93,7 +93,7 @@ func main() {
 type countedAddr struct {
 	addr librarian.Addr
 	c    uint64
-	bmap *roaring.Bitmap
+	bmap *sroar.Bitmap
 }
 
 type countedAddrs []countedAddr

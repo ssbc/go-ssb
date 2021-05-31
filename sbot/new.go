@@ -15,7 +15,7 @@ import (
 	"github.com/rs/cors"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
-	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
@@ -40,7 +40,6 @@ import (
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	"go.cryptoscope.co/ssb/plugins/groups"
-	"go.cryptoscope.co/ssb/plugins/legacyinvites"
 	"go.cryptoscope.co/ssb/plugins/partial"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
 	"go.cryptoscope.co/ssb/plugins/publish"
@@ -193,7 +192,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.AddCloser(idxTimestamps)
 	s.serveIndex("timestamps", idxTimestamps)
 
-	mlogStore, err := repo.OpenBadgerDB(r.GetPath(repo.PrefixMultiLog, "shared-badger"))
+	s.indexStore, err = repo.OpenBadgerDB(r.GetPath(repo.PrefixMultiLog, "shared-badger"))
 	if err != nil {
 		return nil, err
 	}
@@ -207,9 +206,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		{multilogs.IndexNamePrivates, &s.Private},
 		{"msgTypes", &s.ByType},
 		{"tangles", &s.Tangles},
+		// TODO: channels
+		// TODO: mentions
 	}
 	for _, index := range mlogs {
-		mlog, err := multibadger.NewShared(mlogStore, []byte("mlog-"+index.Name))
+		mlog, err := multibadger.NewShared(s.indexStore, []byte("mlog-"+index.Name))
 		if err != nil {
 			return nil, err
 		}
@@ -232,37 +233,38 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 
 	//
-	getIdx, updateSink := indexes.OpenGet(mlogStore)
+	getIdx, updateSink := indexes.OpenGet(s.indexStore)
 	s.closers.AddCloser(updateSink)
 	s.serveIndex("get", updateSink)
 	s.simpleIndex["get"] = getIdx
 
 	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
+	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "badger")
 	err = os.MkdirAll(pth, 0700)
 	if err != nil {
 		return nil, fmt.Errorf("openIndex: error making index directory: %w", err)
 	}
 
-	db, err := repo.OpenMKV(pth)
+	keysDB, err := repo.OpenBadgerDB(pth)
 	if err != nil {
 		return nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
 	}
 
-	idx := libmkv.NewIndex(db, keys.Recipients{})
-	ks := &keys.Store{
-		Index: idx,
+	idxKeys := libbadger.NewIndex(keysDB, keys.Recipients{})
+	keysStore := &keys.Store{
+		Index: idxKeys,
 	}
-	s.closers.AddCloser(idx)
+	s.closers.AddCloser(idxKeys)
 
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, keysStore, s.ReceiveLog, s, s.Tangles)
 
-	groupsHelperMlog, err := multibadger.NewShared(mlogStore, []byte("group-member-helper"))
+	groupsHelperMlog, err := multibadger.NewShared(s.indexStore, []byte("group-member-helper"))
 	if err != nil {
 		return nil, err
 	}
 	s.closers.AddCloser(groupsHelperMlog)
 
+	// the big combined index of most the things
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
@@ -282,7 +284,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.AddCloser(combIdx)
 
 	// groups re-indexing
-	members, membersSnk := multilogs.NewMembershipIndex(mlogStore, s.KeyPair.Id, s.Groups, combIdx)
+	members, membersSnk := multilogs.NewMembershipIndex(s.indexStore, s.KeyPair.Id, s.Groups, combIdx)
 	s.closers.AddCloser(members)
 	s.closers.AddCloser(membersSnk)
 
@@ -326,7 +328,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
 		}
 	} else {
-		gb, seqSetter, updateIdx := indexes.OpenContacts(kitlog.With(log, "module", "graph"), mlogStore)
+		gb, seqSetter, updateIdx := indexes.OpenContacts(kitlog.With(log, "module", "graph"), s.indexStore)
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
 		s.closers.AddCloser(seqSetter)
@@ -341,13 +343,13 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
-	_, aboutSnk := namesPlug.OpenSharedIndex(mlogStore)
+	_, aboutSnk := namesPlug.OpenSharedIndex(s.indexStore)
 
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
 
-	// need to close mlogStore _after_ the all the indexes closed and flushed
-	s.closers.AddCloser(mlogStore)
+	// need to close s.indexStore _after_ the all the indexes closed and flushed
+	s.closers.AddCloser(s.indexStore)
 
 	// which feeds to replicate
 	if s.Replicator == nil {
@@ -412,8 +414,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// 	}
 	// 	s.serveIndex(ctx, "contacts", peerServ)
 	// }
-
-	var inviteService *legacyinvites.Service
+	// var inviteService *legacyinvites.Service
 
 	// muxrpc handler creation and authoratization decider
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
@@ -435,12 +436,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		// 	}
 		// }
 
-		if inviteService != nil {
-			err := inviteService.Authorize(remote)
-			if err == nil {
-				return inviteService.GuestHandler(), nil
-			}
-		}
+		// if inviteService != nil {
+		// 	err := inviteService.Authorize(remote)
+		// 	if err == nil {
+		// 		return inviteService.GuestHandler(), nil
+		// 	}
+		// }
 
 		if s.promisc {
 			return s.public.MakeHandler(conn)
@@ -696,18 +697,18 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}))
 	networkNode.HandleHTTP(h)
 
-	inviteService, err = legacyinvites.New(
-		kitlog.With(log, "unit", "legacyInvites"),
-		r,
-		s.KeyPair.Id,
-		networkNode,
-		s.PublishLog,
-		s.ReceiveLog,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
-	}
-	s.master.Register(inviteService.MasterPlugin())
+	// inviteService, err = legacyinvites.New(
+	// 	kitlog.With(log, "unit", "legacyInvites"),
+	// 	r,
+	// 	s.KeyPair.Id,
+	// 	networkNode,
+	// 	s.PublishLog,
+	// 	s.ReceiveLog,
+	// )
+	// if err != nil {
+	// 	return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
+	// }
+	// s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
