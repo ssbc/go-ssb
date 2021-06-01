@@ -17,5 +17,5 @@ func NewPlug(i logging.Interface, n ssb.Network, r ssb.Replicator) ssb.Plugin {
 }
 
 func (p connectPlug) Name() string            { return "control" }
-func (p connectPlug) Method() muxrpc.Method   { return muxrpc.Method{"ctrl"} }
+func (p connectPlug) Method() muxrpc.Method   { return muxrpc.Method{"conn"} }
 func (p connectPlug) Handler() muxrpc.Handler { return p.h }

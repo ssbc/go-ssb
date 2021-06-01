@@ -40,13 +40,13 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 
 	mux := typemux.New(i)
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "dialViaRoom"}, typemux.AsyncFunc(h.dialViaRoom))
+	mux.RegisterAsync(muxrpc.Method{"conn", "dialViaRoom"}, typemux.AsyncFunc(h.dialViaRoom))
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, typemux.AsyncFunc(h.connect))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, typemux.AsyncFunc(h.disconnect))
+	mux.RegisterAsync(muxrpc.Method{"conn", "connect"}, typemux.AsyncFunc(h.connect))
+	mux.RegisterAsync(muxrpc.Method{"conn", "disconnect"}, typemux.AsyncFunc(h.disconnect))
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "replicate"}, unmarshalActionMap(h.replicate))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "block"}, unmarshalActionMap(h.block))
+	mux.RegisterAsync(muxrpc.Method{"conn", "replicate"}, unmarshalActionMap(h.replicate))
+	mux.RegisterAsync(muxrpc.Method{"conn", "block"}, unmarshalActionMap(h.block))
 	return &mux
 }
 
@@ -118,8 +118,27 @@ func (h *handler) block(ctx context.Context, m actionMap) error {
 }
 
 func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
-	h.node.GetConnTracker().CloseAll()
-	return "disconencted", nil
+
+	var args []refs.FeedRef
+	err := json.Unmarshal(r.RawArgs, &args)
+	if err != nil {
+		return nil, fmt.Errorf("bad argument: %w", err)
+	}
+
+	if len(args) == 0 {
+		ct := h.node.GetConnTracker()
+		ct.CloseAll()
+	} else {
+		for _, ref := range args {
+			if edp, has := h.node.GetEndpointFor(ref); has {
+				edp.Terminate()
+			}
+		}
+	}
+
+	return struct {
+		Result string `json:"result"`
+	}{"disconencted"}, nil
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -171,5 +190,7 @@ func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interfa
 		return nil, err
 	}
 
-	return "connected", nil
+	return struct {
+		Result string `json:"result"`
+	}{"connected"}, nil
 }

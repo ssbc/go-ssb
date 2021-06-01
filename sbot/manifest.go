@@ -96,7 +96,7 @@ const manifestBlob manifestHandler = `
 	"whoami": "sync",
 	"status": "sync",
 	
-	"ctrl": {
+	"conn": {
 		"replicate": "async",
 		"connect": "async",
 		"disconenct": "async",
