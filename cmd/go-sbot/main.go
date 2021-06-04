@@ -323,7 +323,7 @@ func runSbot() error {
 		return errors.Wrap(err, "could not get root log sequence number")
 	}
 	msgCount := rseq.(margaret.Seq)
-	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq()))
+	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq() + 1))
 
 	level.Info(log).Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 

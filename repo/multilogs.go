@@ -8,7 +8,6 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
-	multimkv "go.cryptoscope.co/margaret/multilog/roaring/mkv"
 )
 
 // todo: save the current state in the multilog
@@ -33,6 +32,7 @@ func OpenBadgerDB(path string) (*badger.DB, error) {
 	return badger.Open(opts)
 }
 
+/*
 func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
 	return nil, nil, fmt.Errorf("TODO: deprecate me")
 	dbPath := r.GetPath(PrefixMultiLog, name, "roaring-mkv")
@@ -67,3 +67,4 @@ func OpenMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog,
 
 	return mlog, snk, nil
 }
+*/

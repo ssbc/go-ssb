@@ -294,12 +294,9 @@ func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 	return msgRef, nil
 }
 
-func (c Client) PrivatePublish(v interface{}, recps ...*refs.FeedRef) (refs.MessageRef, error) {
+func (c Client) PrivatePublish(v interface{}, recps ...refs.FeedRef) (refs.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
-		if ref == nil {
-			return refs.MessageRef{}, fmt.Errorf("ssbClient: bad call - recp%d is nil", i)
-		}
 		recpRefs[i] = ref.Ref()
 	}
 	var resp refs.MessageRef

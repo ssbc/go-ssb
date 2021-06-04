@@ -32,16 +32,15 @@ func TestPrivatePublish(t *testing.T) {
 	t.Run("gabby", testPublishPerAlgo(refs.RefAlgoFeedGabby))
 }
 
-func testPublishPerAlgo(algo string) func(t *testing.T) {
+func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 	return func(t *testing.T) {
 		r, a := require.New(t), assert.New(t)
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
 
-		alice, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("alice"), 8)))
+		alice, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("alice"), 8)), algo)
 		r.NoError(err)
-		alice.Id.Algo = algo
 
 		srvLog := kitlog.NewNopLogger()
 		if testing.Verbose() {
@@ -76,7 +75,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 			Type string `json:"type"`
 			Msg  string
 		}
-		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.Id)
+		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, &alice.Id)
 		r.NoError(err, "failed to publish")
 		r.NotNil(ref)
 

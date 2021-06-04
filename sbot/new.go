@@ -401,7 +401,6 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
-	// LogBuilder doesn't fully work yet
 	if false {
 		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
 

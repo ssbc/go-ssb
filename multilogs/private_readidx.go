@@ -8,10 +8,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
@@ -45,8 +49,21 @@ type Private struct {
 }
 
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
-func (pr Private) OpenRoaring(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
-	return repo.OpenMultiLog(r, IndexNamePrivates, pr.update)
+func (pr Private) OpenRoaring(r repo.Interface, db *badger.DB) (multilog.MultiLog, librarian.SinkIndex, error) {
+
+	mlog, err := multibadger.NewShared(db, []byte(IndexNamePrivates))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	idxStatePath := filepath.Join(r.GetPath("multilogs", IndexNamePrivates), "idx-state")
+	idxStateFile, err := os.Create(idxStatePath) // OpenFile(|create)
+	if err != nil {
+		return nil, nil, err
+	}
+	snk := multilog.NewSink(idxStateFile, mlog, pr.update)
+
+	return mlog, snk, nil
 }
 
 func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {

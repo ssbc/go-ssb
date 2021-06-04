@@ -54,7 +54,7 @@ func TestUnixSock(t *testing.T) {
 	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
 
 	// make sure we can publish
-	var msgs []*refs.MessageRef
+	var msgs []refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
 		ref, err := c.Publish(struct {
@@ -331,7 +331,7 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 			})
 			r.NoError(err, "message live err %d errored", i)
 
-			a.Equal(msg.Key().Hash, ref.Hash, "wrong message: %d - %s", i, ref.Ref())
+			a.True(msg.Key().Equal(ref), "wrong message: %d - %s", i, ref.Ref())
 		}
 		time.Sleep(1 * time.Second)
 		a.NoError(c.Close())
@@ -477,11 +477,11 @@ func TestTangles(t *testing.T) {
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rootRef)
 
-	rep1 := testMsg{"test", "reply", 1, rootRef}
+	rep1 := testMsg{"test", "reply", 1, &rootRef}
 	rep1Ref, err := c.Publish(rep1)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep1Ref)
-	rep2 := testMsg{"test", "reply", 2, rootRef}
+	rep2 := testMsg{"test", "reply", 2, &rootRef}
 	rep2Ref, err := c.Publish(rep2)
 	r.NoError(err, "failed to call publish")
 	r.NotNil(rep2Ref)
