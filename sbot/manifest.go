@@ -84,7 +84,10 @@ const manifestBlob manifestHandler = `
 
 	"friends": {
 	  "isFollowing": "async",
-	  "isBlocking": "async"
+	  "isBlocking": "async",
+
+	  "hops": "source",
+	  "plotsvg": "async"
 	},
 
 	"tunnel": {
