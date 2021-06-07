@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.2.6
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
-	go.cryptoscope.co/margaret v0.2.1-0.20210528083027-be297e72b46b
+	go.cryptoscope.co/margaret v0.2.1-0.20210604193815-c622a8ba2526
 	go.cryptoscope.co/muxrpc/v2 v2.0.5
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
@@ -36,7 +36,7 @@ require (
 	go.mindeco.de v1.12.0
 	go.mindeco.de/ssb-gabbygrove v0.2.0
 	go.mindeco.de/ssb-multiserver v0.1.2
-	go.mindeco.de/ssb-refs v0.3.0
+	go.mindeco.de/ssb-refs v0.3.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

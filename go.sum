@@ -394,8 +394,8 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 go.cryptoscope.co/luigi v0.3.5/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS9btSWTpD+vJk6VJyoW8gV0kWzcc=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
-go.cryptoscope.co/margaret v0.2.1-0.20210528083027-be297e72b46b h1:SekjLella6m4arY1i4NK1sWO84MKayVGMCNwuWT9LoY=
-go.cryptoscope.co/margaret v0.2.1-0.20210528083027-be297e72b46b/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
+go.cryptoscope.co/margaret v0.2.1-0.20210604193815-c622a8ba2526 h1:p00ugNoqqguoRH9PBermOLXw2yqV6VaSY+88Bh9yY3I=
+go.cryptoscope.co/margaret v0.2.1-0.20210604193815-c622a8ba2526/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
 go.cryptoscope.co/muxrpc/v2 v2.0.5 h1:yZEp49Qx4KWF/DD+Hg+6vPrl4cjlcH0Ex5kzaz0XpMA=
 go.cryptoscope.co/muxrpc/v2 v2.0.5/go.mod h1:MgaeojIkWY3lLuoNw1mlMT3b3jiZwOj/fgsoGZp/VNA=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
@@ -413,8 +413,9 @@ go.mindeco.de/ssb-gabbygrove v0.2.0 h1:eWNbV60EQzB483cNrvWqfMIkpePkFjn0ttEItjA5W
 go.mindeco.de/ssb-gabbygrove v0.2.0/go.mod h1:9zCDxQ/qi+hnttoZIQ22Z3lKvlmtS36+ogmqY/HgmHQ=
 go.mindeco.de/ssb-multiserver v0.1.2 h1:WFr2qvez5UB79hY/tajAyIJibWyymta+1S/XA07jiU0=
 go.mindeco.de/ssb-multiserver v0.1.2/go.mod h1:NTkQQrNyX0jxwVBBuCAiHKPEx5w3BDaQM3D9leIcFvY=
-go.mindeco.de/ssb-refs v0.3.0 h1:X72/4LSLnoBcxT0fLqVZy4bMlVm7PC/8nNLDPJ+3DOE=
 go.mindeco.de/ssb-refs v0.3.0/go.mod h1:Ysyvb0aGeR721Nvu5V7mCJtkQP1fwf0qEBLA4FXHXXk=
+go.mindeco.de/ssb-refs v0.3.1 h1:rmY0eHj2ZLeTX/Lv63c5RI4fazCT2PZQRQK1C6aCbME=
+go.mindeco.de/ssb-refs v0.3.1/go.mod h1:Ysyvb0aGeR721Nvu5V7mCJtkQP1fwf0qEBLA4FXHXXk=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
