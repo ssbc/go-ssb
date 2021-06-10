@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/message/multimsg"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -37,12 +36,12 @@ func (c FlumeToMultiMsgCodec) Unmarshal(data []byte) (interface{}, error) {
 type testEncoder struct{ w io.Writer }
 
 func (te testEncoder) Encode(v interface{}) error {
-	bytes, ok := v.([]byte)
+	lfoM, ok := v.(lfoMessage)
 	if !ok {
 		return fmt.Errorf("can only write bytes (not %T)", v)
 	}
 
-	_, err := te.w.Write(bytes)
+	_, err := te.w.Write(lfoM.raw)
 	return err
 }
 
@@ -57,28 +56,29 @@ func (c FlumeToMultiMsgCodec) NewDecoder(r io.Reader) margaret.Decoder {
 type decoder struct{ r io.Reader }
 
 func (dec *decoder) Decode() (interface{}, error) {
-	entry, err := ioutil.ReadAll(dec.r)
+
+	var m lfoMessage
+
+	var err error
+	m.raw, err = ioutil.ReadAll(dec.r)
 	if err != nil {
 		return nil, err
 	}
 
-	var msg refs.KeyValueRaw
-	err = json.Unmarshal(entry, &msg)
+	var justTheAuthor struct {
+		Author refs.FeedRef
+	}
+	err = json.Unmarshal(m.raw, &justTheAuthor)
 	if err != nil {
 		return nil, err
 	}
+	m.author = justTheAuthor.Author
 
-	// we need to do two json decode passes here.
-	// if we try to convert `value: { ... }` back from the decoded data, validation will fail.
-	var onlyValue struct {
-		// ignore key: (can use the decode above for that)
-		Value json.RawMessage
-	}
-	err = json.Unmarshal(entry, &onlyValue)
-	if err != nil {
-		return nil, err
-	}
+	return m, nil
+}
 
-	write := multimsg.NewMultiMessageFromKeyValRaw(msg, onlyValue.Value)
-	return write, nil
+type lfoMessage struct {
+	raw []byte
+
+	author refs.FeedRef
 }

@@ -4,25 +4,24 @@ package main
 
 import (
 	"context"
-	"path/filepath"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
-	"encoding/json"
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/legacyflumeoffset"
 	"go.cryptoscope.co/margaret/offset2"
 	"go.cryptoscope.co/ssb/message/multimsg"
-	refs "go.mindeco.de/ssb-refs"
 )
 
-func check (err error) {
+func check(err error) {
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -30,16 +29,16 @@ func check (err error) {
 
 type FeedInfo struct {
 	secret string
-	ID string
-	log margaret.Log
+	ID     string
+	log    margaret.Log
 }
 
-func mapIdentitiesToSecrets (indir, outdir, oformat string) map[string]FeedInfo {
+func mapIdentitiesToSecrets(indir, outdir, oformat string) map[string]FeedInfo {
 	feeds := make(map[string]FeedInfo)
 	// folderMap is used to marshal a json blob, mapping secret files to ids
 	folderMap := make(map[string]string)
 	counter := 0
-	err := filepath.WalkDir(indir, func (path string, info fs.DirEntry, err error) error {
+	err := filepath.WalkDir(indir, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			return nil
 		}
@@ -85,7 +84,7 @@ func mapIdentitiesToSecrets (indir, outdir, oformat string) map[string]FeedInfo 
 		return nil
 	})
 	check(err)
-	// write a json blob mapping the folders to identities 
+	// write a json blob mapping the folders to identities
 	// (we cant use ids as folder names as unix does not like base64's charset)
 	b, err := json.MarshalIndent(folderMap, "", "  ")
 	check(err)
@@ -129,20 +128,24 @@ func main() {
 		os.Exit(1)
 	}
 	feeds := mapIdentitiesToSecrets(logPaths[0], logPaths[1], oformat)
-	/* 
+	/*
 	* given a ssb-fixtures directory, and its monolithic flume log legacy.offset (mfl)
 	* 1. read all the secrets to figure out which authors exist
 	* 2. for each discovered author create a key in a map[string]margaret.Log
 	* 3. go through each message in the mfl and filter out the messages into the corresponding log of the map
 	* 4. finally, create folders for each author, using the author's pubkey as directory name, and dump an (offset2 and) flo
 	* version of their log.offset representation. inside each folder, dump the correct secret as well
-	*/
+	 */
 
 	src, err := input.Query(margaret.Limit(limit))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create query on input log %s: %s\n", logPaths[0], err)
 		os.Exit(1)
 	}
+
+	i := 0
+
+	// input.Seq().Value()
 
 	ctx := context.Background()
 	for {
@@ -155,10 +158,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		msg := v.(refs.Message)
+		msg := v.(lfoMessage)
 
 		// siphon out the author
-		a, has := feeds[msg.Author().Ref()]
+		a, has := feeds[msg.author.Ref()]
 		if !has {
 			continue
 		}
@@ -171,9 +174,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "failed to write entry to output log %s: %s\n", logPaths[1], err)
 			os.Exit(1)
 		}
+		fmt.Fprintf(os.Stderr, "\tcurrent: %d", i)
+		i++
 	}
 
-	fmt.Fprintln(os.Stderr, "all done. closing output log.")
+	fmt.Fprintln(os.Stderr, "all done. closing output log. Copied:", i)
 
 	for _, a := range feeds {
 		if c, ok := a.log.(io.Closer); ok {
