@@ -159,12 +159,16 @@ func main() {
 		}
 
 		msg := v.(lfoMessage)
+		i++
 
 		// siphon out the author
 		a, has := feeds[msg.author.Ref()]
 		if !has {
+			fmt.Fprintf(os.Stderr, "\rskipping: %d (author: %s)\n", i, msg.author.Ref())
 			continue
 		}
+
+		fmt.Fprintf(os.Stderr, "\rcurrent: %d", i)
 
 		// bb, err := msg.MarshalBinary()
 		// check(err)
@@ -174,8 +178,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "failed to write entry to output log %s: %s\n", logPaths[1], err)
 			os.Exit(1)
 		}
-		fmt.Fprintf(os.Stderr, "\tcurrent: %d", i)
-		i++
+
 	}
 
 	fmt.Fprintln(os.Stderr, "all done. closing output log. Copied:", i)

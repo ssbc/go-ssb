@@ -66,13 +66,15 @@ func (dec *decoder) Decode() (interface{}, error) {
 	}
 
 	var justTheAuthor struct {
-		Author refs.FeedRef
+		Value struct {
+			Author refs.FeedRef
+		}
 	}
 	err = json.Unmarshal(m.raw, &justTheAuthor)
 	if err != nil {
 		return nil, err
 	}
-	m.author = justTheAuthor.Author
+	m.author = justTheAuthor.Value.Author
 
 	return m, nil
 }
