@@ -49,7 +49,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	bs := botServer{todoCtx, srvLog}
 
 	// create one bot
-	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)))
+	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	srh, err := sbot.New(
@@ -77,7 +77,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	suffix := []byte(".box2\"")
 
 	// make sure this is an encrypted message
-	msg, err := srh.Get(*groupTangleRoot)
+	msg, err := srh.Get(groupTangleRoot)
 	r.NoError(err)
 
 	// can we decrypt it?
@@ -91,7 +91,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("post", postRef.ShortRef())
 
 	// make sure this is an encrypted message
-	msg, err = srh.Get(*postRef)
+	msg, err = srh.Get(postRef)
 	r.NoError(err)
 	content := msg.ContentBytes()
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
@@ -124,7 +124,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("added:", addMsgRef.ShortRef())
 
 	// it's an encrypted message
-	msg, err = srh.Get(*addMsgRef)
+	msg, err = srh.Get(addMsgRef)
 	r.NoError(err)
 	r.True(bytes.HasSuffix(msg.ContentBytes(), suffix), "%q", content)
 
@@ -167,7 +167,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.EqualValues(3, getSeq(talsCopyOfSrh))
 
 	// check messages can be decrypted
-	addMsgCopy, err := tal.Get(*addMsgRef)
+	addMsgCopy, err := tal.Get(addMsgRef)
 	r.NoError(err)
 	content = addMsgCopy.ContentBytes()
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
@@ -184,7 +184,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 
 	cloaked2, err := tal.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
-	r.Equal(cloaked.Hash, cloaked2.Hash, "cloaked ID not equal")
+	r.True(cloaked.Equal(cloaked2), "cloaked ID not equal")
 
 	// post back to group
 	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.Id.Ref()))
@@ -192,7 +192,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("reply:", reply.ShortRef())
 
 	// reconnect to get the reply
-	edp, has := srh.Network.GetEndpointFor(*tal.KeyPair.Id)
+	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.Id)
 	r.True(has)
 	edp.Terminate()
 	time.Sleep(1 * time.Second)
@@ -202,7 +202,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 
 	r.EqualValues(2, getSeq(srhsCopyOfTal))
 
-	replyMsg, err := srh.Get(*reply)
+	replyMsg, err := srh.Get(reply)
 	r.NoError(err)
 
 	replyContent, err := srh.Groups.DecryptBox2Message(replyMsg)
@@ -320,11 +320,11 @@ func TestGroupsReindex(t *testing.T) {
 	bs := botServer{todoCtx, srvLog}
 
 	// make the keys deterministic (helps to know who is who in the console output)
-	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)))
+	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	talKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("tal0"), 8)))
+	talKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("tal0"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	razKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("raziel"), 8)))
+	razKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("raziel"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// create the first bot

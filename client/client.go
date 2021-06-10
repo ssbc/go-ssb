@@ -206,7 +206,7 @@ func (c Client) BlobsWant(ref refs.BlobRef) error {
 	return nil
 }
 
-func (c Client) BlobsHas(ref *refs.BlobRef) (bool, error) {
+func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 	var has bool
 	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
@@ -230,7 +230,7 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 
 type NamesGetResult map[string]map[string]string
 
-func (ngr NamesGetResult) GetCommonName(feed *refs.FeedRef) (string, bool) {
+func (ngr NamesGetResult) GetCommonName(feed refs.FeedRef) (string, bool) {
 	namesFor, ok := ngr[feed.Ref()]
 	if !ok {
 		return "", false

@@ -297,7 +297,10 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 		if tname == "" {
 			continue
 		}
-		addr := storedrefs.TangleV2(tname, tip.Root)
+		if tip.Root == nil {
+			continue
+		}
+		addr := storedrefs.TangleV2(tname, *tip.Root)
 		tangleLog, err := slog.tangles.Get(addr)
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
@@ -488,7 +491,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 		}
 
 	default:
-		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
+		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo())
 		return nil, nil, err
 	}
 

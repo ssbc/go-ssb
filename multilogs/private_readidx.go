@@ -122,7 +122,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 		boxedContent = bytes.TrimPrefix(tr.Content, []byte("box1:"))
 
 	default:
-		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
+		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo())
 		level.Warn(pr.logger).Log("msg", "unahndled type", "err", err)
 		return err
 	}

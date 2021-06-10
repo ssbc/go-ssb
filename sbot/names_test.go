@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// +build ignore
-
-package names
+package sbot_test
 
 import (
 	"crypto/rand"
@@ -16,13 +14,12 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/plugins2"
 	"go.cryptoscope.co/ssb/repo"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestNames(t *testing.T) {
+func TestNames(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -36,7 +33,7 @@ func XTestNames(t *testing.T) {
 	tRepo := repo.New(tRepoPath)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -61,7 +58,6 @@ func XTestNames(t *testing.T) {
 		sbot.WithRepoPath(tRepoPath),
 		sbot.WithHMACSigning(hk),
 		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.MountPlugin(&Plugin{}, plugins2.AuthMaster)),
 		sbot.LateOption(sbot.WithUNIXSocket()),
 	)
 	r.NoError(err)
@@ -107,14 +103,14 @@ func XTestNames(t *testing.T) {
 
 	for who, wantName := range want {
 		name, ok := all.GetCommonName(n2kp[who].Id)
-		r.True(ok)
-		r.Equal(wantName, name)
+		r.True(ok, "did not get a name for %s", who)
+		r.Equal(wantName, name, "did not the right name for %s", who)
 	}
 
 	for who, wantName := range want {
-		name2, err := c.NamesSignifier(*n2kp[who].Id)
-		r.NoError(err)
-		r.Equal(wantName, name2)
+		name2, err := c.NamesSignifier(n2kp[who].Id)
+		r.NoError(err, "did not get a name for %s", who)
+		r.Equal(wantName, name2, "did not the right name for %s", who)
 	}
 
 	r.NoError(c.Close())

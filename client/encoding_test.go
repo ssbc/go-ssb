@@ -33,9 +33,8 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 
 	srvLog := testutils.NewRelativeTimeLogger(nil)
 
-	testKP, err := ssb.NewKeyPair(nil)
+	testKP, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedGabby)
 	r.NoError(err)
-	testKP.Id.Algo = refs.RefAlgoFeedGabby
 
 	srv, err := sbot.New(
 		sbot.WithKeyPair(testKP),

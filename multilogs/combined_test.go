@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
+	"go.cryptoscope.co/margaret/indexes"
+	idxbadger "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
@@ -69,17 +69,18 @@ func BenchmarkIndexFixturesCombined(b *testing.B) {
 
 }
 
-func setupCombinedIndex(t testing.TB, rxlog margaret.Log, mkMlog makeMultilog) (multilog.MultiLog, librarian.SinkIndex, io.Closer) {
+func setupCombinedIndex(t testing.TB, rxlog margaret.Log, mkMlog makeMultilog) (multilog.MultiLog, indexes.SinkIndex, io.Closer) {
 	r := require.New(t)
 	testPath := filepath.Join("testrun", t.Name(), "combinedIndexes")
 	testRepo := repo.New(testPath)
 
-	db, err := repo.OpenMKV(testPath)
-	r.NoError(err, "openIndex: failed to open MKV database")
+	keysDB, err := repo.OpenBadgerDB(testPath)
+	r.NoError(err, "openIndex: failed to open keys database")
 
-	idx := libmkv.NewIndex(db, keys.Recipients{})
+	idxKeys := idxbadger.NewIndex(keysDB, keys.Recipients{})
+
 	ks := &keys.Store{
-		Index: idx,
+		Index: idxKeys,
 	}
 
 	var (
@@ -87,7 +88,7 @@ func setupCombinedIndex(t testing.TB, rxlog margaret.Log, mkMlog makeMultilog) (
 		tg testGetter
 	)
 
-	tkp, err := ssb.NewKeyPair(nil)
+	tkp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	sm, err := statematrix.New(
@@ -149,8 +150,8 @@ func (tp testPublisher) Append(_ interface{}) (margaret.Seq, error) {
 	return nil, fmt.Errorf("cant append in test setting")
 }
 
-func (tp testPublisher) Publish(_ interface{}) (*refs.MessageRef, error) {
-	return nil, fmt.Errorf("cant publish in test setting")
+func (tp testPublisher) Publish(_ interface{}) (refs.MessageRef, error) {
+	return refs.MessageRef{}, fmt.Errorf("cant publish in test setting")
 }
 
 func (tp testPublisher) Seq() luigi.Observable {

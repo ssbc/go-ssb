@@ -36,11 +36,12 @@ func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 	var br refs.BlobRef
 
 	err := ab.kv.View(func(txn *badger.Txn) error {
+
 		addr := ref.Ref()
 		addr += ":"
 		addr += ref.Ref()
 		addr += ":image"
-		it, err := txn.Get([]byte(addr))
+		it, err := txn.Get(append(idxKeyPrefix, []byte(addr)...))
 		if err != nil {
 			return err
 		}
@@ -210,20 +211,6 @@ func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.S
 	return aboutIdx, update
 }
 
-// func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
-// 	f := func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-// 		aboutIdx := libbadger.NewIndex(db, 0)
-// 		snk := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
-// 		return aboutIdx, snk
-// 	}
-// 	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
-// 	if err != nil {
-// 		return nil, nil, fmt.Errorf("error getting about index: %w", err)
-// 	}
-// 	plug.about = aboutStore{db}
-// 	return idx, update, err
-// }
-
 func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{}, idx librarian.SetterIndex) error {
 	var msg refs.Message
 
@@ -231,7 +218,7 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	case refs.Message:
 		msg = tv
 	case error:
-		if margaret.IsErrNulled(msgv.(error)) {
+		if margaret.IsErrNulled(tv) {
 			return nil
 		}
 		return fmt.Errorf("about(%d): unhandled error type (%T) from index: %w", seq, tv, tv)

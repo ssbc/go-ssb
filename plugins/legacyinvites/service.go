@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
 	kitlog "go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
-	"modernc.org/kv"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -21,6 +21,7 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+// Service holds all the utility functions for invite managment
 type Service struct {
 	logger kitlog.Logger
 
@@ -31,58 +32,57 @@ type Service struct {
 	receiveLog margaret.Log
 
 	mu sync.Mutex
-	kv *kv.DB
+	kv *badger.DB
 }
 
+// GuestHandler returns the handler to accept invites
 func (s *Service) GuestHandler() muxrpc.Handler {
-	return acceptHandler{
-		service: s,
-	}
+	return acceptHandler{service: s}
 }
 
+// MasterPlugin exposes a muxrpc handler with elevated methods, which can be used to create invites
 func (s *Service) MasterPlugin() ssb.Plugin {
-	return masterPlug{
-		service: s,
-	}
+	return masterPlug{service: s}
 }
 
+// Authorize allows a connection of the guest keypair is known to the service and not yet expired
 func (s *Service) Authorize(to refs.FeedRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	kvKey := []byte(storedrefs.Feed(to))
 
-	if err := s.kv.BeginTransaction(); err != nil {
+	err := s.kv.Update(func(txn *badger.Txn) error {
+		has, err := txn.Get(kvKey)
+		if err != nil {
+			return fmt.Errorf("invite/auth: failed get guest remote from KV (%w)", err)
+		}
+
+		var st inviteState
+		err = has.Value(func(val []byte) error {
+			return json.Unmarshal(val, &st)
+		})
+		if err != nil {
+			return fmt.Errorf("invite/auth: failed to probe new key (%w)", err)
+		}
+
+		if st.Used >= st.Uses {
+			txn.Delete(kvKey)
+			return fmt.Errorf("invite/auth: invite depleeted")
+		}
+
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 
-	has, err := s.kv.Get(nil, kvKey)
-	if err != nil {
-		s.kv.Rollback()
-		return fmt.Errorf("invite/auth: failed get guest remote from KV (%w)", err)
-	}
-	if has == nil {
-		s.kv.Rollback()
-		return errors.New("not for us")
-	}
-
-	var st inviteState
-	if err := json.Unmarshal(has, &st); err != nil {
-		s.kv.Rollback()
-		return fmt.Errorf("invite/auth: failed to probe new key (%w)", err)
-	}
-
-	if st.Used >= st.Uses {
-		s.kv.Delete(kvKey)
-		s.kv.Commit()
-		return fmt.Errorf("invite/auth: invite depleeted")
-	}
-
-	return s.kv.Commit()
+	return nil
 }
 
 var _ ssb.Authorizer = (*Service)(nil)
 
+// New creates a new invite plugin service
 func New(
 	logger kitlog.Logger,
 	r repo.Interface,
@@ -92,7 +92,7 @@ func New(
 	rlog margaret.Log,
 ) (*Service, error) {
 
-	kv, err := repo.OpenMKV(r.GetPath("plugin", "legacyinvites"))
+	kv, err := repo.OpenBadgerDB(r.GetPath("plugin", "legacyinvites"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key-value database: %w", err)
 	}
@@ -113,58 +113,59 @@ func New(
 // Close closes the underlying key-value database
 func (s Service) Close() error { return s.kv.Close() }
 
+// Create creates a new invite with a note attached and a number of uses before it expires.
 func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.kv.BeginTransaction(); err != nil {
+
+	var inv invite.Token
+	err := s.kv.Update(func(txn *badger.Txn) error {
+
+		// roll seed
+		var seedRef refs.FeedRef
+		for {
+			rand.Read(inv.Seed[:])
+
+			inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(inv.Seed[:]), refs.RefAlgoFeedSSB1)
+			if err != nil {
+				return fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
+			}
+
+			_, err = txn.Get([]byte(storedrefs.Feed(inviteKeyPair.Id)))
+			if err != nil {
+				if errors.Is(err, badger.ErrKeyNotFound) {
+					seedRef = inviteKeyPair.Id
+					break
+				}
+				return fmt.Errorf("invite/create: failed to probe new key (%w)", err)
+			}
+		}
+
+		// store pub key with params (ties, note)
+		st := inviteState{Used: 0}
+		st.Uses = uses
+		st.Note = note
+
+		data, err := json.Marshal(st)
+		if err != nil {
+			return fmt.Errorf("invite/create: failed to marshal state data (%w)", err)
+		}
+
+		err = txn.Set([]byte(storedrefs.Feed(seedRef)), data)
+		if err != nil {
+			return fmt.Errorf("invite/create: failed to store state data (%w)", err)
+		}
+
+		inv.Peer = s.self
+		// TODO: external host configuration?
+		inv.Address = s.network.GetListenAddr()
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	// roll seed
-	var inv invite.Token
-	var seedRef refs.FeedRef
-	for {
-		rand.Read(inv.Seed[:])
-
-		inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(inv.Seed[:]), refs.RefAlgoFeedSSB1)
-		if err != nil {
-			s.kv.Rollback()
-			return nil, fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
-		}
-
-		has, err := s.kv.Get(nil, []byte(storedrefs.Feed(inviteKeyPair.Id)))
-		if err != nil {
-			s.kv.Rollback()
-			return nil, fmt.Errorf("invite/create: failed to probe new key (%w)", err)
-		}
-		if has == nil {
-			seedRef = inviteKeyPair.Id
-			break
-		}
-	}
-
-	// store pub key with params (ties, note)
-	st := inviteState{Used: 0}
-	st.Uses = uses
-	st.Note = note
-
-	data, err := json.Marshal(st)
-	if err != nil {
-		s.kv.Rollback()
-		return nil, fmt.Errorf("invite/create: failed to marshal state data (%w)", err)
-	}
-
-	err = s.kv.Set([]byte(storedrefs.Feed(seedRef)), data)
-	if err != nil {
-		s.kv.Rollback()
-		return nil, fmt.Errorf("invite/create: failed to store state data (%w)", err)
-	}
-
-	inv.Peer = s.self
-	// TODO: external host configuration?
-	inv.Address = s.network.GetListenAddr()
-
-	return &inv, s.kv.Commit()
+	return &inv, nil
 }
 
 type inviteState struct {

@@ -138,7 +138,7 @@ func (b *builder) DeleteAuthor(who refs.FeedRef) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(storedrefs.Feed(who))
+		prefix := append(dbKeyPrefix, []byte(storedrefs.Feed(who))...)
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 

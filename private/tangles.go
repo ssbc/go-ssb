@@ -18,7 +18,7 @@ func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.Tang
 	addr := librarian.Addr(append([]byte("v2:"+tname+":"), h...))
 	thandle, err := mgr.tangles.Get(addr)
 	if err != nil {
-		return refs.TanglePoint{Root: root, Previous: []refs.MessageRef{root}}
+		return refs.TanglePoint{Root: &root, Previous: []refs.MessageRef{root}}
 	}
 
 	heads, err := mgr.getLooseEnds(thandle, tname)
@@ -28,7 +28,7 @@ func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.Tang
 	if len(heads) == 0 {
 		heads = refs.MessageRefs{root}
 	}
-	return refs.TanglePoint{Root: root, Previous: heads}
+	return refs.TanglePoint{Root: &root, Previous: heads}
 }
 
 func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs, error) {
@@ -94,5 +94,5 @@ func (tm tangledPost) Tangle(name string) (refs.MessageRef, refs.MessageRefs) {
 		return refs.MessageRef{}, nil
 	}
 
-	return tp.Root, tp.Previous
+	return *tp.Root, tp.Previous
 }

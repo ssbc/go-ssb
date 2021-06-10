@@ -44,7 +44,7 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []*refs.FeedRef{alice.Id},
+					Recipients: []refs.FeedRef{alice.Id},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -58,7 +58,7 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []*refs.FeedRef{alice.Id, bob.Id},
+					Recipients: []refs.FeedRef{alice.Id, bob.Id},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -112,7 +112,7 @@ func newMemIndex(tipe interface{}) librarian.SeqSetterIndex {
 }
 
 type testIdentity struct {
-	*ssb.KeyPair
+	ssb.KeyPair
 
 	name    string
 	manager *Manager
@@ -128,7 +128,7 @@ func newIdentity(t *testing.T, name string, km *keys.Store) testIdentity {
 
 	rand := rand.New(rand.NewSource(idCount))
 
-	id.KeyPair, err = ssb.NewKeyPair(rand)
+	id.KeyPair, err = ssb.NewKeyPair(rand, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err)
 
 	t.Logf("%s is %s", name, id.Id.Ref())

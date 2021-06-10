@@ -60,7 +60,7 @@ func loadTestRepo(
 	rootLog, err := repo.OpenLog(r)
 	require.NoError(t, err, "error opening source repository")
 
-	userFeeds, refresh, err := multilogs.OpenUserFeeds(r)
+	userFeeds, refresh, err := repo.OpenStandaloneMultiLog(r, "userFeeds", multilogs.UserFeedsUpdate)
 	require.NoError(t, err, "error getting dst userfeeds multilog")
 
 	pub, err := message.OpenPublishLog(rootLog, userFeeds, keyPair)

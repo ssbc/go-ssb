@@ -65,7 +65,7 @@ func newPublishtestSession(t *testing.T) publishTestSession {
 	r.NoError(err, "failed to get log seq")
 	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
 
-	userLogs, idxUpdate, err := multilogs.OpenUserFeeds(testRepo)
+	userLogs, idxUpdate, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
 
 	return publishTestSession{

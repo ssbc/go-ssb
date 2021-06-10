@@ -136,10 +136,9 @@ func TestPublish(t *testing.T) {
 	r.NoError(err)
 	a.EqualValues(0, v.(margaret.Seq).Seq(), "first message")
 
-	theFeed := &refs.FeedRef{
-		ID:   bytes.Repeat([]byte{1}, 32),
-		Algo: refs.RefAlgoFeedSSB1,
-	}
+	theFeed, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte{1}, 32), refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+
 	out, _ = sbotcli("publish", "contact", "--following", theFeed.Ref())
 
 	has = bytes.Contains(out, []byte(".sha256"))

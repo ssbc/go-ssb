@@ -13,7 +13,7 @@ var testMessage = json.RawMessage(`{"type":"test", "some": 1, "msg": "here"}`)
 type OpManagerEncryptBox1 struct {
 	Manager *Manager
 
-	Recipients []*refs.FeedRef
+	Recipients []refs.FeedRef
 
 	Ciphertext *[]byte
 
@@ -70,7 +70,7 @@ func (op OpManagerDecryptBox1) Do(t *testing.T, _ interface{}) {
 type OpManagerDecryptBox2 struct {
 	Manager    *Manager
 	Ciphertext *[]byte
-	Sender     *refs.FeedRef
+	Sender     refs.FeedRef
 	Previous   *refs.MessageRef
 
 	ExpDecryptErr string

@@ -56,7 +56,6 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		b.StopTimer()
-		// _, snk, err := repo.OpenMultiLog(tr, name, UserFeedsUpdate) // mkv
 		_, snk, err := repo.OpenFileSystemMultiLog(tr, name, UserFeedsUpdate) // fs-bitmaps
 		r.NoError(err)
 		b.StartTimer()
@@ -142,8 +141,10 @@ func TestIndexFixtures(t *testing.T) {
 			r.NoError(err)
 			sublogSeq := sv.(margaret.Seq).Seq()
 
-			fr := sr.Feed().Ref()
-			seq, has := tc.HeadCount[fr]
+			fr, err := sr.Feed()
+			r.NoError(err)
+
+			seq, has := tc.HeadCount[fr.Ref()]
 			if !a.True(has, "feed not found:%s", fr) {
 				// fmt.Fprintf(f, "%q:%d,\n", fr, sublogSeq)
 				continue
@@ -157,9 +158,9 @@ func TestIndexFixtures(t *testing.T) {
 		r.NoError(ml.Close())
 	}
 
-	mkvMlog, snk, err := repo.OpenMultiLog(tr, "testmkv"+tc.Name, UserFeedsUpdate)
+	mkvMlog, snk, err := repo.OpenStandaloneMultiLog(tr, "testbadger"+tc.Name, UserFeedsUpdate)
 	r.NoError(err)
-	serve("mkv", snk)
+	serve("badger", snk)
 	compare(mkvMlog)
 
 	fsMlog, snk, err := repo.OpenFileSystemMultiLog(tr, "testfs"+tc.Name, UserFeedsUpdate)

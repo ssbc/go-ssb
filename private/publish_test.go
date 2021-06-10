@@ -75,7 +75,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 			Type string `json:"type"`
 			Msg  string
 		}
-		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, &alice.Id)
+		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.Id)
 		r.NoError(err, "failed to publish")
 		r.NotNil(ref)
 
@@ -92,7 +92,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 		r.NoError(err, "failed to unnpack msg")
 
 		if !a.True(savedMsg.Key().Equal(ref)) {
-			whoops, err := srv.Get(*ref)
+			whoops, err := srv.Get(ref)
 			r.NoError(err)
 			t.Log(string(whoops.ContentBytes()))
 		}

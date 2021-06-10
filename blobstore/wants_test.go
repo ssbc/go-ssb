@@ -158,17 +158,15 @@ func XTestWantManager(t *testing.T) {
 
 			sizeWants := func(strs []string) map[string]int64 {
 				var (
-					m   = make(map[string]int64)
-					h   = sha256.New()
-					ref = refs.BlobRef{
-						Algo: refs.RefAlgoBlobSSB1,
-					}
+					m = make(map[string]int64)
+					h = sha256.New()
 				)
 
 				for _, str := range strs {
 					h.Reset()
 					h.Write([]byte(str))
-					ref.Hash = h.Sum(nil)
+					ref, err := refs.NewBlobRefFromBytes(h.Sum(nil), refs.RefAlgoBlobSSB1)
+					r.NoError(err)
 					m[ref.Ref()] = int64(len(str))
 				}
 

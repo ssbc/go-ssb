@@ -53,11 +53,12 @@ func TestReplicateUpTo(t *testing.T) {
 	var testKeyPairs = make(map[string]int, 10)
 	var i int
 	for i = 0; i < 10; i++ {
-		kp, err := ssb.NewKeyPair(nil)
-		r.NoError(err)
+		var algo = refs.RefAlgoFeedSSB1
 		if i%2 == 0 {
-			kp.Id.Algo = refs.RefAlgoFeedGabby
+			algo = refs.RefAlgoFeedGabby
 		}
+		kp, err := ssb.NewKeyPair(nil, algo)
+		r.NoError(err)
 
 		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)

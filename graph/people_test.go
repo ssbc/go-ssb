@@ -268,7 +268,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 
 		for i, assert := range tc.asserts {
 			err := assert(&state)(state.store.gbuilder)
-			if !a.NoError(err, "assertion #%d failed", i) {
+			if !a.NoError(err, "assertion #%d failed", i+1) {
 
 				err = g.RenderSVGToFile(fmt.Sprintf("%s-%d.svg", t.Name(), i))
 				if err != nil {

@@ -65,7 +65,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
 
 	// make sure we can publish
-	var msgs []*refs.MessageRef
+	var msgs []refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
 		ref, err := c.Publish(struct {
@@ -97,10 +97,9 @@ func TestAskForSomethingWeird(t *testing.T) {
 			t.Error("TODO: add tests to muxrpc for CallError")
 			return
 			var o message.CreateHistArgs
-			o.ID = &refs.FeedRef{
-				Algo: "wrong",
-				ID:   bytes.Repeat([]byte("nope"), 8),
-			}
+			o.ID, err = refs.NewFeedRefFromBytes(bytes.Repeat([]byte("nope"), 8), "wrong")
+			r.NoError(err) // TODO: probably cant create "invalid test feeds" anymore...
+
 			o.Keys = true
 
 			// starting the call works (although our lib could check that the ref is wrong, too)

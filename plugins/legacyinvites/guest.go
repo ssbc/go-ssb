@@ -3,9 +3,9 @@ package legacyinvites
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
@@ -46,64 +46,42 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	}
 
 	// lookup guest key
-	if err := h.service.kv.BeginTransaction(); err != nil {
-		req.CloseWithError(err)
-		return
-	}
-
-	kvKey := []byte(storedrefs.Feed(guestRef))
-
-	has, err := h.service.kv.Get(nil, kvKey)
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed get guest remote from KV (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	if has == nil {
-		h.service.kv.Rollback()
-		err = errors.New("not for us")
-		req.CloseWithError(err)
-		return
-	}
-
 	var st inviteState
-	if err := json.Unmarshal(has, &st); err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed to probe new key (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
+	kvKey := []byte(storedrefs.Feed(guestRef))
+	err = h.service.kv.Update(func(txn *badger.Txn) error {
+		has, err := txn.Get(kvKey)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed get guest remote from KV (%w)", err)
+		}
 
-	if st.Used >= st.Uses {
-		h.service.kv.Delete(kvKey)
-		h.service.kv.Commit()
-		err = fmt.Errorf("invite/kv: invite depleeted")
-		req.CloseWithError(err)
-		return
-	}
+		err = has.Value(func(val []byte) error {
+			return json.Unmarshal(val, &st)
+		})
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed to probe new key (%w)", err)
+		}
 
-	// count uses
-	st.Used++
+		if st.Used >= st.Uses {
+			txn.Delete(kvKey)
+			return fmt.Errorf("invite/kv: invite depleted")
+		}
 
-	updatedState, err := json.Marshal(st)
+		// count uses
+		st.Used++
+
+		updatedState, err := json.Marshal(st)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed marshal updated state data (%w)", err)
+		}
+
+		err = txn.Set(kvKey, updatedState)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed save updated state data (%w)", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed marshal updated state data (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	err = h.service.kv.Set(kvKey, updatedState)
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed save updated state data (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	err = h.service.kv.Commit()
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed to commit kv transaction (%w)", err)
 		req.CloseWithError(err)
 		return
 	}

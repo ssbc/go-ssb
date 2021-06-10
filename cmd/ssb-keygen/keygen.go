@@ -28,7 +28,7 @@ func fail(err error) {
 
 var (
 	repoDir  string
-	feedAlgo string
+	feedAlgo = refs.RefAlgoFeedSSB1
 )
 
 func init() {
@@ -36,7 +36,16 @@ func init() {
 	check(err)
 
 	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to store the key")
-	flag.StringVar(&feedAlgo, "format", refs.RefAlgoFeedSSB1, "format to use")
+	flag.Func("format", "format to use", func(val string) error {
+
+		candidate := refs.RefAlgo(val)
+
+		if err := isValidFormat(candidate); err != nil {
+			return err
+		}
+
+		return nil
+	})
 
 	flag.Parse()
 
@@ -52,14 +61,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if feedAlgo != refs.RefAlgoFeedSSB1 && feedAlgo != refs.RefAlgoFeedGabby { //  enums would be nice
-		check(fmt.Errorf("invalid feed refrence algo. %s or %s", refs.RefAlgoFeedSSB1, refs.RefAlgoFeedGabby))
-	}
-
 	r := repo.New(repoDir)
 
 	kp, err := repo.NewKeyPair(r, args[0], feedAlgo)
 	check(err)
 
 	fmt.Println(kp.Id.Ref())
+}
+
+func isValidFormat(f refs.RefAlgo) error {
+	//  enums would be nice
+	if f != refs.RefAlgoFeedSSB1 && f != refs.RefAlgoFeedGabby {
+		return fmt.Errorf("invalid feed refrence algo. %s or %s", refs.RefAlgoFeedSSB1, refs.RefAlgoFeedGabby)
+	}
+	return nil
 }

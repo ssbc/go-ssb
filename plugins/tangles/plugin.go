@@ -289,5 +289,5 @@ func (tm tangledPost) Tangle(name string) (refs.MessageRef, refs.MessageRefs) {
 		return refs.MessageRef{}, nil
 	}
 
-	return tp.Root, tp.Previous
+	return *tp.Root, tp.Previous
 }
