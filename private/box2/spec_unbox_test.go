@@ -35,15 +35,19 @@ func (ut unboxSpecTest) Test(t *testing.T) {
 	var f tfk.Feed
 	err := f.UnmarshalBinary(ut.Input.FeedID)
 	require.NoError(t, err)
+	feed, err := f.Feed()
+	require.NoError(t, err)
 
 	var m tfk.Message
 	err = m.UnmarshalBinary(ut.Input.PrevMsgID)
 	require.NoError(t, err)
+	msg, err := m.Message()
+	require.NoError(t, err)
 
 	out, err := bxr.Decrypt(
 		ut.Input.Ciphertext,
-		f.Feed(),
-		m.Message(),
+		feed,
+		msg,
 		[]keys.Recipient{
 			{Key: keys.Key(ut.Input.Recipient.Key), Scheme: ut.Input.Recipient.Scheme},
 		},
