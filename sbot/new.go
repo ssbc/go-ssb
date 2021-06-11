@@ -49,6 +49,7 @@ import (
 	"go.cryptoscope.co/ssb/plugins/get"
 	"go.cryptoscope.co/ssb/plugins/gossip"
 	"go.cryptoscope.co/ssb/plugins/groups"
+	"go.cryptoscope.co/ssb/plugins/legacyinvites"
 	"go.cryptoscope.co/ssb/plugins/partial"
 	privplug "go.cryptoscope.co/ssb/plugins/private"
 	"go.cryptoscope.co/ssb/plugins/publish"
@@ -495,7 +496,8 @@ func New(fopts ...Option) (*Sbot, error) {
 	// 	}
 	// 	s.serveIndex(ctx, "contacts", peerServ)
 	// }
-	// var inviteService *legacyinvites.Service
+
+	var inviteService *legacyinvites.Service
 
 	// muxrpc handler creation and authoratization decider
 	mkHandler := func(conn net.Conn) (muxrpc.Handler, error) {
@@ -517,12 +519,12 @@ func New(fopts ...Option) (*Sbot, error) {
 		// 	}
 		// }
 
-		// if inviteService != nil {
-		// 	err := inviteService.Authorize(remote)
-		// 	if err == nil {
-		// 		return inviteService.GuestHandler(), nil
-		// 	}
-		// }
+		if inviteService != nil {
+			err := inviteService.Authorize(remote)
+			if err == nil {
+				return inviteService.GuestHandler(), nil
+			}
+		}
 
 		if s.promisc {
 			return s.public.MakeHandler(conn)
@@ -778,18 +780,18 @@ func New(fopts ...Option) (*Sbot, error) {
 	}))
 	networkNode.HandleHTTP(h)
 
-	// inviteService, err = legacyinvites.New(
-	// 	kitlog.With(log, "unit", "legacyInvites"),
-	// 	r,
-	// 	s.KeyPair.Id,
-	// 	networkNode,
-	// 	s.PublishLog,
-	// 	s.ReceiveLog,
-	// )
-	// if err != nil {
-	// 	return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
-	// }
-	// s.master.Register(inviteService.MasterPlugin())
+	inviteService, err = legacyinvites.New(
+		kitlog.With(log, "unit", "legacyInvites"),
+		r,
+		s.KeyPair.Id,
+		networkNode,
+		s.PublishLog,
+		s.ReceiveLog,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
+	}
+	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))

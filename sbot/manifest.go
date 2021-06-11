@@ -129,6 +129,11 @@ const manifestBlob manifestHandler = `
 	  "want": "async",
 
 	  "createWants": "source"
+	},
+
+	"invite": {
+		"create": "async",
+		"use": "async"
 	}
   }
   `

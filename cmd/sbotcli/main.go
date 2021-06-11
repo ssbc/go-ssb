@@ -487,7 +487,7 @@ var groupsInviteCmd = &cli.Command{
 		}
 
 		if groupID.Algo() != refs.RefAlgoCloakedGroup {
-			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo())
 		}
 
 		member, err := refs.ParseFeedRef(args.Get(1))
@@ -527,7 +527,7 @@ var groupsPublishToCmd = &cli.Command{
 		}
 
 		if groupID.Algo() != refs.RefAlgoCloakedGroup {
-			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+			return fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo())
 		}
 
 		client, err := newClient(ctx)
