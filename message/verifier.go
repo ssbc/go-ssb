@@ -65,7 +65,11 @@ func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
 		return nil, err
 	}
 
-	snk = NewVerifySink(ref, msg, msg, vs.saver, vs.hmacSec)
+	snk, err = NewVerifySink(ref, msg, msg, vs.saver, vs.hmacSec)
+	if err != nil {
+		return nil, err
+	}
+
 	vs.sinks[ref.Ref()] = snk
 	return snk, nil
 }

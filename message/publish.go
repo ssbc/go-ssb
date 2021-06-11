@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -148,6 +150,10 @@ func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ss
 		pl.create = &gabbyCreate{
 			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
 		}
+	case refs.RefAlgoFeedMetaBencode:
+		pl.create = &metafeedCreate{
+			enc: metafeed.NewEncoder(kp.Pair.Secret),
+		}
 	default:
 		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo())
 	}
@@ -254,6 +260,30 @@ func (pc gabbyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (
 	tr, _, err := pc.enc.Encode(nextSeq, br, val)
 	if err != nil {
 		return nil, fmt.Errorf("gabby: failed to encode content: %w", err)
+	}
+	return tr, nil
+}
+
+type metafeedCreate struct {
+	enc *metafeed.Encoder
+}
+
+func (pc metafeedCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
+	if seq > math.MaxInt32 {
+		return nil, fmt.Errorf("metafeedCreate: sequence exceeded feed format capacity")
+	}
+	nextSeq := int32(seq)
+
+	if seq == 1 {
+		var err error
+		prev, err = refs.NewMessageRefFromBytes(bytes.Repeat([]byte{0}, 32), refs.RefAlgoMessageMetaBencode)
+		if err != nil {
+			return nil, err
+		}
+	}
+	tr, _, err := pc.enc.Encode(nextSeq, prev, val)
+	if err != nil {
+		return nil, fmt.Errorf("metafeedCreate: failed to encode content: %w", err)
 	}
 	return tr, nil
 }

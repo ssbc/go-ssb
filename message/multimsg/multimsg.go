@@ -10,11 +10,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ugorji/go/codec"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/message/legacy"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type MessageType byte
@@ -23,6 +24,7 @@ const (
 	Unknown MessageType = iota
 	Legacy
 	Gabby
+	MetaFeed
 )
 
 // MultiMessage attempts to support multiple message formats in the same storage layer
@@ -41,29 +43,48 @@ type ggWithMetadata struct {
 	ReceivedTime time.Time
 }
 
+type bbWithMetadata struct {
+	metafeed.Message
+	ReceivedTime time.Time
+}
+
 func (mm MultiMessage) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	var mh codec.CborHandle
 	mh.StructToArray = true
 	enc := codec.NewEncoder(&buf, &mh)
+
 	buf.WriteByte(byte(mm.tipe))
 	var err error
 	switch mm.tipe {
+
 	case Legacy:
 		legacy, ok := mm.AsLegacy()
 		if !ok {
 			return nil, fmt.Errorf("multiMessage: not a legacy message: %T", mm.Message)
 		}
 		err = enc.Encode(legacy)
+
 	case Gabby:
 		var meta ggWithMetadata
 		meta.ReceivedTime = mm.Received()
 		gabby, ok := mm.AsGabby()
 		if !ok {
-			return nil, fmt.Errorf("multiMessage: wrong type of message: %T", mm.Message)
+			return nil, fmt.Errorf("multiMessage: not a gabbygrove: %T", mm.Message)
 		}
 		meta.Transfer = *gabby
 		err = enc.Encode(meta)
+
+	case MetaFeed:
+		var meta bbWithMetadata
+		meta.ReceivedTime = mm.Received()
+		mf, ok := mm.AsMetaFeed()
+		if !ok {
+			return nil, fmt.Errorf("multiMessage: not a metafeed: %T", mm.Message)
+		}
+		meta.Message = *mf
+		err = enc.Encode(meta)
+
 	default:
 		return nil, fmt.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
 	}
@@ -83,6 +104,7 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 
 	mm.tipe = MessageType(data[0])
 	switch mm.tipe {
+
 	case Legacy:
 		var msg legacy.StoredMessage
 		err := dec.Decode(&msg)
@@ -92,6 +114,7 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		mm.received = msg.Timestamp_
 		mm.Message = &msg
 		mm.key = msg.Key_
+
 	case Gabby:
 		var msg ggWithMetadata
 		err := dec.Decode(&msg)
@@ -101,6 +124,17 @@ func (mm *MultiMessage) UnmarshalBinary(data []byte) error {
 		mm.received = msg.ReceivedTime
 		mm.Message = &msg.Transfer
 		mm.key = msg.Key()
+
+	case MetaFeed:
+		var msg bbWithMetadata
+		err := dec.Decode(&msg)
+		if err != nil {
+			return fmt.Errorf("multiMessage: metafeed decoding failed: %w", err)
+		}
+		mm.received = msg.ReceivedTime
+		mm.Message = &msg.Message
+		mm.key = msg.Key()
+
 	default:
 		return fmt.Errorf("multiMessage: unsupported message type: %x", mm.tipe)
 	}
@@ -131,6 +165,17 @@ func (mm MultiMessage) AsGabby() (*gabbygrove.Transfer, bool) {
 		return nil, false
 	}
 	return gabby, true
+}
+
+func (mm MultiMessage) AsMetaFeed() (*metafeed.Message, bool) {
+	if mm.tipe != MetaFeed {
+		return nil, false
+	}
+	msg, ok := mm.Message.(*metafeed.Message)
+	if !ok {
+		return nil, false
+	}
+	return msg, true
 }
 
 func NewMultiMessageFromLegacy(msg *legacy.StoredMessage) *MultiMessage {

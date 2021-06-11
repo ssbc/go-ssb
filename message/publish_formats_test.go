@@ -36,6 +36,7 @@ func TestFormatsSimple(t *testing.T) {
 	var testCases = []testCase{
 		{refs.RefAlgoFeedSSB1},
 		{refs.RefAlgoFeedGabby},
+		{refs.RefAlgoFeedMetaBencode},
 	}
 
 	ts := newPublishtestSession(t)
@@ -104,7 +105,7 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 		r.NoError(err)
 
 		w, err := OpenPublishLog(ts.rxLog, ts.userLogs, testAuthor)
-		r.NoError(err)
+		r.NoError(err, "publish log didnt open")
 
 		var tmsgs = []interface{}{
 			map[string]interface{}{
@@ -183,6 +184,10 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 				r.True(ok)
 				a.True(g.Verify(nil), "gabby failed to validate msg:%d", i)
 
+			case refs.RefAlgoFeedMetaBencode:
+				mf, ok := mm.AsMetaFeed()
+				r.True(ok)
+				a.True(mf.Verify(nil))
 			default:
 				r.FailNow("unhandled feed format", "format:%s", ff)
 			}

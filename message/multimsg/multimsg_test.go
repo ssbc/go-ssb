@@ -61,7 +61,7 @@ func TestMultiMsgGabby(t *testing.T) {
 	r := require.New(t)
 
 	kpSeed := bytes.Repeat([]byte("bee4"), 8)
-	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed), refs.RefAlgoFeedSSB1)
+	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed), refs.RefAlgoMessageGabby)
 	r.NoError(err)
 
 	authorRef, err := gabbygrove.NewBinaryRef(kp.Id)
