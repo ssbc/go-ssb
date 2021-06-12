@@ -65,20 +65,20 @@ func makeInfo(author refs.FeedRef, prev refs.MessageRef) (makeHKDFContextList, e
 
 	tfkFeed, err := tfk.FeedFromRef(author)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make tfk for author: %w", err)
 	}
 	feedBytes, err := tfkFeed.MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode tfk for author: %w", err)
 	}
 
 	tfkMsg, err := tfk.MessageFromRef(prev)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make tfk for previous message: %w", err)
 	}
 	msgBytes, err := tfkMsg.MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode tfk for previous message: %w", err)
 	}
 
 	return func(infos ...[]byte) [][]byte {
@@ -127,12 +127,12 @@ func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRe
 
 	_, err := bxr.rand.Read(msgKey[:])
 	if err != nil {
-		return nil, fmt.Errorf("error reading random data: %w", err)
+		return nil, fmt.Errorf("box2/encrypt: error reading random data: %w", err)
 	}
 
 	info, err := makeInfo(author, prev)
 	if err != nil {
-		return nil, fmt.Errorf("error constructing keying information: %w", err)
+		return nil, fmt.Errorf("box2/encrypt: error constructing keying information: %w", err)
 	}
 
 	err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
@@ -146,7 +146,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRe
 	// append header ciphertext
 	err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("box2/encrypt: header key derivation vailed: %w", err)
 	}
 
 	out := secretbox.Seal(nil, headerPlain[:], &zero24, &headerKey)
@@ -156,7 +156,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRe
 	for _, bk := range recpts {
 		err = DeriveTo(slotKey[:], bk.Key, info([]byte("slot_key"), []byte(bk.Scheme))...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("box2/encrypt: slot key derivation vailed: %w", err)
 		}
 
 		out = append(out, make([]byte, KeySize)...)
@@ -174,7 +174,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRe
 	// append encrypted body
 	err = DeriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("box2/encrypt: body key derivation vailed: %w", err)
 	}
 
 	out = secretbox.Seal(out, plain, &zero24, &bodyKey)
@@ -189,14 +189,14 @@ func deriveMessageKey(author refs.FeedRef, prev refs.MessageRef, candidates []ke
 
 	info, err := makeInfo(author, prev)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to make info: %w", err)
 	}
 
 	// derive slot keys
 	for i, candidate := range candidates {
 		err = DeriveTo(slotKeys[i][:], candidate.Key, info([]byte("slot_key"), []byte(candidate.Scheme))...)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("derivation for canidate:%d (%s) failed: %w", i, candidate, err)
 		}
 
 	}
@@ -240,6 +240,7 @@ OUTER:
 		slot = afterHeader[i*KeySize : (i+1)*KeySize]
 
 		for j = 0; j < len(slotKeys); j++ {
+			// xor slotKey and slot to get the msgKey
 			for k = range slotKeys[j] {
 				msgKey[k] = slotKeys[j][k] ^ slot[k]
 			}
@@ -248,6 +249,7 @@ OUTER:
 			if err != nil {
 				return nil, [KeySize]byte{}, nil, err
 			}
+
 			err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
 			if err != nil {
 				return nil, [KeySize]byte{}, nil, err

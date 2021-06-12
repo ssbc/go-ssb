@@ -3,6 +3,8 @@ package keys
 import (
 	"encoding/binary"
 	"fmt"
+
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type KeyScheme string
@@ -17,6 +19,16 @@ const (
 )
 
 type ID []byte
+
+func IDFromFeed(r refs.FeedRef) ID {
+	// might be cleaner but needs changes elsewhere (that should probably use this func)
+	// idBytes, err := tfk.Encode(r)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	idBytes := r.PubKey()
+	return ID(idBytes)
+}
 
 type idxKey struct {
 	ks KeyScheme

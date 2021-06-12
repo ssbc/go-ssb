@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
+	"go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.mindeco.de/log"
 	kitlog "go.mindeco.de/log"
@@ -87,7 +87,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 
 	// publish a message to the group
 	postRef, err := srh.Groups.PublishPostTo(cloaked, "just a small test group!")
-	r.NoError(err)
+	r.NoError(err, "failed to publish post to group")
 	t.Log("post", postRef.ShortRef())
 
 	// make sure this is an encrypted message
@@ -210,8 +210,8 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("decrypted reply:", string(replyContent))
 
 	// indexed?
-	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
-		return func(tipe librarian.Addr, cnt int) {
+	chkCount := func(ml *roaring.MultiLog) func(tipe indexes.Addr, cnt int) {
+		return func(tipe indexes.Addr, cnt int) {
 			posts, err := ml.Get(tipe)
 			r.NoError(err)
 
@@ -229,13 +229,13 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	chkCount(srh.ByType)("string:post", 2)
 
 	chkCount(tal.ByType)("string:test", 2)
-	chkCount(tal.ByType)("string:post", 1) // TODO: reindex
+	chkCount(tal.ByType)("string:post", 2)
 
-	addr := librarian.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
+	addr := indexes.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
 	chkCount(srh.Private)(addr, 3)
 
-	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
-	chkCount(tal.Private)(addr, 2) // TODO: reindex
+	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	chkCount(tal.Private)(addr, 4)
 
 	/*
 		t.Log("srh")
@@ -244,12 +244,12 @@ func TestGroupsManualDecrypt(t *testing.T) {
 		testutils.StreamLog(t, tal.ReceiveLog)
 	*/
 
-	addr = librarian.Addr("meta:box2")
+	addr = indexes.Addr("meta:box2")
 	allBoxed, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
 	t.Log("all boxed:", allBoxed.String())
 
-	addr = librarian.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
 	readable, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
 
@@ -291,8 +291,8 @@ func TestGroupsReindex(t *testing.T) {
 	r := require.New(t)
 
 	// indexed?
-	chkCount := func(ml *roaring.MultiLog) func(tipe librarian.Addr, cnt int) {
-		return func(tipe librarian.Addr, cnt int) {
+	chkCount := func(ml *roaring.MultiLog) func(tipe indexes.Addr, cnt int) {
+		return func(tipe indexes.Addr, cnt int) {
 			posts, err := ml.Get(tipe)
 			r.NoError(err)
 

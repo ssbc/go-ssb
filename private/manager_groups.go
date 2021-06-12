@@ -27,10 +27,10 @@ var emptyMsgRef = refs.MessageRef{}
 // Create returns cloaked id and public root of a new group
 func (mgr *Manager) Create(name string) (refs.MessageRef, refs.MessageRef, error) {
 	// roll new key
-	var r keys.Recipient
-	r.Scheme = keys.SchemeLargeSymmetricGroup
-	r.Key = make([]byte, 32) // TODO: key size const
-	_, err := rand.Read(r.Key)
+	var groupKey keys.Recipient
+	groupKey.Scheme = keys.SchemeLargeSymmetricGroup
+	groupKey.Key = make([]byte, 32) // TODO: key size const
+	_, err := rand.Read(groupKey.Key)
 	if err != nil {
 		return emptyMsgRef, emptyMsgRef, err
 	}
@@ -49,14 +49,14 @@ func (mgr *Manager) Create(name string) (refs.MessageRef, refs.MessageRef, error
 	}
 
 	// encrypt the group/init message
-	publicRoot, err := mgr.encryptAndPublish(jsonContent, keys.Recipients{r})
+	publicRoot, err := mgr.encryptAndPublish(jsonContent, keys.Recipients{groupKey})
 	if err != nil {
 		return emptyMsgRef, emptyMsgRef, err
 	}
 
-	r.Metadata.GroupRoot = publicRoot
+	groupKey.Metadata.GroupRoot = publicRoot
 
-	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
+	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(groupKey)
 	if err != nil {
 		return emptyMsgRef, emptyMsgRef, err
 	}
@@ -120,17 +120,23 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, err
 	}
 
-	err = mgr.keymgr.AddKey(cloakedID, k)
-	if err != nil {
-		return emptyMsgRef, err
-	}
-
 	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey()), k)
 	if err != nil {
 		return emptyMsgRef, err
 	}
 
 	cloakedRef, err := refs.NewMessageRefFromBytes(cloakedID, refs.RefAlgoCloakedGroup)
+	if err != nil {
+		return emptyMsgRef, err
+	}
+
+	// store group key as tfk from floakedRef
+	cloakedTfk, err := tfk.Encode(cloakedRef)
+	if err != nil {
+		return emptyMsgRef, err
+	}
+
+	err = mgr.keymgr.AddKey(cloakedTfk, k)
 	if err != nil {
 		return emptyMsgRef, err
 	}
@@ -237,14 +243,15 @@ func (mgr *Manager) PublishTo(groupID refs.MessageRef, content []byte) (refs.Mes
 // TODO: reply root?
 func (mgr *Manager) PublishPostTo(groupID refs.MessageRef, text string) (refs.MessageRef, error) {
 	if groupID.Algo() != refs.RefAlgoCloakedGroup {
-		return refs.MessageRef{}, fmt.Errorf("not a group")
+		return refs.MessageRef{}, fmt.Errorf("publishToGroup: not a group")
 	}
 	rs, err := mgr.keymgr.GetKeysForMessage(keys.SchemeLargeSymmetricGroup, groupID)
 	if err != nil {
-		return refs.MessageRef{}, err
+		return refs.MessageRef{}, fmt.Errorf("publishToGroup: failed to get key for message: %w", err)
 	}
 
-	if nr := len(rs); nr != 1 {
+	// TODO: make sure the skeymgr makes these unique
+	if nr := len(rs); nr < 1 {
 		return refs.MessageRef{}, fmt.Errorf("expected 1 key for group, got %d", nr)
 	}
 	r := rs[0]
@@ -259,7 +266,7 @@ func (mgr *Manager) PublishPostTo(groupID refs.MessageRef, text string) (refs.Me
 
 	content, err := json.Marshal(p)
 	if err != nil {
-		return refs.MessageRef{}, err
+		return refs.MessageRef{}, fmt.Errorf("publishToGroup: failed to encode post data: %w", err)
 	}
 	return mgr.encryptAndPublish(content, rs)
 }

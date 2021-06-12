@@ -9,6 +9,7 @@ import (
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/luigi"
@@ -29,132 +30,116 @@ type handler struct {
 	mngr *private.Manager
 }
 
-func (handler) Handled(m muxrpc.Method) bool {
-	if len(m) != 2 {
-		return false
+func (h handler) handlePublish(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
+
+	// first arg is the message, 2nd is a slice of recipients
+	var args []json.RawMessage
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return nil, fmt.Errorf("private/publish: failed to decode call arguments: %w", err)
 	}
 
-	if m[0] != "private" {
-		return false
+	if len(args) != 2 {
+		return nil, fmt.Errorf("private/publish: expected [content, [recps,..]]: %w", err)
+	}
+	msg := args[0]
+
+	var recps []refs.AnyRef
+	err = json.Unmarshal(args[1], &recps)
+	if err != nil {
+		return nil, fmt.Errorf("private/publish: failed to decode recipients: %w", err)
 	}
 
-	return m[1] == "publish" || m[1] == "read"
+	filtered := make([]refs.Ref, len(recps))
+	var box2mode = false
+	var i int
+	for _, rv := range recps {
+		if mr, yes := rv.IsMessage(); yes {
+			box2mode = true
+			filtered[i] = mr
+			i++
+		}
+
+		if fr, yes := rv.IsFeed(); yes {
+			filtered[i] = fr
+			i++
+		}
+	}
+
+	// cut of excess
+	filtered = filtered[:i]
+
+	var ctxt []byte
+	if box2mode {
+		ctxt, err = h.privatePublishBox2(msg, filtered)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ctxt, err = h.privatePublishBox1(msg, filtered)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ref, err := h.publish.Publish(ctxt)
+	if err != nil {
+		return refs.MessageRef{}, fmt.Errorf("private/publish: pour failed: %w", err)
+	}
+
+	level.Info(h.info).Log("new-private", ref.Ref())
+
+	return ref, nil
 }
 
-func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	var closed bool
-	checkAndClose := func(err error) {
-		if err != nil {
-			h.info.Log("event", "closing", "method", req.Method, "err", err)
-		}
-		if err != nil {
-			closed = true
-			closeErr := req.Stream.CloseWithError(err)
-			err := fmt.Errorf("error closeing request: %w", closeErr)
-			if err != nil {
-				h.info.Log("event", "closing", "method", req.Method, "err", err)
-			}
-		}
-	}
+func (h handler) privatePublishBox1(msg []byte, recps []refs.Ref) ([]byte, error) {
 
-	defer func() {
-		if !closed {
-			err := fmt.Errorf("gossip: error closing call: %w", req.Stream.Close())
-			if err != nil {
-				h.info.Log("event", "closing", "method", req.Method, "err", err)
-			}
-		}
-	}()
-
-	switch req.Method.String() {
-
-	case "private.publish":
-		if req.Type == "" {
-			req.Type = "async"
-		}
-		if n := len(req.Args()); n != 2 {
-			req.CloseWithError(fmt.Errorf("private/publish: bad request. expected 2 argument got %d", n))
-			return
-		}
-
-		msg, err := json.Marshal(req.Args()[0])
-		if err != nil {
-			req.CloseWithError(fmt.Errorf("failed to encode message: %w", err))
-			return
-		}
-
-		rcps, ok := req.Args()[1].([]interface{})
+	var feeds = make([]refs.FeedRef, len(recps))
+	for i, r := range recps {
+		fr, ok := r.(refs.FeedRef)
 		if !ok {
-			req.CloseWithError(fmt.Errorf("private/publish: wrong argument type. expected []strings but got %T", req.Args()[1]))
-			return
+			return nil, fmt.Errorf("private/publish/box1: argument %d not a feed ref: %T", i, r)
 		}
-
-		rcpsRefs := make([]refs.FeedRef, len(rcps))
-		for i, rv := range rcps {
-			rstr, ok := rv.(string)
-			if !ok {
-				req.CloseWithError(fmt.Errorf("private/publish: wrong argument type. expected strings but got %T", rv))
-				return
-			}
-			// TODO: box2 message ref
-			rcpsRefs[i], err = refs.ParseFeedRef(rstr)
-			if err != nil {
-				req.CloseWithError(fmt.Errorf("private/publish: failed to parse recp %d: %w", i, err))
-				return
-			}
-		}
-
-		ref, err := h.privatePublish(msg, rcpsRefs)
-		if err != nil {
-			req.CloseWithError(err)
-			return
-		}
-
-		err = req.Return(ctx, ref)
-		if err != nil {
-			h.info.Log("event", "error", "msg", "cound't return new msg ref")
-			return
-		}
-		h.info.Log("published", ref.Ref())
-
-		return
-
-	case "private.read":
-		if req.Type != "source" {
-			checkAndClose(fmt.Errorf("private.read: wrong request type. %s", req.Type))
-			return
-		}
-		h.privateRead(ctx, req)
-
-	default:
-		checkAndClose(fmt.Errorf("private: unknown command: %s", req.Method))
+		feeds[i] = fr
 	}
+
+	boxedMsg, err := h.mngr.EncryptBox1(msg, feeds...)
+	if err != nil {
+		return nil, fmt.Errorf("private/publish/box1: failed to box message: %w", err)
+	}
+
+	if h.author.Algo() == refs.RefAlgoFeedGabby {
+		boxedMsg = append([]byte("box1:"), boxedMsg...)
+	}
+
+	return boxedMsg, nil
 }
 
-func (h handler) HandleConnect(ctx context.Context, edp muxrpc.Endpoint) {}
+func (h handler) privatePublishBox2(msg []byte, recps []refs.Ref) ([]byte, error) {
+	return nil, fmt.Errorf("TODO: get previous")
+	// h.publish.Seq().Value()
 
-func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
+	// h.publish.Get(latest)
+	// msg.Previous
+
+	// TODO:
+	prev := refs.MessageRef{}
+
+	return h.mngr.EncryptBox2(msg, prev, recps)
+}
+
+func (h handler) handleRead(ctx context.Context, req *muxrpc.Request, snk *muxrpc.ByteSink) error {
+	var args []message.CreateHistArgs
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err != nil {
+		return fmt.Errorf("private/read: failed to decode call arguments: %w", err)
+	}
+
 	var qry message.CreateHistArgs
 
-	args := req.Args()
-	if len(args) > 0 {
+	if len(args) == 1 {
+		qry = args[0]
 
-		switch v := args[0].(type) {
-		case map[string]interface{}:
-			q, err := message.NewCreateHistArgsFromMap(v)
-			if err != nil {
-				req.CloseWithError(fmt.Errorf("privateRead: bad request: %w", err))
-				return
-			}
-			qry = *q
-		default:
-			req.CloseWithError(fmt.Errorf("privateRead: invalid argument type %T", args[0]))
-			return
-		}
-
-		if qry.Live {
-			qry.Limit = -1
-		}
 	} else {
 		qry.Limit = -1
 	}
@@ -167,40 +152,13 @@ func (h handler) privateRead(ctx context.Context, req *muxrpc.Request) {
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live))
 	if err != nil {
-		req.CloseWithError(fmt.Errorf("private/read: failed to create query: %w", err))
-		return
-	}
-
-	snk, err := req.ResponseSink()
-	if err != nil {
-		req.CloseWithError(err)
-		return
+		return fmt.Errorf("private/read: failed to create query: %w", err)
 	}
 
 	err = luigi.Pump(ctx, transform.NewKeyValueWrapper(snk, qry.Keys), src)
 	if err != nil {
-		req.CloseWithError(fmt.Errorf("private/read: message pump failed: %w", err))
-		return
+		return fmt.Errorf("private/read: message pump failed: %w", err)
 	}
 	req.Close()
-}
-
-func (h handler) privatePublish(msg []byte, recps []refs.FeedRef) (refs.MessageRef, error) {
-
-	boxedMsg, err := h.mngr.EncryptBox1(msg, recps...)
-	if err != nil {
-		return refs.MessageRef{}, fmt.Errorf("private/publish: failed to box message: %w", err)
-	}
-
-	if h.author.Algo() == refs.RefAlgoFeedGabby {
-		boxedMsg = append([]byte("box1:"), boxedMsg...)
-	}
-
-	ref, err := h.publish.Publish(boxedMsg)
-	if err != nil {
-		return refs.MessageRef{}, fmt.Errorf("private/publish: pour failed: %w", err)
-
-	}
-
-	return ref, nil
+	return nil
 }

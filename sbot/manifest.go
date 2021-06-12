@@ -69,6 +69,7 @@ const manifestBlob manifestHandler = `
 	},
 
 	"private": {
+		"publish": "async",
 		"read":"source"
 	},
 

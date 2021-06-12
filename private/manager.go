@@ -188,7 +188,7 @@ func (mgr *Manager) EncryptBox2(content []byte, prev refs.MessageRef, recpts []r
 	bxr := box2.NewBoxer(mgr.rand)
 	ctxt, err := bxr.Encrypt(content, mgr.author.Id, prev, allKeys)
 	if err != nil {
-		return nil, fmt.Errorf("error encrypting message (box1): %w", err)
+		return nil, fmt.Errorf("error encrypting message (box2): %w", err)
 	}
 	return ctxt, nil
 }
@@ -237,6 +237,10 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author refs.FeedRef, prev refs.Mess
 	keyID = sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey())
 	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
 		allKeys = append(allKeys, ks...)
+	}
+
+	if len(allKeys) == 0 {
+		return nil, fmt.Errorf("private: do not have a key for box2 message")
 	}
 
 	// try decrypt

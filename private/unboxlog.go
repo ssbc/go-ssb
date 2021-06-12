@@ -114,7 +114,7 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 		boxedContent = bytes.TrimPrefix(amsg.ContentBytes(), []byte("box1:"))
 
 	default:
-		return nil, fmt.Errorf("decode pm: unknown feed type: %s", author.Algo)
+		return nil, fmt.Errorf("decode pm: unknown feed type: %s", author.Algo())
 	}
 
 	clearContent, err := il.boxer.Decrypt(il.kp, boxedContent)

@@ -6,6 +6,7 @@ import (
 
 	librarian "go.cryptoscope.co/margaret/indexes"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 // Q: what's the relation of ID and key?
@@ -81,8 +82,11 @@ func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 }
 
 func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipients, error) {
-	panic("TODO")
-	// return mgr.getKeys(ks, id)
+	idBytes, err := tfk.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+	return mgr.getKeys(ks, ID(idBytes))
 }
 
 func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
