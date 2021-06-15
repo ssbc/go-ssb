@@ -18,16 +18,16 @@ func DefaultKeyPair(r Interface) (ssb.KeyPair, error) {
 	keyPair, err := ssb.LoadKeyPair(secPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return ssb.KeyPair{}, fmt.Errorf("repo: error opening key pair: %w", err)
+			return nil, fmt.Errorf("repo: error opening key pair: %w", err)
 		}
 		keyPair, err = ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 		if err != nil {
-			return ssb.KeyPair{}, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
+			return nil, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
 		}
 		if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
-			return ssb.KeyPair{}, fmt.Errorf("repo: error saving new identity file: %w", err)
+			return nil, fmt.Errorf("repo: error saving new identity file: %w", err)
 		}
-		log.Printf("saved identity %s to %s", keyPair.Id.Ref(), secPath)
+		log.Printf("saved identity %s to %s", keyPair.ID().Ref(), secPath)
 	}
 	return keyPair, nil
 }
@@ -48,23 +48,23 @@ func newKeyPair(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (ss
 		secPath = r.GetPath("secrets", name)
 		err := os.MkdirAll(filepath.Dir(secPath), 0700)
 		if err != nil && !os.IsExist(err) {
-			return ssb.KeyPair{}, err
+			return nil, err
 		}
 	}
 	if algo != refs.RefAlgoFeedSSB1 && algo != refs.RefAlgoFeedGabby { //  enums would be nice
-		return ssb.KeyPair{}, fmt.Errorf("invalid feed refrence algo")
+		return nil, fmt.Errorf("invalid feed refrence algo")
 	}
 	if _, err := ssb.LoadKeyPair(secPath); err == nil {
-		return ssb.KeyPair{}, fmt.Errorf("new key-pair name already taken")
+		return nil, fmt.Errorf("new key-pair name already taken")
 	}
 	keyPair, err := ssb.NewKeyPair(seed, algo)
 	if err != nil {
-		return ssb.KeyPair{}, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
+		return nil, fmt.Errorf("repo: no keypair but couldn't create one either: %w", err)
 	}
 	if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
-		return ssb.KeyPair{}, fmt.Errorf("repo: error saving new identity file: %w", err)
+		return nil, fmt.Errorf("repo: error saving new identity file: %w", err)
 	}
-	log.Printf("saved identity %s to %s", keyPair.Id.Ref(), secPath)
+	log.Printf("saved identity %s to %s", keyPair.ID().Ref(), secPath)
 	return keyPair, nil
 }
 
@@ -72,7 +72,7 @@ func LoadKeyPair(r Interface, name string) (ssb.KeyPair, error) {
 	secPath := r.GetPath("secrets", name)
 	keyPair, err := ssb.LoadKeyPair(secPath)
 	if err != nil {
-		return ssb.KeyPair{}, fmt.Errorf("Load: failed to open %q: %w", secPath, err)
+		return nil, fmt.Errorf("Load: failed to open %q: %w", secPath, err)
 	}
 	return keyPair, nil
 }

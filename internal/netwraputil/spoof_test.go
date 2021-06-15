@@ -17,14 +17,14 @@ func TestSpoof(t *testing.T) {
 	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	wrap := SpoofRemoteAddress(kp.Id.PubKey())
+	wrap := SpoofRemoteAddress(kp.ID().PubKey())
 
 	wrapped, err := wrap(wc)
 	r.NoError(err)
 
 	ref, err := ssb.GetFeedRefFromAddr(wrapped.RemoteAddr())
 	r.NoError(err)
-	r.True(ref.Equal(kp.Id))
+	r.True(ref.Equal(kp.ID()))
 
 	wc.Close()
 	rc.Close()

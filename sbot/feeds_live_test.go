@@ -115,42 +115,42 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 	botA := makeNamedTestBot(t, "A", netOpts)
 	botgroup.Go(bs.Serve(botA))
-	t.Log("botA:", botA.KeyPair.Id.ShortRef())
+	t.Log("botA:", botA.KeyPair.ID().ShortRef())
 
 	botB := makeNamedTestBot(t, "B", netOpts)
 	botgroup.Go(bs.Serve(botB))
-	t.Log("botB:", botB.KeyPair.Id.ShortRef())
+	t.Log("botB:", botB.KeyPair.ID().ShortRef())
 
 	botC := makeNamedTestBot(t, "C", netOpts)
 	botgroup.Go(bs.Serve(botC))
-	t.Log("botC:", botC.KeyPair.Id.ShortRef())
+	t.Log("botC:", botC.KeyPair.ID().ShortRef())
 
 	botD := makeNamedTestBot(t, "D", netOpts)
 	botgroup.Go(bs.Serve(botD))
-	t.Log("botD:", botD.KeyPair.Id.ShortRef())
+	t.Log("botD:", botD.KeyPair.ID().ShortRef())
 
 	// replicate the network
-	botA.Replicate(botB.KeyPair.Id)
-	botA.Replicate(botC.KeyPair.Id)
-	botA.Replicate(botD.KeyPair.Id)
+	botA.Replicate(botB.KeyPair.ID())
+	botA.Replicate(botC.KeyPair.ID())
+	botA.Replicate(botD.KeyPair.ID())
 
-	botB.Replicate(botA.KeyPair.Id)
-	botB.Replicate(botC.KeyPair.Id)
-	botB.Replicate(botD.KeyPair.Id)
+	botB.Replicate(botA.KeyPair.ID())
+	botB.Replicate(botC.KeyPair.ID())
+	botB.Replicate(botD.KeyPair.ID())
 
-	botC.Replicate(botA.KeyPair.Id)
-	botC.Replicate(botB.KeyPair.Id)
-	botC.Replicate(botD.KeyPair.Id)
+	botC.Replicate(botA.KeyPair.ID())
+	botC.Replicate(botB.KeyPair.ID())
+	botC.Replicate(botD.KeyPair.ID())
 
-	botD.Replicate(botA.KeyPair.Id)
-	botD.Replicate(botB.KeyPair.Id)
-	botD.Replicate(botC.KeyPair.Id)
+	botD.Replicate(botA.KeyPair.ID())
+	botD.Replicate(botB.KeyPair.ID())
+	botD.Replicate(botC.KeyPair.ID())
 
 	theBots := []*Sbot{botA, botB, botC, botD}
 
 	uf, ok := botA.GetMultiLog("userFeeds")
 	r.True(ok)
-	feedOfBotD, err := uf.Get(storedrefs.Feed(botD.KeyPair.Id))
+	feedOfBotD, err := uf.Get(storedrefs.Feed(botD.KeyPair.ID()))
 	r.NoError(err)
 
 	t.Log("connecting the chain")
@@ -280,14 +280,14 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 		return err
 	})
 
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
-	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.Id))
+	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(0), seq)
 
-	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.Id))
+	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.ID()))
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(0), seq)
 
@@ -298,7 +298,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
 
-	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
+	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.ID()))
 	r.NoError(err)
 
 	wantSeq := margaret.BaseSeq(0)
@@ -398,17 +398,17 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 	theBots = append(theBots, bLeafs...)
 
 	// be-friend the network
-	botA.Replicate(botI.KeyPair.Id)
-	botI.Replicate(botA.KeyPair.Id)
+	botA.Replicate(botI.KeyPair.ID())
+	botI.Replicate(botA.KeyPair.ID())
 
 	for _, bot := range bLeafs {
 
 		// fetch the target
-		bot.Replicate(botA.KeyPair.Id)
+		bot.Replicate(botA.KeyPair.ID())
 
 		// trust intermediary
-		bot.Replicate(botI.KeyPair.Id)
-		botI.Replicate(bot.KeyPair.Id)
+		bot.Replicate(botI.KeyPair.ID())
+		botI.Replicate(bot.KeyPair.ID())
 
 	}
 
@@ -430,7 +430,7 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 		// did Bi get feed A?
 		ufOfBotB, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok)
-		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.Id))
+		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.ID()))
 		r.NoError(err)
 		seqv, err := feedAonBotB.Seq().Value()
 		r.NoError(err)

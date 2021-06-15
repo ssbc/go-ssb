@@ -51,10 +51,10 @@ var aliasRegisterCmd = &cli.Command{
 
 		var reg aliases.Registration
 		reg.Alias = alias
-		reg.UserID = localKey.Id
+		reg.UserID = localKey.ID()
 		reg.RoomID = roomID
 
-		conf := reg.Sign(localKey.Pair.Secret)
+		conf := reg.Sign(localKey.Secret())
 		sig := base64.StdEncoding.EncodeToString(conf.Signature) + ".sig.ed25519"
 
 		var ok bool

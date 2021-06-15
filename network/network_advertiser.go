@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-reuseport"
+	"golang.org/x/crypto/ed25519"
 
 	"go.cryptoscope.co/ssb"
 	multiserver "go.mindeco.de/ssb-multiserver"
@@ -28,8 +29,7 @@ type Advertiser struct {
 	ticker   *time.Ticker
 }
 
-func newPublicKeyString(keyPair ssb.KeyPair) string {
-	publicKey := keyPair.Pair.Public[:]
+func newPublicKeyString(publicKey ed25519.PublicKey) string {
 	return base64.StdEncoding.EncodeToString(publicKey)
 }
 
@@ -42,7 +42,7 @@ func newAdvertisement(local *net.UDPAddr, keyPair ssb.KeyPair) (string, error) {
 	withoutZone.Zone = ""
 
 	// crunchy way of making a https://github.com/ssbc/multiserver/
-	msg := fmt.Sprintf("net:%s~shs:%s", &withoutZone, newPublicKeyString(keyPair))
+	msg := fmt.Sprintf("net:%s~shs:%s", &withoutZone, newPublicKeyString(keyPair.ID().PubKey()))
 	_, err := multiserver.ParseNetAddress([]byte(msg))
 	return msg, err
 }

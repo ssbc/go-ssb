@@ -55,7 +55,7 @@ func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
 
 	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, kp)
 	state.peers[op.name] = publisher
-	ref := publisher.key.Id.Ref()
+	ref := publisher.key.ID().Ref()
 	state.refToName[ref] = op.name
 	state.t.Logf("created(%d) %s as %s (algo:%s)", i, op.name, ref, op.algo)
 	i++
@@ -83,7 +83,7 @@ func (op PeopleOpFollow) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-	alice.follow(w.key.Id)
+	alice.follow(w.key.ID())
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (op PeopleOpUnfollow) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-	alice.unfollow(w.key.Id)
+	alice.unfollow(w.key.ID())
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (op PeopleOpBlock) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-	alice.block(w.key.Id)
+	alice.block(w.key.ID())
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (op PeopleOpUnblock) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-	alice.unblock(w.key.Id)
+	alice.unblock(w.key.ID())
 	return nil
 }
 
@@ -139,12 +139,12 @@ func PeopleAssertPathDist(from, to string, hops int) PeopleAssertMaker {
 			if err != nil {
 				return err
 			}
-			dijk, err := g.MakeDijkstra(a.key.Id)
+			dijk, err := g.MakeDijkstra(a.key.ID())
 			if err != nil {
 				return fmt.Errorf("dist: make dijkstra failed: %w", err)
 			}
 
-			path, dist := dijk.Dist(b.key.Id)
+			path, dist := dijk.Dist(b.key.ID())
 			if hops < 0 {
 				if !math.IsInf(dist, +1) {
 					return fmt.Errorf("expected no path but got %v %f", path, dist)
@@ -171,7 +171,7 @@ func PeopleAssertFollows(from, to string, want bool) PeopleAssertMaker {
 			if err != nil {
 				return err
 			}
-			if g.Follows(a.key.Id, b.key.Id) != want {
+			if g.Follows(a.key.ID(), b.key.ID()) != want {
 				return fmt.Errorf("follows assert failed - wanted %v", want)
 			}
 			return nil
@@ -190,11 +190,11 @@ func PeopleAssertBlocks(from, to string, want bool) PeopleAssertMaker {
 			if err != nil {
 				return err
 			}
-			if g.Blocks(a.key.Id, b.key.Id) != want {
+			if g.Blocks(a.key.ID(), b.key.ID()) != want {
 				return fmt.Errorf("Blocks() assert failed - wanted %v", want)
 			}
-			set := g.BlockedList(a.key.Id)
-			isBlocked := set.Has(b.key.Id)
+			set := g.BlockedList(a.key.ID())
+			isBlocked := set.Has(b.key.ID())
 			if isBlocked != want {
 				return fmt.Errorf("BlockedList() assert failed - wanted %v (has: %v)", want, isBlocked)
 			}
@@ -211,9 +211,9 @@ func PeopleAssertAuthorize(host, remote string, hops int, want bool) PeopleAsser
 				return fmt.Errorf("auth: no such peers: %w", err)
 			}
 
-			auth := bld.Authorizer(a.key.Id, hops)
+			auth := bld.Authorizer(a.key.ID(), hops)
 
-			err := auth.Authorize(b.key.Id)
+			err := auth.Authorize(b.key.ID())
 			if want {
 				if err != nil {
 					return fmt.Errorf("auth assert: %s didn't allow %s", host, remote)
@@ -258,7 +258,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 		r.NoError(err, "failed to build graph for debugging")
 		g.Lock()
 		for nick, pub := range state.peers {
-			newKey := storedrefs.Feed(pub.key.Id)
+			newKey := storedrefs.Feed(pub.key.ID())
 			node, ok := g.lookup[newKey]
 			if !a.True(ok, "did not find peer %s in graph lookup table (len:%d)", nick, len(g.lookup)) {
 				continue

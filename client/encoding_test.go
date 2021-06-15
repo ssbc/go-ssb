@@ -80,7 +80,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	r.EqualValues(9, seqv)
 
 	args := message.CreateHistArgs{
-		ID:     testKP.Id,
+		ID:     testKP.ID(),
 		AsJSON: true,
 	}
 	args.Limit = -1

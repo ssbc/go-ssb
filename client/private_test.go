@@ -40,8 +40,7 @@ func TestAutomaticUnboxing(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.True(srv.KeyPair.Id.Equal(ref), "whoami not equal")
-	t.Log("whoami:", ref.Ref())
+	a.True(srv.KeyPair.ID().Equal(ref), "whoami not equal")
 
 	groupID, root, err := srv.Groups.Create("client test group")
 	r.NoError(err, "failed to create group")

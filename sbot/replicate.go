@@ -32,7 +32,7 @@ func (sbot *Sbot) Replicate(r refs.FeedRef) {
 		l = v.(margaret.Seq).Seq()
 	}
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
 	})
 
@@ -51,7 +51,7 @@ func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
 		l = v.(margaret.Seq).Seq()
 	}
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
+	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
 	})
 
@@ -69,7 +69,7 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	r.current = newLister()
 
 	replicateEvt := log.With(s.info, "event", "update-replicate")
-	update := r.makeUpdater(replicateEvt, s.KeyPair.Id, int(s.hopCount))
+	update := r.makeUpdater(replicateEvt, s.KeyPair.ID(), int(s.hopCount))
 
 	// update for new messages but only every 15seconds
 	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Seq(), update)

@@ -49,7 +49,7 @@ func TestSignMessages(t *testing.T) {
 	testAuthor, err := ssb.NewKeyPair(staticRand, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.Id))
+	authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.ID()))
 	r.NoError(err)
 
 	w, err := OpenPublishLog(rl, userFeeds, testAuthor)
@@ -58,7 +58,7 @@ func TestSignMessages(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": testAuthor.Id.Ref(),
+			"about": testAuthor.ID().Ref(),
 			"name":  "test user",
 		},
 		map[string]interface{}{

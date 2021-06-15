@@ -59,12 +59,12 @@ func TestCompatHMACVerify(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
-	lm.Author = kp.Id.Ref()
+	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
 		"hello": "world",
 	}
 
-	mr, msgbytes, err := lm.Sign(kp.Pair.Secret[:], &hk)
+	mr, msgbytes, err := lm.Sign(kp.Secret(), &hk)
 	r.NoError(err)
 	r.NotNil(mr)
 
@@ -72,7 +72,7 @@ func TestCompatHMACVerify(t *testing.T) {
 		"testaction=hmac_verify",
 		"testhmackey=" + base64.StdEncoding.EncodeToString(hmacKey),
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.Id.Ref(),
+		"testpublic=" + kp.ID().Ref(),
 		"testobj=" + base64.StdEncoding.EncodeToString(msgbytes),
 	}
 	runCompatScript(t, env)
@@ -94,12 +94,12 @@ func TestCompatHMACSign(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
-	lm.Author = kp.Id.Ref()
+	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
 		"hello": "world",
 	}
 
-	mr, msgbytes, err := lm.Sign(kp.Pair.Secret[:], &hk)
+	mr, msgbytes, err := lm.Sign(kp.Secret(), &hk)
 	r.NoError(err)
 	r.NotNil(mr)
 
@@ -126,7 +126,7 @@ func TestCompatHMACSign(t *testing.T) {
 		"testaction=hmac_sign",
 		"testhmackey=" + base64.StdEncoding.EncodeToString(hmacKey),
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.Id.Ref(),
+		"testpublic=" + kp.ID().Ref(),
 		"testobj=" + base64.StdEncoding.EncodeToString(pp),
 	}
 	out := runCompatScript(t, env)
@@ -143,12 +143,12 @@ func TestCompatVerify(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
-	lm.Author = kp.Id.Ref()
+	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
 		"hello": "world",
 	}
 
-	mr, msgbytes, err := lm.Sign(kp.Pair.Secret[:], nil)
+	mr, msgbytes, err := lm.Sign(kp.Secret(), nil)
 	r.NoError(err)
 	r.NotNil(mr)
 
@@ -158,7 +158,7 @@ func TestCompatVerify(t *testing.T) {
 	env := []string{
 		"testaction=verify",
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.Id.Ref(),
+		"testpublic=" + kp.ID().Ref(),
 		"testobj=" + base64.StdEncoding.EncodeToString(msgbytes),
 	}
 	runCompatScript(t, env)
@@ -173,12 +173,12 @@ func TestCompatSignature(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
-	lm.Author = kp.Id.Ref()
+	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
 		"hello": "world",
 	}
 
-	mr, msgbytes, err := lm.Sign(kp.Pair.Secret[:], nil)
+	mr, msgbytes, err := lm.Sign(kp.Secret(), nil)
 	r.NoError(err)
 	r.NotNil(mr)
 
@@ -204,7 +204,7 @@ func TestCompatSignature(t *testing.T) {
 	env := []string{
 		"testaction=sign",
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.Id.Ref(),
+		"testpublic=" + kp.ID().Ref(),
 		"testobj=" + base64.StdEncoding.EncodeToString(pp),
 	}
 	out := runCompatScript(t, env)

@@ -175,7 +175,7 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	}
 
 	var remotePubKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
-	copy(remotePubKey, localKey.Pair.Public)
+	copy(remotePubKey, localKey.ID().PubKey())
 	if rk := ctx.String("remoteKey"); rk != "" {
 		rk = strings.TrimSuffix(rk, ".ed25519")
 		rk = strings.TrimPrefix(rk, "@")

@@ -44,7 +44,7 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []refs.FeedRef{alice.Id},
+					Recipients: []refs.FeedRef{alice.ID()},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -58,7 +58,7 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []refs.FeedRef{alice.Id, bob.Id},
+					Recipients: []refs.FeedRef{alice.ID(), bob.ID()},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -76,17 +76,17 @@ func TestManager(t *testing.T) {
 			Ops: []testops.Op{
 				OpManagerEncryptBox2{
 					Manager:    alice.manager,
-					Recipients: []refs.Ref{alice.Id, bob.Id},
+					Recipients: []refs.Ref{alice.ID(), bob.ID()},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox2{
 					Manager:    alice.manager,
-					Sender:     alice.Id,
+					Sender:     alice.ID(),
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox2{
 					Manager:    bob.manager,
-					Sender:     alice.Id,
+					Sender:     alice.ID(),
 					Ciphertext: &ctxt,
 				},
 			},
@@ -133,7 +133,7 @@ func newIdentity(t *testing.T, name string, km *keys.Store) testIdentity {
 	id.KeyPair, err = ssb.NewKeyPair(rand, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err)
 
-	t.Logf("%s is %s", name, id.Id.Ref())
+	t.Logf("%s is %s", name, id.ID().Ref())
 
 	id.manager = &Manager{
 		author: id.KeyPair,
@@ -165,16 +165,16 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 	for i := range ids {
 		specs = append(specs, keySpec{
 			keys.SchemeDiffieStyleConvertedED25519,
-			keys.IDFromFeed(ids[i].Id),
-			keys.Key(ids[i].Pair.Secret[:]),
+			keys.IDFromFeed(ids[i].ID()),
+			keys.Key(ids[i].Secret()),
 		})
 
-		extra25519.PrivateKeyToCurve25519(&cvSecs[i], ids[i].Pair.Secret)
-		extra25519.PublicKeyToCurve25519(&cvPubs[i], ids[i].Pair.Public)
+		extra25519.PrivateKeyToCurve25519(&cvSecs[i], ids[i].Secret())
+		extra25519.PublicKeyToCurve25519(&cvPubs[i], ids[i].ID().PubKey())
 
 		specs = append(specs, keySpec{
 			keys.SchemeDiffieStyleConvertedED25519,
-			keys.IDFromFeed(ids[i].Id),
+			keys.IDFromFeed(ids[i].ID()),
 			keys.Key(cvSecs[i][:]),
 		})
 	}
@@ -191,7 +191,7 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 
 			specs = append(specs, keySpec{
 				keys.SchemeDiffieStyleConvertedED25519,
-				sortAndConcat(keys.IDFromFeed(ids[i].Id), keys.IDFromFeed(ids[j].Id)),
+				sortAndConcat(keys.IDFromFeed(ids[i].ID()), keys.IDFromFeed(ids[j].ID())),
 				keys.Key(shared[i][j][:]),
 			})
 		}

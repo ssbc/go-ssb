@@ -101,7 +101,7 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 		testAuthor, err := ssb.NewKeyPair(staticRand, ff)
 		r.NoError(err)
 
-		authorLog, err := ts.userLogs.Get(storedrefs.Feed(testAuthor.Id))
+		authorLog, err := ts.userLogs.Get(storedrefs.Feed(testAuthor.ID()))
 		r.NoError(err)
 
 		w, err := OpenPublishLog(ts.rxLog, ts.userLogs, testAuthor)
@@ -110,7 +110,7 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 		var tmsgs = []interface{}{
 			map[string]interface{}{
 				"type":  "about",
-				"about": testAuthor.Id.Ref(),
+				"about": testAuthor.ID().Ref(),
 				"name":  "test user",
 			},
 			map[string]interface{}{

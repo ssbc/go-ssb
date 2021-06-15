@@ -47,7 +47,7 @@ func websockHandler(n *Node) http.HandlerFunc {
 		// comment out this block to get `noauth` instead of `shs`
 		// TODO:
 		// netwrap.WrapAddr(remoteAddr, secretstream.Addr{
-		// 	PubKey: n.opts.KeyPair.Id.ID,
+		// 	PubKey: n.opts.KeyPair.ID().ID,
 		// })
 		cw := n.secretServer.ConnWrapper()
 		wc, err = cw(wc)

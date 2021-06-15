@@ -49,25 +49,25 @@ func TestPersistence(t *testing.T) {
 
 	botA := makeNamedTestBot(t, "A", netOpts)
 	botgroup.Go(bs.Serve(botA))
-	t.Log("botA:", botA.KeyPair.Id.ShortRef())
+	t.Log("botA:", botA.KeyPair.ID().ShortRef())
 
 	botB := makeNamedTestBot(t, "B", netOpts)
 	botgroup.Go(bs.Serve(botB))
-	t.Log("botB:", botB.KeyPair.Id.ShortRef())
+	t.Log("botB:", botB.KeyPair.ID().ShortRef())
 
 	botC := makeNamedTestBot(t, "C", netOpts)
 	botgroup.Go(bs.Serve(botC))
-	t.Log("botC:", botC.KeyPair.Id.ShortRef())
+	t.Log("botC:", botC.KeyPair.ID().ShortRef())
 
 	// replicate the network
-	botA.Replicate(botB.KeyPair.Id)
-	botA.Replicate(botC.KeyPair.Id)
+	botA.Replicate(botB.KeyPair.ID())
+	botA.Replicate(botC.KeyPair.ID())
 
-	botB.Replicate(botA.KeyPair.Id)
-	botB.Replicate(botC.KeyPair.Id)
+	botB.Replicate(botA.KeyPair.ID())
+	botB.Replicate(botC.KeyPair.ID())
 
-	botC.Replicate(botA.KeyPair.Id)
-	botC.Replicate(botB.KeyPair.Id)
+	botC.Replicate(botA.KeyPair.ID())
+	botC.Replicate(botB.KeyPair.ID())
 
 	theBots := []*Sbot{botA, botB, botC}
 
@@ -131,15 +131,15 @@ func TestPersistence(t *testing.T) {
 		r.EqualValues(testMsgCount-1, v.(margaret.Seq).Seq())
 	}
 
-	logA, err := botA.Users.Get(storedrefs.Feed(botA.KeyPair.Id))
+	logA, err := botA.Users.Get(storedrefs.Feed(botA.KeyPair.ID()))
 	r.NoError(err)
 	checkLogSeq(logA)
 
-	logB, err := botA.Users.Get(storedrefs.Feed(botB.KeyPair.Id))
+	logB, err := botA.Users.Get(storedrefs.Feed(botB.KeyPair.ID()))
 	r.NoError(err)
 	checkLogSeq(logB)
 
-	logC, err := botA.Users.Get(storedrefs.Feed(botC.KeyPair.Id))
+	logC, err := botA.Users.Get(storedrefs.Feed(botC.KeyPair.ID()))
 	r.NoError(err)
 	checkLogSeq(logC)
 

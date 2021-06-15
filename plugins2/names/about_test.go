@@ -55,7 +55,7 @@ func TestAboutNames(t *testing.T) {
 	var newName refs.About
 	newName.Type = "about"
 	newName.Name = fmt.Sprintf("testName:%x", hk[:16])
-	newName.About = ali.KeyPair.Id
+	newName.About = ali.KeyPair.ID()
 
 	_, err = ali.PublishLog.Publish(newName)
 	r.NoError(err)
@@ -85,11 +85,11 @@ func TestAboutNames(t *testing.T) {
 	r.NoError(err)
 	t.Log(all)
 
-	name, ok := all.GetCommonName(ali.KeyPair.Id)
+	name, ok := all.GetCommonName(ali.KeyPair.ID())
 	r.True(ok, "name for ali not found")
 	r.Equal(newName.Name, name)
 
-	name2, err := c.NamesSignifier(ali.KeyPair.Id)
+	name2, err := c.NamesSignifier(ali.KeyPair.ID())
 	r.NoError(err)
 	r.Equal(newName.Name, name2)
 

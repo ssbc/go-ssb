@@ -131,13 +131,13 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 		if _, err := pr.boxer.Decrypt(kp, boxedContent); err != nil {
 			continue
 		}
-		userPrivs, err := mlog.Get(storedrefs.Feed(kp.Id))
+		userPrivs, err := mlog.Get(storedrefs.Feed(kp.ID()))
 		if err != nil {
-			return fmt.Errorf("private/readidx: error opening priv sublog for %s: %w", kp.Id.Ref(), err)
+			return fmt.Errorf("private/readidx: error opening priv sublog for %s: %w", kp.ID().Ref(), err)
 		}
 		_, err = userPrivs.Append(seq.Seq())
 		if err != nil {
-			return fmt.Errorf("private/readidx: error appending PM for %s: %w", kp.Id.Ref(), err)
+			return fmt.Errorf("private/readidx: error appending PM for %s: %w", kp.ID().Ref(), err)
 		}
 	}
 	return nil

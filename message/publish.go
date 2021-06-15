@@ -131,7 +131,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
 func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
-	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.Id))
+	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.ID()))
 	if err != nil {
 		return nil, fmt.Errorf("publish: failed to open sublog for author: %w", err)
 	}
@@ -141,21 +141,21 @@ func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ss
 		receiveLog: receiveLog,
 	}
 
-	switch kp.Id.Algo() {
+	switch kp.ID().Algo() {
 	case refs.RefAlgoFeedSSB1:
 		pl.create = &legacyCreate{
 			key: kp,
 		}
 	case refs.RefAlgoFeedGabby:
 		pl.create = &gabbyCreate{
-			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
+			enc: gabbygrove.NewEncoder(kp.Secret()),
 		}
 	case refs.RefAlgoFeedBendyButt:
 		pl.create = &metafeedCreate{
-			enc: metafeed.NewEncoder(kp.Pair.Secret),
+			enc: metafeed.NewEncoder(kp.Secret()),
 		}
 	default:
-		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo())
+		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.ID().Algo())
 	}
 
 	for i, o := range opts {
@@ -213,12 +213,12 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	// prepare persisted message
 	var stored legacy.StoredMessage
 	stored.Timestamp_ = time.Now() // "rx"
-	stored.Author_ = lc.key.Id
+	stored.Author_ = lc.key.ID()
 
 	// set metadata
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
-	newMsg.Author = lc.key.Id.Ref()
+	newMsg.Author = lc.key.ID().Ref()
 	if seq > 1 {
 		newMsg.Previous = &prev
 	}
@@ -235,7 +235,7 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 		newMsg.Timestamp = time.Now().UnixNano() / 1000000
 	}
 
-	mr, signedMessage, err := newMsg.Sign(lc.key.Pair.Secret[:], lc.hmac)
+	mr, signedMessage, err := newMsg.Sign(lc.key.Secret(), lc.hmac)
 	if err != nil {
 		return nil, err
 	}

@@ -6,18 +6,12 @@ import (
 	"fmt"
 
 	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.MessageRef, error) {
 	r := repo.New(sbot.repoPath)
-
-	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
-	if !ok {
-		return refs.MessageRef{}, fmt.Errorf("requried idx not present: userFeeds")
-	}
 
 	kp, err := repo.LoadKeyPair(r, nick)
 	if err != nil {
@@ -31,7 +25,7 @@ func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.MessageRef, erro
 		pubopts = append(pubopts, message.SetHMACKey(sbot.signHMACsecret))
 	}
 
-	pl, err := message.OpenPublishLog(sbot.ReceiveLog, uf, kp, pubopts...)
+	pl, err := message.OpenPublishLog(sbot.ReceiveLog, sbot.Users, kp, pubopts...)
 	if err != nil {
 		return refs.MessageRef{}, fmt.Errorf("publishAs: failed to create publish log: %w", err)
 	}

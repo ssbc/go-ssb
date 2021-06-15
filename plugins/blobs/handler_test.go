@@ -49,8 +49,8 @@ func TestReplicate(t *testing.T) {
 	// do the dance
 	pkr1, pkr2, _ := test.PrepareConnectAndServe(t, srcRepo, dstRepo)
 
-	pi1 := New(srcLog, srcKP.Id, srcBS, srcWM)
-	pi2 := New(dstLog, dstKP.Id, dstBS, dstWM)
+	pi1 := New(srcLog, srcKP.ID(), srcBS, srcWM)
+	pi2 := New(dstLog, dstKP.ID(), dstBS, dstWM)
 
 	// serve
 	var rpc1, rpc2 muxrpc.Endpoint

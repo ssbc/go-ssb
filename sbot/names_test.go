@@ -72,11 +72,11 @@ func TestNames(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", refs.NewAboutName(kpArny.Id, "i'm arny!")},
-		{"bert", refs.NewAboutName(kpBert.Id, "i'm bert!")},
-		{"bert", refs.NewAboutName(kpCloe.Id, "that cloe")},
-		{"cloe", refs.NewAboutName(kpBert.Id, "iditot")},
-		{"cloe", refs.NewAboutName(kpCloe.Id, "i'm cloe!")},
+		{"arny", refs.NewAboutName(kpArny.ID(), "i'm arny!")},
+		{"bert", refs.NewAboutName(kpBert.ID(), "i'm bert!")},
+		{"bert", refs.NewAboutName(kpCloe.ID(), "that cloe")},
+		{"cloe", refs.NewAboutName(kpBert.ID(), "iditot")},
+		{"cloe", refs.NewAboutName(kpCloe.ID(), "i'm cloe!")},
 	}
 
 	for idx, intro := range intros {
@@ -111,13 +111,13 @@ func TestNames(t *testing.T) {
 	r.Len(all, len(want), "expected entries for all three keypairs")
 
 	for who, wantName := range want {
-		name, ok := all.GetCommonName(n2kp[who].Id)
+		name, ok := all.GetCommonName(n2kp[who].ID())
 		r.True(ok, "did not get a name for %s", who)
 		r.Equal(wantName, name, "did not the right name for %s", who)
 	}
 
 	for who, wantName := range want {
-		name2, err := c.NamesSignifier(n2kp[who].Id)
+		name2, err := c.NamesSignifier(n2kp[who].ID())
 		r.NoError(err, "did not get a name for %s", who)
 		r.Equal(wantName, name2, "did not the right name for %s", who)
 	}

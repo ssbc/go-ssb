@@ -111,17 +111,17 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// hello, world! from bot2
 	_, err = tal.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "shalom!"})
 	r.NoError(err)
-	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.Id))
+	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.ID()))
 
 	// setup dm-key for bot2
-	dmKey, err := srh.Groups.GetOrDeriveKeyFor(tal.KeyPair.Id)
+	dmKey, err := srh.Groups.GetOrDeriveKeyFor(tal.KeyPair.ID())
 	r.NoError(err, "%+v", err)
 	r.NotNil(dmKey)
 	r.Len(dmKey, 1)
 	r.Len(dmKey[0].Key, 32)
 
 	// add bot2 to the new group
-	addMsgRef, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome, tal!")
+	addMsgRef, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome, tal!")
 	r.NoError(err)
 	t.Log("added:", addMsgRef.ShortRef())
 
@@ -131,14 +131,14 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(bytes.HasSuffix(msg.ContentBytes(), suffix), "%q", content)
 
 	// have bot2 derive a key for bot1, they should be equal
-	dmKey2, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	dmKey2, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
 	r.Len(dmKey2, 1)
 	r.Equal(dmKey[0].Key, dmKey2[0].Key)
 
 	// now replicate a bit
-	srh.Replicate(tal.KeyPair.Id)
-	tal.Replicate(srh.KeyPair.Id)
+	srh.Replicate(tal.KeyPair.ID())
+	tal.Replicate(srh.KeyPair.ID())
 	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
 	r.NoError(err)
 	time.Sleep(1 * time.Second)
@@ -146,12 +146,12 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// some length checks
 	srhsFeeds, ok := srh.GetMultiLog("userFeeds")
 	r.True(ok)
-	srhsCopyOfTal, err := srhsFeeds.Get(storedrefs.Feed(tal.KeyPair.Id))
+	srhsCopyOfTal, err := srhsFeeds.Get(storedrefs.Feed(tal.KeyPair.ID()))
 	r.NoError(err)
 
 	talsFeeds, ok := tal.GetMultiLog("userFeeds")
 	r.True(ok)
-	talsCopyOfSrh, err := talsFeeds.Get(storedrefs.Feed(srh.KeyPair.Id))
+	talsCopyOfSrh, err := talsFeeds.Get(storedrefs.Feed(srh.KeyPair.ID()))
 	r.NoError(err)
 
 	// did we get the expected number of messages?
@@ -189,12 +189,12 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(cloaked.Equal(cloaked2), "cloaked ID not equal")
 
 	// post back to group
-	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.Id.Ref()))
+	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Ref()))
 	r.NoError(err, "tal failed to publish to group")
 	t.Log("reply:", reply.ShortRef())
 
 	// reconnect to get the reply
-	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.Id)
+	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.ID())
 	r.True(has)
 	edp.Terminate()
 	time.Sleep(1 * time.Second)
@@ -233,10 +233,10 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	chkCount(tal.ByType)("string:test", 2)
 	chkCount(tal.ByType)("string:post", 2)
 
-	addr := indexes.Addr("box2:") + storedrefs.Feed(srh.KeyPair.Id)
+	addr := indexes.Addr("box2:") + storedrefs.Feed(srh.KeyPair.ID())
 	chkCount(srh.Private)(addr, 3)
 
-	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.ID())
 	chkCount(tal.Private)(addr, 4)
 
 	/*
@@ -251,7 +251,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	t.Log("all boxed:", allBoxed.String())
 
-	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.Id)
+	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.ID())
 	readable, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
 
@@ -341,7 +341,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
-	t.Log("srh is:", srh.KeyPair.Id.Ref())
+	t.Log("srh is:", srh.KeyPair.ID().Ref())
 
 	// just a simple paintext message
 	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
@@ -372,20 +372,20 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
-	t.Log("tal is:", tal.KeyPair.Id.Ref())
+	t.Log("tal is:", tal.KeyPair.ID().Ref())
 
-	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
 	r.Len(dmKey, 1)
 
 	// now invite tal now that we have some content to reindex BEFORE the invite
-	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.Id, "welcome tal!")
+	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome tal!")
 	r.NoError(err)
 	t.Log("inviteed tal:", invref.ShortRef())
 
 	// now replicate a bit
-	srh.Replicate(tal.KeyPair.Id)
-	tal.Replicate(srh.KeyPair.Id)
+	srh.Replicate(tal.KeyPair.ID())
+	tal.Replicate(srh.KeyPair.ID())
 
 	err = srh.Network.Connect(ctx, tal.Network.GetListenAddr())
 	r.NoError(err)
@@ -396,7 +396,7 @@ func XTestGroupsReindex(t *testing.T) {
 	chkCount(tal.ByType)("string:post", 10)
 
 	// create some more msgs at tal, so that raz needs to re-index both
-	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.Id))
+	tal.PublishLog.Publish(refs.NewContactFollow(srh.KeyPair.ID()))
 	for i := 10; i > 0; i-- {
 		txt := fmt.Sprintf("WOHOOO thanks for having me %d", i)
 		postRef, err := tal.Groups.PublishPostTo(cloaked, txt)
@@ -411,7 +411,7 @@ func XTestGroupsReindex(t *testing.T) {
 	r.NoError(err)
 	time.Sleep(2 * time.Second) // let them sync
 
-	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
+	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
 
 	raz, err := sbot.New(
 		sbot.WithContext(ctx),
@@ -423,26 +423,26 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(raz))
-	t.Log("raz is:", raz.KeyPair.Id.Ref())
+	t.Log("raz is:", raz.KeyPair.ID().Ref())
 
 	_, err = raz.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
 	r.NoError(err)
 
-	srh.Replicate(raz.KeyPair.Id)
-	tal.Replicate(raz.KeyPair.Id)
-	raz.Replicate(srh.KeyPair.Id)
-	raz.Replicate(tal.KeyPair.Id)
+	srh.Replicate(raz.KeyPair.ID())
+	tal.Replicate(raz.KeyPair.ID())
+	raz.Replicate(srh.KeyPair.ID())
+	raz.Replicate(tal.KeyPair.ID())
 
 	// TODO: do we want direct message keys with everyone that we follow?!
-	dmKey, err = raz.Groups.GetOrDeriveKeyFor(srh.KeyPair.Id)
+	dmKey, err = raz.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
 	r.Len(dmKey, 1)
 
-	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.Id, "welcome razi!")
+	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.ID(), "welcome razi!")
 	r.NoError(err)
 	t.Log("invited raz:", invref2.Ref())
 
-	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.Id))
+	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.ID()))
 	r.NoError(err)
 
 	// TODO: stupid hack because somehow we dont get the feed every time.... :'(
@@ -475,8 +475,8 @@ func XTestGroupsReindex(t *testing.T) {
 	}
 	r.NotEqual(0, i, "did not get the feed in %d tries", 5)
 
-	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
-	chkCount(raz.Users)(storedrefs.Feed(tal.KeyPair.Id), 11)
+	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
+	chkCount(raz.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
 
 	chkCount(srh.ByType)("string:post", 20)
 	chkCount(raz.ByType)("string:post", 20)

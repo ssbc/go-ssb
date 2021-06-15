@@ -76,7 +76,7 @@ func benchChain(chainLen int) func(b *testing.B) {
 
 					if fQ == 1 {
 						msgCnt++
-						_, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.Id))
+						_, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.ID()))
 						r.NoError(err)
 					}
 				}
@@ -97,7 +97,7 @@ func benchChain(chainLen int) func(b *testing.B) {
 			// did b0 get feed of bN-1?
 			feedIndexOfBot0, ok := theBots[0].GetMultiLog("userFeeds")
 			r.True(ok)
-			feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.Id))
+			feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.ID()))
 			r.NoError(err)
 			seqv, err := feedOfLastBot.Seq().Value()
 			r.NoError(err)

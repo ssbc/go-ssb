@@ -75,7 +75,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 			Type string `json:"type"`
 			Msg  string
 		}
-		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.Id)
+		ref, err := c.PrivatePublish(msg{"test", "hello, world"}, alice.ID())
 		r.NoError(err, "failed to publish")
 		r.NotNil(ref)
 
@@ -104,7 +104,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
 		r.True(ok)
 
-		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.Id))
+		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.ID()))
 		r.NoError(err)
 
 		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)

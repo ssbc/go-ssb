@@ -16,7 +16,7 @@ func TestFeedSetEmpty(t *testing.T) {
 
 	newkey, err := NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	r.False(fs.Has(newkey.Id))
+	r.False(fs.Has(newkey.ID()))
 }
 
 func TestFeedSetCount(t *testing.T) {
@@ -28,7 +28,7 @@ func TestFeedSetCount(t *testing.T) {
 		var err error
 		kps[i], err = NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		err = fs.AddRef(kps[i].Id)
+		err = fs.AddRef(kps[i].ID())
 		r.NoError(err)
 	}
 	r.Equal(50, fs.Count())
@@ -37,7 +37,7 @@ func TestFeedSetCount(t *testing.T) {
 	r.Len(lst, 50, "first len(List()) wrong")
 	// twice
 	for i := 0; i < 50; i++ {
-		err := fs.AddRef(kps[i].Id)
+		err := fs.AddRef(kps[i].ID())
 		r.NoError(err)
 	}
 	r.Equal(50, fs.Count())
@@ -46,7 +46,7 @@ func TestFeedSetCount(t *testing.T) {
 	r.Len(lst, 50, "twice len(List()) wrong")
 	// some
 	for i := 0; i < 15; i++ {
-		err := fs.AddRef(kps[i].Id)
+		err := fs.AddRef(kps[i].ID())
 		r.NoError(err)
 	}
 	r.Equal(50, fs.Count())

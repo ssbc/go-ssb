@@ -144,7 +144,7 @@ func WithUNIXSocket() Option {
 
 			connWrappers: s.postSecureWrappers,
 
-			pubKey: s.KeyPair.Id.PubKey(),
+			pubKey: s.KeyPair.ID().PubKey(),
 
 			handler: s.master,
 		}

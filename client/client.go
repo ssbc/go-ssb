@@ -84,7 +84,9 @@ func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 		return nil, err
 	}
 
-	shsClient, err := secretstream.NewClient(own.Pair, c.appKeyBytes)
+	edkp := ssb.EdKeyPair(own)
+
+	shsClient, err := secretstream.NewClient(edkp, c.appKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: error creating secretstream.Client: %w", err)
 	}
@@ -109,7 +111,7 @@ func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 	}
 	c.closer = conn
 
-	h := whoami.New(c.logger, own.Id).Handler()
+	h := whoami.New(c.logger, own.ID()).Handler()
 
 	c.Endpoint = muxrpc.Handle(muxrpc.NewPacker(conn), h,
 		muxrpc.WithIsServer(true),

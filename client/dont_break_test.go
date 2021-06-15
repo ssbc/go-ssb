@@ -62,7 +62,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
+	a.Equal(srv.KeyPair.ID().Ref(), ref.Ref())
 
 	// make sure we can publish
 	var msgs []refs.MessageRef
@@ -79,7 +79,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 
 	// and stream those messages back
 	var o message.CreateHistArgs
-	o.ID = srv.KeyPair.Id
+	o.ID = srv.KeyPair.ID()
 	o.Keys = true
 	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)

@@ -49,13 +49,13 @@ func TestReceivedSet(t *testing.T) {
 
 	var lm legacy.LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = bobsKey.Id.Ref()
+	lm.Author = bobsKey.ID().Ref()
 	lm.Previous = nil
 	lm.Sequence = 666
 
 	newMsg := &legacy.StoredMessage{
 		Key_:      msgKey,
-		Author_:   bobsKey.Id,
+		Author_:   bobsKey.ID(),
 		Previous_: lm.Previous,
 		Sequence_: lm.Sequence.Seq(),
 		Raw_:      []byte(`"fakemsg"`),
@@ -80,7 +80,7 @@ func TestReceivedSet(t *testing.T) {
 
 	// a gabby message
 
-	enc := gabbygrove.NewEncoder(bobsKey.Pair.Secret)
+	enc := gabbygrove.NewEncoder(bobsKey.Secret())
 
 	tr, ref, err := enc.Encode(1, gabbygrove.BinaryRef{}, "hello, world")
 	r.NoError(err)

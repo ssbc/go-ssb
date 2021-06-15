@@ -86,7 +86,7 @@ func TestWhoami(t *testing.T) {
 
 	out, _ := sbotcli("call", "whoami")
 
-	has := bytes.Contains(out, []byte(srv.KeyPair.Id.Ref()))
+	has := bytes.Contains(out, []byte(srv.KeyPair.ID().Ref()))
 	a.True(has, "ID not found in output")
 
 	srv.Shutdown()

@@ -52,7 +52,7 @@ func TestUnixSock(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
+	a.Equal(srv.KeyPair.ID().Ref(), ref.Ref())
 
 	// make sure we can publish
 	var msgs []refs.MessageRef
@@ -69,7 +69,7 @@ func TestUnixSock(t *testing.T) {
 
 	// and stream those messages back
 	var o message.CreateHistArgs
-	o.ID = srv.KeyPair.Id
+	o.ID = srv.KeyPair.ID()
 	o.Keys = true
 	o.Limit = -1
 	src, err := c.CreateHistoryStream(o)
@@ -130,7 +130,7 @@ func TestWhoami(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(kp.Id.Ref(), ref.Ref())
+	a.Equal(kp.ID().Ref(), ref.Ref())
 
 	a.NoError(c.Close())
 
@@ -164,7 +164,7 @@ func TestLotsOfWhoami(t *testing.T) {
 		ref, err := c.Whoami()
 		r.NoError(err, "call %d errored", i)
 		r.NotNil(ref)
-		a.Equal(srv.KeyPair.Id.Ref(), ref.Ref(), "call %d has wrong result", i)
+		a.Equal(srv.KeyPair.ID().Ref(), ref.Ref(), "call %d has wrong result", i)
 	}
 
 	a.NoError(c.Close())

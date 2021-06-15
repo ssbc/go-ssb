@@ -30,7 +30,7 @@ func TestSimple(t *testing.T) {
 	boxer := box.NewBoxer(nil)
 
 	for i, msg := range tmsgs {
-		sbox, err := boxer.Encrypt(msg, kp.Id)
+		sbox, err := boxer.Encrypt(msg, kp.ID())
 		r.NoError(err, "failed to create ciphertext %d", i)
 
 		out, err := boxer.Decrypt(kp, sbox)
@@ -59,7 +59,7 @@ func TestNotForMe(t *testing.T) {
 	boxer := box.NewBoxer(nil)
 
 	for i, msg := range tmsgs {
-		sbox, err := boxer.Encrypt(msg, who.Id)
+		sbox, err := boxer.Encrypt(msg, who.ID())
 		r.NoError(err, "failed to create ciphertext %d", i)
 
 		out, err := boxer.Decrypt(kp, sbox)

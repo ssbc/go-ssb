@@ -29,7 +29,7 @@ func TestMultiMsgLegacy(t *testing.T) {
 	// craft legacy testmessage
 	testContent := []byte(`{Hello: world}`)
 	var lm legacy.StoredMessage
-	lm.Author_ = kp.Id
+	lm.Author_ = kp.ID()
 	lm.Sequence_ = 123
 	lm.Key_ = msgKey
 	lm.Raw_ = testContent
@@ -64,7 +64,7 @@ func TestMultiMsgGabby(t *testing.T) {
 	kp, err := ssb.NewKeyPair(bytes.NewReader(kpSeed), refs.RefAlgoMessageGabby)
 	r.NoError(err)
 
-	authorRef, err := gabbygrove.NewBinaryRef(kp.Id)
+	authorRef, err := gabbygrove.NewBinaryRef(kp.ID())
 	r.NoError(err)
 
 	cref, err := gabbygrove.NewContentRefFromBytes(kpSeed)

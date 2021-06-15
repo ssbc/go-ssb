@@ -65,7 +65,7 @@ func TestTangles(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":      "contact",
-			"contact":   alice.Id.Ref(),
+			"contact":   alice.ID().Ref(),
 			"following": true,
 			"test":      "alice1",
 		},
@@ -77,7 +77,7 @@ func TestTangles(t *testing.T) {
 		"1923u1310310.nobox",
 		map[string]interface{}{
 			"type":  "about",
-			"about": bob.Id.Ref(),
+			"about": bob.ID().Ref(),
 			"name":  "bob",
 			"test":  "alice3",
 		},
@@ -91,14 +91,14 @@ func TestTangles(t *testing.T) {
 	var bobsMsgs = []interface{}{
 		map[string]interface{}{
 			"type":      "contact",
-			"contact":   bob.Id.Ref(),
+			"contact":   bob.ID().Ref(),
 			"following": true,
 			"test":      "bob1",
 		},
 		"1923u1310310.nobox",
 		map[string]interface{}{
 			"type":  "about",
-			"about": bob.Id.Ref(),
+			"about": bob.ID().Ref(),
 			"name":  "bob",
 			"test":  "bob2",
 		},
@@ -123,13 +123,13 @@ func TestTangles(t *testing.T) {
 		},
 		map[string]interface{}{
 			"type":      "contact",
-			"contact":   claire.Id.Ref(),
+			"contact":   claire.ID().Ref(),
 			"following": true,
 			"test":      "claire2",
 		},
 		map[string]interface{}{
 			"type":  "about",
-			"about": claire.Id.Ref(),
+			"about": claire.ID().Ref(),
 			"name":  "claire",
 			"test":  "claire3",
 		},
