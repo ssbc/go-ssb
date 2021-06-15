@@ -150,7 +150,7 @@ func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ss
 		pl.create = &gabbyCreate{
 			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
 		}
-	case refs.RefAlgoFeedMetaBencode:
+	case refs.RefAlgoFeedBendyButt:
 		pl.create = &metafeedCreate{
 			enc: metafeed.NewEncoder(kp.Pair.Secret),
 		}
@@ -276,7 +276,7 @@ func (pc metafeedCreate) Create(val interface{}, prev refs.MessageRef, seq int64
 
 	if seq == 1 {
 		var err error
-		prev, err = refs.NewMessageRefFromBytes(bytes.Repeat([]byte{0}, 32), refs.RefAlgoMessageMetaBencode)
+		prev, err = refs.NewMessageRefFromBytes(bytes.Repeat([]byte{0}, 32), refs.RefAlgoMessageBendyButt)
 		if err != nil {
 			return nil, err
 		}

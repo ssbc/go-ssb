@@ -50,7 +50,7 @@ func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, sa
 	case refs.RefAlgoFeedGabby:
 		drain.verify = &gabbyVerify{hmacKey: hmacKey}
 
-	case refs.RefAlgoFeedMetaBencode:
+	case refs.RefAlgoFeedBendyButt:
 		drain.verify = &metafeedVerify{hmacKey: hmacKey}
 
 	default:

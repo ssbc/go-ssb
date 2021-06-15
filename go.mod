@@ -25,7 +25,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636 // indirect
 	github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041
-	github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210614073943-e70f7cd8f99c
+	github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210615145215-aa0224f02cd9
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.2.6
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8

@@ -36,7 +36,7 @@ func TestFormatsSimple(t *testing.T) {
 	var testCases = []testCase{
 		{refs.RefAlgoFeedSSB1},
 		{refs.RefAlgoFeedGabby},
-		{refs.RefAlgoFeedMetaBencode},
+		{refs.RefAlgoFeedBendyButt},
 	}
 
 	ts := newPublishtestSession(t)
@@ -184,7 +184,7 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 				r.True(ok)
 				a.True(g.Verify(nil), "gabby failed to validate msg:%d", i)
 
-			case refs.RefAlgoFeedMetaBencode:
+			case refs.RefAlgoFeedBendyButt:
 				mf, ok := mm.AsMetaFeed()
 				r.True(ok)
 				a.True(mf.Verify(nil))
