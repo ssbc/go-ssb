@@ -3,14 +3,13 @@ package keys
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/keks/testops"
 	"github.com/stretchr/testify/require"
-	"modernc.org/kv"
 
 	librarian "go.cryptoscope.co/margaret/indexes"
 )
@@ -22,16 +21,13 @@ func (op opDo) Do(t *testing.T, env interface{}) {
 }
 
 func TestStore(t *testing.T) {
-	tDir, err := ioutil.TempDir(".", "test-manager-")
-	require.NoError(t, err, "mk temp dir")
-
-	t.Cleanup(func() {
-		os.RemoveAll(tDir)
-	})
+	tDir := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tDir)
+	os.MkdirAll(tDir, 0700)
 
 	var (
 		idx librarian.SeqSetterIndex
-		db  *kv.DB
+		db  *badger.DB
 		mgr Store
 	)
 
@@ -41,7 +37,6 @@ func TestStore(t *testing.T) {
 			Ops: []testops.Op{
 				opDBCreate{
 					Name: filepath.Join(tDir, "testdb"),
-					Opts: &kv.Options{},
 					DB:   &db,
 				},
 				opIndexNew{

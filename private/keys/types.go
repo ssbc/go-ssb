@@ -16,6 +16,7 @@ func (ks KeyScheme) Valid() bool {
 const (
 	SchemeLargeSymmetricGroup         KeyScheme = "envelope-large-symmetric-group"
 	SchemeDiffieStyleConvertedED25519 KeyScheme = "envelope-id-based-dm-converted-ed25519"
+	SchemeMetafeedSubKey              KeyScheme = "metafeed-sub-key"
 )
 
 type ID []byte

@@ -47,7 +47,6 @@ type Metadata struct {
 	ForFeed   refs.FeedRef
 }
 
-// TODO: or should this be the ref?
 // Recipient combines key data with a scheme
 type Recipient struct {
 	Key Key
