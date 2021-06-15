@@ -31,7 +31,7 @@ func (mgr *Store) AddKey(id ID, r Recipient) error {
 
 	idxkBytes, err := idxk.MarshalBinary()
 	if err != nil {
-		return err
+		return fmt.Errorf("keys/store failed to martial index key: %w", err)
 	}
 
 	recps, err := mgr.GetKeys(r.Scheme, id)
