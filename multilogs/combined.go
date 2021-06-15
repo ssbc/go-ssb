@@ -12,9 +12,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/dgraph-io/sroar"
 	"github.com/keks/persist"
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
+	"go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 
@@ -75,7 +76,7 @@ func NewCombinedIndex(
 	return idx, nil
 }
 
-var _ librarian.SinkIndex = (*CombinedIndex)(nil)
+var _ indexes.SinkIndex = (*CombinedIndex)(nil)
 
 type CombinedIndex struct {
 	self  refs.FeedRef
@@ -105,7 +106,7 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	defer slog.l.Unlock()
 
 	// 1) all messages in boxed2 format
-	allBox2, err := slog.private.LoadInternalBitmap(librarian.Addr("meta:box2"))
+	allBox2, err := slog.private.LoadInternalBitmap(indexes.Addr("meta:box2"))
 	if err != nil {
 		return fmt.Errorf("error getting all box2 messages: %w", err)
 	}
@@ -113,14 +114,22 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	// 2) all messages by the author we should re-index
 	fromAuthor, err := slog.users.LoadInternalBitmap(storedrefs.Feed(author))
 	if err != nil {
-		return fmt.Errorf("error getting all from author: %w", err)
+		if !errors.Is(err, multilog.ErrSublogNotFound) {
+			return fmt.Errorf("error getting all from author: %w", err)
+		}
+		fromAuthor = sroar.NewBitmap()
 	}
 
 	// 2) intersection between the two
 	fromAuthor.And(allBox2)
 
+	if fromAuthor.GetCardinality() == 0 {
+		fmt.Println("skipping empty set", allBox2.GetCardinality(), author.Ref())
+		return nil
+	}
+
 	// 3) all messages we can already decrypt
-	myReadableAddr := librarian.Addr("box2:") + storedrefs.Feed(slog.self)
+	myReadableAddr := indexes.Addr("box2:") + storedrefs.Feed(slog.self)
 	myReadable, err := slog.private.LoadInternalBitmap(myReadableAddr)
 	if err != nil {
 		return fmt.Errorf("error getting my readable: %w", err)
@@ -256,7 +265,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	if typeStr == "" {
 		return fmt.Errorf("ssb: untyped message")
 	}
-	typeIdxAddr := librarian.Addr("string:" + typeStr)
+	typeIdxAddr := indexes.Addr("string:" + typeStr)
 
 	// we need to keep the order intact for these
 	if typeStr == "group/add-member" {
@@ -353,14 +362,14 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 
 	var (
 		cleartext []byte
-		idxAddr   librarian.Addr
+		idxAddr   indexes.Addr
 	)
 
 	// as a help for re-indexing, keep track of all box1 and box2 messages.
 	if box1 != nil {
-		idxAddr = librarian.Addr("meta:box1")
+		idxAddr = indexes.Addr("meta:box1")
 	} else {
-		idxAddr = librarian.Addr("meta:box2")
+		idxAddr = indexes.Addr("meta:box2")
 	}
 
 	boxTyped, err := slog.private.Get(idxAddr)
@@ -378,7 +387,7 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 			return nil, errSkip
 		}
 
-		idxAddr = librarian.Addr("box1:") + storedrefs.Feed(slog.self)
+		idxAddr = indexes.Addr("box1:") + storedrefs.Feed(slog.self)
 		cleartext = content
 	} else if box2 != nil {
 		prev := refs.MessageRef{}
@@ -393,7 +402,7 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 		// instead by group root? could be PM... hmm
 		// would be nice to keep multi-keypair support here
 		// but might need to rethink the group manager
-		idxAddr = librarian.Addr("box2:") + storedrefs.Feed(slog.self)
+		idxAddr = indexes.Addr("box2:") + storedrefs.Feed(slog.self)
 		cleartext = content
 	} else {
 		return nil, fmt.Errorf("tryDecrypt: not skipped but also not valid content")
