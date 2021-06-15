@@ -367,7 +367,13 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.closers.AddCloser(combIdx)
 
 	// groups re-indexing
-	members, membersSnk := multilogs.NewMembershipIndex(s.indexStore, s.KeyPair.Id, s.Groups, combIdx)
+	members, membersSnk := multilogs.NewMembershipIndex(
+		kitlog.With(s.info, "unit", "private-groups"),
+		s.indexStore,
+		s.KeyPair.Id,
+		s.Groups,
+		combIdx,
+	)
 	s.closers.AddCloser(members)
 	s.closers.AddCloser(membersSnk)
 

@@ -12,6 +12,8 @@ import (
 	libbader "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -19,6 +21,8 @@ type Members map[string]bool
 
 // MembershipStore isn't strictly a multilog but putting it in package private gave cyclic import
 type MembershipStore struct {
+	logger log.Logger
+
 	idx         librarian.SeqSetterIndex
 	self        refs.FeedRef
 	unboxer     *private.Manager
@@ -30,8 +34,10 @@ var _ io.Closer = (*MembershipStore)(nil)
 var keyPrefix = []byte("group-members")
 
 // NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
-func NewMembershipIndex(db *badger.DB, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex) {
+func NewMembershipIndex(logger log.Logger, db *badger.DB, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex) {
 	var store = MembershipStore{
+		logger: logger,
+
 		idx:         libbader.NewIndexWithKeyPrefix(db, Members{}, keyPrefix),
 		self:        self,
 		unboxer:     unboxer,
@@ -54,7 +60,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 
 	if msg.Author().Equal(mc.self) {
 		// our own message - all is done already
-		fmt.Println("skipping invite from self")
+		level.Debug(mc.logger).Log("msg", "skipping invite from self")
 		return nil
 	}
 
@@ -129,7 +135,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 			if err != nil {
 				return err
 			}
-			fmt.Println("joined group:", cloakedGroupID.Ref())
+			level.Debug(mc.logger).Log("event", "joined group", "id", cloakedGroupID.Ref())
 
 			// if we are invited, we need to index the sending author
 			whoToIndex = msg.Author()
