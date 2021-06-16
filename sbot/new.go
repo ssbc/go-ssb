@@ -155,6 +155,9 @@ type Sbot struct {
 	systemGauge  metrics.Gauge
 	latency      metrics.Histogram
 
+	enableMetafeeds bool
+	MetaFeeds       MetaFeeds
+
 	ssb.Replicator
 }
 
@@ -472,6 +475,14 @@ func New(fopts ...Option) (*Sbot, error) {
 		_, err = s.ebtState.Update(s.KeyPair.ID(), selfNf)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	s.MetaFeeds = disabledMetaFeeds{}
+	if s.enableMetafeeds {
+		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 		}
 	}
 
