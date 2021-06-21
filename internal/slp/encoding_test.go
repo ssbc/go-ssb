@@ -1,12 +1,14 @@
-package box2
+package slp
 
 import (
+	"bytes"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestEncodeList(t *testing.T) {
+func TestList(t *testing.T) {
 	type testcase struct {
 		name string
 		in   [][]byte
@@ -42,7 +44,18 @@ func TestEncodeList(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.out, EncodeSLP(nil, tc.in...))
+			data, err := Encode(tc.in...)
+			require.NoError(t, err)
+			require.Equal(t, tc.out, data)
+
+			require.Equal(t, tc.in, Decode(tc.out))
 		})
 	}
+}
+
+func TestEncodeTooLarge(t *testing.T) {
+	tooLargeElement := bytes.Repeat([]byte("A"), math.MaxUint16+1)
+	out, err := Encode(tooLargeElement)
+	require.Error(t, err)
+	require.Nil(t, out)
 }

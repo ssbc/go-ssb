@@ -21,6 +21,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/extra25519"
+	"go.cryptoscope.co/ssb/internal/slp"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/private/box2"
 	"go.cryptoscope.co/ssb/private/keys"
@@ -115,7 +116,10 @@ func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, erro
 		}
 		sort.Sort(bs)
 
-		slpInfo := box2.EncodeSLP(nil, infoContext, bs[0], bs[1])
+		slpInfo, err := slp.Encode(nil, infoContext, bs[0], bs[1])
+		if err != nil {
+			return nil, err
+		}
 		n, err := hkdf.New(sha256.New, keyInput[:], dmSalt, slpInfo).Read(messageShared)
 		if err != nil {
 			return nil, err
