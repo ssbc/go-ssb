@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
@@ -50,14 +49,13 @@ type Private struct {
 
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
 func (pr Private) OpenRoaring(r repo.Interface, db *badger.DB) (multilog.MultiLog, librarian.SinkIndex, error) {
-
 	mlog, err := multibadger.NewShared(db, []byte(IndexNamePrivates))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	idxStatePath := filepath.Join(r.GetPath("multilogs", IndexNamePrivates), "idx-state")
-	idxStateFile, err := os.Create(idxStatePath) // OpenFile(|create)
+	idxStatePath := r.GetPath("multilogs", IndexNamePrivates, "idx-state")
+	idxStateFile, err := os.Create(idxStatePath) // OpenFile(|create) ?
 	if err != nil {
 		return nil, nil, err
 	}

@@ -223,7 +223,11 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	var err error
 	if s.KeyPair == nil {
-		s.KeyPair, err = repo.DefaultKeyPair(r)
+		algo := refs.RefAlgoFeedSSB1
+		if s.enableMetafeeds {
+			algo = refs.RefAlgoFeedBendyButt
+		}
+		s.KeyPair, err = repo.DefaultKeyPair(r, algo)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
 		}
@@ -480,7 +484,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.MetaFeeds = disabledMetaFeeds{}
 	if s.enableMetafeeds {
-		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore)
+		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 		}

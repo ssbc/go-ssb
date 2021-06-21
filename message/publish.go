@@ -56,7 +56,6 @@ func (pl publishLog) Seq() luigi.Observable {
 
 // Get retreives the message object by traversing the authors sublog to the root log
 func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
-
 	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
@@ -83,7 +82,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		nextSequence = int64(-1)
 	)
 
-	currSeq, err := pl.Seq().Value()
+	currSeq, err := pl.byAuthor.Seq().Value()
 	if err != nil {
 		return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
 	}
@@ -176,6 +175,8 @@ func SetHMACKey(hmackey *[32]byte) PublishOption {
 			cv.hmac = hmackey
 		case *gabbyCreate:
 			cv.enc.WithHMAC(hmackey[:])
+		case *metafeedCreate:
+			cv.enc.WithHMAC(hmackey[:])
 		default:
 			return fmt.Errorf("hmac: unknown creater: %T", cv)
 		}
@@ -188,10 +189,10 @@ func UseNowTimestamps(yes bool) PublishOption {
 		switch cv := pl.create.(type) {
 		case *legacyCreate:
 			cv.setTimestamp = yes
-
 		case *gabbyCreate:
 			cv.enc.WithNowTimestamps(yes)
-
+		case *metafeedCreate:
+			cv.enc.WithNowTimestamps(yes)
 		default:
 			return fmt.Errorf("setTimestamp: unknown creater: %T", cv)
 		}

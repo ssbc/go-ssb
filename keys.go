@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"go.cryptoscope.co/nocomment"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 	"golang.org/x/crypto/ed25519"
@@ -55,7 +57,7 @@ type ssbSecret struct {
 // legacy/crapp or GabbyGrove.
 func IsValidFeedFormat(r refs.FeedRef) error {
 	ra := r.Algo()
-	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby {
+	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby && ra != refs.RefAlgoFeedBendyButt {
 		return fmt.Errorf("ssb: unsupported feed format: %s", r.Algo())
 	}
 	return nil
@@ -68,19 +70,33 @@ func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
 		return nil, fmt.Errorf("ssb: empty feed format algo for keypair")
 	}
 
-	// generate new keypair
-	kp, err := secrethandshake.GenEdKeyPair(r)
-	if err != nil {
-		return nil, fmt.Errorf("ssb: error building key pair: %w", err)
-	}
+	var keyPair KeyPair
+	if algo == refs.RefAlgoFeedBendyButt {
+		seed, err := metakeys.GenerateSeed()
+		if err != nil {
+			return nil, err
+		}
 
-	keyPair := LegacyKeyPair{
-		Pair: *kp,
-	}
+		keyPair, err = metakeys.DeriveFromSeed(seed, metakeys.RootLabel, refs.RefAlgoFeedBendyButt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// generate new keypair
+		kp, err := secrethandshake.GenEdKeyPair(r)
+		if err != nil {
+			return nil, fmt.Errorf("ssb: error building key pair: %w", err)
+		}
 
-	keyPair.Feed, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
-	if err != nil {
-		return nil, err
+		lkp := LegacyKeyPair{
+			Pair: *kp,
+		}
+
+		lkp.Feed, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
+		if err != nil {
+			return nil, err
+		}
+		keyPair = lkp
 	}
 
 	return keyPair, nil
@@ -92,20 +108,42 @@ func SaveKeyPair(kp KeyPair, path string) error {
 	if err := IsValidFeedFormat(kp.ID()); err != nil {
 		return err
 	}
+
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("ssb.SaveKeyPair: key already exists:%q", path)
 	}
+
 	err := os.MkdirAll(filepath.Dir(path), 0700)
 	if err != nil && !os.IsExist(err) {
 		return fmt.Errorf("failed to create folder for keypair: %w", err)
 	}
+
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms)
 	if err != nil {
 		return fmt.Errorf("ssb.SaveKeyPair: failed to create file: %w", err)
 	}
 
-	if err := EncodeKeyPairAsJSON(kp, f); err != nil {
-		return err
+	if enc, ok := kp.(json.Marshaler); ok {
+		data, err := enc.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		n, err := f.Write(data)
+		if err != nil {
+			return err
+		}
+
+		if n != len(data) {
+			return fmt.Errorf("ssb.SaveKeyPair: failed to save all encoded bytes of the keypair")
+		}
+	} else {
+		if !ok {
+			fmt.Printf("not a marshaler: %T\n", kp)
+		}
+		if err := EncodeKeyPairAsJSON(kp, f); err != nil {
+			return err
+		}
 	}
 
 	if err := f.Close(); err != nil {
@@ -151,7 +189,30 @@ func LoadKeyPair(fname string) (KeyPair, error) {
 		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
 	}
 
-	return ParseKeyPair(nocomment.NewReader(f))
+	kp, err := ParseKeyPair(nocomment.NewReader(f))
+	if err == nil {
+		return kp, nil
+	}
+
+	// roll back and read again
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	keyData, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	var mkp metakeys.KeyPair
+	err = mkp.UnmarshalJSON(keyData)
+	if err != nil {
+		return nil, err
+	}
+
+	return mkp, nil
+
 }
 
 // ParseKeyPair json decodes an object from the reader.

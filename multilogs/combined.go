@@ -413,10 +413,10 @@ func (idx *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, err
 
 	userPrivs, err := idx.private.Get(idxAddr)
 	if err != nil {
-		return nil, fmt.Errorf("private/readidx: error opening priv sublog for: %w", err)
+		return nil, fmt.Errorf("combined/private: error opening priv sublog for: %w", err)
 	}
 	if _, err := userPrivs.Append(margaret.BaseSeq(rxSeq)); err != nil {
-		return nil, fmt.Errorf("private/readidx: error appending PM: %w", err)
+		return nil, fmt.Errorf("combined/private: error appending PM: %w", err)
 	}
 
 	return cleartext, nil
@@ -446,7 +446,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(input)-6))
 			n, err := base64.StdEncoding.Decode(boxedData, b64data)
 			if err != nil {
-				//err = errors.Wrap(err, "private/readidx: invalid b64 encoding")
+				//err = errors.Wrap(err, "combined/private: invalid b64 encoding")
 				//level.Debug(pr.logger).Log("msg", "unboxLog b64 decode failed", "err", err)
 				return nil, nil, errSkipBox1
 			}
@@ -456,7 +456,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(input)-7))
 			n, err := base64.StdEncoding.Decode(boxedData, b64data)
 			if err != nil {
-				err = fmt.Errorf("private/readidx: invalid b64 encoding: %w", err)
+				err = fmt.Errorf("combined/private: invalid b64 encoding: %w", err)
 				//level.Debug(pr.logger).Log("msg", "unboxLog b64 decode failed", "err", err)
 				return nil, nil, errSkipBox1
 			}
@@ -467,23 +467,24 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 
 		// gg supports pure binary data
 	case refs.RefAlgoFeedGabby:
+		// TODO: use ContentBytes()?
 		mm, ok := msg.(multimsg.MultiMessage)
 		if !ok {
 			mmPtr, ok := msg.(*multimsg.MultiMessage)
 			if !ok {
-				err := fmt.Errorf("private/readidx: error casting message. got type %T", msg)
+				err := fmt.Errorf("combined/private: error casting message. got type %T", msg)
 				return nil, nil, err
 			}
 			mm = *mmPtr
 		}
 		tr, ok := mm.AsGabby()
 		if !ok {
-			return nil, nil, fmt.Errorf("private/readidx: error getting gabby msg")
+			return nil, nil, fmt.Errorf("combined/private: error getting gabby msg")
 		}
 
 		evt, err := tr.UnmarshaledEvent()
 		if err != nil {
-			return nil, nil, fmt.Errorf("private/readidx: error unpacking event from stored message: %w", err)
+			return nil, nil, fmt.Errorf("combined/private: error unpacking event from stored message: %w", err)
 		}
 		if evt.Content.Type != gabbygrove.ContentTypeArbitrary {
 			return nil, nil, errSkipBox2
@@ -502,8 +503,12 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			return nil, nil, fmt.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortRef())
 		}
 
+	case refs.RefAlgoFeedBendyButt:
+		// TODO: check first bytes and strip prefix
+		return nil, nil, errSkipBox2
+
 	default:
-		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo())
+		err := fmt.Errorf("combined/private: unknown feed type: %s", msg.Author().Algo())
 		return nil, nil, err
 	}
 

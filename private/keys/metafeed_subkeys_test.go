@@ -33,21 +33,21 @@ func XTestStoreSubfeeds(t *testing.T) {
 		t.Fatal(err)
 	}
 	metaID := ID(storedrefs.Feed(kp.Feed))
-	metaSecret := Key(kp.Pair.Secret)
+	metaSecret := Key(kp.PrivateKey)
 
 	legacySubfeed, err := metakeys.DeriveFromSeed(seed, "subfeed:1", refs.RefAlgoFeedSSB1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	subfeed1ID := ID(storedrefs.Feed(legacySubfeed.Feed))
-	subfeed1Secret := Key(legacySubfeed.Pair.Secret)
+	subfeed1Secret := Key(legacySubfeed.PrivateKey)
 
 	ggSubfeed, err := metakeys.DeriveFromSeed(seed, "subfeed:2", refs.RefAlgoFeedGabby)
 	if err != nil {
 		t.Fatal(err)
 	}
 	subfeed2ID := ID(storedrefs.Feed(ggSubfeed.Feed))
-	subfeed2Secret := Key(ggSubfeed.Pair.Secret)
+	subfeed2Secret := Key(ggSubfeed.PrivateKey)
 
 	tcs := []testops.TestCase{
 		{
