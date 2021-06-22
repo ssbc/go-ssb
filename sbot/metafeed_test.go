@@ -1,20 +1,22 @@
 package sbot
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"io"
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestMigrateFromMultiFeed(t *testing.T) {
@@ -35,11 +37,6 @@ func TestMultiFeedManagment(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
-	// hmac key for this test
-	hk := make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, hk)
-	r.NoError(err)
-
 	tRepoPath := filepath.Join("testrun", t.Name())
 	os.RemoveAll(tRepoPath)
 
@@ -48,7 +45,6 @@ func TestMultiFeedManagment(t *testing.T) {
 	mainbot, err := New(
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
-		WithHMACSigning(hk),
 		DisableNetworkNode(),
 		WithMetaFeedMode(true),
 	)
@@ -93,14 +89,8 @@ func TestMultiFeedManagment(t *testing.T) {
 	// check we published the new sub-feed on the metafeed
 	firstMsg := checkSeq(int(0))
 
-	firstContent := firstMsg.ContentBytes()
-	// hexer := hex.Dumper(os.Stderr)
-	// hexer.Write(firstContent)
-	// os.Stderr.WriteString("\n")
-	// os.Stderr.WriteString(hex.EncodeToString(firstContent))
-
 	var addMsg metamngmt.Add
-	err = metafeed.VerifySubSignedContent(firstContent, &addMsg)
+	err = metafeed.VerifySubSignedContent(firstMsg.ContentBytes(), &addMsg)
 	r.NoError(err)
 	r.True(addMsg.SubFeed.Equal(subfeedid))
 
@@ -128,7 +118,6 @@ func TestMultiFeedManagment(t *testing.T) {
 
 	// check we published the tombstone update on the metafeed
 	secondMsg := checkSeq(int(1))
-	t.Log(hex.Dump(secondMsg.ContentBytes()))
 
 	var obituary metamngmt.Tombstone
 	err = metafeed.VerifySubSignedContent(secondMsg.ContentBytes(), &obituary)
@@ -141,4 +130,97 @@ func TestMultiFeedManagment(t *testing.T) {
 
 	mainbot.Shutdown()
 	r.NoError(mainbot.Close())
+}
+
+func TestMultiFeedManualSync(t *testing.T) {
+	// defer leakcheck.Check(t)
+	r := require.New(t)
+
+	// TODO: enable hmac key
+	// hk := make([]byte, 32)
+	// _, err := io.ReadFull(rand.Reader, hk)
+	// r.NoError(err)
+
+	ctx, cancel := ShutdownContext(context.Background())
+	botgroup, ctx := errgroup.WithContext(ctx)
+
+	logger := testutils.NewRelativeTimeLogger(nil)
+	bs := newBotServer(ctx, logger)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
+
+	// make the bot
+	multiBot, err := New(
+		WithInfo(logger),
+		WithRepoPath(filepath.Join(tRepoPath, "mfbot")),
+		WithListenAddr(":0"),
+		// WithHMACSigning(hk),
+		WithMetaFeedMode(true),
+		DisableEBT(true), // TODO: have different formats in ebt
+	)
+	r.NoError(err)
+	botgroup.Go(bs.Serve(multiBot))
+
+	r.Equal(multiBot.KeyPair.ID().Algo(), refs.RefAlgoFeedBendyButt)
+
+	// create a two subfeeds
+	subfeedClassic, err := multiBot.MetaFeeds.CreateSubFeed("classic", refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+
+	subfeedGabby, err := multiBot.MetaFeeds.CreateSubFeed("gabby", refs.RefAlgoFeedGabby)
+	r.NoError(err)
+
+	// create some spam
+	n := 100
+	for i := n; i > 0; i-- {
+		testSpam := fmt.Sprintf("hello from my testing subfeed %d", i)
+
+		_, err = multiBot.MetaFeeds.Publish(subfeedClassic, refs.NewPost(testSpam+" (classic)"))
+		r.NoError(err)
+		_, err = multiBot.MetaFeeds.Publish(subfeedGabby, refs.NewPost(testSpam+" (gabby)"))
+		r.NoError(err)
+	}
+
+	// now start the receiving bot
+	receiveBot, err := New(
+		WithInfo(logger),
+		WithRepoPath(filepath.Join(tRepoPath, "rxbot")),
+		WithListenAddr(":0"),
+		// WithHMACSigning(hk),
+		DisableEBT(true), // TODO: have different formats in ebt
+	)
+	r.NoError(err)
+	botgroup.Go(bs.Serve(receiveBot))
+
+	// replicate between the two
+
+	multiBot.Replicate(receiveBot.KeyPair.ID())
+
+	receiveBot.Replicate(multiBot.KeyPair.ID())
+	receiveBot.Replicate(subfeedClassic)
+	receiveBot.Replicate(subfeedGabby)
+
+	// sync
+	err = receiveBot.Network.Connect(ctx, multiBot.Network.GetListenAddr())
+	r.NoError(err)
+
+	// wait for all messages to arrive
+	wantCount := margaret.BaseSeq(2*n + 2 - 1)
+	src, err := receiveBot.ReceiveLog.Query(margaret.Gte(wantCount), margaret.Live(true))
+	r.NoError(err)
+	ctx, tsCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer tsCancel()
+	v, err := src.Next(ctx)
+	r.NoError(err)
+	t.Log(v.(refs.Message).Key().Ref())
+
+	// shutdown
+	cancel()
+	multiBot.Shutdown()
+	r.NoError(multiBot.Close())
+	receiveBot.Shutdown()
+	r.NoError(receiveBot.Close())
+
+	r.NoError(botgroup.Wait())
 }
