@@ -19,6 +19,8 @@ import (
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
+// WithMetaFeedMode enables metafeed support.
+// It switches the default keypair to bendybutt and initializes the MetaFeed API of the Sbot.
 func WithMetaFeedMode(enable bool) Option {
 	return func(s *Sbot) error {
 		s.enableMetafeeds = enable
@@ -26,37 +28,49 @@ func WithMetaFeedMode(enable bool) Option {
 	}
 }
 
+// MetaFeeds allows managing and publishing to subfeeds of a metafeed.
 type MetaFeeds interface {
+	// CreateSubFeed derives a new keypair, stores it in the keystore and publishes a `metafeed/add` message on the housing metafeed.
+	// It takes purpose whic will be published and added to the keystore, too.
+	// The subfeed will use the format
 	CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error)
+
+	// TombstoneSubFeed removes the keypair from the store and publishes a `metafeed/tombstone` message to the feed.
+	// Afterwards the referenced feed is unusable.
 	TombstoneSubFeed(refs.FeedRef) error
 
+	// ListSubFeeds returns a list of all _active_ subfeeds of the housing metafeed
 	ListSubFeeds() ([]SubfeedListEntry, error)
 
+	// Publish works like normal `Sbot.Publish()` but takes an additional feed reference,
+	// which specifies the subfeed on which the content should be published.
 	Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error)
-}
-
-// stub for disabled mode
-type disabledMetaFeeds struct{}
-
-func (disabledMetaFeeds) CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
-	return refs.FeedRef{}, fmt.Errorf("metafeeds are disabled")
-}
-
-func (disabledMetaFeeds) TombstoneSubFeed(_ refs.FeedRef) error {
-	return fmt.Errorf("metafeeds are disabled")
-}
-
-func (disabledMetaFeeds) ListSubFeeds() ([]SubfeedListEntry, error) {
-	return nil, fmt.Errorf("metafeeds are disabled")
-}
-
-func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
-	return refs.MessageRef{}, fmt.Errorf("metafeeds are disabled")
 }
 
 type SubfeedListEntry struct {
 	Feed    refs.FeedRef
 	Purpose string
+}
+
+// stub for disabled mode
+type disabledMetaFeeds struct{}
+
+var errMetafeedsDisabled = fmt.Errorf("sbot: metafeeds are disabled")
+
+func (disabledMetaFeeds) CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
+	return refs.FeedRef{}, errMetafeedsDisabled
+}
+
+func (disabledMetaFeeds) TombstoneSubFeed(_ refs.FeedRef) error {
+	return errMetafeedsDisabled
+}
+
+func (disabledMetaFeeds) ListSubFeeds() ([]SubfeedListEntry, error) {
+	return nil, errMetafeedsDisabled
+}
+
+func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
+	return refs.MessageRef{}, errMetafeedsDisabled
 }
 
 // actual implemnation
@@ -70,11 +84,11 @@ type metaFeedsService struct {
 }
 
 func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *keys.Store, keypair ssb.KeyPair) (*metaFeedsService, error) {
-
 	metaKeyPair, ok := keypair.(metakeys.KeyPair)
 	if !ok {
 		return nil, fmt.Errorf("not a metafeed keypair: %T", keypair)
 	}
+
 	return &metaFeedsService{
 		rxLog:       rxLog,
 		users:       users,
@@ -84,6 +98,8 @@ func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *k
 }
 
 func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
+	// TODO: validate format support
+
 	// TODO: get rootKey?
 	// s.keys.GetKeys(keys.SchemeMetafeedSubkey)
 
