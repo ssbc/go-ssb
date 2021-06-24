@@ -30,134 +30,146 @@ import (
 
 func TestFeedsOneByOne(t *testing.T) {
 	defer leakcheck.Check(t)
-	r := require.New(t)
-	a := assert.New(t)
-	ctx, cancel := ShutdownContext(context.TODO())
+	t.Run("legacy", createFeedsOneByOneTest(false))
+	t.Run("ebt", createFeedsOneByOneTest(true))
+}
 
-	os.RemoveAll("testrun")
+func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		r := require.New(t)
+		a := assert.New(t)
+		ctx, cancel := ShutdownContext(context.TODO())
 
-	appKey := make([]byte, 32)
-	rand.Read(appKey)
-	hmacKey := make([]byte, 32)
-	rand.Read(hmacKey)
+		os.RemoveAll("testrun")
 
-	seed := bytes.Repeat([]byte{1}, 32)
-	aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
-	r.NoError(err)
-	t.Log("ali is", aliKey.Id.Ref())
+		appKey := make([]byte, 32)
+		rand.Read(appKey)
+		hmacKey := make([]byte, 32)
+		rand.Read(hmacKey)
 
-	botgroup, ctx := errgroup.WithContext(ctx)
+		seed := bytes.Repeat([]byte{1}, 32)
+		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
+		r.NoError(err)
+		t.Log("ali is", aliKey.Id.Ref())
 
-	mainLog := testutils.NewRelativeTimeLogger(nil)
-	mainLog = level.NewFilter(mainLog, level.AllowInfo())
+		botgroup, ctx := errgroup.WithContext(ctx)
 
-	aliPath := filepath.Join("testrun", t.Name(), "ali")
-	ali, err := New(
-		WithAppKey(appKey),
-		WithHMACSigning(hmacKey),
-		WithContext(ctx),
-		WithKeyPair(aliKey),
-		WithInfo(log.With(mainLog, "unit", "ali")),
-		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			return debug.WrapDump(filepath.Join(aliPath, "muxdump"), conn)
-		}),
-		WithRepoPath(aliPath),
-		WithListenAddr(":0"),
-	)
-	r.NoError(err)
+		mainLog := testutils.NewRelativeTimeLogger(nil)
+		// mainLog = level.NewFilter(mainLog, level.AllowInfo())
 
-	botgroup.Go(func() error {
-		err := ali.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
-		}
-		if errors.Is(err, ssb.ErrShuttingDown) {
-			return nil
-		}
-		return err
-	})
+		aliPath := filepath.Join("testrun", t.Name(), "ali")
+		ali, err := New(
+			WithAppKey(appKey),
+			WithHMACSigning(hmacKey),
+			WithContext(ctx),
+			WithKeyPair(aliKey),
+			WithInfo(log.With(mainLog, "unit", "ali")),
+			WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+				return debug.WrapDump(filepath.Join(aliPath, "muxdump"), conn)
+			}),
+			WithRepoPath(aliPath),
+			WithListenAddr(":0"),
+			DisableEBT(!useEBT),
+		)
+		r.NoError(err)
 
-	seed = bytes.Repeat([]byte{2}, 32)
-	bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
-	r.NoError(err)
-	t.Log("bob is", bobKey.Id.Ref())
-
-	bobPath := filepath.Join("testrun", t.Name(), "bob")
-	bob, err := New(
-		WithAppKey(appKey),
-		WithHMACSigning(hmacKey),
-		WithContext(ctx),
-		WithKeyPair(bobKey),
-		WithInfo(log.With(mainLog, "unit", "bob")),
-		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			return debug.WrapDump(filepath.Join(bobPath, "muxdump"), conn)
-		}),
-		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
-		WithListenAddr(":0"),
-	)
-	r.NoError(err)
-
-	botgroup.Go(func() error {
-		err := bob.Network.Serve(ctx)
-		if err != nil {
-			level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
-		}
-		if errors.Is(err, ssb.ErrShuttingDown) {
-			return nil
-		}
-		return err
-	})
-
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
-
-	uf, ok := bob.GetMultiLog("userFeeds")
-	r.True(ok)
-
-	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
-	r.NoError(err)
-
-	n := 50
-	if testing.Short() {
-		n = 3
-	}
-
-	for i := 0; i < n; i++ {
-		newSeq, err := ali.PublishLog.Append(map[string]interface{}{
-			"type": "test-value",
-			"test": i,
+		botgroup.Go(func() error {
+			err := ali.Network.Serve(ctx)
+			if err != nil {
+				level.Warn(mainLog).Log("event", "ali serve exited", "err", err)
+			}
+			if errors.Is(err, ssb.ErrShuttingDown) {
+				return nil
+			}
+			return err
 		})
-		r.NoError(err)
-		t.Log("published", newSeq)
 
-		t.Logf("connecting (%d)", i)
-		err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+		seed = bytes.Repeat([]byte{2}, 32)
+		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		time.Sleep(250 * time.Millisecond)
-		bob.Network.GetConnTracker().CloseAll()
+		t.Log("bob is", bobKey.Id.Ref())
 
-		// check the note is updated correctly
-		aliHas, err := bob.ebtState.Inspect(ali.KeyPair.Id)
+		bobPath := filepath.Join("testrun", t.Name(), "bob")
+		bob, err := New(
+			WithAppKey(appKey),
+			WithHMACSigning(hmacKey),
+			WithContext(ctx),
+			WithKeyPair(bobKey),
+			WithInfo(log.With(mainLog, "unit", "bob")),
+			WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+				return debug.WrapDump(filepath.Join(bobPath, "muxdump"), conn)
+			}),
+			WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
+			WithListenAddr(":0"),
+			DisableEBT(!useEBT),
+		)
 		r.NoError(err)
-		alisNoteAtBob := aliHas[ali.KeyPair.Id.Ref()]
-		a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 
-		seqv, err := alisLog.Seq().Value()
+		botgroup.Go(func() error {
+			err := bob.Network.Serve(ctx)
+			if err != nil {
+				level.Warn(mainLog).Log("event", "bob serve exited", "err", err)
+			}
+			if errors.Is(err, ssb.ErrShuttingDown) {
+				return nil
+			}
+			return err
+		})
+
+		ali.Replicate(bob.KeyPair.Id)
+		bob.Replicate(ali.KeyPair.Id)
+
+		uf, ok := bob.GetMultiLog("userFeeds")
+		r.True(ok)
+
+		alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
 		r.NoError(err)
-		a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
+
+		n := 15
+		if testing.Short() {
+			n = 3
+		}
+
+		for i := 0; i < n; i++ {
+			newSeq, err := ali.PublishLog.Append(map[string]interface{}{
+				"type": "test-value",
+				"test": i,
+			})
+			r.NoError(err)
+			t.Log("published", newSeq)
+
+			t.Logf("connecting (%d)", i)
+			err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+			r.NoError(err)
+			time.Sleep(250 * time.Millisecond)
+			bob.Network.GetConnTracker().CloseAll()
+
+			// check the note is updated correctly
+			if useEBT {
+
+				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.Id)
+				r.NoError(err)
+				alisNoteAtBob := aliHas[ali.KeyPair.Id.Ref()]
+				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
+			}
+
+			seqv, err := alisLog.Seq().Value()
+			r.NoError(err)
+			a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
+		}
+
+		err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
+		a.NoError(err, "fsck on A failed")
+		err = bob.FSCK(FSCKWithMode(FSCKModeSequences))
+		a.NoError(err, "fsck on B failed")
+
+		cancel()
+		ali.Shutdown()
+		bob.Shutdown()
+
+		r.NoError(ali.Close())
+		r.NoError(bob.Close())
+
+		r.NoError(botgroup.Wait())
 	}
-
-	err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
-	a.NoError(err, "fsck on A failed")
-	err = bob.FSCK(FSCKWithMode(FSCKModeSequences))
-	a.NoError(err, "fsck on B failed")
-
-	cancel()
-	ali.Shutdown()
-	bob.Shutdown()
-
-	r.NoError(ali.Close())
-	r.NoError(bob.Close())
-
-	r.NoError(botgroup.Wait())
 }
