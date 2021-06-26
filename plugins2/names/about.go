@@ -69,14 +69,17 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		for iter.Rewind(); iter.Valid(); iter.Next() {
+		for iter.Seek(idxKeyPrefix); iter.ValidForPrefix(idxKeyPrefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if string(k) == "__current_observable" {
+
+			kWoPrefix := bytes.TrimPrefix(k, idxKeyPrefix)
+
+			if string(kWoPrefix) == "__current_observable" {
 				return nil // skip
 			}
 
-			parts := strings.Split(string(k), ":")
+			parts := strings.Split(string(kWoPrefix), ":")
 			if len(parts) != 3 {
 				return fmt.Errorf("about.All: illegal key:%q", string(k))
 			}
@@ -117,17 +120,6 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 
 func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 	addr := append(idxKeyPrefix, []byte(ref.Ref()+":")...)
-	// from self
-	// addr = append(addr, ref.ID...)
-
-	// explicit lookup
-	// addr = append(addr, []byte(":name")...)
-	// if obs, err := ab.idx.Get(context.TODO(), librarian.Addr(addr)); err == nil {
-	// 	val, err := obs.Value()
-	// 	if err == nil {
-	// 		return val.(string)
-	// 	}
-	// }
 
 	// direct badger magic
 	// most of this feels like to direct k:v magic to be honest
@@ -146,16 +138,18 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 			k = bytes.TrimPrefix(k, idxKeyPrefix)
 			splitted := bytes.Split(k, []byte(":"))
 
-			c, err := refs.ParseFeedRef(string(splitted[0]))
+			c, err := refs.ParseFeedRef(string(splitted[1]))
 			if err != nil {
 				return fmt.Errorf("about: couldnt make author ref from db key: %s: %w", splitted, err)
 			}
+
 			err = it.Value(func(v []byte) error {
 				var fieldPtr *AboutAttribute
 				var foundVal string
 				if err := json.Unmarshal(v, &foundVal); err != nil {
 					return err
 				}
+
 				switch {
 				case bytes.HasSuffix(k, []byte(":name")):
 					fieldPtr = &reduced.Name
@@ -163,12 +157,12 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 					fieldPtr = &reduced.Description
 				case bytes.HasSuffix(k, []byte(":image")):
 					fieldPtr = &reduced.Image
-				}
-				if fieldPtr == nil {
+				default:
 					log.Printf("about debug: %s ", c.Ref())
 					log.Printf("no field for: %q", string(k))
 					return nil
 				}
+
 				if c.Equal(ref) {
 					fieldPtr.Chosen = foundVal
 				} else {
@@ -233,8 +227,6 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 		// TODO: git repos and gathering use about messages for their names
 		return nil
 	}
-
-	//	fmt.Println("msg", "decoded", "seq", seq.Seq())
 
 	// about:from:field
 	addr := aboutMSG.About.Ref()

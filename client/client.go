@@ -202,7 +202,7 @@ func (c Client) BlobsWant(ref refs.BlobRef) error {
 	if err != nil {
 		return fmt.Errorf("ssbClient: blobs.want failed: %w", err)
 	}
-	c.logger.Log("blob", "wanted", "v", v, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "wanted", "v", v, "ref", ref.Ref())
 	return nil
 }
 
@@ -212,7 +212,7 @@ func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
-	c.logger.Log("blob", "has", "has", has, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "has", "has", has, "ref", ref.Ref())
 	return has, nil
 
 }
@@ -223,7 +223,7 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: blobs.get failed: %w", err)
 	}
-	c.logger.Log("blob", "got", "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "got", "ref", ref.Ref())
 
 	return muxrpc.NewSourceReader(v), nil
 }
@@ -257,27 +257,27 @@ func (c Client) NamesGet() (NamesGetResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: names.get failed: %w", err)
 	}
-	c.logger.Log("names", "get", "cnt", len(res))
+	level.Debug(c.logger).Log("names", "get", "cnt", len(res))
 	return res, nil
 }
 
 func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	var name string
-	err := c.Async(c.rootCtx, &name, muxrpc.TypeJSON, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
+	err := c.Async(c.rootCtx, &name, muxrpc.TypeString, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
 	if err != nil {
 		return "", fmt.Errorf("ssbClient: names.getSignifier failed: %w", err)
 	}
-	c.logger.Log("names", "getSignifier", "name", name, "ref", ref.Ref())
+	level.Debug(c.logger).Log("names", "getSignifier", "name", name, "ref", ref.Ref())
 	return name, nil
 }
 
 func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	var blobRef string
-	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeJSON, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
+	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeString, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
 	if err != nil {
 		return refs.BlobRef{}, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
 	}
-	c.logger.Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
+	level.Debug(c.logger).Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
 	return refs.ParseBlobRef(blobRef)
 }
 
