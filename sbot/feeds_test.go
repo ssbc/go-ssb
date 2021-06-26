@@ -54,8 +54,12 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 
 		botgroup, ctx := errgroup.WithContext(ctx)
 
-		mainLog := testutils.NewRelativeTimeLogger(nil)
-		// mainLog = level.NewFilter(mainLog, level.AllowInfo())
+		mainLog := log.NewNopLogger()
+		if testing.Verbose() {
+			mainLog = testutils.NewRelativeTimeLogger(nil)
+			// comment this out for even more verbosity
+			mainLog = level.NewFilter(mainLog, level.AllowInfo())
+		}
 
 		aliPath := filepath.Join("testrun", t.Name(), "ali")
 		ali, err := New(
@@ -146,7 +150,6 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 
 			// check the note is updated correctly
 			if useEBT {
-
 				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.Id)
 				r.NoError(err)
 				alisNoteAtBob := aliHas[ali.KeyPair.Id.Ref()]

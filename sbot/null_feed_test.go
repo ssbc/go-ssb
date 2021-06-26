@@ -64,6 +64,7 @@ func TestNullFeed(t *testing.T) {
 		WithHops(2),
 		WithHMACSigning(hk),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(mainbot))
@@ -136,6 +137,7 @@ func TestNullFeed(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "bert")),
 		WithHMACSigning(hk),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bertBot))
@@ -220,9 +222,9 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(ali))
 
 	bob, err := New(
@@ -235,9 +237,9 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(bob))
 
 	ali.Replicate(bob.KeyPair.Id)
@@ -252,10 +254,7 @@ func TestNullFetched(t *testing.T) {
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
 
-	aliUF, ok := ali.GetMultiLog("userFeeds")
-	r.True(ok)
-
-	alisVersionOfBobsLog, err := aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
+	alisVersionOfBobsLog, err := ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
@@ -287,8 +286,8 @@ func TestNullFetched(t *testing.T) {
 	err = ali.NullFeed(bob.KeyPair.Id)
 	r.NoError(err)
 
-	mainLog.Log("msg", "get a fresh view (shoild be empty now)")
-	alisVersionOfBobsLog, err = aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
+	mainLog.Log("msg", "get a fresh view (should be empty now)")
+	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "sync should give us the messages again")

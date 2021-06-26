@@ -25,7 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
-func XTestFeedsGabbySync(t *testing.T) {
+func TestFeedsGabbySync(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
 

@@ -554,12 +554,12 @@ func New(fopts ...Option) (*Sbot, error) {
 
 		// shit - don't see a way to pass being a different feedtype with shs1
 		// we also need to pass this up the stack...!
-		// remote.Algo = refs.RefAlgoFeedGabby
-		// err = auth.Authorize(remote)
-		// if err == nil {
-		// 	level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
-		// 	return s.public.MakeHandler(conn)
-		// }
+		ggRemote, err := refs.NewFeedRefFromBytes(remote.PubKey(), refs.RefAlgoFeedGabby)
+		err = auth.Authorize(ggRemote)
+		if err == nil {
+			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
+			return s.public.MakeHandler(conn)
+		}
 
 		// TOFU restore/resync
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {

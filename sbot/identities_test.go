@@ -73,8 +73,8 @@ func XTestMultipleIdentities(t *testing.T) {
 
 	// boxing helper
 	b := box.NewBoxer(nil)
-	box := func(v interface{}, recpts ...refs.FeedRef) []byte {
-		msg, err := json.Marshal(v)
+	box := func(post string, recpts ...refs.FeedRef) []byte {
+		msg, err := json.Marshal(refs.NewPost(post))
 		r.NoError(err, "failed to marshal privmsg")
 
 		ciph, err := b.Encrypt(msg, recpts...)
@@ -91,9 +91,9 @@ func XTestMultipleIdentities(t *testing.T) {
 		{"bert", refs.NewContactFollow(kpArny.Id)},
 		{"bert", refs.NewContactFollow(kpCloe.Id)},
 		{"cloe", refs.NewContactFollow(kpArny.Id)},
-		{"arny", map[string]interface{}{"hello": 123}},
-		{"bert", map[string]interface{}{"world": 456}},
-		{"cloe", map[string]interface{}{"test": 789}},
+		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
+		{"bert", map[string]interface{}{"type": "test", "world": 456}},
+		{"cloe", map[string]interface{}{"type": "test", "test": 789}},
 		{"arny", box("A: just talking to myself", kpArny.Id)},
 		{"bert", box("B: just talking to myself", kpBert.Id)},
 		{"cloe", box("C: just talking to myself", kpCloe.Id)},
