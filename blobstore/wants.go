@@ -68,6 +68,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 		}
 		wmgr.promEvent(n.Op.String(), 1)
 
+		// remove wanted blobs on update
 		if n.Op == ssb.BlobStoreOpPut {
 			if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
 				delete(wmgr.wants, n.Ref.Ref())
@@ -79,6 +80,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 		return nil
 	}))
 
+	// once we learn about available blobs from peeers we are connected to
 	go func() {
 	workChan:
 		for has := range wmgr.available {

@@ -162,10 +162,10 @@ func TestStore(t *testing.T) {
 				}
 
 				ref, ok := v.(refs.BlobRef)
-				r.Equal(true, ok, "got something that is not a blobref in list: %v(%T)", v, v)
+				r.True(ok, "got something that is not a blobref in list: %v(%T)", v, v)
 
 				_, ok = listExp[ref.Ref()]
-				r.Equal(true, ok, "received unexpected ref in list: %s", ref)
+				r.True(ok, "received unexpected ref in list: %s", ref)
 
 				delete(listExp, ref.Ref())
 			}

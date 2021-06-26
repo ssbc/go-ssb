@@ -10,10 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"go.cryptoscope.co/luigi"
 
@@ -88,10 +88,6 @@ func (store *blobStore) getHexDirPath(ref refs.BlobRef) (string, error) {
 	return filepath.Join(store.basePath, relPath), nil
 }
 
-func (store *blobStore) getTmpPath() string {
-	return filepath.Join(store.basePath, "tmp", fmt.Sprint(time.Now().UnixNano()))
-}
-
 func (store *blobStore) Get(b refs.BlobRef) (io.ReadCloser, error) {
 	blobPath, err := store.getPath(b)
 	if err != nil {
@@ -110,10 +106,9 @@ func (store *blobStore) Get(b refs.BlobRef) (io.ReadCloser, error) {
 }
 
 func (store *blobStore) Put(blob io.Reader) (refs.BlobRef, error) {
-	tmpPath := store.getTmpPath()
-	f, err := os.Create(tmpPath)
+	f, err := ioutil.TempFile(filepath.Join(store.basePath, "tmp"), "rxblob-*")
 	if err != nil {
-		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error creating tmp file at %q: %w", tmpPath, err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error creating tmp file: %w", err)
 	}
 
 	h := sha256.New()
@@ -121,6 +116,8 @@ func (store *blobStore) Put(blob io.Reader) (refs.BlobRef, error) {
 	if err != nil && !luigi.IsEOS(err) {
 		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error copying: %w", err)
 	}
+
+	tmpPath := f.Name()
 
 	if err := f.Close(); err != nil {
 		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error closing tmp file: %w", err)

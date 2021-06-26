@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.mindeco.de/log"
 	"golang.org/x/sync/errgroup"
@@ -458,6 +459,7 @@ func TestBlobsWithHops(t *testing.T) {
 func TestBlobsTooBig(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
+	a := assert.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	// <testSetup>
@@ -511,46 +513,60 @@ func TestBlobsTooBig(t *testing.T) {
 	r.NoError(err)
 	srvBot(bob, "bob")
 
+	blobUpdate := func(name string) luigi.FuncSink {
+		return func(ctx context.Context, v interface{}, err error) error {
+			fmt.Println(name, "blob update:", v)
+			return err
+		}
+	}
+	bob.BlobStore.Changes().Register(luigi.FuncSink(blobUpdate("bob")))
+	ali.BlobStore.Changes().Register(luigi.FuncSink(blobUpdate("ali")))
+
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
+	time.Sleep(1 * time.Second)
+
 	// </testSetup>
 
-	// A adds a very big blob
+	// Ali adds a very big blob
 	zerof, err := os.Open("/dev/zero")
 	r.NoError(err)
 	defer zerof.Close()
 
-	const smallEnough = blobstore.DefaultMaxSize - 10
-	smallRef, err := ali.BlobStore.Put(io.LimitReader(zerof, smallEnough))
+	const smallEnough = blobstore.DefaultMaxSize
+	okayRef, err := ali.BlobStore.Put(io.LimitReader(zerof, smallEnough))
 	r.NoError(err)
-	t.Log("added small", smallRef.Ref())
+	t.Log("added small", okayRef.Ref())
 
-	const veryLarge = blobstore.DefaultMaxSize + 10
-	ref, err := ali.BlobStore.Put(io.LimitReader(zerof, veryLarge))
+	sz, err := ali.BlobStore.Size(okayRef)
 	r.NoError(err)
-	t.Log("added too big", ref.Ref())
+	a.EqualValues(smallEnough, sz)
 
-	sz, err := ali.BlobStore.Size(ref)
+	const veryLarge = blobstore.DefaultMaxSize + 1
+	largeRef, err := ali.BlobStore.Put(io.LimitReader(zerof, veryLarge))
 	r.NoError(err)
-	r.EqualValues(veryLarge, sz)
-	time.Sleep(1 * time.Second)
+	t.Log("added too big", largeRef.Ref())
 
-	err = bob.WantManager.Want(ref)
+	sz, err = ali.BlobStore.Size(largeRef)
 	r.NoError(err)
-	err = bob.WantManager.Want(smallRef)
+	a.EqualValues(veryLarge, sz)
+
+	err = bob.WantManager.Want(largeRef)
+	r.NoError(err)
+	err = bob.WantManager.Want(okayRef)
 	r.NoError(err)
 
 	time.Sleep(3 * time.Second)
 
-	_, err = bob.BlobStore.Get(smallRef)
-	r.NoError(err)
+	_, err = bob.BlobStore.Get(okayRef)
+	a.NoError(err)
 
-	_, err = bob.BlobStore.Get(ref)
+	_, err = bob.BlobStore.Get(largeRef)
 	r.Error(err)
-	r.Equal(err, blobstore.ErrNoSuchBlob)
+	a.Equal(err, blobstore.ErrNoSuchBlob)
 
 	cancel()
 	ali.Shutdown()
