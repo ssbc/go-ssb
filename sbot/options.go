@@ -117,7 +117,6 @@ func WithUNIXSocket() Option {
 	return func(s *Sbot) error {
 		// this races because sbot might not be done with init yet
 		// TODO: refactor network peer code and make unixsock implement that (those will be inited late anyway)
-		spoofWrapper := netwraputil.SpoofRemoteAddress(s.KeyPair.Id.PubKey())
 
 		r := repo.New(s.repoPath)
 		sockPath := r.GetPath("socket")
@@ -137,67 +136,97 @@ func WithUNIXSocket() Option {
 		}
 		s.closers.AddCloser(uxLis)
 
-		go func() {
+		var unixsrv = unixSockServer{
+			ctx:    s.rootCtx,
+			logger: s.info,
 
-			for {
-				c, err := uxLis.Accept()
-				if err != nil {
-					if nerr, ok := err.(*net.OpError); ok {
-						if nerr.Err.Error() == "use of closed network connection" {
-							return
-						}
-					}
+			lis: uxLis,
 
-					err = fmt.Errorf("unix sock accept failed: %w", err)
-					s.info.Log("warn", err)
-					logging.CheckFatal(err)
-					continue
-				}
+			connWrappers: s.postSecureWrappers,
 
-				wc, err := spoofWrapper(c)
-				if err != nil {
-					c.Close()
-					continue
-				}
-				for _, w := range s.postSecureWrappers {
-					var err error
-					wc, err = w(wc)
-					if err != nil {
-						level.Warn(s.info).Log("err", err)
-						c.Close()
-						continue
-					}
-				}
+			pubKey: s.KeyPair.Id.PubKey(),
 
-				go func(conn net.Conn) {
-					defer conn.Close()
+			handler: s.master,
+		}
+		go unixsrv.accept()
 
-					pkr := muxrpc.NewPacker(conn)
-
-					h, err := s.master.MakeHandler(conn)
-					if err != nil {
-						err = fmt.Errorf("unix sock make handler: %w", err)
-						s.info.Log("warn", err)
-						logging.CheckFatal(err)
-						return
-					}
-
-					edp := muxrpc.Handle(pkr, h,
-						muxrpc.WithContext(s.rootCtx),
-						muxrpc.WithLogger(kitlog.NewNopLogger()),
-					)
-
-					srv := edp.(muxrpc.Server)
-					if err := srv.Serve(); err != nil {
-						s.info.Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
-					}
-					edp.Terminate()
-
-				}(wc)
-			}
-		}()
 		return nil
 	}
+}
+
+type unixSockServer struct {
+	ctx    context.Context
+	logger kitlog.Logger
+
+	lis          net.Listener
+	connWrappers []netwrap.ConnWrapper
+
+	pubKey []byte
+
+	handler ssb.PluginManager
+}
+
+func (srv unixSockServer) accept() {
+	spoofWrapper := netwraputil.SpoofRemoteAddress(srv.pubKey)
+
+	for {
+		c, err := srv.lis.Accept()
+		if err != nil {
+			if nerr, ok := err.(*net.OpError); ok {
+				if nerr.Err.Error() == "use of closed network connection" {
+					return
+				}
+			}
+
+			err = fmt.Errorf("unix sock accept failed: %w", err)
+			level.Error(srv.logger).Log("warn", err)
+			logging.CheckFatal(err)
+			continue
+		}
+
+		wc, err := spoofWrapper(c)
+		if err != nil {
+			c.Close()
+			continue
+		}
+
+		for _, w := range srv.connWrappers {
+			var err error
+			wc, err = w(wc)
+			if err != nil {
+				level.Warn(srv.logger).Log("err", err)
+				c.Close()
+				continue
+			}
+		}
+
+		go srv.serve(wc)
+	}
+}
+
+func (srv unixSockServer) serve(conn net.Conn) {
+	defer conn.Close()
+
+	pkr := muxrpc.NewPacker(conn)
+
+	h, err := srv.handler.MakeHandler(conn)
+	if err != nil {
+		err = fmt.Errorf("unix sock make handler: %w", err)
+		level.Error(srv.logger).Log("warn", err)
+		logging.CheckFatal(err)
+		return
+	}
+
+	edp := muxrpc.Handle(pkr, h,
+		muxrpc.WithContext(srv.ctx),
+		muxrpc.WithLogger(kitlog.NewNopLogger()),
+	)
+
+	muxSrv := edp.(muxrpc.Server)
+	if err := muxSrv.Serve(); err != nil {
+		level.Error(srv.logger).Log("conn", "serve exited", "err", err, "peer", conn.RemoteAddr())
+	}
+	edp.Terminate()
 }
 
 // WithAppKey changes the appkey (aka secret-handshake network cap).
