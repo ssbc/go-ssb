@@ -50,7 +50,8 @@ type BlobStore interface {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
 type WantManager interface {
 	io.Closer
-	luigi.Broadcast // todo: replace with a typed broadcast
+
+	BlobWantsBroadcaster
 
 	Want(ref refs.BlobRef) error
 	Wants(ref refs.BlobRef) bool
@@ -59,6 +60,17 @@ type WantManager interface {
 	CreateWants(context.Context, *muxrpc.ByteSink, muxrpc.Endpoint) luigi.Sink
 
 	AllWants() []BlobWant
+}
+
+type CancelFunc func()
+
+type BlobWantsEmitter interface {
+	EmitWant(BlobWant) error
+	io.Closer
+}
+
+type BlobWantsBroadcaster interface {
+	Register(sink BlobWantsEmitter) CancelFunc
 }
 
 type BlobWant struct {

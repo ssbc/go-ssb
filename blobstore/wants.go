@@ -14,6 +14,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
@@ -50,7 +51,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 	wmgr.promGaugeSet("proc", 0)
 
-	wmgr.wantSink, wmgr.Broadcast = luigi.NewBroadcast()
+	wmgr.wantsEmitter, wmgr.BlobWantsBroadcast = broadcasts.NewBlobWantsEmitter()
 
 	bs.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
@@ -121,7 +122,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 }
 
 type wantManager struct {
-	luigi.Broadcast // todo: replace with a typed broadcast
+	*broadcasts.BlobWantsBroadcast
 
 	longCtx context.Context
 
@@ -133,15 +134,15 @@ type wantManager struct {
 	blocked map[string]struct{}
 
 	// our own set of wants
-	wants    map[string]int64
-	wantSink luigi.Sink // todo: replace with a typed broadcast
+	wants        map[string]int64
+	wantsEmitter ssb.BlobWantsEmitter
 
 	// the set of peers we interact with
 	procs map[string]*wantProc
 
 	available chan *hasBlob
 
-	l sync.Mutex
+	l sync.Mutex // TODO: what is this protecting
 
 	info   logging.Interface
 	evtCtr metrics.Counter
@@ -266,11 +267,7 @@ func (wmgr *wantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	wmgr.wants[ref.Ref()] = dist
 	wmgr.promGaugeSet("nwants", len(wmgr.wants))
 
-	err = wmgr.wantSink.Pour(wmgr.longCtx, ssb.BlobWant{Ref: ref, Dist: dist})
-	if err != nil {
-		return fmt.Errorf("error pouring want to broadcast: %w", err)
-	}
-
+	wmgr.wantsEmitter.EmitWant(ssb.BlobWant{Ref: ref, Dist: dist})
 	return nil
 }
 
@@ -307,7 +304,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink,
 	proc.wmgr.promGauge("proc", 1)
 
 	bsCancel := proc.bs.Changes().Register(luigi.FuncSink(proc.updateFromBlobStore))
-	wmCancel := proc.wmgr.Register(luigi.FuncSink(proc.updateWants))
+	wmCancel := proc.wmgr.Register(proc)
 
 	// _i think_ the extra next func is so that the tests can see the shutdown
 	oldDone := proc.done
@@ -392,23 +389,12 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 }
 
 //
-func (proc *wantProc) updateWants(ctx context.Context, v interface{}, err error) error {
+func (proc *wantProc) EmitWant(w ssb.BlobWant) error {
 	dbg := level.Debug(proc.info)
-	if err != nil {
-		if luigi.IsEOS(err) {
-			return nil
-		}
-		dbg.Log("cause", "broadcast error", "err", err)
-		return fmt.Errorf("wmanager broadcast error: %w", err)
-	}
+
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
-	w, ok := v.(ssb.BlobWant)
-	if !ok {
-		err := fmt.Errorf("wrong type: %T", v)
-		return err
-	}
 	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortRef(), "dist", w.Dist)
 
 	if _, blocked := proc.wmgr.blocked[w.Ref.Ref()]; blocked {
