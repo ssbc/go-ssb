@@ -333,7 +333,9 @@ func New(fopts ...Option) (*Sbot, error) {
 		return nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
 	}
 
+	// TODO: creates another badger
 	idxKeys := libbadger.NewIndex(keysDB, keys.Recipients{})
+	// idxKeys := libbadger.NewIndexWithKeyPrefix(s.indexStore, keys.Recipients{}, []byte("group-and-signing"))
 	keysStore := &keys.Store{
 		Index: idxKeys,
 	}
@@ -378,7 +380,6 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.closers.AddCloser(membersSnk)
 
 	addMemberIdxAddr := librarian.Addr("string:group/add-member")
-
 	addMemberSeqs, err := groupsHelperMlog.Get(addMemberIdxAddr)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
@@ -432,7 +433,6 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	var namesPlug names.Plugin
 	_, aboutSnk := namesPlug.OpenSharedIndex(s.indexStore)
-
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
 
@@ -786,6 +786,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}))
 	networkNode.HandleHTTP(h)
 
+	// TODO: creates another badger
 	inviteService, err = legacyinvites.New(
 		kitlog.With(log, "unit", "legacyInvites"),
 		r,
@@ -798,6 +799,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
 	}
 	s.master.Register(inviteService.MasterPlugin())
+	s.closers.AddCloser(inviteService)
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
