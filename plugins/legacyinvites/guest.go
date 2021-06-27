@@ -9,7 +9,6 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -22,9 +21,6 @@ func (acceptHandler) Handled(m muxrpc.Method) bool { return m.String() == "invit
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	h.service.mu.Lock()
-	defer h.service.mu.Unlock()
-
 	// parse passed arguments
 	var args []struct {
 		Feed refs.FeedRef `json:"feed"`
@@ -47,7 +43,7 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	// lookup guest key
 	var st inviteState
-	kvKey := []byte(storedrefs.Feed(guestRef))
+	kvKey := append(dbKeyPrefix, guestRef.PubKey()...)
 	err = h.service.kv.Update(func(txn *badger.Txn) error {
 		has, err := txn.Get(kvKey)
 		if err != nil {

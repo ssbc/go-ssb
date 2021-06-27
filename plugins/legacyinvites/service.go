@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
@@ -16,7 +15,6 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/invite"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -31,7 +29,6 @@ type Service struct {
 	publish    ssb.Publisher
 	receiveLog margaret.Log
 
-	mu sync.Mutex
 	kv *badger.DB
 }
 
@@ -47,11 +44,7 @@ func (s *Service) MasterPlugin() ssb.Plugin {
 
 // Authorize allows a connection of the guest keypair is known to the service and not yet expired
 func (s *Service) Authorize(to refs.FeedRef) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	kvKey := []byte(storedrefs.Feed(to))
-
+	kvKey := append(dbKeyPrefix, to.PubKey()...)
 	err := s.kv.Update(func(txn *badger.Txn) error {
 		has, err := txn.Get(kvKey)
 		if err != nil {
@@ -82,6 +75,8 @@ func (s *Service) Authorize(to refs.FeedRef) error {
 
 var _ ssb.Authorizer = (*Service)(nil)
 
+var dbKeyPrefix = []byte("invites:")
+
 // New creates a new invite plugin service
 func New(
 	logger kitlog.Logger,
@@ -90,12 +85,8 @@ func New(
 	nw ssb.Network,
 	publish ssb.Publisher,
 	rlog margaret.Log,
+	db *badger.DB,
 ) (*Service, error) {
-
-	kv, err := repo.OpenBadgerDB(r.GetPath("plugin", "legacyinvites"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open key-value database: %w", err)
-	}
 
 	return &Service{
 		logger: logger,
@@ -106,23 +97,17 @@ func New(
 		receiveLog: rlog,
 		publish:    publish,
 
-		kv: kv,
+		kv: db,
 	}, nil
 }
 
-// Close closes the underlying key-value database
-func (s Service) Close() error { return s.kv.Close() }
-
 // Create creates a new invite with a note attached and a number of uses before it expires.
-func (s Service) Create(uses uint, note string) (*invite.Token, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *Service) Create(uses uint, note string) (*invite.Token, error) {
 	var inv invite.Token
 	err := s.kv.Update(func(txn *badger.Txn) error {
 
 		// roll seed
-		var seedRef refs.FeedRef
+		var dbKey []byte
 		for {
 			rand.Read(inv.Seed[:])
 
@@ -130,11 +115,10 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 			if err != nil {
 				return fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
 			}
-
-			_, err = txn.Get([]byte(storedrefs.Feed(inviteKeyPair.Id)))
+			dbKey = append(dbKeyPrefix, inviteKeyPair.Id.PubKey()...)
+			_, err = txn.Get(dbKey)
 			if err != nil {
 				if errors.Is(err, badger.ErrKeyNotFound) {
-					seedRef = inviteKeyPair.Id
 					break
 				}
 				return fmt.Errorf("invite/create: failed to probe new key (%w)", err)
@@ -151,7 +135,7 @@ func (s Service) Create(uses uint, note string) (*invite.Token, error) {
 			return fmt.Errorf("invite/create: failed to marshal state data (%w)", err)
 		}
 
-		err = txn.Set([]byte(storedrefs.Feed(seedRef)), data)
+		err = txn.Set(dbKey, data)
 		if err != nil {
 			return fmt.Errorf("invite/create: failed to store state data (%w)", err)
 		}

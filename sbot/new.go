@@ -322,20 +322,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.simpleIndex["get"] = getIdx
 
 	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "badger")
-	err = os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, fmt.Errorf("openIndex: error making index directory: %w", err)
-	}
-
-	keysDB, err := repo.OpenBadgerDB(pth)
-	if err != nil {
-		return nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
-	}
-
-	// TODO: creates another badger
-	idxKeys := libbadger.NewIndex(keysDB, keys.Recipients{})
-	// idxKeys := libbadger.NewIndexWithKeyPrefix(s.indexStore, keys.Recipients{}, []byte("group-and-signing"))
+	idxKeys := libbadger.NewIndexWithKeyPrefix(s.indexStore, keys.Recipients{}, []byte("group-and-signing"))
 	keysStore := &keys.Store{
 		Index: idxKeys,
 	}
@@ -786,7 +773,6 @@ func New(fopts ...Option) (*Sbot, error) {
 	}))
 	networkNode.HandleHTTP(h)
 
-	// TODO: creates another badger
 	inviteService, err = legacyinvites.New(
 		kitlog.With(log, "unit", "legacyInvites"),
 		r,
@@ -794,12 +780,12 @@ func New(fopts ...Option) (*Sbot, error) {
 		networkNode,
 		s.PublishLog,
 		s.ReceiveLog,
+		s.indexStore,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
 	}
 	s.master.Register(inviteService.MasterPlugin())
-	s.closers.AddCloser(inviteService)
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
 	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
