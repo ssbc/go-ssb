@@ -31,7 +31,7 @@ type BlobStore interface {
 	Put(blob io.Reader) (refs.BlobRef, error)
 
 	// PutExpected makes sure the added blob really is the passedBlobref
-	// helpful for want/get operations which don't want to wast resources
+	// helpful for want/get operations which don't want to waste resources
 	// PutExpected(io.Reader, *refs.BlobRef) error
 
 	// Delete deletes a blob from the blob store.
@@ -43,8 +43,17 @@ type BlobStore interface {
 	// Size returns the size of the blob with given ref.
 	Size(ref refs.BlobRef) (int64, error)
 
-	// Changes returns a broadcast that emits put and remove notifications.
-	Changes() luigi.Broadcast
+	// Register allows to get notified when the store changes
+	BlobStoreBroadcaster
+}
+
+type BlobStoreEmitter interface {
+	EmitBlob(BlobStoreNotification) error
+	io.Closer
+}
+
+type BlobStoreBroadcaster interface {
+	Register(sink BlobStoreEmitter) CancelFunc
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
@@ -90,6 +99,8 @@ func (w BlobWant) String() string {
 type BlobStoreNotification struct {
 	Op  BlobStoreOp
 	Ref refs.BlobRef
+
+	Size int64
 }
 
 func (bn BlobStoreNotification) String() string {

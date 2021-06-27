@@ -75,12 +75,8 @@ func TestStore(t *testing.T) {
 			iChangeSink int
 		)
 
-		changesSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		changesSink := funcEmitter(func(not ssb.BlobStoreNotification) error {
 			defer func() { iChangeSink++ }()
-			not, ok := v.(ssb.BlobStoreNotification)
-			if !ok {
-				return fmt.Errorf("expected %T but got %T", not, v)
-			}
 
 			if iChangeSink < len(tc.putRefs) {
 				if not.Op != ssb.BlobStoreOpPut {
@@ -120,7 +116,7 @@ func TestStore(t *testing.T) {
 				}
 			}()
 
-			bs.Changes().Register(changesSink)
+			bs.Register(changesSink)
 
 			testRefs := make(map[string]refs.BlobRef)
 
@@ -187,4 +183,15 @@ func TestStore(t *testing.T) {
 	for i, tc := range tcs {
 		t.Run(fmt.Sprint(i), mkTest(tc))
 	}
+}
+
+// util
+type funcEmitter func(not ssb.BlobStoreNotification) error
+
+func (e funcEmitter) EmitBlob(not ssb.BlobStoreNotification) error {
+	return e(not)
+}
+
+func (e funcEmitter) Close() error {
+	return nil
 }

@@ -183,10 +183,9 @@ func XTestWantManager(t *testing.T) {
 			r.NoError(err)
 			pkt2, err := outReader.ReadPacket()
 			r.NoError(err)
-			// r.Equal(2, len(outSlice), "output slice length mismatch (%v)", outSlice)
 
 			// this should be our initial want list, but with more dist
-			ourW := wmgr.(*wantManager)
+			ourW := wmgr
 			ourW.l.Lock()
 
 			var wants map[string]int64

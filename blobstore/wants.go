@@ -27,8 +27,8 @@ import (
 var ErrBlobBlocked = errors.New("ssb: unable to receive blob correctly")
 
 // NewWantManager returns the configured WantManager, using bs for storage and opts to configure it.
-func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager {
-	wmgr := &wantManager{
+func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) *WantManager {
+	wmgr := &WantManager{
 		bs:        bs,
 		info:      log.NewNopLogger(),
 		maxSize:   DefaultMaxSize,
@@ -53,33 +53,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 
 	wmgr.wantsEmitter, wmgr.BlobWantsBroadcast = broadcasts.NewBlobWantsEmitter()
 
-	bs.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		if err != nil {
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-		wmgr.l.Lock()
-		defer wmgr.l.Unlock()
-
-		n, ok := v.(ssb.BlobStoreNotification)
-		if !ok {
-			return fmt.Errorf("blob change: unhandled notification type: %T", v)
-		}
-		wmgr.promEvent(n.Op.String(), 1)
-
-		// remove wanted blobs on update
-		if n.Op == ssb.BlobStoreOpPut {
-			if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
-				delete(wmgr.wants, n.Ref.Ref())
-
-				wmgr.promGaugeSet("nwants", len(wmgr.wants))
-			}
-		}
-
-		return nil
-	}))
+	bs.Register(wmgr)
 
 	// once we learn about available blobs from peeers we are connected to
 	go func() {
@@ -121,7 +95,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) ssb.WantManager
 	return wmgr
 }
 
-type wantManager struct {
+type WantManager struct {
 	*broadcasts.BlobWantsBroadcast
 
 	longCtx context.Context
@@ -149,13 +123,31 @@ type wantManager struct {
 	gauge  metrics.Gauge
 }
 
+func (wmgr *WantManager) EmitBlob(n ssb.BlobStoreNotification) error {
+	wmgr.l.Lock()
+	defer wmgr.l.Unlock()
+
+	wmgr.promEvent(n.Op.String(), 1)
+
+	// remove wanted blobs on update
+	if n.Op == ssb.BlobStoreOpPut {
+		if _, ok := wmgr.wants[n.Ref.Ref()]; ok {
+			delete(wmgr.wants, n.Ref.Ref())
+
+			wmgr.promGaugeSet("nwants", len(wmgr.wants))
+		}
+	}
+
+	return nil
+}
+
 type hasBlob struct {
 	want    ssb.BlobWant
 	remote  muxrpc.Endpoint
 	connCtx context.Context
 }
 
-func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref refs.BlobRef) error {
+func (wmgr *WantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref refs.BlobRef) error {
 	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
@@ -186,27 +178,27 @@ func (wmgr *wantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref r
 	return nil
 }
 
-func (wmgr *wantManager) promEvent(name string, n float64) {
+func (wmgr *WantManager) promEvent(name string, n float64) {
 	name = "blobs." + name
 	if wmgr.evtCtr != nil {
 		wmgr.evtCtr.With("event", name).Add(n)
 	}
 }
 
-func (wmgr *wantManager) promGauge(name string, n float64) {
+func (wmgr *WantManager) promGauge(name string, n float64) {
 	name = "blobs." + name
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Add(n)
 	}
 }
-func (wmgr *wantManager) promGaugeSet(name string, n int) {
+func (wmgr *WantManager) promGaugeSet(name string, n int) {
 	name = "blobs." + name
 	if wmgr.gauge != nil {
 		wmgr.gauge.With("part", name).Set(float64(n))
 	}
 }
 
-func (wmgr *wantManager) Close() error {
+func (wmgr *WantManager) Close() error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 	// TODO: wait for wantproce
@@ -214,7 +206,7 @@ func (wmgr *wantManager) Close() error {
 	return nil
 }
 
-func (wmgr *wantManager) AllWants() []ssb.BlobWant {
+func (wmgr *WantManager) AllWants() []ssb.BlobWant {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 	var bws []ssb.BlobWant
@@ -231,7 +223,7 @@ func (wmgr *wantManager) AllWants() []ssb.BlobWant {
 	return bws
 }
 
-func (wmgr *wantManager) Wants(ref refs.BlobRef) bool {
+func (wmgr *WantManager) Wants(ref refs.BlobRef) bool {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
@@ -239,11 +231,11 @@ func (wmgr *wantManager) Wants(ref refs.BlobRef) bool {
 	return ok
 }
 
-func (wmgr *wantManager) Want(ref refs.BlobRef) error {
+func (wmgr *WantManager) Want(ref refs.BlobRef) error {
 	return wmgr.WantWithDist(ref, -1)
 }
 
-func (wmgr *wantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
+func (wmgr *WantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.ShortRef(), "dist", dist)
 	dbg = level.Debug(dbg)
 	_, err := wmgr.bs.Size(ref)
@@ -271,7 +263,7 @@ func (wmgr *wantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	return nil
 }
 
-func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink, edp muxrpc.Endpoint) luigi.Sink {
+func (wmgr *WantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
 
@@ -303,7 +295,7 @@ func (wmgr *wantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink,
 
 	proc.wmgr.promGauge("proc", 1)
 
-	bsCancel := proc.bs.Changes().Register(luigi.FuncSink(proc.updateFromBlobStore))
+	bsCancel := proc.bs.Register(proc)
 	wmCancel := proc.wmgr.Register(proc)
 
 	// _i think_ the extra next func is so that the tests can see the shutdown
@@ -334,7 +326,7 @@ type wantProc struct {
 	info log.Logger
 
 	bs      ssb.BlobStore
-	wmgr    *wantManager
+	wmgr    *WantManager
 	out     *json.Encoder
 	outSink *muxrpc.ByteSink
 	done    func(func())
@@ -345,26 +337,11 @@ type wantProc struct {
 }
 
 // updateFromBlobStore listens for adds and if they are wanted notifies the remote via it's sink
-func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, err error) error {
+func (proc *wantProc) EmitBlob(notif ssb.BlobStoreNotification) error {
 	dbg := level.Debug(proc.info)
 	dbg = log.With(dbg, "event", "blobStoreNotify")
 	proc.l.Lock()
 	defer proc.l.Unlock()
-
-	if err != nil {
-		if luigi.IsEOS(err) {
-			return nil
-		}
-		dbg.Log("cause", "update error", "err", err)
-		return fmt.Errorf("blobstore broadcast error: %w", err)
-	}
-
-	notif, ok := v.(ssb.BlobStoreNotification)
-	if !ok {
-		err = fmt.Errorf("wantProc: unhandled notification type: %T", v)
-		level.Error(proc.info).Log("warning", "invalid type", "err", err)
-		return err
-	}
 
 	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
 	proc.wmgr.promEvent(notif.Op.String(), 1)
@@ -373,13 +350,10 @@ func (proc *wantProc) updateFromBlobStore(ctx context.Context, v interface{}, er
 		return nil
 	}
 
-	sz, err := proc.bs.Size(notif.Ref)
-	if err != nil {
-		return fmt.Errorf("error getting blob size: %w", err)
-	}
+	sz := notif.Size
 
 	m := map[string]int64{notif.Ref.Ref(): sz}
-	err = proc.out.Encode(m)
+	err := proc.out.Encode(m)
 	if err != nil {
 		return fmt.Errorf("errors pouring into sink: %w", err)
 	}
