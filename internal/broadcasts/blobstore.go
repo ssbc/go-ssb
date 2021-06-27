@@ -98,3 +98,14 @@ func (bcst *BlobStoreSink) Close() error {
 
 	return me
 }
+
+// util
+type BlobStoreFuncEmitter func(not ssb.BlobStoreNotification) error
+
+func (e BlobStoreFuncEmitter) EmitBlob(not ssb.BlobStoreNotification) error {
+	return e(not)
+}
+
+func (e BlobStoreFuncEmitter) Close() error {
+	return nil
+}

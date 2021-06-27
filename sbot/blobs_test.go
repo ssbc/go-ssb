@@ -16,12 +16,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2/debug"
+	"go.cryptoscope.co/ssb"
 	"go.mindeco.de/log"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
@@ -513,14 +514,14 @@ func TestBlobsTooBig(t *testing.T) {
 	r.NoError(err)
 	srvBot(bob, "bob")
 
-	blobUpdate := func(name string) luigi.FuncSink {
-		return func(ctx context.Context, v interface{}, err error) error {
-			fmt.Println(name, "blob update:", v)
+	blobUpdate := func(name string) broadcasts.BlobStoreFuncEmitter {
+		return broadcasts.BlobStoreFuncEmitter(func(nf ssb.BlobStoreNotification) error {
+			fmt.Println(name, "blob update:", nf)
 			return err
-		}
+		})
 	}
-	bob.BlobStore.Changes().Register(luigi.FuncSink(blobUpdate("bob")))
-	ali.BlobStore.Changes().Register(luigi.FuncSink(blobUpdate("ali")))
+	bob.BlobStore.Register(blobUpdate("bob"))
+	ali.BlobStore.Register(blobUpdate("ali"))
 
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)

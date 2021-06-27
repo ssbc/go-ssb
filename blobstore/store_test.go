@@ -16,6 +16,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 )
 
 func TestStore(t *testing.T) {
@@ -75,7 +76,7 @@ func TestStore(t *testing.T) {
 			iChangeSink int
 		)
 
-		changesSink := funcEmitter(func(not ssb.BlobStoreNotification) error {
+		changesSink := broadcasts.BlobStoreFuncEmitter(func(not ssb.BlobStoreNotification) error {
 			defer func() { iChangeSink++ }()
 
 			if iChangeSink < len(tc.putRefs) {
@@ -183,15 +184,4 @@ func TestStore(t *testing.T) {
 	for i, tc := range tcs {
 		t.Run(fmt.Sprint(i), mkTest(tc))
 	}
-}
-
-// util
-type funcEmitter func(not ssb.BlobStoreNotification) error
-
-func (e funcEmitter) EmitBlob(not ssb.BlobStoreNotification) error {
-	return e(not)
-}
-
-func (e funcEmitter) Close() error {
-	return nil
 }
