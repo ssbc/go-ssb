@@ -4,6 +4,7 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -177,6 +178,10 @@ func (g *LegacyGossip) HandleCall(
 		if err != nil {
 			closeIfErr(fmt.Errorf("bad request: %w", err))
 			return
+		}
+
+		if !bytes.Contains(args[0], []byte(`"limit"`)) {
+			query.Limit = -1
 		}
 
 		remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())

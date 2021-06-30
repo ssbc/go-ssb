@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.2.6
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
-	go.cryptoscope.co/margaret v0.2.1-0.20210604193815-c622a8ba2526
+	go.cryptoscope.co/margaret v0.2.2-0.20210621093907-487a77b2f3aa
 	go.cryptoscope.co/muxrpc/v2 v2.0.5
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
@@ -54,4 +54,3 @@ require (
 // The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
 
-replace go.cryptoscope.co/margaret => /home/cryptix/go-repos/margaret

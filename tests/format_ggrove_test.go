@@ -18,7 +18,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestGabbyFeedFromGo(t *testing.T) {
+func TestGabbyFeedFromGo(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -40,7 +40,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 			pull.collect((err, msgs) => {
 				t.error(err, "no error from the stream")
 				t.equal(msgs.length, 3, "should have 3 elements in stream reply")
-				console.warn(JSON.stringify(msgs))
+				// console.warn(JSON.stringify(msgs))
 				sbot.gabbygrove.verify(msgs[0], (err, evt) => {
 					t.error(err, 'verified msg[0]')
 					t.ok(evt)
@@ -53,7 +53,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 
     run()
 
-	// following is blocked on proper feed format support with new suffixes
+	// following and replication is blocked on proper feed format support with new suffixes
 `
 
 	alice := ts.startJSBot(before, "")

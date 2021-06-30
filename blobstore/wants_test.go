@@ -24,6 +24,8 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
+// sadly there is no documentation here to explain what this test tries to show
+// and there is only a single case even tho the structure looks table driven
 func XTestWantManager(t *testing.T) {
 	type testcase struct {
 		blobs map[string]string // global key-value register of all blobs

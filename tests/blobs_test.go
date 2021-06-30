@@ -234,7 +234,7 @@ run()
 	<-aliceDone
 }
 
-func XTestBlobTooBigWantedByJS(t *testing.T) {
+func TestBlobTooBigWantedByJS(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
