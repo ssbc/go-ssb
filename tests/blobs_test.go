@@ -19,6 +19,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -98,8 +99,7 @@ func TestBlobFromJS(t *testing.T) {
 	s.Replicate(alice)
 
 	got := make(chan struct{})
-	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		notif := v.(ssb.BlobStoreNotification)
+	s.BlobStore.Register(broadcasts.BlobStoreFuncEmitter(func(notif ssb.BlobStoreNotification) error {
 		if ssb.BlobStoreOp("put") == notif.Op && fooBarRef == notif.Ref.Ref() {
 			close(got)
 		} else {
