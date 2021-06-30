@@ -35,7 +35,7 @@ type Plugin struct {
 func NewPlugin(getter ssb.Getter, rxlog margaret.Log, tangles, private *roaring.MultiLog, unboxer *private.Manager, isSelf ssb.Authorizer) *Plugin {
 	mux := typemux.New(log.NewNopLogger())
 
-	mux.RegisterSource(muxrpc.Method{"tangles", "replies"}, repliesHandler{
+	mux.RegisterSource(muxrpc.Method{"tangles", "thread"}, repliesHandler{
 		getter:  getter,
 		rxlog:   rxlog,
 		tangles: tangles,
@@ -185,19 +185,18 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	// get root message
 	var tps []refs.TangledPost
 	root, err := g.getter.Get(qry.Root)
-	if err != nil {
-		return err
+	if err == nil {
+		var tp tangledPost
+		err = json.Unmarshal(root.ContentBytes(), &tp.Value.Content)
+		if err != nil {
+			return fmt.Errorf("failed to unpack message %s: %w", root.Key().Ref(), err)
+		}
+		tp.TheKey = root.Key()
+		tp.Value.Author = root.Author()
+		tp.Value.Sequence = root.Seq()
+		tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
+		tps = append(tps, tp)
 	}
-	var tp tangledPost
-	err = json.Unmarshal(root.ContentBytes(), &tp.Value.Content)
-	if err != nil {
-		return fmt.Errorf("failed to unpack message %s: %w", root.Key().Ref(), err)
-	}
-	tp.TheKey = root.Key()
-	tp.Value.Author = root.Author()
-	tp.Value.Sequence = root.Seq()
-	tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
-	tps = append(tps, tp)
 
 	// get replies and add them to sorter
 	it := threadBmap.NewIterator()
@@ -243,8 +242,10 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	}
 
 	// sort them
-	sorter := refs.ByPrevious{Items: tps, TangleName: ""}
-	sorter.FillLookup()
+	sorter := &refs.ByPrevious{
+		TangleName: qry.Name,
+		Items:      tps,
+	}
 	sort.Sort(sorter)
 
 	// stream them out
@@ -262,7 +263,6 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		}
 	}
 
-	// return lsnk.Close()
 	return snk.Close()
 }
 
@@ -279,15 +279,15 @@ func (tm tangledPost) Key() refs.MessageRef {
 	return tm.TheKey
 }
 
-func (tm tangledPost) Tangle(name string) (refs.MessageRef, refs.MessageRefs) {
+func (tm tangledPost) Tangle(name string) (*refs.MessageRef, refs.MessageRefs) {
 	if name == "" {
-		return *tm.Value.Content.Root, tm.Value.Content.Branch
+		return tm.Value.Content.Root, tm.Value.Content.Branch
 	}
 
 	tp, has := tm.Value.Content.Tangles[name]
 	if !has {
-		return refs.MessageRef{}, nil
+		return nil, nil
 	}
 
-	return *tp.Root, tp.Previous
+	return tp.Root, tp.Previous
 }

@@ -73,12 +73,12 @@ func TestAutomaticUnboxing(t *testing.T) {
 	}
 	targs.Limit = -1
 	targs.Private = false
-	src, err = c.Tangles(targs)
+	src, err = c.TanglesThread(targs)
 	r.NoError(err, "failed to create source for tangled messages (public)")
 	testElementsInSource(t, src, 0)
 
 	targs.Private = true
-	src, err = c.Tangles(targs)
+	src, err = c.TanglesThread(targs)
 	r.NoError(err, "failed to create source for tangled messages (private)")
 	testElementsInSource(t, src, 3) // add-member + the two posts
 }

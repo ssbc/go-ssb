@@ -74,7 +74,7 @@ const manifestBlob manifestHandler = `
 	},
 
 	"tangles": {
-      "replies": "source"
+      "thread": "source"
 	},
 
     "names": {
