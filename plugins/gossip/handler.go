@@ -161,7 +161,7 @@ func (g *LegacyGossip) HandleCall(
 	//  https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream
 	case "createHistoryStream":
 
-		var args []json.RawMessage
+		var args []message.CreateHistArgs
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
 			closeIfErr(fmt.Errorf("bad argumentss: %w", err))
@@ -173,15 +173,26 @@ func (g *LegacyGossip) HandleCall(
 			return
 		}
 
-		var query message.CreateHistArgs
-		err = json.Unmarshal(args[0], &query)
-		if err != nil {
-			closeIfErr(fmt.Errorf("bad request: %w", err))
-			return
-		}
+		var query = args[0]
+		// err = json.Unmarshal(args[0], &query)
+		// if err != nil {
+		// 	closeIfErr(fmt.Errorf("bad request: %w", err))
+		// 	return
+		// }
 
-		if !bytes.Contains(args[0], []byte(`"limit"`)) {
-			query.Limit = -1
+		// var streamArgs message.StreamArgs
+		// err = json.Unmarshal(args[0], &streamArgs)
+		// if err != nil {
+		// 	closeIfErr(fmt.Errorf("bad request: %w", err))
+		// 	return
+		// }
+
+		if query.Limit == 0 {
+			fmt.Printf("HACK streamArgs: %#v\n", query.StreamArgs)
+
+			if !bytes.Contains(req.RawArgs, []byte(`"limit"`)) {
+				query.Limit = -1
+			}
 		}
 
 		remote, err := ssb.GetFeedRefFromAddr(req.RemoteAddr())

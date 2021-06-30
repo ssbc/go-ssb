@@ -3,6 +3,8 @@
 package message
 
 import (
+	"fmt"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -19,7 +21,7 @@ type CommonArgs struct {
 }
 
 type StreamArgs struct {
-	Limit int64 `json:"limit,omitempty"`
+	Limit MargaretLimit `json:"limit,omitempty"`
 
 	Gt int64 `json:"gt,omitempty"`
 	Lt int64 `json:"lt,omitempty"`
@@ -27,10 +29,27 @@ type StreamArgs struct {
 	Reverse bool `json:"reverse,omitempty"`
 }
 
+// var _ json.Unmarshaler = (*MargaretLimit)(nil)
+
+type MargaretLimit int64
+
+func (ml MargaretLimit) Int() int64 {
+	fmt.Println("returning ", ml)
+	return int64(ml)
+}
+
+func (ml *MargaretLimit) UnmarshalText(data []byte) error {
+	// func (ml *MargaretLimit) UnmarshalJSON(data []byte) error {
+	fmt.Println("received input ", string(data))
+	return fmt.Errorf("TODO: %q", string(data))
+}
+
 // CreateHistArgs defines the query parameters for the createHistoryStream rpc call
 type CreateHistArgs struct {
 	CommonArgs
 	StreamArgs
+
+	Limit MargaretLimit `json:"limit,omitempty"`
 
 	ID  refs.FeedRef `json:"id,omitempty"`
 	Seq int64        `json:"seq,omitempty"`
