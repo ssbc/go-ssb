@@ -5,17 +5,17 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -47,7 +47,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(context.TODO())
 		if err != nil {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()
@@ -122,7 +122,6 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		})
 
 		var v testMsg
-		spew.Dump(msg.Value.Content)
 		err = json.Unmarshal(msg.Value.Content, &v)
 		r.NoError(err, "failed JSON unmarshal message:%d", i)
 		// a.Equal(wantRefs[i], msg.Key().Ref())

@@ -22,7 +22,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestEpidemic(t *testing.T) {
+func XTestEpidemicBroadcastTrees(t *testing.T) {
 	r := require.New(t)
 
 	// ts := newRandomSession(t)
@@ -31,6 +31,7 @@ func XTestEpidemic(t *testing.T) {
 	// info := testutils.NewRelativeTimeLogger(nil)
 	var peerCnt = 0
 	ts.startGoBot(
+		sbot.DisableEBT(false),
 		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 			if err != nil {

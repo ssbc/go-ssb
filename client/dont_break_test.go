@@ -94,11 +94,9 @@ func TestAskForSomethingWeird(t *testing.T) {
 		}
 
 		if i == 5 { // why after 5? - iirc its just somehwere inbetween the open stream
-			t.Error("TODO: add tests to muxrpc for CallError")
-			return
 			var o message.CreateHistArgs
 			o.ID, err = refs.NewFeedRefFromBytes(bytes.Repeat([]byte("nope"), 8), "wrong")
-			r.NoError(err) // TODO: probably cant create "invalid test feeds" anymore...
+			r.NoError(err)
 
 			o.Keys = true
 

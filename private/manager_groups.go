@@ -1,18 +1,18 @@
 package private
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
-	"go.mindeco.de/ssb-refs/tfk"
-
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/private/box2"
 
+	"go.cryptoscope.co/ssb/private/box2"
 	"go.cryptoscope.co/ssb/private/keys"
 	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 type groupInit struct {
@@ -104,7 +104,17 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, err
 	}
 
-	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), *initMsg.Previous(), keys.Recipients{k})
+	var prev refs.MessageRef
+	if initPrev := initMsg.Previous(); initPrev != nil {
+		prev = *initPrev
+	} else {
+		prev, err = refs.NewMessageRefFromBytes(bytes.Repeat([]byte{0}, 32), refs.RefAlgoMessageSSB1)
+		if err != nil {
+			return emptyMsgRef, err
+		}
+	}
+
+	readKey, err := box2.NewBoxer(mgr.rand).GetReadKey(ctxt, initMsg.Author(), prev, keys.Recipients{k})
 	if err != nil {
 		return emptyMsgRef, err
 	}

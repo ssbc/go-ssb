@@ -62,7 +62,7 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 	}
 	var qry message.CreateLogArgs
 	if len(args) == 1 {
-		err := json.Unmarshal(args[0], qry)
+		err := json.Unmarshal(args[0], &qry)
 		if err != nil {
 			return fmt.Errorf("bad request data: %w", err)
 		}

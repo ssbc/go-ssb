@@ -65,7 +65,6 @@ func TestReplicateUpTo(t *testing.T) {
 
 		testKeyPairs[kp.Id.Ref()] = i
 		for n := i; n > 0; n-- {
-
 			ref, err := publish.Publish(struct {
 				Type  string `json:"type"`
 				Test  bool
@@ -77,8 +76,6 @@ func TestReplicateUpTo(t *testing.T) {
 		}
 	}
 
-	// c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
-	// r.NoError(err, "failed to make client connection")
 	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()

@@ -14,6 +14,7 @@ import (
 
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private/box"
+	"go.cryptoscope.co/ssb/sbot"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {
@@ -25,37 +26,45 @@ func TestPrivMsgsFromGo(t *testing.T) {
 
 	boxer := box.NewBoxer(nil)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	s := ts.gobot
 
 	before := `fromKey = testBob
 
+	var isTestMessage = (msg) => {
+		return msg.value.content.type === "test"
+	}
+
 	sbot.on('rpc:connect', (rpc) => {
 		rpc.on('closed', () => {
-			t.comment('now should have feed:' + fromKey)
+			t.comment('should now have feed:' + fromKey)
 			pull(
-				sbot.private.read({}),
+				sbot.createLogStream({private:true, meta:true}),
+				pull.filter((msg) => { return msg.value.private == true }),
+				pull.filter((msg) => {
+					console.warn(msg)
+					return true
+				}),
 				pull.collect(function(err, msgs) {
 					t.error(err, 'private read worked')
-					t.equal(msgs.length, 6, 'got all the messages')
+					t.equal(msgs.length, 5, 'got all the messages')
+
+					t.true(msgs.every(isTestMessage), "all test messages")
 
 					t.equal(msgs[0].value.sequence, 2, 'sequence:0')
-					t.deepEqual(msgs[0].value.content, [1,2,3,4,5], 'sequence:0 val')
+					t.deepEqual(msgs[0].value.content.some, 1, 'sequence:0 val')
 
 					t.equal(msgs[1].value.sequence, 3, 'sequence:1')
-					t.equal(msgs[1].value.content.some, 1, 'sequence:1 val')
+					t.equal(msgs[1].value.content.some, 2, 'sequence:1 val')
 
 					t.equal(msgs[2].value.sequence, 4, 'sequence:2')
-					t.equal(msgs[2].value.content.hello, true, 'sequence:2 val')
+					t.equal(msgs[2].value.content.some, 3,  'sequence:2 val')
 
 					t.equal(msgs[3].value.sequence, 5, 'sequence:3')
-					t.equal(msgs[3].value.content, "plainStringLikeABlob", 'sequence:3 val')
+					t.equal(msgs[3].value.content.some, 4, 'sequence:3 val')
 
 					t.equal(msgs[4].value.sequence, 6, 'sequence:4')
-					t.equal(msgs[4].value.content.hello, false, 'sequence:4 val')
-
-					t.equal(msgs[5].value.sequence, 7, 'sequence:5')
-					t.equal(msgs[5].value.content.hello, true, 'sequence:5 val')
+					t.equal(msgs[4].value.content.some, 5, 'sequence:4 val')
 					exit()
 				})
 			)
@@ -97,7 +106,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	var tmsgs = [][]byte{
 		[]byte(`{"some": 1, "msg": "this", "type":"test"}`),
 		[]byte(`{"some": 2, "msg": "is", "type":"test"}`),
-		[]byte(`{"some": 3, "msg": "not", "type":"test"}`),
+		[]byte(`{"some": 3, "msg": "NOT", "type":"test"}`),
 		[]byte(`{"some": 4, "msg": "a", "type":"test"}`),
 		[]byte(`{"some": 5, "msg": "test", "type":"test"}`),
 	}
@@ -133,6 +142,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
+
 	boxer := box.NewBoxer(nil)
 
 	ts.startGoBot()
@@ -142,7 +152,8 @@ func TestPrivMsgsFromJS(t *testing.T) {
 	alice := ts.startJSBot(`let recps = [ testBob, alice.id ]
 	function mkMsg(msg) {
 		return function(cb) {
-			sbot.private.publish(msg, recps, cb)
+			msg["recps"] = recps
+			sbot.publish(msg, cb)
 		}
 	}
 	n = 16
@@ -161,11 +172,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 	})
 `, ``)
 
-	newSeq, err := bob.PublishLog.Append(map[string]interface{}{
-		"type":      "contact",
-		"contact":   alice.Ref(),
-		"following": true,
-	})
+	newSeq, err := bob.PublishLog.Append(refs.NewContactFollow(alice))
 	bob.Replicate(alice)
 
 	r.NoError(err, "failed to publish contact message")
@@ -173,9 +180,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := bob.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(storedrefs.Feed(alice))
+	aliceLog, err := bob.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 	seq, err := aliceLog.Seq().Value()
 	r.NoError(err)
@@ -202,10 +207,9 @@ func TestPrivMsgsFromJS(t *testing.T) {
 		}
 		var m testWrap
 		err = json.Unmarshal(absMsg.ValueContentJSON(), &m)
-		// t.Logf("msg:%d:%s", i, string(storedMsg.Raw_))
 		r.NoError(err)
 		r.True(alice.Equal(m.Author), "wrong author")
-		r.True(strings.HasSuffix(m.Content, ".box"), "test")
+		r.True(strings.HasSuffix(m.Content, ".box"), "not a boxed msg? %s", string(m.Content))
 
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(m.Content, ".box"))
 		r.NoError(err)
