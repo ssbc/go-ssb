@@ -104,7 +104,11 @@ type BlobStoreNotification struct {
 }
 
 func (bn BlobStoreNotification) String() string {
-	return bn.Op.String() + ": " + bn.Ref.Ref()
+	s := bn.Op.String() + ": " + bn.Ref.Ref()
+	if bn.Size > 0 {
+		s += fmt.Sprintf(" (size: %d)", bn.Size)
+	}
+	return s
 }
 
 // BlobStoreOp specifies the operation in a blob store notification.

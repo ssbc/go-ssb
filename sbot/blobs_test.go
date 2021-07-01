@@ -19,6 +19,8 @@ import (
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/ssb"
 	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb/blobstore"
@@ -191,6 +193,34 @@ type session struct {
 	redial func(t *testing.T)
 
 	alice, bob *Sbot
+}
+
+// idea was to replace this with the sleep inbetween want and get assert
+// TODO: add this to want itself to avoid race conditions
+func blockUntilBlob(bot *Sbot, want refs.BlobRef) {
+	received := make(chan struct{})
+	emitter := func(nf ssb.BlobStoreNotification) error {
+		eq := nf.Ref.Equal(want)
+		bot.info.Log("update", nf.String(), "wanted", eq)
+
+		if eq {
+			// close(received)
+			received <- struct{}{}
+			bot.info.Log("chan", "closed")
+		} else {
+			bot.info.Log("unwanted", nf.Ref.Ref())
+		}
+		return nil
+	}
+
+	done := bot.BlobStore.Register(broadcasts.BlobStoreFuncEmitter(emitter))
+
+	select {
+	case <-time.After(5 * time.Second):
+		level.Warn(bot.info).Log("blob timeout", want.Ref())
+	case <-received:
+	}
+	done()
 }
 
 func (s *session) simple(t *testing.T) {
