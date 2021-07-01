@@ -9,12 +9,12 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/internal/statematrix"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/statematrix"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -82,7 +82,6 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 	return func() {
 		start := time.Now()
 		newWants := r.bot.GraphBuilder.Hops(self, hopCount)
-		level.Debug(log).Log("feed-want-count", newWants.Count(), "hops", hopCount, "took", time.Since(start))
 
 		refs, err := newWants.List()
 		if err != nil {
@@ -92,6 +91,8 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 		for _, ref := range refs {
 			r.current.feedWants.AddRef(ref)
 		}
+
+		level.Debug(log).Log("feed-want-count", r.current.feedWants.Count(), "hops", hopCount, "took", time.Since(start))
 
 		// make sure we dont fetch and allow blocked feeds
 		g, err := r.bot.GraphBuilder.Build()

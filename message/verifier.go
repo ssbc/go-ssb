@@ -57,6 +57,12 @@ func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
 	return snk, nil
 }
 
+func (vs *VerifySink) CloseSink(ref refs.FeedRef) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+	delete(vs.sinks, ref.Ref())
+}
+
 type MargaretSaver struct {
 	margaret.Log
 }

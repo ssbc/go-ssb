@@ -71,6 +71,8 @@ func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	}
 	os.Remove(sfn)
 
+	s.verifySink.CloseSink(ref)
+
 	return nil
 }
 

@@ -143,6 +143,8 @@ type Sbot struct {
 
 	ebtState *statematrix.StateMatrix
 
+	verifySink *message.VerifySink
+
 	GraphBuilder graph.Builder
 
 	BlobStore   ssb.BlobStore
@@ -610,12 +612,11 @@ func New(fopts ...Option) (*Sbot, error) {
 		histOpts = append(histOpts, s.eventCounter)
 	}
 
-	var verifySink *message.VerifySink
 	if s.signHMACsecret != nil {
 		histOpts = append(histOpts, gossip.HMACSecret(s.signHMACsecret))
 	}
 
-	verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
+	s.verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +631,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
-		verifySink,
+		s.verifySink,
 		histOpts...)
 
 	if s.disableEBT {
@@ -643,7 +644,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			s.Users,
 			fm,
 			sm,
-			verifySink,
+			s.verifySink,
 		)
 		s.public.Register(ebtPlug)
 

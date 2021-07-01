@@ -12,16 +12,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/muxrpc/v2/codec"
-
 	"github.com/stretchr/testify/require"
-	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
-
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/codec"
+	"go.mindeco.de/log"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
@@ -30,6 +28,7 @@ import (
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func requireFeedRef(

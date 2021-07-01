@@ -212,11 +212,12 @@ func TestNullFetched(t *testing.T) {
 	mainLog := testutils.NewRelativeTimeLogger(nil)
 	bs := newBotServer(ctx, mainLog)
 
+	aliLog := log.With(mainLog, "unit", "ali")
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
-		WithInfo(log.With(mainLog, "unit", "ali")),
+		WithInfo(aliLog),
 		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
@@ -245,13 +246,14 @@ func TestNullFetched(t *testing.T) {
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
-	for i := 1000; i > 0; i-- {
+	msgCount := int64(30)
+	for i := msgCount; i > 0; i-- {
 		c := map[string]interface{}{"test:": i, "type": "test"}
 		_, err = bob.PublishLog.Publish(c)
 		r.NoError(err)
 	}
-
-	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	firstCtx, firstConnCanel := context.WithCancel(ctx)
+	err = bob.Network.Connect(firstCtx, ali.Network.GetListenAddr())
 	r.NoError(err)
 
 	alisVersionOfBobsLog, err := ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
@@ -266,12 +268,11 @@ func TestNullFetched(t *testing.T) {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
 		s := seq.Seq()
-		if s == 999 {
+		if s == msgCount-1 {
 			close(gotMessage)
 		}
 		return err
 	})
-
 	done := alisVersionOfBobsLog.Seq().Register(updateSink)
 
 	select {
@@ -283,12 +284,22 @@ func TestNullFetched(t *testing.T) {
 	}
 	done()
 
+	ali.Network.GetConnTracker().CloseAll()
+	bob.Network.GetConnTracker().CloseAll()
+	firstConnCanel()
+
 	err = ali.NullFeed(bob.KeyPair.Id)
 	r.NoError(err)
 
-	mainLog.Log("msg", "get a fresh view (should be empty now)")
 	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
+	v, err := alisVersionOfBobsLog.Seq().Value()
+	r.EqualValues(margaret.SeqEmpty, v)
+
+	mainLog.Log("msg", "get a fresh view (should be empty now)")
+
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	mainLog.Log("msg", "sync should give us the messages again")
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -302,7 +313,8 @@ func TestNullFetched(t *testing.T) {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
 		s := seq.Seq()
-		if s == 999 {
+		mainLog.Log("updated", s)
+		if s == msgCount-1 {
 			close(gotMessage)
 		}
 		return err
