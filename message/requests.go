@@ -3,8 +3,6 @@
 package message
 
 import (
-	"fmt"
-
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -20,8 +18,8 @@ type CommonArgs struct {
 	Private bool `json:"private,omitempty"`
 }
 
-type StreamArgs struct {
-	Limit MargaretLimit `json:"limit,omitempty"`
+type streamArgs struct {
+	Limit int64 `json:"limit,omitempty"`
 
 	Gt int64 `json:"gt,omitempty"`
 	Lt int64 `json:"lt,omitempty"`
@@ -29,27 +27,16 @@ type StreamArgs struct {
 	Reverse bool `json:"reverse,omitempty"`
 }
 
-// var _ json.Unmarshaler = (*MargaretLimit)(nil)
-
-type MargaretLimit int64
-
-func (ml MargaretLimit) Int() int64 {
-	fmt.Println("returning ", ml)
-	return int64(ml)
-}
-
-func (ml *MargaretLimit) UnmarshalText(data []byte) error {
-	// func (ml *MargaretLimit) UnmarshalJSON(data []byte) error {
-	fmt.Println("received input ", string(data))
-	return fmt.Errorf("TODO: %q", string(data))
+func NewStreamArgs() streamArgs {
+	return streamArgs{
+		Limit: -1,
+	}
 }
 
 // CreateHistArgs defines the query parameters for the createHistoryStream rpc call
 type CreateHistArgs struct {
 	CommonArgs
-	StreamArgs
-
-	Limit MargaretLimit `json:"limit,omitempty"`
+	streamArgs
 
 	ID  refs.FeedRef `json:"id,omitempty"`
 	Seq int64        `json:"seq,omitempty"`
@@ -57,10 +44,16 @@ type CreateHistArgs struct {
 	AsJSON bool `json:"asJSON,omitempty"`
 }
 
+func NewCreateHistoryStreamArgs() CreateHistArgs {
+	return CreateHistArgs{
+		streamArgs: NewStreamArgs(),
+	}
+}
+
 // CreateLogArgs defines the query parameters for the createLogStream rpc call
 type CreateLogArgs struct {
 	CommonArgs
-	StreamArgs
+	streamArgs
 
 	Seq int64 `json:"seq"`
 }
@@ -68,13 +61,13 @@ type CreateLogArgs struct {
 // MessagesByTypeArgs defines the query parameters for the messagesByType rpc call
 type MessagesByTypeArgs struct {
 	CommonArgs
-	StreamArgs
+	streamArgs
 	Type string `json:"type"`
 }
 
 type TanglesArgs struct {
 	CommonArgs
-	StreamArgs
+	streamArgs
 
 	Root refs.MessageRef `json:"root"`
 

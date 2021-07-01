@@ -158,7 +158,7 @@ func nonliveLimit(
 	if arg.Limit == -1 {
 		return -1
 	}
-	lastSeq := arg.Seq + arg.Limit.Int() - 1
+	lastSeq := arg.Seq + arg.Limit - 1
 	if lastSeq > curSeq {
 		lastSeq = curSeq
 	}
@@ -176,7 +176,7 @@ func liveLimit(
 	}
 
 	startSeq := curSeq + 1
-	lastSeq := arg.Seq + arg.Limit.Int() - 1
+	lastSeq := arg.Seq + arg.Limit - 1
 	if lastSeq < curSeq {
 		return 0
 	}

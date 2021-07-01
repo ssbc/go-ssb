@@ -102,11 +102,9 @@ func (h *LegacyGossip) fetchFeed(
 		"fr", fr.ShortRef(),
 		"starting", latestSeq) // , "me", g.Id.ShortRef())
 
-	var q = message.CreateHistArgs{
-		ID:         fr,
-		Seq:        int64(latestSeq + 1),
-		StreamArgs: message.StreamArgs{Limit: -1},
-	}
+	var q = message.NewCreateHistoryStreamArgs()
+	q.ID = fr
+	q.Seq = int64(latestSeq + 1)
 	q.Live = withLive
 
 	defer func() {
