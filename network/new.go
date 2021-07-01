@@ -57,7 +57,7 @@ type Options struct {
 	WebsocketAddr string
 }
 
-type node struct {
+type Node struct {
 	opts Options
 
 	log log.Logger
@@ -91,8 +91,8 @@ type node struct {
 	httpHandler http.Handler
 }
 
-func New(opts Options) (*node, error) {
-	n := &node{
+func New(opts Options) (*Node, error) {
+	n := &Node{
 		opts:    opts,
 		remotes: make(map[string]muxrpc.Endpoint),
 	}
@@ -182,18 +182,18 @@ func New(opts Options) (*node, error) {
 	return n, nil
 }
 
-func (n *node) HandleHTTP(h http.Handler) {
+func (n *Node) HandleHTTP(h http.Handler) {
 	n.httpHandler = h
 }
 
-func (n *node) GetConnTracker() ssb.ConnTracker {
+func (n *Node) GetConnTracker() ssb.ConnTracker {
 	return n.connTracker
 }
 
 // GetEndpointFor returns a muxrpc endpoint to call the remote identified by the passed feed ref
 // retruns false if there is no such connection
 // TODO: merge with conntracker
-func (n *node) GetEndpointFor(ref refs.FeedRef) (muxrpc.Endpoint, bool) {
+func (n *Node) GetEndpointFor(ref refs.FeedRef) (muxrpc.Endpoint, bool) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 
@@ -202,7 +202,7 @@ func (n *node) GetEndpointFor(ref refs.FeedRef) (muxrpc.Endpoint, bool) {
 }
 
 // TODO: merge with conntracker
-func (n *node) GetAllEndpoints() []ssb.EndpointStat {
+func (n *Node) GetAllEndpoints() []ssb.EndpointStat {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 
@@ -226,7 +226,7 @@ func (n *node) GetAllEndpoints() []ssb.EndpointStat {
 }
 
 // TODO: merge with conntracker
-func (n *node) addRemote(edp muxrpc.Endpoint) {
+func (n *Node) addRemote(edp muxrpc.Endpoint) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 	r, err := ssb.GetFeedRefFromAddr(edp.Remote())
@@ -248,7 +248,7 @@ func (n *node) addRemote(edp muxrpc.Endpoint) {
 }
 
 // TODO: merge with conntracker
-func (n *node) removeRemote(edp muxrpc.Endpoint) {
+func (n *Node) removeRemote(edp muxrpc.Endpoint) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 	r, err := ssb.GetFeedRefFromAddr(edp.Remote())
@@ -258,7 +258,7 @@ func (n *node) removeRemote(edp muxrpc.Endpoint) {
 	delete(n.remotes, r.Ref())
 }
 
-func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer bool, hws ...muxrpc.HandlerWrapper) {
+func (n *Node) handleConnection(ctx context.Context, origConn net.Conn, isServer bool, hws ...muxrpc.HandlerWrapper) {
 	// TODO: overhaul events and logging levels
 	conn, err := n.applyConnWrappers(origConn)
 	if err != nil {
@@ -339,7 +339,7 @@ func (n *node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 
 // Serve starts the network listener and configured resources like local discovery.
 // Canceling the passed context makes the function return. Defers take care of stopping these resources.
-func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
+func (n *Node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) error {
 	evtLog := log.With(n.log, "event", "network.Serve")
 	// TODO: make multiple listeners (localhost:8008 should not restrict or kill connections)
 	lisWrap := netwrap.NewListenerWrapper(n.secretServer.Addr(), append(n.opts.BefreCryptoWrappers, n.secretServer.ConnWrapper())...)
@@ -429,7 +429,7 @@ func (n *node) Serve(ctx context.Context, wrappers ...muxrpc.HandlerWrapper) err
 	}
 }
 
-func (n *node) Connect(ctx context.Context, addr net.Addr) error {
+func (n *Node) Connect(ctx context.Context, addr net.Addr) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -463,7 +463,7 @@ func (n *node) Connect(ctx context.Context, addr net.Addr) error {
 }
 
 // GetListenAddr waits for Serve() to be called!
-func (n *node) GetListenAddr() net.Addr {
+func (n *Node) GetListenAddr() net.Addr {
 	_, ok := <-n.listening
 	if !ok {
 		return n.lis.Addr()
@@ -472,7 +472,7 @@ func (n *node) GetListenAddr() net.Addr {
 	return nil
 }
 
-func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
+func (n *Node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	for i, cw := range n.afterSecureConnWrappers {
 		var err error
 		conn, err = cw(conn)
@@ -483,7 +483,7 @@ func (n *node) applyConnWrappers(conn net.Conn) (net.Conn, error) {
 	return conn, nil
 }
 
-func (n *node) Close() error {
+func (n *Node) Close() error {
 	if n.localDiscovTx != nil {
 		n.localDiscovTx.Stop()
 	}

@@ -19,7 +19,7 @@ type connectArg struct {
 	Target refs.FeedRef `json:"target"`
 }
 
-func (n *node) DialViaRoom(portal, target refs.FeedRef) error {
+func (n *Node) DialViaRoom(portal, target refs.FeedRef) error {
 	portalLogger := kitlog.With(n.log, "portal", portal.ShortRef())
 
 	edp, has := n.GetEndpointFor(portal)

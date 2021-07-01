@@ -18,7 +18,7 @@ import (
 )
 
 // TunnelPlugin returns a muxrpc plugin that is able to handle incoming tunnel.connect requests
-func (n *node) TunnelPlugin() ssb.Plugin {
+func (n *Node) TunnelPlugin() ssb.Plugin {
 	tunnelLogger := kitlog.With(n.log, "unit", "tunnel")
 	rootHdlr := typemux.New(tunnelLogger)
 
@@ -51,7 +51,7 @@ func (h isRoomhandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (in
 }
 
 type connectHandler struct {
-	network *node
+	network *Node
 
 	logger kitlog.Logger
 }

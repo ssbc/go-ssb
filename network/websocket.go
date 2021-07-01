@@ -13,7 +13,7 @@ import (
 	"go.mindeco.de/log/level"
 )
 
-func websockHandler(n *node) http.HandlerFunc {
+func websockHandler(n *Node) http.HandlerFunc {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024 * 4,
 		WriteBufferSize: 1024 * 4,

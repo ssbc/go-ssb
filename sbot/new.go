@@ -92,7 +92,7 @@ type Sbot struct {
 	disableEBT                   bool
 	disableLegacyLiveReplication bool
 
-	Network ssb.Network
+	Network *network.Node
 	// TODO: these should all be options that are applied on the network construction...
 	disableNetwork     bool
 	appKey             []byte
