@@ -313,7 +313,6 @@ func TestNullFetched(t *testing.T) {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
 		s := seq.Seq()
-		mainLog.Log("updated", s)
 		if s == msgCount-1 {
 			close(gotMessage)
 		}

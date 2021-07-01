@@ -77,9 +77,9 @@ func TestWhoami(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
+	var errc = make(chan error)
 	go func() {
-		err = srv.Network.Serve(ctx)
-		t.Log("warning: Serve exited", err)
+		errc <- srv.Network.Serve(ctx)
 	}()
 
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
@@ -92,6 +92,7 @@ func TestWhoami(t *testing.T) {
 	srv.Shutdown()
 	err = srv.Close()
 	r.NoError(err)
+	r.NoError(<-errc)
 }
 
 func TestPublish(t *testing.T) {
@@ -116,9 +117,9 @@ func TestPublish(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
+	var errc = make(chan error)
 	go func() {
-		err = srv.Network.Serve(ctx)
-		t.Log("warning: Serve exited", err)
+		errc <- srv.Network.Serve(ctx)
 	}()
 
 	v, err := srv.ReceiveLog.Seq().Value()
@@ -151,6 +152,7 @@ func TestPublish(t *testing.T) {
 	srv.Shutdown()
 	err = srv.Close()
 	r.NoError(err)
+	r.NoError(<-errc)
 }
 
 func TestGetPublished(t *testing.T) {
@@ -175,9 +177,9 @@ func TestGetPublished(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
+	var errc = make(chan error)
 	go func() {
-		err = srv.Network.Serve(ctx)
-		t.Log("warning: Serve exited", err)
+		errc <- srv.Network.Serve(ctx)
 	}()
 
 	v, err := srv.ReceiveLog.Seq().Value()
@@ -208,6 +210,7 @@ func TestGetPublished(t *testing.T) {
 	srv.Shutdown()
 	err = srv.Close()
 	r.NoError(err)
+	r.NoError(<-errc)
 }
 
 func TestInviteCreate(t *testing.T) {
@@ -232,9 +235,9 @@ func TestInviteCreate(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
+	var errc = make(chan error)
 	go func() {
-		err = srv.Network.Serve(ctx)
-		t.Log("warning: Serve exited", err)
+		errc <- srv.Network.Serve(ctx)
 	}()
 
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
@@ -251,4 +254,8 @@ func TestInviteCreate(t *testing.T) {
 
 	// TODO: accept the invite
 
+	srv.Shutdown()
+	err = srv.Close()
+	r.NoError(err)
+	r.NoError(<-errc)
 }

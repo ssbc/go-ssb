@@ -87,7 +87,6 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
-
 		// assume just string for type
 		var args []string
 		err := json.Unmarshal(req.RawArgs, &args)
@@ -147,6 +146,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		// if qry.Private { TODO
 		// 	src = g.unboxedSrc(src)
+		// g.unboxer.WrappedUnboxingSink(snk)
 		// }
 
 		err = luigi.Pump(ctx, snk, src)
@@ -191,7 +191,14 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		box1.Or(box2) // all the boxed messages
 
 		// remove all the boxed ones from the type we are looking up
-		typed.AndNot(box1)
+		it := typed.NewIterator()
+		for it.HasNext() {
+			it.Next()
+			v := it.Val()
+			if typed.Contains(v) {
+				typed.Remove(v)
+			}
+		}
 	}
 
 	// TODO: set _all_ correctly if gt=0 && lt=0

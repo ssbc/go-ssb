@@ -48,21 +48,6 @@ type Boxer struct {
 type makeHKDFContextList func(...[]byte) [][]byte
 
 func makeInfo(author refs.FeedRef, prev refs.MessageRef) (makeHKDFContextList, error) {
-	// TODO: refactor to pass zero ref cleanly
-	// var prevMsg refs.MessageRef
-	// if prev == nil {
-	// 	if author.Algo() != refs.RefAlgoFeedSSB1 {
-	// 		return nil, fmt.Errorf("unsupported feed type: %s", author.Algo)
-	// 	}
-	// 	var err error
-	// 	prevMsg, err = refs.NewMessageRefFromBytes(make([]byte, 32), refs.RefAlgoMessageSSB1)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// } else {
-	// 	prevMsg = *prev
-	// }
-
 	tfkFeed, err := tfk.FeedFromRef(author)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make tfk for author: %w", err)

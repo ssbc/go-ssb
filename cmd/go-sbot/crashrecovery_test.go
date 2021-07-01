@@ -31,14 +31,14 @@ func TestDontStartTwiceOnTheSameRepo(t *testing.T) {
 	r.NoError(err, "build command failed: %s", string(out))
 
 	// TODO: rand hmac and shscap?
-	bot1 := exec.Command(binPath, "-l", ":0", "-repo", testPath, "-fatbot")
+	bot1 := exec.Command(binPath, "-lis", ":0", "-repo", testPath)
 	bot1.Stderr = os.Stderr
 	bot1.Stdout = os.Stderr
 
 	r.NoError(bot1.Start())
 
 	// this shouldn't start
-	bot2 := exec.Command(binPath, "-l", ":0", "-repo", testPath, "-fatbot")
+	bot2 := exec.Command(binPath, "-lis", ":0", "-repo", testPath)
 	bot2.Stderr = os.Stderr
 	bot2.Stdout = os.Stderr
 
@@ -69,7 +69,7 @@ func TestRecoverFromCrash(t *testing.T) {
 	r.NoError(err, "build command failed: %s", string(out))
 
 	// TODO: rand hmac and shscap?
-	goBot := exec.Command(binPath, "-l", ":0", "-repo", testPath, "-fatbot")
+	goBot := exec.Command(binPath, "-lis", ":0", "-repo", testPath)
 	goBot.Stderr = os.Stderr
 	goBot.Stdout = os.Stderr
 
@@ -127,7 +127,7 @@ func TestRecoverFromCrash(t *testing.T) {
 	r.NotNil(err)
 
 	// should start up cleanly again
-	goBot = exec.Command(binPath, "-l", ":0", "-repo", testPath, "-fatbot")
+	goBot = exec.Command(binPath, "-lis", ":0", "-repo", testPath)
 	goBot.Stderr = os.Stderr
 	goBot.Stdout = os.Stderr
 

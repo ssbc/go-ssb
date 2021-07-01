@@ -179,7 +179,14 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		box1.Or(box2) // all the boxed messages
 
 		// remove all the boxed ones from the type we are looking up
-		threadBmap.AndNot(box1)
+		it := threadBmap.NewIterator()
+		for it.HasNext() {
+			it.Next()
+			v := it.Val()
+			if threadBmap.Contains(v) {
+				threadBmap.Remove(v)
+			}
+		}
 	}
 
 	// get root message
@@ -187,15 +194,29 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	root, err := g.getter.Get(qry.Root)
 	if err == nil {
 		var tp tangledPost
-		err = json.Unmarshal(root.ContentBytes(), &tp.Value.Content)
-		if err != nil {
-			return fmt.Errorf("failed to unpack message %s: %w", root.Key().Ref(), err)
+
+		var content []byte
+		if qry.Private {
+			content, err = g.unboxer.DecryptMessage(root)
+			if err != nil {
+				return err
+			}
+		} else {
+			content = root.ContentBytes()
 		}
-		tp.TheKey = root.Key()
-		tp.Value.Author = root.Author()
-		tp.Value.Sequence = root.Seq()
-		tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
-		tps = append(tps, tp)
+
+		err = json.Unmarshal(content, &tp.Value.Content)
+		if err == nil {
+			tp.TheKey = root.Key()
+			tp.Value.Author = root.Author()
+			tp.Value.Sequence = root.Seq()
+			tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
+			tps = append(tps, tp)
+		} else {
+			if qry.Private {
+				return fmt.Errorf("failed to unpack root message %s: %w", root.Key().Ref(), err)
+			}
+		}
 	}
 
 	// get replies and add them to sorter
@@ -218,11 +239,19 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			return fmt.Errorf("not a mesg %T", v)
 		}
 
-		// TODO: unbox private messages
+		var content []byte
+		if qry.Private {
+			content, err = g.unboxer.DecryptMessage(msg)
+			if err != nil {
+				return err
+			}
+		} else {
+			content = msg.ContentBytes()
+		}
 
 		// find tangles
 		var tp tangledPost
-		err = json.Unmarshal(msg.ContentBytes(), &tp.Value.Content)
+		err = json.Unmarshal(content, &tp.Value.Content)
 		if err != nil {
 			return fmt.Errorf("failed to unpack message %s: %w", msg.Key().Ref(), err)
 		}

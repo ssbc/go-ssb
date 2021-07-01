@@ -40,7 +40,8 @@ func TestAutomaticUnboxing(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
+	a.True(srv.KeyPair.Id.Equal(ref), "whoami not equal")
+	t.Log("whoami:", ref.Ref())
 
 	groupID, root, err := srv.Groups.Create("client test group")
 	r.NoError(err, "failed to create group")
@@ -81,6 +82,12 @@ func TestAutomaticUnboxing(t *testing.T) {
 	src, err = c.TanglesThread(targs)
 	r.NoError(err, "failed to create source for tangled messages (private)")
 	testElementsInSource(t, src, 3) // add-member + the two posts
+
+	// cleanup
+	c.Terminate()
+
+	srv.Shutdown()
+	srv.Close()
 }
 
 func testElementsInSource(t *testing.T, src *muxrpc.ByteSource, cnt int) {
@@ -90,7 +97,16 @@ func testElementsInSource(t *testing.T, src *muxrpc.ByteSource, cnt int) {
 	i := 0
 
 	for src.Next(ctx) {
+
+		body, err := src.Bytes()
+		r.NoError(err)
+		t.Log(string(body))
+		_ = body
+
 		i++
+		if i > cnt {
+			t.Error("testElementsInSource: way to many results")
+		}
 	}
 
 	err := src.Err()

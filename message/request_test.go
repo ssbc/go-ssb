@@ -12,23 +12,23 @@ func TestStreamArgsLimitDefault(t *testing.T) {
 
 	type testCase struct {
 		Input []byte
-		Want  streamArgs
+		Want  StreamArgs
 	}
 
 	cases := []testCase{
 		{
 			Input: []byte(`{"limit": 23}`),
-			Want:  streamArgs{Limit: 23},
+			Want:  StreamArgs{Limit: 23},
 		},
 
 		{
 			Input: []byte(`{}`),
-			Want:  streamArgs{Limit: -1},
+			Want:  StreamArgs{Limit: -1},
 		},
 
 		{
 			Input: []byte(`{"reverse": true}`),
-			Want:  streamArgs{Limit: -1, Reverse: true},
+			Want:  StreamArgs{Limit: -1, Reverse: true},
 		},
 	}
 

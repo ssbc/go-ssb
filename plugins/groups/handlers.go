@@ -67,7 +67,7 @@ func (h publishTo) HandleAsync(ctx context.Context, req *muxrpc.Request) (interf
 	}
 
 	if groupID.Algo() != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo())
 	}
 
 	newMsg, err := h.groups.PublishTo(groupID, args[1])
@@ -100,7 +100,7 @@ func (h invite) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 	}
 
 	if groupID.Algo() != refs.RefAlgoCloakedGroup {
-		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo)
+		return nil, fmt.Errorf("groupID needs to be a cloaked message ref, not %s", groupID.Algo())
 	}
 
 	var newMember refs.FeedRef

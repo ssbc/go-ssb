@@ -18,7 +18,7 @@ type CommonArgs struct {
 	Private bool `json:"private,omitempty"`
 }
 
-type streamArgs struct {
+type StreamArgs struct {
 	Limit int64 `json:"limit,omitempty"`
 
 	Gt int64 `json:"gt,omitempty"`
@@ -27,8 +27,8 @@ type streamArgs struct {
 	Reverse bool `json:"reverse,omitempty"`
 }
 
-func NewStreamArgs() streamArgs {
-	return streamArgs{
+func NewStreamArgs() StreamArgs {
+	return StreamArgs{
 		Limit: -1,
 	}
 }
@@ -36,7 +36,7 @@ func NewStreamArgs() streamArgs {
 // CreateHistArgs defines the query parameters for the createHistoryStream rpc call
 type CreateHistArgs struct {
 	CommonArgs
-	streamArgs
+	StreamArgs
 
 	ID  refs.FeedRef `json:"id,omitempty"`
 	Seq int64        `json:"seq,omitempty"`
@@ -46,14 +46,14 @@ type CreateHistArgs struct {
 
 func NewCreateHistoryStreamArgs() CreateHistArgs {
 	return CreateHistArgs{
-		streamArgs: NewStreamArgs(),
+		StreamArgs: NewStreamArgs(),
 	}
 }
 
 // CreateLogArgs defines the query parameters for the createLogStream rpc call
 type CreateLogArgs struct {
 	CommonArgs
-	streamArgs
+	StreamArgs
 
 	Seq int64 `json:"seq"`
 }
@@ -61,13 +61,13 @@ type CreateLogArgs struct {
 // MessagesByTypeArgs defines the query parameters for the messagesByType rpc call
 type MessagesByTypeArgs struct {
 	CommonArgs
-	streamArgs
+	StreamArgs
 	Type string `json:"type"`
 }
 
 type TanglesArgs struct {
 	CommonArgs
-	streamArgs
+	StreamArgs
 
 	Root refs.MessageRef `json:"root"`
 

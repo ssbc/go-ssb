@@ -32,6 +32,8 @@ type AboutAttribute struct {
 	Prescribed map[string]int
 }
 
+var idxKeyPrefix = []byte("idx-abouts")
+
 func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 	var br refs.BlobRef
 
@@ -89,7 +91,6 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 			field := parts[2]
 
 			if string(field) == "name" {
-
 				err := it.Value(func(v []byte) error {
 					name := string(v)
 					name = strings.TrimPrefix(name, "\"")
@@ -193,10 +194,7 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 
 const FolderNameAbout = "about"
 
-var idxKeyPrefix = []byte("idx-abouts")
-
 func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
-
 	aboutIdx := libbadger.NewIndexWithKeyPrefix(db, 0, idxKeyPrefix)
 	update := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
 
@@ -238,19 +236,19 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	if aboutMSG.Name != "" {
 		val = aboutMSG.Name
 		if err := idx.Set(ctx, librarian.Addr(addr+"name"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update name: %w", err)
 		}
 	}
 	if aboutMSG.Description != "" {
 		val = aboutMSG.Description
 		if err := idx.Set(ctx, librarian.Addr(addr+"description"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update description: %w", err)
 		}
 	}
 	if aboutMSG.Image != nil {
 		val = aboutMSG.Image.Ref()
 		if err := idx.Set(ctx, librarian.Addr(addr+"image"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update image: %w", err)
 		}
 	}
 

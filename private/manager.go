@@ -303,7 +303,7 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 			if err == ErrNotBoxed {
 				return v, nil
 			}
-			return nil, err
+			return nil, fmt.Errorf("unboxing failed: %w", err)
 		}
 
 		var rv refs.KeyValueRaw

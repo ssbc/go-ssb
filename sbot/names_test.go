@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-package sbot_test
+package sbot
 
 import (
 	"crypto/rand"
@@ -14,13 +14,18 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestNames(t *testing.T) {
-	// defer leakcheck.Check(t)
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
+
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	hk := make([]byte, 32)
@@ -53,12 +58,12 @@ func TestNames(t *testing.T) {
 
 	// make the bot
 	logger := log.NewLogfmtLogger(os.Stderr)
-	mainbot, err := sbot.New(
-		sbot.WithInfo(logger),
-		sbot.WithRepoPath(tRepoPath),
-		sbot.WithHMACSigning(hk),
-		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.WithUNIXSocket()),
+	mainbot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		WithHMACSigning(hk),
+		WithListenAddr(":0"),
+		LateOption(WithUNIXSocket()),
 	)
 	r.NoError(err)
 
@@ -89,6 +94,8 @@ func TestNames(t *testing.T) {
 
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
+	// TODO: flush indexes
+
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)
 
@@ -100,6 +107,8 @@ func TestNames(t *testing.T) {
 		"bert": "i'm bert!",
 		"cloe": "i'm cloe!",
 	}
+
+	r.Len(all, len(want), "expected entries for all three keypairs")
 
 	for who, wantName := range want {
 		name, ok := all.GetCommonName(n2kp[who].Id)
