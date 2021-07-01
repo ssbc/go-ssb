@@ -3,19 +3,18 @@
 package blobs
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 	"go.cryptoscope.co/ssb/plugins/test"
 	"go.cryptoscope.co/ssb/repo"
 )
@@ -59,22 +58,20 @@ func TestReplicate(t *testing.T) {
 
 	finish := make(chan func())
 	done := make(chan struct{})
-	dstBS.Changes().Register(
-		luigi.FuncSink(
-			func(ctx context.Context, v interface{}, err error) error {
-				t.Log("blob notification", v)
-				n := v.(ssb.BlobStoreNotification)
-				if n.Op == ssb.BlobStoreOpPut {
-					if n.Ref.Ref() == ref.Ref() {
-						t.Log("received correct blob")
-						(<-finish)()
-						close(done)
-					} else {
-						t.Error("received unexpected blob:", n.Ref.Ref())
-					}
-				}
-				return nil
-			}))
+	dstBS.Register(broadcasts.BlobStoreFuncEmitter(func(n ssb.BlobStoreNotification) error {
+		t.Log("blob notification", n)
+
+		if n.Op == ssb.BlobStoreOpPut {
+			if n.Ref.Ref() == ref.Ref() {
+				t.Log("received correct blob")
+				(<-finish)()
+				close(done)
+			} else {
+				t.Error("received unexpected blob:", n.Ref.Ref())
+			}
+		}
+		return nil
+	}))
 
 	// serve
 	rpc1 := muxrpc.Handle(pkr1, pi1.Handler())
