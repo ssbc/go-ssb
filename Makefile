@@ -2,7 +2,7 @@ PKGS := $(shell go list ./... | grep -v node_modules )
 
 .PHONY: test
 test:
-	LIBRARIAN_WRITEALL=0 go test -failfast -race -timeout 2m $(PKGS)
+	LIBRARIAN_WRITEALL=0 go test -failfast -race -timeout 5m $(PKGS)
 
 VERSION = $(shell git describe --tags --exact-match)
 ifeq ($(VERSION),)
