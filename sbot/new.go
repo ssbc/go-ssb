@@ -781,6 +781,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		networkNode,
 		s.PublishLog,
 		s.ReceiveLog,
+		s.Replicator,
 		s.indexStore,
 	)
 	if err != nil {

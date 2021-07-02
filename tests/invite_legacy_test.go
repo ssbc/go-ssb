@@ -21,17 +21,16 @@ import (
 	"go.cryptoscope.co/ssb/invite"
 )
 
-// TODO: enable plugin
-
 // first js creates an invite
 // go will try to use it
-func XTestLegacyInviteJSCreate(t *testing.T) {
+func TestLegacyInviteJSCreate(t *testing.T) {
 	r := require.New(t)
 
 	os.Remove("legacy_invite.txt")
 
-	// ts := newRandomSession(t)
 	ts := newSession(t, nil, nil)
+	// TODO: configure ssbClient to use the right shs-cap
+	// ts := newRandomSession(t)
 
 	ts.startGoBot()
 	bob := ts.gobot
@@ -119,6 +118,7 @@ func XTestLegacyInviteJSCreate(t *testing.T) {
 	// now follow alice
 	_, err = bob.PublishLog.Publish(refs.NewContactFollow(tok.Peer))
 	r.NoError(err)
+	bob.Replicate(alice)
 
 	hasBobsFeed := `
 	sbot.on('rpc:connect', (rpc) => {
@@ -157,12 +157,13 @@ func XTestLegacyInviteJSCreate(t *testing.T) {
 	ts.wait()
 }
 
-func XTestLegacyInviteJSAccept(t *testing.T) {
+func TestLegacyInviteJSAccept(t *testing.T) {
 	r := require.New(t)
 
 	os.Remove("legacy_invite.txt")
 
-	// ts := newRandomSession(t) // TODO: configure ssbClient to use the right shs-cap
+	// TODO: configure ssbClient to use the right shs-cap
+	// ts := newRandomSession(t)
 	ts := newSession(t, nil, nil)
 
 	ts.startGoBot()

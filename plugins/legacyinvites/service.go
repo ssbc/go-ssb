@@ -28,6 +28,7 @@ type Service struct {
 
 	publish    ssb.Publisher
 	receiveLog margaret.Log
+	replicator ssb.Replicator
 
 	kv *badger.DB
 }
@@ -85,6 +86,7 @@ func New(
 	nw ssb.Network,
 	publish ssb.Publisher,
 	rlog margaret.Log,
+	rep ssb.Replicator,
 	db *badger.DB,
 ) (*Service, error) {
 
@@ -96,6 +98,8 @@ func New(
 
 		receiveLog: rlog,
 		publish:    publish,
+
+		replicator: rep,
 
 		kv: db,
 	}, nil

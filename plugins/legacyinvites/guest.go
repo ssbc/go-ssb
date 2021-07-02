@@ -20,6 +20,7 @@ func (acceptHandler) Handled(m muxrpc.Method) bool { return m.String() == "invit
 
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
+// TODO: re-write as typemux.AsyncFunc
 func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// parse passed arguments
 	var args []struct {
@@ -103,6 +104,9 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		req.CloseWithError(fmt.Errorf("invite/accept: failed to publish invite accept (%w)", err))
 		return
 	}
+
+	h.service.replicator.Replicate(arg.Feed)
+
 	req.Return(ctx, msgv)
 
 	h.service.logger.Log("invite", "used")
