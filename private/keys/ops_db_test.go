@@ -134,10 +134,15 @@ func (op opDBGet) Do(t *testing.T, env interface{}) {
 			require.EqualErrorf(t, err, op.ExpErr, "expected error getting value from db %q but got: %v", op.ExpErr, err)
 			return nil
 		}
-		if op.Log {
-			t.Logf("DB.Get - Key:%x Value:%x Exp:%x", op.Key, val, op.ExpValue)
+		data, err := val.ValueCopy(nil)
+		if err != nil {
+			require.NoError(t, err, "did not get value")
+			return nil
 		}
-		require.Equal(t, op.ExpValue, val, "read wrong value from db")
+		if op.Log {
+			t.Logf("DB.Get - Key:%x Value:%x Exp:%x", op.Key, data, op.ExpValue)
+		}
+		require.Equal(t, op.ExpValue, data, "read wrong value from db")
 		return nil
 	})
 

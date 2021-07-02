@@ -21,6 +21,10 @@ func (op opDo) Do(t *testing.T, env interface{}) {
 }
 
 func TestStore(t *testing.T) {
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+	}
+
 	tDir := filepath.Join("testrun", t.Name())
 	os.RemoveAll(tDir)
 	os.MkdirAll(tDir, 0700)
