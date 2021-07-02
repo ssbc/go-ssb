@@ -5,15 +5,16 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -40,7 +41,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(context.TODO())
 		if err != nil {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()

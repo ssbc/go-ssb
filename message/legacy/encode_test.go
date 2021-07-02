@@ -5,18 +5,14 @@ package legacy
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"testing"
 
-	// TODO: was on a streak to remoe all the errors.Wrap but here it's used as check(errors.Wrap(err, "the msg"))
-	// which uses the cases that errors.Wrap(err) returns nil if err is nil
-	// replacing it here would need a lot of if err!=nil { ... "the msg "}
-	// also, this is just test code and not performance critical
-	"github.com/pkg/errors"
-
 	"github.com/kylelemons/godebug/diff"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -64,40 +60,73 @@ func init() {
 			Value map[string]interface{}
 		}
 		origRC, err := full.Open()
-		checkPanic(errors.Wrapf(err, "test(%d) - failed to open full", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - failed to open full: %w", i, err)
+			checkPanic(err)
+		}
 		err = json.NewDecoder(origRC).Decode(&origMsg)
-		checkPanic(errors.Wrapf(err, "test(%d) - could not json decode full", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - could not json decode full: %w", i, err)
+			checkPanic(err)
+		}
 		testMessages[seq].Hash = origMsg.Key
 		// get sig
 		sig, has := origMsg.Value["signature"]
 		if !has {
-			checkPanic(fmt.Errorf("test(%d) - expected signature in value field", i))
+			if err != nil {
+				err = fmt.Errorf("test(%d) - expected signature in value field", i)
+				checkPanic(err)
+			}
 		}
 		testMessages[seq].Signature = sig.(string)
 		// get author
 		a, has := origMsg.Value["author"]
 		if !has {
-			checkPanic(fmt.Errorf("test(%d) - expected author in value field", i))
+			if err != nil {
+				err = fmt.Errorf("test(%d) - expected author in value field", i)
+				checkPanic(err)
+			}
 		}
 
 		testMessages[seq].Author, err = refs.ParseFeedRef(a.(string))
-		checkPanic(errors.Wrapf(err, "test(%d) - failed to parse author ref", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - failed to parse author ref: %w", i, err)
+			checkPanic(err)
+		}
 
 		// copy input
 		rc, err := input.Open()
-		checkPanic(errors.Wrapf(err, "test(%d) - could not open wanted data", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - could not open wanted data: %w", i, err)
+			checkPanic(err)
+		}
 		testMessages[seq].Input, err = ioutil.ReadAll(rc)
-		checkPanic(errors.Wrapf(err, "test(%d) - could not read all data", i))
-		checkPanic(errors.Wrapf(rc.Close(), "test(%d) - could not close input reader", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - could not read all data: %w", i, err)
+			checkPanic(err)
+		}
+		if err = rc.Close(); err != nil {
+			err = fmt.Errorf("test(%d) - could not close input reader: %w", i, err)
+			checkPanic(err)
+		}
 
 		// copy wanted output
 		rc, err = noSig.Open()
-		checkPanic(errors.Wrapf(err, "test(%d) - could not open wanted data", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - could not open wanted data: %w", i, err)
+			checkPanic(err)
+		}
 		testMessages[seq].NoSig, err = ioutil.ReadAll(rc)
-		checkPanic(errors.Wrapf(err, "test(%d) - could not read all wanted data", i))
+		if err != nil {
+			err = fmt.Errorf("test(%d) - could not read all wanted data: %w", i, err)
+			checkPanic(err)
+		}
 
 		// cleanup
-		checkPanic(errors.Wrapf(origRC.Close(), "test(%d) - could not close reader #2", i))
+		if err = origRC.Close(); err != nil {
+			err = fmt.Errorf("test(%d) - could not close reader #2: %w", i, err)
+			checkPanic(err)
+		}
 		seq++
 	}
 	log.Printf("loaded %d messages from testdata.zip", seq)

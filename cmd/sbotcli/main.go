@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -20,7 +21,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
@@ -163,7 +163,7 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	if sockPath != "" {
 		client, err := ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
 		if err != nil {
-			return nil, errors.Wrap(err, "unix-path based client init failed")
+			return nil, fmt.Errorf("unix-path based client init failed: %w", err)
 		}
 		return client, nil
 	}
@@ -181,14 +181,14 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 		rk = strings.TrimPrefix(rk, "@")
 		rpk, err := base64.StdEncoding.DecodeString(rk)
 		if err != nil {
-			return nil, errors.Wrapf(err, "init: base64 decode of --remoteKey failed")
+			return nil, fmt.Errorf("init: base64 decode of --remoteKey failed: %w", err)
 		}
 		copy(remotePubKey, rpk)
 	}
 
 	plainAddr, err := net.ResolveTCPAddr("tcp", ctx.String("addr"))
 	if err != nil {
-		return nil, errors.Wrapf(err, "int: failed to resolve TCP address")
+		return nil, fmt.Errorf("int: failed to resolve TCP address: %w", err)
 	}
 
 	shsAddr := netwrap.WrapAddr(plainAddr, secretstream.Addr{PubKey: remotePubKey})
@@ -196,7 +196,7 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 		ssbClient.WithSHSAppKey(ctx.String("shscap")),
 		ssbClient.WithContext(longctx))
 	if err != nil {
-		return nil, errors.Wrapf(err, "init: failed to connect to %s", shsAddr.String())
+		return nil, fmt.Errorf("init: failed to connect to %s: %w", shsAddr.String(), err)
 	}
 	log.Log("init", "done")
 	return client, nil
@@ -241,15 +241,15 @@ CAVEAT: only one argument...
 		var reply interface{}
 		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
 		if err != nil {
-			return errors.Wrapf(err, "%s: call failed.", cmd)
+			return fmt.Errorf("%s: call failed: %w", cmd, err)
 		}
 		level.Debug(log).Log("event", "call reply")
 		jsonReply, err := json.MarshalIndent(reply, "", "  ")
 		if err != nil {
-			return errors.Wrapf(err, "%s: indent failed.", cmd)
+			return fmt.Errorf("%s: indent failed: %w", cmd, err)
 		}
 		_, err = io.Copy(os.Stdout, bytes.NewReader(jsonReply))
-		return errors.Wrapf(err, "%s: result copy failed.", cmd)
+		return fmt.Errorf("%s: result copy failed: %w", cmd, err)
 	},
 }
 
@@ -286,12 +286,12 @@ var sourceCmd = &cli.Command{
 
 		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method(v), args)
 		if err != nil {
-			return errors.Wrapf(err, "%s: call failed.", cmd)
+			return fmt.Errorf("%s: call failed: %w", cmd, err)
 		}
 		level.Debug(log).Log("event", "call reply")
 
 		err = jsonDrain(os.Stdout, src)
-		return errors.Wrapf(err, "%s: result copy failed.", cmd)
+		return fmt.Errorf("%s: result copy failed: %w", cmd, err)
 	},
 }
 
@@ -363,7 +363,7 @@ var connectCmd = &cli.Command{
 			// js fallback (our mux doesnt support authed namespaces)
 			err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
-				return errors.Wrapf(err, "connect: async call failed.")
+				return fmt.Errorf("connect: async call failed: %w.", err)
 			}
 		}
 		log.Log("event", "connect reply")
@@ -503,7 +503,7 @@ var groupsInviteCmd = &cli.Command{
 		var reply interface{}
 		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Ref())
 		if err != nil {
-			return errors.Wrapf(err, "invite call failed")
+			return fmt.Errorf("invite call failed: %w", err)
 		}
 		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Ref())
 		goon.Dump(reply)
@@ -518,7 +518,7 @@ var groupsPublishToCmd = &cli.Command{
 		var content interface{}
 		err := json.NewDecoder(os.Stdin).Decode(&content)
 		if err != nil {
-			return errors.Wrapf(err, "publish/raw: invalid json input from stdin")
+			return fmt.Errorf("publish/raw: invalid json input from stdin: %w", err)
 		}
 
 		groupID, err := refs.ParseMessageRef(ctx.Args().First())
@@ -538,7 +538,7 @@ var groupsPublishToCmd = &cli.Command{
 		var reply interface{}
 		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w.", err)
 		}
 		log.Log("event", "publishTo", "type", "raw")
 		goon.Dump(reply)

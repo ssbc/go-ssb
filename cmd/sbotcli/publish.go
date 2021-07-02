@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
@@ -34,7 +33,7 @@ var publishRawCmd = &cli.Command{
 		var content interface{}
 		err := json.NewDecoder(os.Stdin).Decode(&content)
 		if err != nil {
-			return errors.Wrapf(err, "publish/raw: invalid json input from stdin")
+			return fmt.Errorf("publish/raw: invalid json input from stdin: %w", err)
 		}
 
 		client, err := newClient(ctx)
@@ -45,7 +44,7 @@ var publishRawCmd = &cli.Command{
 		var v string
 		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, content)
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 		newMsg, err := refs.ParseMessageRef(v)
 		if err != nil {
@@ -97,7 +96,7 @@ var publishPostCmd = &cli.Command{
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 
 		newMsg, err := refs.ParseMessageRef(v)
@@ -126,7 +125,7 @@ var publishVoteCmd = &cli.Command{
 	Action: func(ctx *cli.Context) error {
 		mref, err := refs.ParseMessageRef(ctx.Args().First())
 		if err != nil {
-			return errors.Wrapf(err, "publish/vote: invalid msg ref")
+			return fmt.Errorf("publish/vote: invalid msg ref: %w", err)
 		}
 
 		arg := map[string]interface{}{
@@ -163,7 +162,7 @@ var publishVoteCmd = &cli.Command{
 				muxrpc.Method{"publish"}, arg)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 
 		newMsg, err := refs.ParseMessageRef(v)
@@ -187,7 +186,7 @@ var publishAboutCmd = &cli.Command{
 	Action: func(ctx *cli.Context) error {
 		aboutRef, err := refs.ParseFeedRef(ctx.Args().First())
 		if err != nil {
-			return errors.Wrapf(err, "publish/about: invalid feed ref")
+			return fmt.Errorf("publish/about: invalid feed ref: %w", err)
 		}
 		arg := map[string]interface{}{
 			"about": aboutRef.Ref(),
@@ -199,7 +198,7 @@ var publishAboutCmd = &cli.Command{
 		if img := ctx.String("image"); img != "" {
 			blobRef, err := refs.ParseBlobRef(img)
 			if err != nil {
-				return errors.Wrapf(err, "publish/about: invalid blob ref")
+				return fmt.Errorf("publish/about: invalid blob ref: %w", err)
 			}
 			arg["image"] = blobRef
 		}
@@ -212,7 +211,7 @@ var publishAboutCmd = &cli.Command{
 		var v string
 		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, arg)
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 		newMsg, err := refs.ParseMessageRef(v)
 		if err != nil {
@@ -236,7 +235,7 @@ var publishContactCmd = &cli.Command{
 	Action: func(ctx *cli.Context) error {
 		cref, err := refs.ParseFeedRef(ctx.Args().First())
 		if err != nil {
-			return errors.Wrapf(err, "publish/contact: invalid feed ref")
+			return fmt.Errorf("publish/contact: invalid feed ref: %w", err)
 		}
 		if ctx.Bool("following") && ctx.Bool("blocking") {
 			return fmt.Errorf("publish/contact: can't be both true")
@@ -256,7 +255,7 @@ var publishContactCmd = &cli.Command{
 		var v string
 		err = client.Async(longctx, &v, muxrpc.TypeString, muxrpc.Method{"publish"}, arg)
 		if err != nil {
-			return errors.Wrapf(err, "publish call failed.")
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 
 		newMsg, err := refs.ParseMessageRef(v)

@@ -5,21 +5,21 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestReplicateUpTo(t *testing.T) {
@@ -45,7 +45,7 @@ func TestReplicateUpTo(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(context.TODO())
 		if err != nil {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()

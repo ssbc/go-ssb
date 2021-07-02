@@ -4,22 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // this is only a basic test.
@@ -46,7 +46,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(ctx)
 		if err != nil && err != context.Canceled {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()

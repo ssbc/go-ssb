@@ -20,7 +20,6 @@ require (
 	github.com/machinebox/progress v0.2.0
 	github.com/matryer/is v1.3.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.3.0
 	github.com/rs/cors v1.7.0
 	github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636 // indirect
