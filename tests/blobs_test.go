@@ -105,7 +105,7 @@ func TestBlobFromJS(t *testing.T) {
 		} else {
 			fmt.Println("warning: wrong blob notify!", notif)
 		}
-		return err
+		return nil
 	}))
 
 	err = s.WantManager.Want(testRef)

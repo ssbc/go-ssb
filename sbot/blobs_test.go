@@ -544,14 +544,14 @@ func TestBlobsTooBig(t *testing.T) {
 	r.NoError(err)
 	srvBot(bob, "bob")
 
-	blobUpdate := func(name string) broadcasts.BlobStoreFuncEmitter {
+	blobUpdate := func(logger log.Logger) broadcasts.BlobStoreFuncEmitter {
 		return broadcasts.BlobStoreFuncEmitter(func(nf ssb.BlobStoreNotification) error {
-			fmt.Println(name, "blob update:", nf)
-			return err
+			logger.Log("blob", nf.Op.String(), "ref", nf.Ref.Ref(), "size", nf.Size)
+			return nil
 		})
 	}
-	bob.BlobStore.Register(blobUpdate("bob"))
-	ali.BlobStore.Register(blobUpdate("ali"))
+	bob.BlobStore.Register(blobUpdate(bobLog))
+	ali.BlobStore.Register(blobUpdate(aliLog))
 
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
