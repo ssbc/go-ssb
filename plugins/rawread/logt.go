@@ -191,7 +191,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		box1.Or(box2) // all the boxed messages
 
 		// remove all the boxed ones from the type we are looking up
-		it := typed.NewIterator()
+		it := box1.NewIterator()
 		for it.HasNext() {
 			it.Next()
 			v := it.Val()

@@ -434,8 +434,7 @@ func TestPublish(t *testing.T) {
 	r.NoError(<-srvErrc)
 }
 
-// actually works but for some reason sometimes muxrpc closes the stream to early with EOF
-func XTestTanglesThread(t *testing.T) {
+func TestTanglesThread(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r, a := require.New(t), assert.New(t)
 
@@ -447,6 +446,9 @@ func XTestTanglesThread(t *testing.T) {
 		sbot.WithInfo(srvLog),
 		sbot.WithRepoPath(srvRepo),
 		sbot.WithListenAddr(":0"),
+		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapDump(filepath.Join(srvRepo, "muxdump"), conn)
+		// }),
 	)
 	r.NoError(err, "sbot srv init failed")
 
@@ -495,17 +497,18 @@ func XTestTanglesThread(t *testing.T) {
 	r.NoError(err)
 
 	ctx := context.TODO()
-	r.True(src.Next(ctx))
+	r.True(src.Next(ctx), "did not get the 1st message: %v", src.Err())
 	var streamMsg refs.KeyValueRaw
 	err = src.Reader(decodeMuxMsg(&streamMsg))
 	r.NoError(err, "did not decode message 1: %v", src.Err())
 	a.EqualValues(1, streamMsg.Seq(), "got message %s", string(streamMsg.ContentBytes()))
 
+	r.True(src.Next(ctx), "did not get the 2nd message: %v", src.Err())
 	err = src.Reader(decodeMuxMsg(&streamMsg))
 	r.NoError(err, "did not decode message 2: %v", src.Err())
 	a.EqualValues(2, streamMsg.Seq(), "got message %s", string(streamMsg.ContentBytes()))
 
-	r.True(src.Next(ctx))
+	r.True(src.Next(ctx), "did not get the 3rd message: %v", src.Err())
 	err = src.Reader(decodeMuxMsg(&streamMsg))
 	r.NoError(err, "did not decode message 3: %v", src.Err())
 	a.EqualValues(3, streamMsg.Seq(), "got message %s", string(streamMsg.ContentBytes()))
