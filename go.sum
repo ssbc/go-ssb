@@ -394,8 +394,8 @@ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1
 go.cryptoscope.co/luigi v0.3.5/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS9btSWTpD+vJk6VJyoW8gV0kWzcc=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
-go.cryptoscope.co/margaret v0.2.2-0.20210621093907-487a77b2f3aa h1:wqhNRlKJYbic+FfqZpjSWZj0/hkFw1QJiFf/iUGmgtE=
-go.cryptoscope.co/margaret v0.2.2-0.20210621093907-487a77b2f3aa/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
+go.cryptoscope.co/margaret v0.3.0 h1:OBhDtUhr90LxgUtl6zIpmUBrhXPYjLvTVkgzYoyHGek=
+go.cryptoscope.co/margaret v0.3.0/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
 go.cryptoscope.co/muxrpc/v2 v2.0.8 h1:kP59jFoiqtdxyTxZV8eBTr38XHF8w4xFvWlixJ/Mc+4=
 go.cryptoscope.co/muxrpc/v2 v2.0.8/go.mod h1:og3Wr0CWnJBVp3aiRa9MmmTUQh901wWNjI96+o3NZag=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
