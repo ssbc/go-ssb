@@ -20,7 +20,6 @@ require (
 	github.com/machinebox/progress v0.2.0
 	github.com/matryer/is v1.3.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.3.0
 	github.com/rs/cors v1.7.0
 	github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636 // indirect
@@ -29,7 +28,7 @@ require (
 	github.com/ugorji/go/codec v1.2.6
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
 	go.cryptoscope.co/margaret v0.2.2-0.20210621093907-487a77b2f3aa
-	go.cryptoscope.co/muxrpc/v2 v2.0.7
+	go.cryptoscope.co/muxrpc/v2 v2.0.8
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
 	go.cryptoscope.co/secretstream v1.2.2
