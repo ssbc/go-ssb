@@ -1,6 +1,6 @@
-// Package extra25519 is blatent grep of github.com/agl/ed25519/extra25519 until we have a better solution
-//
-// See https://github.com/cryptoscope/ssb/issues/44 for more.
+// SPDX-License-Identifier: MIT
+
+// Package extra25519 implements the key conversion from ed25519 to curve25519. Nothing more.
 package extra25519
 
 import (
@@ -8,6 +8,8 @@ import (
 
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/ed25519"
+
+	"go.cryptoscope.co/ssb/internal/lo25519"
 )
 
 // PrivateKeyToCurve25519 converts an ed25519 private key into a corresponding
