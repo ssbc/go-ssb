@@ -3,6 +3,7 @@ module go.cryptoscope.co/ssb
 go 1.13
 
 require (
+	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/RoaringBitmap/roaring v0.6.1
 	github.com/VividCortex/gohistogram v1.0.0
 	github.com/davecgh/go-spew v1.1.1
@@ -31,12 +32,12 @@ require (
 	go.cryptoscope.co/muxrpc/v2 v2.0.8
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
-	go.cryptoscope.co/secretstream v1.2.2
+	go.cryptoscope.co/secretstream v1.2.9
 	go.mindeco.de v1.12.0
 	go.mindeco.de/ssb-gabbygrove v0.2.0
-	go.mindeco.de/ssb-multiserver v0.1.2
+	go.mindeco.de/ssb-multiserver v0.1.3
 	go.mindeco.de/ssb-refs v0.4.0
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/text v0.3.6
@@ -44,11 +45,3 @@ require (
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
 	modernc.org/kv v1.0.3
 )
-
-// We need our internal/extra25519 since agl pulled his repo recently.
-// Issue: https://github.com/cryptoscope/ssb/issues/44
-// Ours uses a fork of x/crypto where edwards25519 is not an internal package,
-// This seemed like the easiest change to port agl's extra25519 to use x/crypto
-// Background: https://github.com/agl/ed25519/issues/27#issuecomment-591073699
-// The branch in use: https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards
-replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200924101112-886946aabeb8
