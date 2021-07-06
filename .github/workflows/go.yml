@@ -44,3 +44,5 @@ jobs:
 
     - name: Test
       run: make test
+      env:
+        RUNNING_ON_CI: YES

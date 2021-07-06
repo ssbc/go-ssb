@@ -17,6 +17,7 @@ import (
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
@@ -74,6 +75,10 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 func TestIndexFixtures(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
+
+	if testutils.SkipOnCI(t) {
+		return
+	}
 
 	f, err := os.Open("v2-sloop-authors.json")
 	r.NoError(err)

@@ -18,13 +18,17 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/invite"
 )
 
 // first js creates an invite
 // go will try to use it
-// TODO: disabled because it failes in CI for unknown reasons
-func XTestLegacyInviteJSCreate(t *testing.T) {
+func TestLegacyInviteJSCreate(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		return
+	}
+
 	r := require.New(t)
 
 	os.Remove("legacy_invite.txt")
