@@ -72,7 +72,10 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	update := r.makeUpdater(replicateEvt, s.KeyPair.Id, int(s.hopCount))
 
 	// update for new messages but only every 15seconds
-	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Seq(), update)
+	go debounce(s.rootCtx, 15*time.Second, s.ReceiveLog.Seq(), update)
+
+	// update it now, once
+	update()
 
 	return &r, nil
 }
