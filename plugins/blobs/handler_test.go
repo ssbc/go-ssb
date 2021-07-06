@@ -58,30 +58,33 @@ func TestReplicate(t *testing.T) {
 	var (
 		justBlobsManifest = json.RawMessage(`{"blobs": {"get": "source", "createWants": "source"}}`)
 
-		wg         sync.WaitGroup
-		err1, err2 error
+		servedGroup, initedGroup sync.WaitGroup
+		err1, err2               error
 	)
-
-	wg.Add(2)
+	initedGroup.Add(2)
+	servedGroup.Add(2)
 	go func() {
 		var tw1 = testManifestWrapper{root: pi1.Handler(), manifest: justBlobsManifest}
 		rpc1 = muxrpc.Handle(pkr1, tw1)
+		initedGroup.Done()
 		err1 = rpc1.(muxrpc.Server).Serve()
-		wg.Done()
+		servedGroup.Done()
 	}()
 
 	go func() {
 		var tw2 = testManifestWrapper{root: pi2.Handler(), manifest: justBlobsManifest}
 		rpc2 = muxrpc.Handle(pkr2, tw2)
+		initedGroup.Done()
 		err2 = rpc2.(muxrpc.Server).Serve()
-		wg.Done()
+		servedGroup.Done()
 	}()
 
 	wait := func() {
+		initedGroup.Wait()
 		r.NoError(rpc1.Terminate())
 		r.NoError(rpc2.Terminate())
 
-		wg.Wait()
+		servedGroup.Wait()
 		r.NoError(err1, "rpc1 serve err")
 		r.NoError(err2, "rpc2 serve err")
 	}

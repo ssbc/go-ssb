@@ -236,11 +236,8 @@ func (wmgr *WantManager) Want(ref refs.BlobRef) error {
 }
 
 func (wmgr *WantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
-	dbg := log.With(wmgr.info, "func", "WantWithDist", "ref", ref.ShortRef(), "dist", dist)
-	dbg = level.Debug(dbg)
 	_, err := wmgr.bs.Size(ref)
 	if err == nil {
-		dbg.Log("available", true)
 		return nil
 	}
 

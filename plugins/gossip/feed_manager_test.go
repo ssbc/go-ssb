@@ -169,7 +169,7 @@ func TestCreateHistoryStream(t *testing.T) {
 			fm := NewFeedManager(context.TODO(), rootLog, userFeeds, infoAlice, nil, nil)
 
 			err = fm.CreateStreamHistory(ctx, sink, test.Args)
-			r.NoError(err)
+			r.NoError(err, "error from CreateStreamHistory()")
 			t.Log("serving")
 			create(t, test.LiveMessages, "post/live")
 

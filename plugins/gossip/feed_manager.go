@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"sync"
 
@@ -294,7 +295,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 
-	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) {
+	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) || errors.Is(err, io.EOF) {
 		sink.Close()
 		return nil
 	} else if err != nil {
@@ -311,5 +312,9 @@ func (m *FeedManager) CreateStreamHistory(
 			liveLimit(arg, latest),
 		)
 	}
-	return sink.Close()
+	closeErr := sink.Close()
+	if closeErr != nil {
+		return fmt.Errorf("failed to close sink after %d messages: %w", sent, closeErr)
+	}
+	return nil
 }
