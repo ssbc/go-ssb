@@ -11,11 +11,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb/client"
+	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
 // make sure the process has an effective locking mechanism for the repo
 func TestDontStartTwiceOnTheSameRepo(t *testing.T) {
-	// ctx := context.Background()
+	if testutils.SkipOnCI(t) {
+		return
+	}
 
 	r := require.New(t)
 

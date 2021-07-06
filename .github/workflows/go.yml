@@ -46,3 +46,4 @@ jobs:
       run: make test
       env:
         RUNNING_ON_CI: YES
+        LIBRARIAN_WRITEALL: 0
