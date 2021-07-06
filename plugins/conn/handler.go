@@ -125,7 +125,20 @@ func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{
 	var args []refs.FeedRef
 	err := json.Unmarshal(r.RawArgs, &args)
 	if err != nil {
-		return nil, fmt.Errorf("bad argument: %w", err)
+
+		var rawArray []string
+		err := json.Unmarshal(r.RawArgs, &rawArray)
+		if err != nil {
+			return nil, fmt.Errorf("bad argument: %w", err)
+		}
+
+		for i, a := range rawArray {
+			na, err := multiserver.ParseNetAddress([]byte(a))
+			if err != nil {
+				return nil, fmt.Errorf("bad argument no %d (%q): %w", i, string(a), err)
+			}
+			args = append(args, na.Ref)
+		}
 	}
 
 	if len(args) == 0 {

@@ -100,7 +100,7 @@ const manifestBlob manifestHandler = `
 	"conn": {
 		"replicate": "async",
 		"connect": "async",
-		"disconenct": "async",
+		"disconnect": "async",
 		"dialViaRoom": "async"
 	},
 	
