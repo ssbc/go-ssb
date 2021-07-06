@@ -116,6 +116,10 @@ func (h *handler) block(ctx context.Context, m actionMap) error {
 	return nil
 }
 
+type reply struct {
+	Result string `json:"result"`
+}
+
 func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
 
 	var args []refs.FeedRef
@@ -135,9 +139,7 @@ func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{
 		}
 	}
 
-	return struct {
-		Result string `json:"result"`
-	}{"disconencted"}, nil
+	return reply{"disconencted"}, nil
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -164,7 +166,7 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
 	}
-	return "connected", nil
+	return reply{"conencted"}, nil
 }
 
 func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -189,7 +191,5 @@ func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interfa
 		return nil, err
 	}
 
-	return struct {
-		Result string `json:"result"`
-	}{"connected"}, nil
+	return reply{"connected"}, nil
 }
