@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-// Package control offers muxrpc helpers to connect to remote peers.
+// Package conn offers muxrpc helpers to connect to remote peers.
 //
-// TODO: this is a naming hack, supplies ctrl.connect which should actually be gossip.connect.
-package control
+package conn
 
 import (
 	"context"

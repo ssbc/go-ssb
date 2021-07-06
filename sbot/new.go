@@ -43,7 +43,7 @@ import (
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
-	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/conn"
 	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
@@ -790,7 +790,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
+	s.master.Register(conn.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
 	s.master.Register(status.New(s))
 
 	s.public.Register(networkNode.TunnelPlugin())
