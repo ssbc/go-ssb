@@ -2,6 +2,10 @@ PKGS := $(shell go list ./... | grep -v node_modules )
 
 .PHONY: test
 test:
+	LIBRARIAN_WRITEALL=0 go test -failfast -timeout 15m $(PKGS)
+
+.PHONY: racetest
+racetest:
 	LIBRARIAN_WRITEALL=0 go test -failfast -race -timeout 15m $(PKGS)
 
 VERSION = $(shell git describe --tags --exact-match)
@@ -19,7 +23,6 @@ ARCHIVENAME=release/$(os)-$(VERSION).tar
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS):
-	mkdir -p release/$(os)
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o go-sbot ./cmd/go-sbot
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o sbotcli ./cmd/sbotcli
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o gossb-truncate-log ./cmd/ssb-truncate-log
