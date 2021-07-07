@@ -4,6 +4,7 @@ package message
 
 import (
 	"context"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
+	"go.cryptoscope.co/ssb/internal/multicloser"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 	"go.cryptoscope.co/ssb/message/multimsg"
@@ -39,13 +41,18 @@ func TestFormatsSimple(t *testing.T) {
 	ts := newPublishtestSession(t)
 
 	for _, tc := range testCases {
-
 		t.Run(string(tc.ff), ts.makeFormatTest(tc.ff))
+	}
+
+	if err := ts.logCloser.Close(); err != nil {
+		t.Error(err)
 	}
 }
 
 type publishTestSession struct {
 	rxLog margaret.Log
+
+	logCloser io.Closer
 
 	userLogs    multilog.MultiLog
 	indexUpdate librarian.SinkIndex
@@ -56,9 +63,13 @@ func newPublishtestSession(t *testing.T) publishTestSession {
 	rpath := filepath.Join("testrun", t.Name())
 	os.RemoveAll(rpath)
 
+	var mc multicloser.MultiCloser
+
 	testRepo := repo.New(rpath)
 
 	rxl, err := repo.OpenLog(testRepo)
+	r.NoError(err, "failed to open receive log")
+	mc.AddCloser(rxl.(io.Closer))
 
 	r.NoError(err, "failed to open root log")
 	seq, err := rxl.Seq().Value()
@@ -67,9 +78,12 @@ func newPublishtestSession(t *testing.T) publishTestSession {
 
 	userLogs, idxUpdate, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
+	mc.AddCloser(userLogs)
 
 	return publishTestSession{
 		rxLog: rxl,
+
+		logCloser: &mc,
 
 		userLogs:    userLogs,
 		indexUpdate: idxUpdate,
