@@ -79,6 +79,7 @@ func newPublishtestSession(t *testing.T) publishTestSession {
 	userLogs, idxUpdate, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
 	mc.AddCloser(userLogs)
+	mc.AddCloser(idxUpdate)
 
 	return publishTestSession{
 		rxLog: rxl,
