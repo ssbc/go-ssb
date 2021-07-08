@@ -40,3 +40,32 @@ func TestStreamArgsLimitDefault(t *testing.T) {
 	}
 
 }
+
+func TestRoundedInteger(t *testing.T) {
+	a := assert.New(t)
+
+	type testCase struct {
+		Input []byte
+		Want  RoundedInteger
+	}
+
+	cases := []testCase{
+		{
+			Input: []byte(`123`),
+			Want:  123,
+		},
+
+		{
+			Input: []byte(`1.234`),
+			Want:  2,
+		},
+	}
+
+	for i, tc := range cases {
+		var got RoundedInteger
+		err := json.Unmarshal(tc.Input, &got)
+		a.NoError(err, "decoding case %d failed", i+1)
+		a.Equal(tc.Want, got, "wrong data for case %d", i+1)
+	}
+
+}

@@ -45,7 +45,7 @@ type Plugin struct {
 func NewByTypePlugin(
 	log log.Logger,
 	rootLog margaret.Log,
-	ml *roaring.MultiLog,
+	tl *roaring.MultiLog,
 	pl *roaring.MultiLog,
 	pm *private.Manager,
 	res *repo.SequenceResolver,
@@ -53,7 +53,7 @@ func NewByTypePlugin(
 ) ssb.Plugin {
 	plug := &Plugin{
 		rxlog: rootLog,
-		types: ml,
+		types: tl,
 
 		priv: pl,
 
@@ -91,10 +91,10 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		var args []string
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			return fmt.Errorf("bad request data: %w", err)
+			return fmt.Errorf("byType: bad request data: %w", err)
 		}
 		if len(args) != 1 {
-			return fmt.Errorf("bad request data: assumed string argument for type field")
+			return fmt.Errorf("byType: bad request data: assumed string argument for type field")
 		}
 		qry.Type = args[0]
 		// Defaults for no arguments
@@ -106,7 +106,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		if nargs == 1 {
 			qry = args[0]
 		} else {
-			return fmt.Errorf("bad request data: assumed one argument object but got %d", nargs)
+			return fmt.Errorf("byType: bad request data: assumed one argument object but got %d", nargs)
 		}
 	}
 
@@ -207,8 +207,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	}
 
 	var filter = func(ts int64) bool {
-		isGreater := ts > qry.Gt
-		isSmaller := ts < qry.Lt
+		isGreater := ts > int64(qry.Gt)
+		isSmaller := ts < int64(qry.Lt)
 		return isGreater && isSmaller
 	}
 

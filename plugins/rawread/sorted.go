@@ -81,8 +81,8 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 	// qry.Values = true
 
 	sortedSeqs, err := g.res.SortAndFilterAll(repo.SortByClaimed, func(ts int64) bool {
-		isGreater := ts > qry.Gt
-		isSmaller := ts < qry.Lt
+		isGreater := ts > int64(qry.Gt)
+		isSmaller := ts < int64(qry.Lt)
 		return isGreater && isSmaller
 	}, true)
 	if err != nil {

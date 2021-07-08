@@ -3,6 +3,10 @@
 package message
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -21,8 +25,8 @@ type CommonArgs struct {
 type StreamArgs struct {
 	Limit int64 `json:"limit,omitempty"`
 
-	Gt int64 `json:"gt,omitempty"`
-	Lt int64 `json:"lt,omitempty"`
+	Gt RoundedInteger `json:"gt,omitempty"`
+	Lt RoundedInteger `json:"lt,omitempty"`
 
 	Reverse bool `json:"reverse,omitempty"`
 }
@@ -62,6 +66,7 @@ type CreateLogArgs struct {
 type MessagesByTypeArgs struct {
 	CommonArgs
 	StreamArgs
+
 	Type string `json:"type"`
 }
 
@@ -74,4 +79,28 @@ type TanglesArgs struct {
 	// indicate the v2 subtangle (group, ...)
 	// empty string for v1 tangle
 	Name string `json:"name"`
+}
+
+// RoundedInteger also accepts unmarshaling from a float
+type RoundedInteger int64
+
+func (ri *RoundedInteger) UnmarshalJSON(input []byte) error {
+	var isFloat = false
+	if idx := bytes.Index(input, []byte(".")); idx > 0 {
+		input = input[:idx]
+		isFloat = true
+	}
+
+	var i int64
+	err := json.Unmarshal(input, &i)
+	if err != nil {
+		return fmt.Errorf("RoundedInteger: input is not an int: %w", err)
+	}
+
+	*ri = RoundedInteger(i)
+	if isFloat {
+		*ri++
+	}
+
+	return nil
 }
