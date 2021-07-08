@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
@@ -21,9 +22,9 @@ import (
 )
 
 type publishLog struct {
-	sync.Mutex
-	margaret.Log
-	rootLog margaret.Log
+	mu         sync.Mutex
+	byAuthor   margaret.Log
+	receiveLog margaret.Log
 
 	create creater
 }
@@ -34,7 +35,7 @@ func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
 		return refs.MessageRef{}, err
 	}
 
-	val, err := p.rootLog.Get(seq)
+	val, err := p.receiveLog.Get(seq)
 	if err != nil {
 		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}
@@ -47,30 +48,32 @@ func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
 	return kv.Key(), nil
 }
 
+func (pl publishLog) Seq() luigi.Observable {
+	return pl.byAuthor.Seq()
+}
+
 // Get retreives the message object by traversing the authors sublog to the root log
 func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
 
-	idxv, err := pl.Log.Get(s)
+	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
 	}
 
-	msgv, err := pl.rootLog.Get(idxv.(margaret.Seq))
+	msgv, err := pl.receiveLog.Get(idxv.(margaret.Seq))
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive message from rootlog: %w", err)
 	}
 	return msgv, nil
 }
 
-/*
-TODO: do the same for Query()? but how?
-
-=> just overwrite publish on the authorLog for now
-*/
+func (pl publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
+	return mutil.Indirect(pl.receiveLog, pl.byAuthor).Query(qry...)
+}
 
 func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
-	pl.Lock()
-	defer pl.Unlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 
 	// current state of the local sig-chain
 	var (
@@ -87,14 +90,14 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, fmt.Errorf("publishLog: invalid sequence from publish sublog %v: %T", currSeq, currSeq)
 	}
 
-	currRootSeq, err := pl.Log.Get(seq)
+	currRootSeq, err := pl.byAuthor.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
 	}
 	if luigi.IsEOS(err) { // new feed
 		nextSequence = 1
 	} else {
-		currMM, err := pl.rootLog.Get(currRootSeq.(margaret.Seq))
+		currMM, err := pl.receiveLog.Get(currRootSeq.(margaret.Seq))
 		if err != nil {
 			return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
 		}
@@ -111,7 +114,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, fmt.Errorf("failed to create next msg: %w", err)
 	}
 
-	rlSeq, err := pl.rootLog.Append(nextMsg)
+	rlSeq, err := pl.receiveLog.Append(nextMsg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to append new msg: %w", err)
 	}
@@ -125,15 +128,15 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // these messages are constructed in the legacy SSB way: The poured object is JSON v8-like pretty printed and then NaCL signed,
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
-func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
-	authorLog, err := sublogs.Get(storedrefs.Feed(kp.Id))
+func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
+	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.Id))
 	if err != nil {
 		return nil, fmt.Errorf("publish: failed to open sublog for author: %w", err)
 	}
 
 	pl := &publishLog{
-		Log:     authorLog,
-		rootLog: rootLog,
+		byAuthor:   authorLog,
+		receiveLog: receiveLog,
 	}
 
 	switch kp.Id.Algo() {

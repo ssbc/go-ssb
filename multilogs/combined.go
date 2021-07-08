@@ -101,18 +101,18 @@ type CombinedIndex struct {
 //	1) taking private:meta:box2
 //	2) ANDing it with the one of the author (intersection)
 //	3) subtracting all the messages we _can_ read (private:box2:$ourFeed)
-func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
-	slog.l.Lock()
-	defer slog.l.Unlock()
+func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
+	idx.l.Lock()
+	defer idx.l.Unlock()
 
 	// 1) all messages in boxed2 format
-	allBox2, err := slog.private.LoadInternalBitmap(indexes.Addr("meta:box2"))
+	allBox2, err := idx.private.LoadInternalBitmap(indexes.Addr("meta:box2"))
 	if err != nil {
 		return fmt.Errorf("error getting all box2 messages: %w", err)
 	}
 
 	// 2) all messages by the author we should re-index
-	fromAuthor, err := slog.users.LoadInternalBitmap(storedrefs.Feed(author))
+	fromAuthor, err := idx.users.LoadInternalBitmap(storedrefs.Feed(author))
 	if err != nil {
 		if !errors.Is(err, multilog.ErrSublogNotFound) {
 			return fmt.Errorf("error getting all from author: %w", err)
@@ -129,8 +129,8 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	}
 
 	// 3) all messages we can already decrypt
-	myReadableAddr := indexes.Addr("box2:") + storedrefs.Feed(slog.self)
-	myReadable, err := slog.private.LoadInternalBitmap(myReadableAddr)
+	myReadableAddr := indexes.Addr("box2:") + storedrefs.Feed(idx.self)
+	myReadable, err := idx.private.LoadInternalBitmap(myReadableAddr)
 	if err != nil {
 		return fmt.Errorf("error getting my readable: %w", err)
 	}
@@ -144,7 +144,7 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	for it.HasNext() {
 		rxSeq := it.Next()
 
-		msgv, err := slog.rxlog.Get(margaret.BaseSeq(rxSeq))
+		msgv, err := idx.rxlog.Get(margaret.BaseSeq(rxSeq))
 		if err != nil {
 			return err
 		}
@@ -154,7 +154,7 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 			return fmt.Errorf("not a message: %T", msgv)
 		}
 
-		err = slog.update(int64(rxSeq), msg)
+		err = idx.update(int64(rxSeq), msg)
 		if err != nil {
 			return err
 		}
@@ -164,9 +164,9 @@ func (slog *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 }
 
 // Pour calls the processing function to add a value to a sublog.
-func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
-	slog.l.Lock()
-	defer slog.l.Unlock()
+func (idx *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
+	idx.l.Lock()
+	defer idx.l.Unlock()
 
 	sw, ok := swv.(margaret.SeqWrapper)
 	if !ok {
@@ -175,7 +175,7 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	seq := sw.Seq() //received as
 
 	// todo: defer state save!?
-	err := persist.Save(slog.file, seq)
+	err := persist.Save(idx.file, seq)
 	if err != nil {
 		return fmt.Errorf("error saving current sequence number: %w", err)
 	}
@@ -194,16 +194,16 @@ func (slog *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return fmt.Errorf("error casting message. got type %T", v)
 	}
 
-	return slog.update(seq.Seq(), msg)
+	return idx.update(seq.Seq(), msg)
 }
 
 // update all the indexes with this new message which was stored as rxSeq (received sequence number)
-func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
+func (idx *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 
 	author := msg.Author()
 
 	authorAddr := storedrefs.Feed(author)
-	authorLog, err := slog.users.Get(authorAddr)
+	authorLog, err := idx.users.Get(authorAddr)
 	if err != nil {
 		return fmt.Errorf("error opening sublog: %w", err)
 	}
@@ -212,8 +212,8 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 		return fmt.Errorf("error updating author sublog: %w", err)
 	}
 
-	// batch/debounce me
-	err = slog.ebtState.Fill(slog.self, []statematrix.ObservedFeed{{
+	// TODO: batch/debounce me
+	err = idx.ebtState.Fill(idx.self, []statematrix.ObservedFeed{{
 		Feed: author,
 		Note: ssb.Note{
 			Seq:       msg.Seq(),
@@ -229,7 +229,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	content := msg.ContentBytes()
 	// TODO: gabby grove
 	if content[0] != '{' { // assuming all other content is json objects
-		cleartext, err := slog.tryDecrypt(msg, rxSeq)
+		cleartext, err := idx.tryDecrypt(msg, rxSeq)
 		if err != nil {
 			if err == errSkip {
 				// yes it's a boxed message but we can't read it (yet)
@@ -246,6 +246,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 		Type    string
 		Root    *refs.MessageRef
 		Tangles refs.Tangles
+		// Mentions [] TODO channels and mentions
 	}
 	err = json.Unmarshal(content, &jsonContent)
 	if err != nil {
@@ -263,13 +264,15 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 
 	typeStr := jsonContent.Type
 	if typeStr == "" {
-		return fmt.Errorf("ssb: untyped message")
+		// TODO: dont stop indexing on illegal messages
+		return nil
+		// return fmt.Errorf("ssb: untyped message")
 	}
 	typeIdxAddr := indexes.Addr("string:" + typeStr)
 
 	// we need to keep the order intact for these
 	if typeStr == "group/add-member" {
-		sl, err := slog.orderdHelper.Get(typeIdxAddr)
+		sl, err := idx.orderdHelper.Get(typeIdxAddr)
 		if err != nil {
 			return err
 		}
@@ -279,7 +282,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 		}
 	}
 
-	typedLog, err := slog.byType.Get(typeIdxAddr)
+	typedLog, err := idx.byType.Get(typeIdxAddr)
 	if err != nil {
 		return fmt.Errorf("error opening sublog: %w", err)
 	}
@@ -292,7 +295,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	// tangles v1 and v2
 	if jsonContent.Root != nil {
 		addr := storedrefs.TangleV1(*jsonContent.Root)
-		tangleLog, err := slog.tangles.Get(addr)
+		tangleLog, err := idx.tangles.Get(addr)
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
 		}
@@ -310,7 +313,7 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 			continue
 		}
 		addr := storedrefs.TangleV2(tname, *tip.Root)
-		tangleLog, err := slog.tangles.Get(addr)
+		tangleLog, err := idx.tangles.Get(addr)
 		if err != nil {
 			return fmt.Errorf("error opening sublog: %w", err)
 		}
@@ -323,18 +326,18 @@ func (slog *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	return nil
 }
 
-func (slog *CombinedIndex) Close() error {
-	return slog.file.Close()
+func (idx *CombinedIndex) Close() error {
+	return idx.file.Close()
 }
 
 // QuerySpec returns the query spec that queries the next needed messages from the log
-func (slog *CombinedIndex) QuerySpec() margaret.QuerySpec {
-	slog.l.Lock()
-	defer slog.l.Unlock()
+func (idx *CombinedIndex) QuerySpec() margaret.QuerySpec {
+	idx.l.Lock()
+	defer idx.l.Unlock()
 
 	var seq margaret.BaseSeq
 
-	if err := persist.Load(slog.file, &seq); err != nil {
+	if err := persist.Load(idx.file, &seq); err != nil {
 		if !errors.Is(err, io.EOF) {
 			return margaret.ErrorQuerySpec(err)
 		}
@@ -348,7 +351,7 @@ func (slog *CombinedIndex) QuerySpec() margaret.QuerySpec {
 	)
 }
 
-func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, error) {
+func (idx *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, error) {
 	box1, box2, err := getBoxedContent(msg)
 	if err != nil {
 		// not super sure what the idea with the different skip errors was
@@ -372,7 +375,7 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 		idxAddr = indexes.Addr("meta:box2")
 	}
 
-	boxTyped, err := slog.private.Get(idxAddr)
+	boxTyped, err := idx.private.Get(idxAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -382,19 +385,19 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 
 	// try decrypt and pass on the clear text
 	if box1 != nil {
-		content, err := slog.boxer.DecryptBox1(box1)
+		content, err := idx.boxer.DecryptBox1(box1)
 		if err != nil {
 			return nil, errSkip
 		}
 
-		idxAddr = indexes.Addr("box1:") + storedrefs.Feed(slog.self)
+		idxAddr = indexes.Addr("box1:") + storedrefs.Feed(idx.self)
 		cleartext = content
 	} else if box2 != nil {
 		prev := refs.MessageRef{}
 		if p := msg.Previous(); p != nil {
 			prev = *p
 		}
-		content, err := slog.boxer.DecryptBox2(box2, msg.Author(), prev)
+		content, err := idx.boxer.DecryptBox2(box2, msg.Author(), prev)
 		if err != nil {
 			return nil, errSkip
 		}
@@ -402,13 +405,13 @@ func (slog *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, er
 		// instead by group root? could be PM... hmm
 		// would be nice to keep multi-keypair support here
 		// but might need to rethink the group manager
-		idxAddr = indexes.Addr("box2:") + storedrefs.Feed(slog.self)
+		idxAddr = indexes.Addr("box2:") + storedrefs.Feed(idx.self)
 		cleartext = content
 	} else {
 		return nil, fmt.Errorf("tryDecrypt: not skipped but also not valid content")
 	}
 
-	userPrivs, err := slog.private.Get(idxAddr)
+	userPrivs, err := idx.private.Get(idxAddr)
 	if err != nil {
 		return nil, fmt.Errorf("private/readidx: error opening priv sublog for: %w", err)
 	}
