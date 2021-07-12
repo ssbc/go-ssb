@@ -712,7 +712,14 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.master.Register(mh)
 	s.public.Register(mh)
 
-	var tplug = tangles.NewPlugin(s, s.ReceiveLog, s.Tangles, s.Private, s.Groups, sc)
+	var tplug = tangles.NewPlugin(
+		s.info,
+		s,
+		s.ReceiveLog,
+		s.Tangles,
+		s.Private,
+		s.Groups,
+		sc)
 	s.master.Register(tplug)
 
 	// tcp+shs

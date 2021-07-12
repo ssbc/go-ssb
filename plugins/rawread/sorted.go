@@ -88,7 +88,9 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 	if err != nil {
 		return err
 	}
-	level.Info(logger).Log("event", "sorted seqs", "n", len(sortedSeqs), "after", time.Since(start))
+
+	sorted := time.Now()
+	level.Debug(logger).Log("event", "sorted seqs", "n", len(sortedSeqs), "took", time.Since(start))
 
 	toJSON := transform.NewKeyValueWrapper(snk, qry.Keys)
 
@@ -115,6 +117,7 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 			}
 		}
 	}
-	level.Info(logger).Log("event", "messages streamed", "cnt", cnt)
+
+	level.Debug(logger).Log("event", "messages streamed", "cnt", cnt, "took", time.Since(sorted))
 	return snk.Close()
 }

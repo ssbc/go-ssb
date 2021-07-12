@@ -120,6 +120,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		return fmt.Errorf("not authroized")
 	}
 
+	logger = log.With(logger, "type", qry.Type)
+
 	// create toJSON sink
 	snk := transform.NewKeyValueWrapper(w, qry.Keys)
 
@@ -217,7 +219,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		return fmt.Errorf("failed to filter bitmap: %w", err)
 	}
 
-	level.Info(logger).Log("event", "sorted seqs", "n", len(sort), "after", time.Since(start))
+	sorted := time.Now()
+	level.Debug(logger).Log("event", "sorted seqs", "n", len(sort), "took", time.Since(start))
 
 	for _, res := range sort {
 		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
@@ -242,7 +245,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		}
 	}
 
-	level.Info(logger).Log("event", "messages streamed", "cnt", cnt, "type", qry.Type)
+	level.Debug(logger).Log("event", "messages streamed", "cnt", cnt, "took", time.Since(sorted))
 	return snk.Close()
 }
 
