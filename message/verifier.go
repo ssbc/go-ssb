@@ -18,10 +18,20 @@ func NewVerificationSinker(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec 
 
 		rxlog: rxlog,
 		feeds: feeds,
+		saver: MargaretSaver{rxlog},
 
 		mu:    new(sync.Mutex),
 		sinks: make(verifyFanIn),
 	}, nil
+}
+
+type MargaretSaver struct {
+	margaret.Log
+}
+
+func (ms MargaretSaver) Save(msg refs.Message) error {
+	_, err := ms.Log.Append(msg)
+	return err
 }
 
 type verifyFanIn map[string]SequencedSink
@@ -29,6 +39,8 @@ type verifyFanIn map[string]SequencedSink
 type VerifySink struct {
 	rxlog margaret.Log
 	feeds multilog.MultiLog
+
+	saver SaveMessager
 
 	hmacSec *[32]byte
 
@@ -45,14 +57,15 @@ func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
 	if has {
 		return snk, nil
 	}
+	// no => create a new sink
 
+	// establish latest message we have stored for them
 	msg, err := vs.getLatestMsg(ref)
 	if err != nil {
 		return nil, err
 	}
 
-	var ms = MargaretSaver{vs.rxlog}
-	snk = NewVerifySink(ref, msg, msg, ms, vs.hmacSec)
+	snk = NewVerifySink(ref, msg, msg, vs.saver, vs.hmacSec)
 	vs.sinks[ref.Ref()] = snk
 	return snk, nil
 }
@@ -61,15 +74,6 @@ func (vs *VerifySink) CloseSink(ref refs.FeedRef) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 	delete(vs.sinks, ref.Ref())
-}
-
-type MargaretSaver struct {
-	margaret.Log
-}
-
-func (ms MargaretSaver) Save(msg refs.Message) error {
-	_, err := ms.Log.Append(msg)
-	return err
 }
 
 func firstMessage(author refs.FeedRef) refs.KeyValueRaw {

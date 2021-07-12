@@ -32,26 +32,27 @@ type SaveMessager interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who refs.FeedRef, start margaret.Seq, abs refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
-	sd := &streamDrain{
+func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
+	drain := &generalVerifyDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
-		latestMsg: abs,
+		latestMsg: latest,
 		storage:   saver,
 	}
 	switch who.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		sd.verify = &legacyVerify{
+		drain.verify = &legacyVerify{
 			hmacKey: hmacKey,
 			buf:     new(bytes.Buffer),
 		}
 	case refs.RefAlgoFeedGabby:
-		sd.verify = &gabbyVerify{hmacKey: hmacKey}
+		drain.verify = &gabbyVerify{hmacKey: hmacKey}
 	}
-	return sd
+	return drain
 }
 
-type verifier interface {
+type _Verifier interface {
+	// Verify checks if a message is valid and returns it or an error if it isn't
 	Verify([]byte) (refs.Message, error)
 }
 
@@ -106,9 +107,9 @@ func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 	return
 }
 
-type streamDrain struct {
+type generalVerifyDrain struct {
 	// gets the input from the screen and returns the next decoded message, if it is valid
-	verify verifier
+	verify _Verifier
 
 	who refs.FeedRef // which feed is pulled
 
@@ -120,7 +121,7 @@ type streamDrain struct {
 	storage SaveMessager
 }
 
-func (ld *streamDrain) Seq() int64 {
+func (ld *generalVerifyDrain) Seq() int64 {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
 	return int64(ld.latestSeq)
@@ -129,7 +130,7 @@ func (ld *streamDrain) Seq() int64 {
 // Verify passes the raw message bytes to the verifaction function for the message format (legacy or gabby grove).
 // If it passes the message is checked with the current message using ValidateNext().
 // If that also passes it is saved to the storage system.
-func (ld *streamDrain) Verify(msg []byte) error {
+func (ld *generalVerifyDrain) Verify(msg []byte) error {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
 

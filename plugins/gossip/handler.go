@@ -76,6 +76,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		return
 	}
 
+	// dont want to fetch messages from yourself
 	if remoteRef.Equal(g.Id) {
 		return
 	}

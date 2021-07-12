@@ -34,6 +34,7 @@ type Builder interface {
 	// Follows returns a set of all people ref follows
 	Follows(refs.FeedRef) (*ssb.StrFeedSet, error)
 
+	// TODO: move this into the graph
 	Hops(refs.FeedRef, int) *ssb.StrFeedSet
 
 	Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer
@@ -231,9 +232,9 @@ func (b *builder) Build() (*Graph, error) {
 				if len(v) >= 1 {
 					switch v[0] {
 					case '0': // not following
-					case '1':
+					case '1': // following
 						w = 1
-					case '2':
+					case '2': // blocking
 						w = math.Inf(1)
 					default:
 						return fmt.Errorf("barbage value in graph strore")
@@ -357,6 +358,7 @@ func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, f
 			return fmt.Errorf("recurseHops(%d): add list entry(%d) failed: %w", depth, i, err)
 		}
 
+		// TODO: use from follows followedByFrom
 		dstFollows, err := b.Follows(followedByFrom)
 		if err != nil {
 			return fmt.Errorf("recurseHops(%d): follows from entry(%d) failed: %w", depth, i, err)

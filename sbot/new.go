@@ -317,7 +317,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to create publish log: %w", err)
 	}
 
-	//
+	// get(msgRef) -> rxLog sequence index
 	getIdx, updateSink := indexes.OpenGet(s.indexStore)
 	s.closers.AddCloser(updateSink)
 	s.serveIndex("get", updateSink)
@@ -504,6 +504,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
+
 		if s.KeyPair.Id.Equal(remote) {
 			return s.master.MakeHandler(conn)
 		}
@@ -670,10 +671,10 @@ func New(fopts ...Option) (*Sbot, error) {
 	// get idx muxrpc handler
 	s.master.Register(get.New(s, s.ReceiveLog, s.Groups))
 
-	//
+	// about information
 	s.master.Register(namesPlug)
 
-	// partial wip
+	// (insecure) partial proof-of-concept for browser-core/demo
 	plug := partial.New(s.info,
 		fm,
 		s.Users,
@@ -797,7 +798,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(conn.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
+	s.master.Register(conn.NewPlug(kitlog.With(log, "unit", "conn"), networkNode, s))
 	s.master.Register(status.New(s))
 
 	s.public.Register(networkNode.TunnelPlugin())
