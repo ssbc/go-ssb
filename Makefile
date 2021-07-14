@@ -1,12 +1,14 @@
 PKGS := $(shell go list ./... | grep -v node_modules )
 
+TESTFLAGS = -failfast -timeout 5m
+
 .PHONY: test
 test:
-	LIBRARIAN_WRITEALL=0 go test -failfast -timeout 15m $(PKGS)
+	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(pkg);)
 
 .PHONY: racetest
 racetest:
-	LIBRARIAN_WRITEALL=0 go test -failfast -race -timeout 15m $(PKGS)
+	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(TESTFLAGS) -race $(pkg);)
 
 VERSION = $(shell git describe --tags --exact-match)
 ifeq ($(VERSION),)
