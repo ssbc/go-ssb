@@ -48,7 +48,19 @@ func openUserMultilogs(t *testing.T) (multilog.MultiLog, multilog.Sink) {
 	r.NoError(err)
 
 	serveUF := multilog.NewSink(idxStateFile, uf, multilogs.UserFeedsUpdate)
+	t.Cleanup(func() {
+		if err := idxStateFile.Close(); err != nil {
+			fmt.Println("failed to close idxStateFile:", err)
+		}
 
+		if err := db.Close(); err != nil {
+			fmt.Println("failed to close badger:", err)
+		}
+
+		if err := serveUF.Close(); err != nil {
+			fmt.Println("failed to close index serving:", err)
+		}
+	})
 	return uf, serveUF
 }
 
@@ -75,7 +87,7 @@ func makeBadger(t *testing.T) testStore {
 	var builder *builder
 
 	var tc testStore
-	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	badgerDB, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 		builder = NewBuilder(info, db)
 		return builder.OpenIndex()
 	})
@@ -85,23 +97,28 @@ func makeBadger(t *testing.T) testStore {
 	tc.gbuilder = builder
 	tc.userLogs = uf
 
-	tc.close = func() {
+	t.Cleanup(func() {
 		r.NoError(uf.Close())
+
+		r.NoError(serve.Close())
 		r.NoError(sinkIdx.Close())
+
+		r.NoError(badgerDB.Close())
+
+		r.NoError(tRootLog.Close())
 		cancel()
 
 		for err := range mergedErrors(ufErrc, cErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")
-	}
+	})
 	return tc
 }
 
 func TestBadger(t *testing.T) {
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
-	tc.close()
 }
 
 func makeTypedLog(t *testing.T) testStore {
@@ -124,6 +141,19 @@ func makeTypedLog(t *testing.T) testStore {
 	tc.root = tRootLog
 	tc.userLogs = uf
 
+	t.Cleanup(func() {
+		r.NoError(uf.Close())
+		r.NoError(serveUF.Close())
+		// r.NoError(mt.Close())
+
+		cancel()
+
+		for err := range mergedErrors(ufErrc) {
+			r.NoError(err, "from chan")
+		}
+		t.Log("closed scenary")
+	})
+
 	panic("TODO: plugin refactor")
 	/*
 		mt, serveMT, err := repo.OpenMultiLog(tRepo, "byType", bytype.IndexUpdate)
@@ -137,16 +167,6 @@ func makeTypedLog(t *testing.T) testStore {
 		tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
 		r.NoError(err, "sbot: NewLogBuilder failed")
 	*/
-	tc.close = func() {
-		r.NoError(uf.Close())
-		// r.NoError(mt.Close())
-		cancel()
-
-		for err := range mergedErrors(ufErrc) {
-			r.NoError(err, "from chan")
-		}
-		t.Log("closed scenary")
-	}
 
 	return tc
 }
@@ -155,7 +175,6 @@ func makeTypedLog(t *testing.T) testStore {
 func XTestTypedLog(t *testing.T) {
 	tc := makeTypedLog(t)
 	t.Run("scene1", tc.theScenario)
-	tc.close()
 }
 
 type testStore struct {
@@ -163,8 +182,6 @@ type testStore struct {
 	userLogs multilog.MultiLog
 
 	gbuilder Builder
-
-	close func()
 }
 
 func (tc testStore) newPublisher(t *testing.T) *publisher {
@@ -222,7 +239,10 @@ func (tc testStore) theScenario(t *testing.T) {
 	// alice follows claire
 	alice.follow(claire.key.Id)
 
-	t.Log("warning: this needs export LIBRARIAN_WRITEALL=0")
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
 
 	time.Sleep(time.Second / 10)
 
