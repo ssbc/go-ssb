@@ -35,16 +35,6 @@ type MetaFeeds interface {
 
 These are necessary to get a functional partial replication. They are orderd by dependence/necessity (A needs B) not complexity.
 
-## Restore from an existing bendy-butt keypair
-
-With classic keypairs this is fairly simple. If the database is empty, it just requests it's own feed, too.
-
-The added complexity here is that we have to "index" our own feed and reinstate the subfeed keypairs from the nonces and save them to the local keystore.
-
-## Handle migrating from an existing keypair
-
-If `sbot.WithMetaFeedMode(true)` is passed to `sbot.New()` and it finds a keypair that isn't for a metafeed, the bot should create a new metafeed and announce it on the existing one.
-
 ## implement content [validation](https://github.com/ssb-ngi-pointer/bendy-butt-spec#validation) of metafeeds
 Right now go-metafeed only handles the overal entry verification but we also need to verify the content portion. There already exists [VerifySubSignedContent](https://pkg.go.dev/github.com/ssb-ngi-pointer/go-metafeed#VerifySubSignedContent) to help with this but it needs to be integrated (aka the buisness logic of what to do with these messages).
 
@@ -78,6 +68,17 @@ Tangential needed change here is to loosen the restrictions on _in order_ fetchi
 # Future _nice to have_'s
 
 These would be _cool_ but the list above is already large enough as it is.
+
+
+## Restore from an existing bendy-butt keypair
+
+With classic keypairs this is fairly simple. If the database is empty, it just requests it's own feed, too.
+
+The added complexity here is that we have to "index" our own feed and reinstate the subfeed keypairs from the nonces and save them to the local keystore.
+
+## Handle migrating from an existing keypair
+
+If `sbot.WithMetaFeedMode(true)` is passed to `sbot.New()` and it finds a keypair that isn't for a metafeed, the bot should create a new metafeed and announce it on the existing one.
 
 ## add HMAC support to go-metafeed
 This should be done if only to achive feature parity with test networks.
