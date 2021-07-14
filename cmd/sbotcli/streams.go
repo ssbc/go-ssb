@@ -43,8 +43,8 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 		AsJSON: ctx.Bool("asJSON"),
 	}
 	args.Limit = ctx.Int64("limit")
-	args.Gt = ctx.Int64("gt")
-	args.Lt = ctx.Int64("lt")
+	args.Gt = message.RoundedInteger(ctx.Int64("gt"))
+	args.Lt = message.RoundedInteger(ctx.Int64("lt"))
 	args.Reverse = ctx.Bool("reverse")
 	args.Live = ctx.Bool("live")
 	args.Keys = ctx.Bool("keys")
