@@ -84,15 +84,15 @@ func makeBadger(t *testing.T) testStore {
 	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
-	var builder *builder
+	var builder *BadgerBuilder
 
 	var tc testStore
-	badgerDB, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	badgerDB, idxSetter, idxSink, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 		builder = NewBuilder(info, db)
-		return builder.OpenIndex()
+		return builder.OpenContactsIndex()
 	})
 	r.NoError(err)
-	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve, true)
+	cErrc := serveLog(ctx, "badgerContacts", tRootLog, idxSink, true)
 	tc.root = tRootLog
 	tc.gbuilder = builder
 	tc.userLogs = uf
@@ -100,8 +100,8 @@ func makeBadger(t *testing.T) testStore {
 	t.Cleanup(func() {
 		r.NoError(uf.Close())
 
-		r.NoError(serve.Close())
-		r.NoError(sinkIdx.Close())
+		r.NoError(idxSink.Close())
+		r.NoError(idxSetter.Close())
 
 		r.NoError(badgerDB.Close())
 

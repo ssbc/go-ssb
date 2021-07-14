@@ -31,6 +31,14 @@ func NewGraph() *Graph {
 	}
 }
 
+func (g *Graph) getNode(feed refs.FeedRef) (*contactNode, bool) {
+	node, has := g.lookup[storedrefs.Feed(feed)]
+	if !has {
+		return nil, false
+	}
+	return node, true
+}
+
 func (g *Graph) getEdge(from, to refs.FeedRef) (graph.WeightedEdge, bool) {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()

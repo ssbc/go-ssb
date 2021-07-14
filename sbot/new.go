@@ -19,6 +19,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/go-kit/kit/metrics"
 	"github.com/rs/cors"
+	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
+	"github.com/zeebo/bencode"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/margaret/multilog"
@@ -398,28 +400,24 @@ func New(fopts ...Option) (*Sbot, error) {
 	*/
 
 	// contact/follow graph
+	gb := graph.NewBuilder(log.With(s.info, "module", "graph"), s.indexStore)
+	seqSetter, updateContactsSink := gb.OpenContactsIndex()
+
+	// create data source for contacts
 	contactLog, err := s.ByType.Get(librarian.Addr("string:contact"))
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open message contact sublog: %w", err)
 	}
 	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
-	if false {
-		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
-
-		s.GraphBuilder, err = graph.NewLogBuilder(s.info, justContacts)
-		if err != nil {
-			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
-		}
-	} else {
-		gb, seqSetter, updateIdx := indexes.OpenContacts(log.With(s.info, "module", "graph"), s.indexStore)
-
-		s.serveIndexFrom("contacts", updateIdx, justContacts)
-		s.closers.AddCloser(seqSetter)
-		s.GraphBuilder = gb
-	}
+	// fill the index
+	s.serveIndexFrom("contacts", updateContactsSink, justContacts)
+	s.closers.AddCloser(seqSetter)
+	s.GraphBuilder = gb
 
 	// abouts
+
+	// create data source for abouts
 	aboutSeqs, err := s.ByType.Get(librarian.Addr("string:about"))
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open message about sublog: %w", err)
@@ -487,6 +485,39 @@ func New(fopts ...Option) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 		}
+
+		// setup indexing
+
+		justMetafeedMessages := repo.NewFilteredLog(s.ReceiveLog, func(msg refs.Message) bool {
+			content := msg.ContentBytes()
+			var bencoded []bencode.RawMessage
+			err := bencode.DecodeBytes(content, &bencoded)
+			if err != nil {
+				// fmt.Println(string(content))
+				// fmt.Println("bencode array unmarshal failed", err)
+				return false
+			}
+
+			if len(bencoded) != 2 {
+				// fmt.Println("bencode index: not an array of 2")
+				return false
+			}
+
+			var justTheType metamngmt.Typed
+			err = bencode.DecodeBytes(bencoded[0], &justTheType)
+			if err != nil {
+				// fmt.Println("bencode object unmarshal failed", err)
+				return false
+			}
+			rightType := strings.HasPrefix(justTheType.Type, "metafeed/")
+			// fmt.Printf("bencoded message: %q %v\n", justTheType.Type, rightType)
+			return rightType
+		})
+
+		// _, mfSink := indexes.OpenMetafeed(log.With(s.info, "unit", "metafeed index"), s.indexStore)
+		_, mfSink := gb.OpenMetafeedsIndex()
+
+		s.serveIndexFrom("metafeed", mfSink, justMetafeedMessages)
 	}
 
 	// from here on just network related stuff
@@ -762,17 +793,13 @@ func New(fopts ...Option) (*Sbot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create network node: %w", err)
 	}
-	blobsPathPrefix := "/blobs/get/"
-	h := cors.Default().Handler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if !strings.HasPrefix(req.URL.Path, blobsPathPrefix) {
-			http.Error(w, "404", http.StatusNotFound)
-			return
-		}
-
-		rest := strings.TrimPrefix(req.URL.Path, blobsPathPrefix)
+	blobsGetPathPrefix := "/blobs/get/"
+	httpBlogsGet := func(w http.ResponseWriter, req *http.Request) {
+		hlog := log.With(s.info, "http-handler", "blobs/get")
+		rest := strings.TrimPrefix(req.URL.Path, blobsGetPathPrefix)
 		blobRef, err := refs.ParseBlobRef(rest)
 		if err != nil {
-			level.Error(s.info).Log("http-err", err.Error())
+			level.Error(hlog).Log("err", err.Error())
 			http.Error(w, "bad blob", http.StatusBadRequest)
 			return
 		}
@@ -780,7 +807,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		br, err := s.BlobStore.Get(blobRef)
 		if err != nil {
 			s.WantManager.Want(blobRef)
-			level.Error(s.info).Log("http-err", err.Error())
+			level.Error(hlog).Log("err", err.Error())
 			http.Error(w, "no such blob", http.StatusNotFound)
 			return
 		}
@@ -790,10 +817,26 @@ func New(fopts ...Option) (*Sbot, error) {
 		w.WriteHeader(http.StatusOK)
 		_, err = io.Copy(w, br)
 		if err != nil {
-			level.Error(s.info).Log("http-blob", err.Error())
+			level.Error(hlog).Log("err", err.Error())
 		}
-	}))
-	networkNode.HandleHTTP(h)
+	}
+
+	graphDumpPathPrefix := "/graph/dump"
+
+	simpleRouter := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, blobsGetPathPrefix) {
+			httpBlogsGet(w, req)
+			return
+		}
+
+		if strings.HasPrefix(req.URL.Path, graphDumpPathPrefix) {
+			s.GraphBuilder.(*graph.BadgerBuilder).DumpXMLOverHTTP(s.KeyPair.ID(), w, req)
+			return
+		}
+
+		http.Error(w, "404", http.StatusNotFound)
+	})
+	networkNode.HandleHTTP(cors.Default().Handler(simpleRouter))
 
 	inviteService, err = legacyinvites.New(
 		log.With(s.info, "unit", "legacyInvites"),

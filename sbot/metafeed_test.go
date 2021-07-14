@@ -158,6 +158,7 @@ func TestMultiFeedManualSync(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "mfbot")),
 		WithListenAddr(":0"),
 		WithHMACSigning(hkSecret[:]),
+		WithWebsocketAddress("localhost:12345"),
 		WithMetaFeedMode(true),
 		DisableEBT(true), // TODO: have different formats in ebt
 	)
@@ -174,7 +175,7 @@ func TestMultiFeedManualSync(t *testing.T) {
 	r.NoError(err)
 
 	// create some spam
-	n := 100
+	n := 5
 	for i := n; i > 0; i-- {
 		testSpam := fmt.Sprintf("hello from my testing subfeed %d", i)
 
@@ -194,6 +195,8 @@ func TestMultiFeedManualSync(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(receiveBot))
+
+	multiBot.PublishLog.Publish(refs.NewContactFollow(receiveBot.KeyPair.ID()))
 
 	// replicate between the two
 
@@ -216,6 +219,9 @@ func TestMultiFeedManualSync(t *testing.T) {
 	v, err := src.Next(ctx)
 	r.NoError(err)
 	t.Log(v.(refs.Message).Key().Ref())
+
+	t.Log("time to fetch the graph")
+	time.Sleep(time.Minute)
 
 	// shutdown
 	cancel()
