@@ -5,21 +5,21 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestReplicateUpTo(t *testing.T) {
@@ -45,7 +45,7 @@ func TestReplicateUpTo(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(context.TODO())
 		if err != nil {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()
@@ -53,18 +53,18 @@ func TestReplicateUpTo(t *testing.T) {
 	var testKeyPairs = make(map[string]int, 10)
 	var i int
 	for i = 0; i < 10; i++ {
-		kp, err := ssb.NewKeyPair(nil)
-		r.NoError(err)
+		var algo = refs.RefAlgoFeedSSB1
 		if i%2 == 0 {
-			kp.Id.Algo = refs.RefAlgoFeedGabby
+			algo = refs.RefAlgoFeedGabby
 		}
+		kp, err := ssb.NewKeyPair(nil, algo)
+		r.NoError(err)
 
 		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)
 
 		testKeyPairs[kp.Id.Ref()] = i
 		for n := i; n > 0; n-- {
-
 			ref, err := publish.Publish(struct {
 				Type  string `json:"type"`
 				Test  bool
@@ -76,8 +76,6 @@ func TestReplicateUpTo(t *testing.T) {
 		}
 	}
 
-	// c, err := client.NewUnix(context.TODO(), filepath.Join(srvRepo, "socket"))
-	// r.NoError(err, "failed to make client connection")
 	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
 	r.NoError(err, "failed to load servers keypair")
 	srvAddr := srv.Network.GetListenAddr()

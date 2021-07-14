@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
@@ -18,8 +17,8 @@ import (
 // It uses the information in the token to build a guest-client connection
 // and place an 'invite.use' rpc call with it's longTerm key.
 // If the peer responds with a message it returns nil
-func Redeem(ctx context.Context, tok Token, longTerm *refs.FeedRef) error {
-	inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(tok.Seed[:]))
+func Redeem(ctx context.Context, tok Token, longTerm refs.FeedRef) error {
+	inviteKeyPair, err := ssb.NewKeyPair(bytes.NewReader(tok.Seed[:]), refs.RefAlgoFeedSSB1)
 	if err != nil {
 		return fmt.Errorf("invite: couldn't make keypair from seed: %w", err)
 	}
@@ -38,12 +37,6 @@ func Redeem(ctx context.Context, tok Token, longTerm *refs.FeedRef) error {
 	err = inviteClient.Async(ctx, &ret, muxrpc.TypeJSON, muxrpc.Method{"invite", "use"}, param)
 	if err != nil {
 		return fmt.Errorf("invite: invalid token: %w", err)
-	}
-
-	if ret.Key() != nil {
-		log.Println("invite redeemed. Peer replied with msg", ret.Key().Ref())
-	} else {
-		log.Println("warning: peer replied with empty message")
 	}
 
 	inviteClient.Close()

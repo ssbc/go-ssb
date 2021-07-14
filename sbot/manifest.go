@@ -69,11 +69,12 @@ const manifestBlob manifestHandler = `
 	},
 
 	"private": {
+		"publish": "async",
 		"read":"source"
 	},
 
 	"tangles": {
-      "replies": "source"
+      "thread": "source"
 	},
 
     "names": {
@@ -96,10 +97,10 @@ const manifestBlob manifestHandler = `
 	"whoami": "sync",
 	"status": "sync",
 	
-	"ctrl": {
+	"conn": {
 		"replicate": "async",
 		"connect": "async",
-		"disconenct": "async",
+		"disconnect": "async",
 		"dialViaRoom": "async"
 	},
 	
@@ -129,6 +130,11 @@ const manifestBlob manifestHandler = `
 	  "want": "async",
 
 	  "createWants": "source"
+	},
+
+	"invite": {
+		"create": "async",
+		"use": "async"
 	}
   }
   `

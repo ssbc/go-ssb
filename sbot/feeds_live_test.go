@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/VividCortex/gohistogram"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
@@ -57,15 +57,17 @@ func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 
 	// make keys deterministic each run
 	seed := bytes.Repeat([]byte{botCnt}, 32)
-	botsKey, err := ssb.NewKeyPair(bytes.NewReader(seed))
-	r.NoError(err)
+	botCnt++
 
+	algo := refs.RefAlgoFeedSSB1
 	/* TODO: fix gabby support
 	if botCnt%2 == 0 {
-		botsKey.Id.Algo = refs.RefAlgoFeedGabby
+		algo = refs.RefAlgoFeedGabby
 	}
 	*/
-	botCnt++
+
+	botsKey, err := ssb.NewKeyPair(bytes.NewReader(seed), algo)
+	r.NoError(err)
 
 	mainLog := log.NewNopLogger()
 	if testing.Verbose() {

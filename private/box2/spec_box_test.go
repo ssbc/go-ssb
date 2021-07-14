@@ -45,15 +45,19 @@ func (bt boxSpecTest) Test(t *testing.T) {
 	var f tfk.Feed
 	err := f.UnmarshalBinary(bt.Input.FeedID)
 	require.NoError(t, err)
+	feed, err := f.Feed()
+	require.NoError(t, err)
 
 	var m tfk.Message
 	err = m.UnmarshalBinary(bt.Input.PrevMsgID)
 	require.NoError(t, err)
+	msg, err := m.Message()
+	require.NoError(t, err)
 
 	out, err := bxr.Encrypt(
 		bt.Input.PlainText,
-		f.Feed(),
-		m.Message(),
+		feed,
+		msg,
 		recps,
 	)
 

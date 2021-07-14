@@ -3,6 +3,8 @@ package keys
 import (
 	"encoding/binary"
 	"fmt"
+
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type KeyScheme string
@@ -14,9 +16,20 @@ func (ks KeyScheme) Valid() bool {
 const (
 	SchemeLargeSymmetricGroup         KeyScheme = "envelope-large-symmetric-group"
 	SchemeDiffieStyleConvertedED25519 KeyScheme = "envelope-id-based-dm-converted-ed25519"
+	SchemeMetafeedSubKey              KeyScheme = "metafeed-sub-key"
 )
 
 type ID []byte
+
+func IDFromFeed(r refs.FeedRef) ID {
+	// might be cleaner but needs changes elsewhere (that should probably use this func)
+	// idBytes, err := tfk.Encode(r)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	idBytes := r.PubKey()
+	return ID(idBytes)
+}
 
 type idxKey struct {
 	ks KeyScheme

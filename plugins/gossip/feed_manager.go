@@ -6,18 +6,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"sync"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/luigiutils"
@@ -152,7 +153,7 @@ func (m *FeedManager) addLiveFeed(
 // nonliveLimit returns the upper limit for a CreateStreamHistory request given
 // the current User Feeds latest sequence.
 func nonliveLimit(
-	arg *message.CreateHistArgs,
+	arg message.CreateHistArgs,
 	curSeq int64,
 ) int64 {
 	if arg.Limit == -1 {
@@ -168,7 +169,7 @@ func nonliveLimit(
 // liveLimit returns the limit for serving the 'live' portion for a
 // CreateStreamHistory request given the current User Feeds latest sequence.
 func liveLimit(
-	arg *message.CreateHistArgs,
+	arg message.CreateHistArgs,
 	curSeq int64,
 ) int64 {
 	if arg.Limit == -1 {
@@ -204,11 +205,8 @@ func getLatestSeq(log margaret.Log) (int64, error) {
 func (m *FeedManager) CreateStreamHistory(
 	ctx context.Context,
 	sink *muxrpc.ByteSink,
-	arg *message.CreateHistArgs,
+	arg message.CreateHistArgs,
 ) error {
-	if arg.ID == nil {
-		return fmt.Errorf("bad request: missing id argument")
-	}
 	feedLogger := log.With(m.logger, "fr", arg.ID.ShortRef())
 
 	// check what we got
@@ -269,7 +267,7 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	var luigiSink luigi.Sink
-	switch arg.ID.Algo {
+	switch arg.ID.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
 
@@ -297,7 +295,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 
-	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) {
+	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) || errors.Is(err, io.EOF) {
 		sink.Close()
 		return nil
 	} else if err != nil {
@@ -314,5 +312,9 @@ func (m *FeedManager) CreateStreamHistory(
 			liveLimit(arg, latest),
 		)
 	}
-	return sink.Close()
+	closeErr := sink.Close()
+	if closeErr != nil {
+		return fmt.Errorf("failed to close sink after %d messages: %w", sent, closeErr)
+	}
+	return nil
 }

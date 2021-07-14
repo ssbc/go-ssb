@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
@@ -38,7 +38,7 @@ func XTestMultipleIdentities(t *testing.T) {
 	tRepo := repo.New(tRepoPath)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -56,7 +56,7 @@ func XTestMultipleIdentities(t *testing.T) {
 	r.NoError(err)
 	r.Len(kpsByPath, 3)
 
-	var kps []*ssb.KeyPair
+	var kps []ssb.KeyPair
 	for _, v := range kpsByPath {
 		kps = append(kps, v)
 	}
@@ -73,8 +73,8 @@ func XTestMultipleIdentities(t *testing.T) {
 
 	// boxing helper
 	b := box.NewBoxer(nil)
-	box := func(v interface{}, recpts ...*refs.FeedRef) []byte {
-		msg, err := json.Marshal(v)
+	box := func(post string, recpts ...refs.FeedRef) []byte {
+		msg, err := json.Marshal(refs.NewPost(post))
 		r.NoError(err, "failed to marshal privmsg")
 
 		ciph, err := b.Encrypt(msg, recpts...)
@@ -91,9 +91,9 @@ func XTestMultipleIdentities(t *testing.T) {
 		{"bert", refs.NewContactFollow(kpArny.Id)},
 		{"bert", refs.NewContactFollow(kpCloe.Id)},
 		{"cloe", refs.NewContactFollow(kpArny.Id)},
-		{"arny", map[string]interface{}{"hello": 123}},
-		{"bert", map[string]interface{}{"world": 456}},
-		{"cloe", map[string]interface{}{"test": 789}},
+		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
+		{"bert", map[string]interface{}{"type": "test", "world": 456}},
+		{"cloe", map[string]interface{}{"type": "test", "test": 789}},
 		{"arny", box("A: just talking to myself", kpArny.Id)},
 		{"bert", box("B: just talking to myself", kpBert.Id)},
 		{"cloe", box("C: just talking to myself", kpCloe.Id)},
@@ -106,7 +106,7 @@ func XTestMultipleIdentities(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		msg, err := mainbot.Get(*ref)
+		msg, err := mainbot.Get(ref)
 		r.NoError(err)
 		r.NotNil(msg)
 

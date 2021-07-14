@@ -15,23 +15,17 @@ import (
 	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
-	"go.cryptoscope.co/ssb/indexes"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
 )
 
 // NullFeed overwrites all the entries from ref in repo with zeros
-func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
+func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	ctx := context.Background()
 
-	uf, ok := s.GetMultiLog(multilogs.IndexNameFeeds)
-	if !ok {
-		return fmt.Errorf("NullFeed: failed to open multilog")
-	}
-
 	feedAddr := storedrefs.Feed(ref)
-	userSeqs, err := uf.Get(feedAddr)
+	userSeqs, err := s.Users.Get(feedAddr)
 	if err != nil {
 		return fmt.Errorf("NullFeed: failed to open log for feed argument: %w", err)
 	}
@@ -59,7 +53,7 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 		}
 	}
 
-	err = uf.Delete(feedAddr)
+	err = s.Users.Delete(feedAddr)
 	if err != nil {
 		return fmt.Errorf("NullFeed: error while deleting feed from userFeeds index: %w", err)
 	}
@@ -70,11 +64,16 @@ func (s *Sbot) NullFeed(ref *refs.FeedRef) error {
 	}
 
 	// delete my ebt state
+	// TODO: just remove that single feed
 	sfn, err := s.ebtState.StateFileName(s.KeyPair.Id)
 	if err != nil {
 		return fmt.Errorf("NullFeed: error while deleting ebt state file: %w", err)
 	}
 	os.Remove(sfn)
+
+	if !s.disableNetwork {
+		s.verifySink.CloseSink(ref)
+	}
 
 	return nil
 }
@@ -97,17 +96,18 @@ func DropIndicies(r repo.Interface) error {
 			return err
 		}
 	}
-	var badger = []string{
-		indexes.FolderNameContacts,
-	}
-	for _, i := range badger {
-		dbPath := r.GetPath(repo.PrefixIndex, i)
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
-			return err
-		}
-	}
+	// TODO: shared mlog
+	// var badger = []string{
+	// 	indexes.FolderNameContacts,
+	// }
+	// for _, i := range badger {
+	// 	dbPath := r.GetPath(repo.PrefixIndex, i)
+	// 	err := os.RemoveAll(dbPath)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("mkdir error for %q: %w", dbPath, err)
+	// 		return err
+	// 	}
+	// }
 	log.Println("removed index folders")
 	return nil
 }

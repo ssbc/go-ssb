@@ -4,18 +4,18 @@
 package blobstore
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -42,7 +42,7 @@ func New(basePath string) (ssb.BlobStore, error) {
 		basePath: basePath,
 	}
 
-	bs.sink, bs.bcast = luigi.NewBroadcast()
+	bs.update, bs.BlobStoreBroadcaster = broadcasts.NewBlobStoreEmitter()
 
 	return bs, nil
 }
@@ -50,40 +50,49 @@ func New(basePath string) (ssb.BlobStore, error) {
 type blobStore struct {
 	basePath string
 
-	sink  luigi.Sink
-	bcast luigi.Broadcast
+	ssb.BlobStoreBroadcaster
+
+	update ssb.BlobStoreEmitter
 }
 
-func (store *blobStore) getPath(ref *refs.BlobRef) (string, error) {
+func (store *blobStore) getPath(ref refs.BlobRef) (string, error) {
 	if err := ref.IsValid(); err != nil {
 		return "", fmt.Errorf("blobs: invalid reference: %w", err)
 	}
 
-	hexHash := hex.EncodeToString(ref.Hash)
-	relPath := filepath.Join(ref.Algo, hexHash[:2], hexHash[2:])
-
-	return filepath.Join(store.basePath, relPath), nil
-}
-
-func (store *blobStore) getHexDirPath(ref *refs.BlobRef) (string, error) {
-	if err := ref.IsValid(); err != nil {
-		return "", fmt.Errorf("blobs: invalid reference: %w", err)
-	}
-
-	hexHash := hex.EncodeToString(ref.Hash)
-	relPath := filepath.Join(ref.Algo, hexHash[:2])
-
-	return filepath.Join(store.basePath, relPath), nil
-}
-
-func (store *blobStore) getTmpPath() string {
-	return filepath.Join(store.basePath, "tmp", fmt.Sprint(time.Now().UnixNano()))
-}
-
-func (store *blobStore) Get(ref *refs.BlobRef) (io.Reader, error) {
-	blobPath, err := store.getPath(ref)
+	var hash = make([]byte, 32)
+	err := ref.CopyHashTo(hash)
 	if err != nil {
-		return nil, fmt.Errorf("error getting path for ref %q: %w", ref, err)
+		return "", err
+	}
+
+	hexHash := hex.EncodeToString(hash)
+	relPath := filepath.Join(string(ref.Algo()), hexHash[:2], hexHash[2:])
+
+	return filepath.Join(store.basePath, relPath), nil
+}
+
+func (store *blobStore) getHexDirPath(ref refs.BlobRef) (string, error) {
+	if err := ref.IsValid(); err != nil {
+		return "", fmt.Errorf("blobs: invalid reference: %w", err)
+	}
+
+	var hash = make([]byte, 32)
+	err := ref.CopyHashTo(hash)
+	if err != nil {
+		return "", err
+	}
+
+	hexHash := hex.EncodeToString(hash)
+	relPath := filepath.Join(string(ref.Algo()), hexHash[:2])
+
+	return filepath.Join(store.basePath, relPath), nil
+}
+
+func (store *blobStore) Get(b refs.BlobRef) (io.ReadCloser, error) {
+	blobPath, err := store.getPath(b)
+	if err != nil {
+		return nil, fmt.Errorf("error getting path for ref %q: %w", b, err)
 	}
 
 	f, err := os.Open(blobPath)
@@ -97,44 +106,45 @@ func (store *blobStore) Get(ref *refs.BlobRef) (io.Reader, error) {
 	return f, nil
 }
 
-func (store *blobStore) Put(blob io.Reader) (*refs.BlobRef, error) {
-	tmpPath := store.getTmpPath()
-	f, err := os.Create(tmpPath)
+func (store *blobStore) Put(blob io.Reader) (refs.BlobRef, error) {
+	f, err := ioutil.TempFile(filepath.Join(store.basePath, "tmp"), "rxblob-*")
 	if err != nil {
-		return nil, fmt.Errorf("blobstore.Put: error creating tmp file at %q: %w", tmpPath, err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error creating tmp file: %w", err)
 	}
 
 	h := sha256.New()
 	n, err := io.Copy(io.MultiWriter(f, h), blob)
 	if err != nil && !luigi.IsEOS(err) {
-		return nil, fmt.Errorf("blobstore.Put: error copying: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error copying: %w", err)
 	}
 
-	ref := &refs.BlobRef{
-		Hash: h.Sum(nil),
-		Algo: "sha256",
-	}
+	tmpPath := f.Name()
 
 	if err := f.Close(); err != nil {
-		return nil, fmt.Errorf("blobstore.Put: error closing tmp file: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error closing tmp file: %w", err)
+	}
+
+	ref, err := refs.NewBlobRefFromBytes(h.Sum(nil), refs.RefAlgoBlobSSB1)
+	if err != nil {
+		return refs.BlobRef{}, err
 	}
 
 	hexDirPath, err := store.getHexDirPath(ref)
 	if err != nil {
-		return nil, fmt.Errorf("blobstore.Put: error getting hex dir path: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error getting hex dir path: %w", err)
 	}
 
 	err = os.MkdirAll(hexDirPath, 0700)
 	if err != nil {
 		// ignore errors that indicate that the directory already exists
 		if !os.IsExist(err) {
-			return nil, fmt.Errorf("blobstore.Put: error creating hex dir: %w", err)
+			return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error creating hex dir: %w", err)
 		}
 	}
 
 	finalPath, err := store.getPath(ref)
 	if err != nil {
-		return nil, fmt.Errorf("blobstore.Put: error getting final path: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error getting final path: %w", err)
 	}
 
 	err = os.Rename(tmpPath, finalPath)
@@ -146,21 +156,23 @@ func (store *blobStore) Put(blob io.Reader) (*refs.BlobRef, error) {
 		} else {
 			log.Printf("err %v %T", err, err)
 		}
-		return nil, fmt.Errorf("error moving blob from temp path %q to final path %q: %w", tmpPath, finalPath, err)
+		return refs.BlobRef{}, fmt.Errorf("error moving blob from temp path %q to final path %q: %w", tmpPath, finalPath, err)
 	}
 
-	err = store.sink.Pour(context.TODO(), ssb.BlobStoreNotification{
+	err = store.update.EmitBlob(ssb.BlobStoreNotification{
 		Op:  ssb.BlobStoreOpPut,
 		Ref: ref,
+
+		Size: n,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("blobstore.Put: error in notification handler: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("blobstore.Put: error in notification handler: %w", err)
 	}
 
 	return ref, nil
 }
 
-func (store *blobStore) Delete(ref *refs.BlobRef) error {
+func (store *blobStore) Delete(ref refs.BlobRef) error {
 	p, err := store.getPath(ref)
 	if err != nil {
 		return fmt.Errorf("error getting blob path: %w", err)
@@ -174,7 +186,7 @@ func (store *blobStore) Delete(ref *refs.BlobRef) error {
 		return fmt.Errorf("error removing file: %w", err)
 	}
 
-	err = store.sink.Pour(context.TODO(), ssb.BlobStoreNotification{
+	err = store.update.EmitBlob(ssb.BlobStoreNotification{
 		Op:  ssb.BlobStoreOpRm,
 		Ref: ref,
 	})
@@ -191,7 +203,7 @@ func (store *blobStore) List() luigi.Source {
 	}
 }
 
-func (store *blobStore) Size(ref *refs.BlobRef) (int64, error) {
+func (store *blobStore) Size(ref refs.BlobRef) (int64, error) {
 	blobPath, err := store.getPath(ref)
 	if err != nil {
 		return 0, fmt.Errorf("error getting path: %w", err)
@@ -208,8 +220,4 @@ func (store *blobStore) Size(ref *refs.BlobRef) (int64, error) {
 
 	return fi.Size(), nil
 
-}
-
-func (store *blobStore) Changes() luigi.Broadcast {
-	return store.bcast
 }

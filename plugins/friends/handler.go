@@ -4,9 +4,9 @@
 package friends
 
 import (
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"

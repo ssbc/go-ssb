@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -19,7 +19,7 @@ type connectArg struct {
 	Target refs.FeedRef `json:"target"`
 }
 
-func (n *node) DialViaRoom(portal, target refs.FeedRef) error {
+func (n *Node) DialViaRoom(portal, target refs.FeedRef) error {
 	portalLogger := kitlog.With(n.log, "portal", portal.ShortRef())
 
 	edp, has := n.GetEndpointFor(portal)

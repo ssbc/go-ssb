@@ -39,7 +39,7 @@ func main() {
 
 	r := repo.New(os.Args[1])
 
-	var inputRefs []*refs.FeedRef
+	var inputRefs []refs.FeedRef
 	if os.Args[2] == "-" {
 		s := bufio.NewScanner(os.Stdin)
 		for s.Scan() {

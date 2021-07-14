@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	bmap "github.com/RoaringBitmap/roaring"
+	bmap "github.com/dgraph-io/sroar"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
@@ -190,7 +190,7 @@ func (sr SequenceResolver) SortAndFilterBitmap(seqs *bmap.Bitmap, by SortDomain,
 
 	var result SortedSeqSlice
 
-	it := seqs.Iterator()
+	it := seqs.NewIterator()
 
 	// pick and filter
 	for it.HasNext() {
@@ -375,7 +375,7 @@ func (sr *SequenceResolver) Load() (int64, error) {
 }
 
 func (sr *SequenceResolver) indexPath(name string) string {
-	return sr.repo.GetPath(PrefixMultiLog, "combined", "seqmaps", name)
+	return sr.repo.GetPath(PrefixIndex, "seqmaps", name)
 }
 
 // Serialize does the reverse from Load. It saves the three domains to disk.

@@ -8,12 +8,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/librarian"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -40,18 +44,26 @@ func NewPrivateRead(log kitlog.Logger, kps ...*ssb.KeyPair) *Private {
 type Private struct {
 	logger kitlog.Logger
 
-	keyPairs []*ssb.KeyPair
+	keyPairs []ssb.KeyPair
 	boxer    *box.Boxer
 }
 
 // OpenRoaring uses roaring bitmaps with a slim key-value store backend
-func (pr Private) OpenRoaring(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
-	return repo.OpenMultiLog(r, IndexNamePrivates, pr.update)
-}
+func (pr Private) OpenRoaring(r repo.Interface, db *badger.DB) (multilog.MultiLog, librarian.SinkIndex, error) {
 
-// OpenBadger uses a pretty memory hungry but battle-tested backend
-func (pr Private) OpenBadger(r repo.Interface) (multilog.MultiLog, librarian.SinkIndex, error) {
-	return repo.OpenBadgerMultiLog(r, IndexNamePrivates, pr.update)
+	mlog, err := multibadger.NewShared(db, []byte(IndexNamePrivates))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	idxStatePath := filepath.Join(r.GetPath("multilogs", IndexNamePrivates), "idx-state")
+	idxStateFile, err := os.Create(idxStatePath) // OpenFile(|create)
+	if err != nil {
+		return nil, nil, err
+	}
+	snk := multilog.NewSink(idxStateFile, mlog, pr.update)
+
+	return mlog, snk, nil
 }
 
 func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {
@@ -69,7 +81,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 	}
 
 	var boxedContent []byte
-	switch msg.Author().Algo {
+	switch msg.Author().Algo() {
 	case refs.RefAlgoFeedSSB1:
 		input := msg.ContentBytes()
 		if !(input[0] == '"' && input[len(input)-1] == '"') {
@@ -110,7 +122,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 		boxedContent = bytes.TrimPrefix(tr.Content, []byte("box1:"))
 
 	default:
-		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo)
+		err := fmt.Errorf("private/readidx: unknown feed type: %s", msg.Author().Algo())
 		level.Warn(pr.logger).Log("msg", "unahndled type", "err", err)
 		return err
 	}

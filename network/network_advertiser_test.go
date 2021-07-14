@@ -12,7 +12,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func makeTestPubKey(t *testing.T) *ssb.KeyPair {
+func makeTestPubKey(t *testing.T) ssb.KeyPair {
 	var kp ssb.KeyPair
 	fr, err := refs.ParseFeedRef("@LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=.ed25519")
 	if err != nil {
@@ -20,11 +20,11 @@ func makeTestPubKey(t *testing.T) *ssb.KeyPair {
 	}
 	kp.Pair.Public = fr.PubKey()
 	kp.Id = fr
-	return &kp
+	return kp
 }
 
-func makeRandPubkey(t *testing.T) *ssb.KeyPair {
-	kp, err := ssb.NewKeyPair(nil)
+func makeRandPubkey(t *testing.T) ssb.KeyPair {
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func makeRandPubkey(t *testing.T) *ssb.KeyPair {
 func TestNewAdvertisement(t *testing.T) {
 	type tcase struct {
 		local       *net.UDPAddr
-		keyPair     *ssb.KeyPair
+		keyPair     ssb.KeyPair
 		Expected    string
 		ExpectError bool
 	}

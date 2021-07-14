@@ -4,22 +4,24 @@ import (
 	"context"
 	"testing"
 
+	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	"go.cryptoscope.co/ssb/repo"
 	"modernc.org/kv"
 )
 
 type opIndexNew struct {
-	DB   **kv.DB
+	DB   **badger.DB
 	Type interface{}
 
 	Index *librarian.SeqSetterIndex
 }
 
 func (op opIndexNew) Do(t *testing.T, env interface{}) {
-	*op.Index = libmkv.NewIndex(*op.DB, op.Type)
-	require.NotNil(t, *op.Index, "libmkv.NewIndex returned nil")
+	*op.Index = libbadger.NewIndex(*op.DB, op.Type)
+	require.NotNil(t, *op.Index, "libbadger.NewIndex returned nil")
 }
 
 type opIndexGet struct {
@@ -51,15 +53,15 @@ func (op opIndexGet) Do(t *testing.T, env interface{}) {
 
 type opDBCreate struct {
 	Name string
-	Opts *kv.Options
 
 	ExpErr string
-	DB     **kv.DB
+	DB     **badger.DB
 }
 
 func (op opDBCreate) Do(t *testing.T, env interface{}) {
 	var err error
-	*(op.DB), err = kv.Create(op.Name, op.Opts)
+
+	*(op.DB), err = repo.OpenBadgerDB(op.Name)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on kv.Create")
 	} else {
@@ -69,15 +71,14 @@ func (op opDBCreate) Do(t *testing.T, env interface{}) {
 
 type opDBOpen struct {
 	Name string
-	Opts *kv.Options
 
 	ExpErr string
-	DB     **kv.DB
+	DB     **badger.DB
 }
 
 func (op opDBOpen) Do(t *testing.T, env interface{}) {
 	var err error
-	*(op.DB), err = kv.Open(op.Name, op.Opts)
+	*(op.DB), err = repo.OpenBadgerDB(op.Name)
 	if op.ExpErr == "" {
 		require.NoError(t, err, "unexpected error on kv.Open")
 	} else {
@@ -115,7 +116,7 @@ func (op opDBSet) Do(t *testing.T, env interface{}) {
 }
 
 type opDBGet struct {
-	DB  **kv.DB
+	DB  **badger.DB
 	Key []byte
 
 	Log bool
@@ -125,38 +126,24 @@ type opDBGet struct {
 }
 
 func (op opDBGet) Do(t *testing.T, env interface{}) {
-	val, err := (*op.DB).Get(nil, op.Key)
-	if op.ExpErr == "" {
-		require.NoError(t, err, "error getting value from db")
-	} else {
-		require.EqualErrorf(t, err, op.ExpErr, "expected error getting value from db %q but got: %v", op.ExpErr, err)
-	}
+	(*op.DB).View(func(txn *badger.Txn) error {
+		val, err := txn.Get(op.Key)
+		if op.ExpErr == "" {
+			require.NoError(t, err, "error getting value from db")
+		} else {
+			require.EqualErrorf(t, err, op.ExpErr, "expected error getting value from db %q but got: %v", op.ExpErr, err)
+			return nil
+		}
+		data, err := val.ValueCopy(nil)
+		if err != nil {
+			require.NoError(t, err, "did not get value")
+			return nil
+		}
+		if op.Log {
+			t.Logf("DB.Get - Key:%x Value:%x Exp:%x", op.Key, data, op.ExpValue)
+		}
+		require.Equal(t, op.ExpValue, data, "read wrong value from db")
+		return nil
+	})
 
-	if op.Log {
-		t.Logf("DB.Get - Key:%x Value:%x Exp:%x", op.Key, val, op.ExpValue)
-	}
-
-	require.Equal(t, op.ExpValue, val, "read wrong value from db")
-}
-
-type opDBPut struct {
-	DB     **kv.DB
-	Key    []byte
-	Update func(old, new []byte) ([]byte, bool, error)
-
-	ExpOld     []byte
-	ExpWritten bool
-	ExpErr     string
-}
-
-func (op opDBPut) Do(t *testing.T, env interface{}) {
-	old, written, err := (*op.DB).Put(nil, op.Key, op.Update)
-	if op.ExpErr == "" {
-		require.NoError(t, err, "error getting value from db")
-	} else {
-		require.EqualErrorf(t, err, op.ExpErr, "expected error getting value from db %q but got: %v", op.ExpErr, err)
-	}
-
-	require.Equalf(t, op.ExpWritten, written, "expected written=%v, got %v", op.ExpWritten, written)
-	require.Equalf(t, op.ExpOld, old, "expected old=%x, got %x", op.ExpOld, old)
 }

@@ -34,11 +34,11 @@ type LegacyMessage struct {
 }
 
 // Sign preserves the filed order (up to content)
-func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (*refs.MessageRef, []byte, error) {
+func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (refs.MessageRef, []byte, error) {
 	// flatten interface{} content value
 	pp, err := jsonAndPreserve(msg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
+		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
 	}
 
 	if hmacSecret != nil {
@@ -55,22 +55,19 @@ func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (*r
 	// encode again, now with the signature to get the hash of the message
 	ppWithSig, err := jsonAndPreserve(signedMsg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("legacySign: error re-encoding signed message: %w", err)
+		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: error re-encoding signed message: %w", err)
 	}
 
 	v8warp, err := InternalV8Binary(ppWithSig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("legacySign: could not v8 escape message: %w", err)
+		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: could not v8 escape message: %w", err)
 	}
 
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))
 
-	mr := &refs.MessageRef{
-		Hash: h.Sum(nil),
-		Algo: refs.RefAlgoMessageSSB1,
-	}
-	return mr, ppWithSig, nil
+	mr, err := refs.NewMessageRefFromBytes(h.Sum(nil), refs.RefAlgoMessageSSB1)
+	return mr, ppWithSig, err
 }
 
 func jsonAndPreserve(msg interface{}) ([]byte, error) {

@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private"
@@ -62,10 +62,10 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 		// sometimes the go type system is really silly and pedantic.
 		// a []typeA where typeA implements interface typeX is not the same as []typeX
 		var opagueRefs []refs.Ref
-		var feedRefs []*refs.FeedRef
+		var feedRefs []refs.FeedRef
 
 		for i, r := range recps {
-			if mr, ok := r.IsMessage(); ok && mr.Algo == refs.RefAlgoCloakedGroup {
+			if mr, ok := r.IsMessage(); ok && mr.Algo() == refs.RefAlgoCloakedGroup {
 				if i != 0 {
 					return nil, fmt.Errorf("currently the group needs to be the first recipient")
 				}
@@ -84,7 +84,7 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 
 		if useBox2 {
 			return nil, fmt.Errorf("TODO: get previous for author")
-			prev := &refs.MessageRef{}
+			prev := refs.MessageRef{}
 			ciphertext, err := h.boxer.EncryptBox2(args[0], prev, opagueRefs)
 			if err != nil {
 				return nil, err

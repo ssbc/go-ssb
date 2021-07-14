@@ -61,7 +61,7 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 			continue
 		}
 
-		if feed.Algo != refs.RefAlgoFeedSSB1 {
+		if feed.Algo() != refs.RefAlgoFeedSSB1 {
 			// skip other formats (TODO: gg support)
 			continue
 		}

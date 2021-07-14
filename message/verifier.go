@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
@@ -18,43 +18,11 @@ func NewVerificationSinker(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec 
 
 		rxlog: rxlog,
 		feeds: feeds,
+		saver: MargaretSaver{rxlog},
 
 		mu:    new(sync.Mutex),
 		sinks: make(verifyFanIn),
 	}, nil
-}
-
-type verifyFanIn map[string]SequencedSink
-
-type VerifySink struct {
-	rxlog margaret.Log
-	feeds multilog.MultiLog
-
-	hmacSec *[32]byte
-
-	mu    *sync.Mutex
-	sinks verifyFanIn
-}
-
-func (vs *VerifySink) GetSink(ref *refs.FeedRef) (SequencedSink, error) {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
-
-	// do we have an open sink for this feed already?
-	snk, has := vs.sinks[ref.Ref()]
-	if has {
-		return snk, nil
-	}
-
-	msg, err := vs.getLatestMsg(ref)
-	if err != nil {
-		return nil, err
-	}
-
-	var ms = MargaretSaver{vs.rxlog}
-	snk = NewVerifySink(ref, msg, msg, ms, vs.hmacSec)
-	vs.sinks[ref.Ref()] = snk
-	return snk, nil
 }
 
 type MargaretSaver struct {
@@ -66,18 +34,59 @@ func (ms MargaretSaver) Save(msg refs.Message) error {
 	return err
 }
 
-func firstMessage(r *refs.FeedRef) refs.KeyValueRaw {
-	author := r.Copy()
+type verifyFanIn map[string]SequencedSink
+
+type VerifySink struct {
+	rxlog margaret.Log
+	feeds multilog.MultiLog
+
+	saver SaveMessager
+
+	hmacSec *[32]byte
+
+	mu    *sync.Mutex
+	sinks verifyFanIn
+}
+
+func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
+	// do we have an open sink for this feed already?
+	snk, has := vs.sinks[ref.Ref()]
+	if has {
+		return snk, nil
+	}
+	// no => create a new sink
+
+	// establish latest message we have stored for them
+	msg, err := vs.getLatestMsg(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	snk = NewVerifySink(ref, msg, msg, vs.saver, vs.hmacSec)
+	vs.sinks[ref.Ref()] = snk
+	return snk, nil
+}
+
+func (vs *VerifySink) CloseSink(ref refs.FeedRef) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+	delete(vs.sinks, ref.Ref())
+}
+
+func firstMessage(author refs.FeedRef) refs.KeyValueRaw {
 	return refs.KeyValueRaw{
 		Value: refs.Value{
 			Previous: nil,
-			Author:   *author,
-			Sequence: margaret.BaseSeq(0),
+			Author:   author,
+			Sequence: 0,
 		},
 	}
 }
 
-func (vs VerifySink) getLatestMsg(ref *refs.FeedRef) (refs.Message, error) {
+func (vs VerifySink) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
 	frAddr := storedrefs.Feed(ref)
 	userLog, err := vs.feeds.Get(frAddr)
 	if err != nil {

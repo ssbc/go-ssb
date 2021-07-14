@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-// Package control offers muxrpc helpers to connect to remote peers.
+// Package conn offers muxrpc helpers to connect to remote peers.
 //
-// TODO: this is a naming hack, supplies ctrl.connect which should actually be gossip.connect.
-package control
+package conn
 
 import (
 	"context"
@@ -11,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	multiserver "go.mindeco.de/ssb-multiserver"
 	refs "go.mindeco.de/ssb-refs"
@@ -40,17 +39,17 @@ func New(i logging.Interface, n ssb.Network, r ssb.Replicator) muxrpc.Handler {
 
 	mux := typemux.New(i)
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "dialViaRoom"}, typemux.AsyncFunc(h.dialViaRoom))
+	mux.RegisterAsync(muxrpc.Method{"conn", "dialViaRoom"}, typemux.AsyncFunc(h.dialViaRoom))
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "connect"}, typemux.AsyncFunc(h.connect))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "disconnect"}, typemux.AsyncFunc(h.disconnect))
+	mux.RegisterAsync(muxrpc.Method{"conn", "connect"}, typemux.AsyncFunc(h.connect))
+	mux.RegisterAsync(muxrpc.Method{"conn", "disconnect"}, typemux.AsyncFunc(h.disconnect))
 
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "replicate"}, unmarshalActionMap(h.replicate))
-	mux.RegisterAsync(muxrpc.Method{"ctrl", "block"}, unmarshalActionMap(h.block))
+	mux.RegisterAsync(muxrpc.Method{"conn", "replicate"}, unmarshalActionMap(h.replicate))
+	mux.RegisterAsync(muxrpc.Method{"conn", "block"}, unmarshalActionMap(h.block))
 	return &mux
 }
 
-type actionMap map[*refs.FeedRef]bool
+type actionMap map[refs.FeedRef]bool
 
 type actionFn func(context.Context, actionMap) error
 
@@ -63,7 +62,7 @@ func unmarshalActionMap(next actionFn) typemux.AsyncFunc {
 		err := json.Unmarshal(r.RawArgs, &args)
 		if err != nil {
 			// failed, trying array of feed strings
-			var ref []*refs.FeedRef
+			var ref []refs.FeedRef
 			err = json.Unmarshal(r.RawArgs, &ref)
 			if err != nil {
 				return nil, fmt.Errorf("action unmarshal: bad arguments: %w", err)
@@ -117,9 +116,43 @@ func (h *handler) block(ctx context.Context, m actionMap) error {
 	return nil
 }
 
+type reply struct {
+	Result string `json:"result"`
+}
+
 func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{}, error) {
-	h.node.GetConnTracker().CloseAll()
-	return "disconencted", nil
+
+	var args []refs.FeedRef
+	err := json.Unmarshal(r.RawArgs, &args)
+	if err != nil {
+
+		var rawArray []string
+		err := json.Unmarshal(r.RawArgs, &rawArray)
+		if err != nil {
+			return nil, fmt.Errorf("bad argument: %w", err)
+		}
+
+		for i, a := range rawArray {
+			na, err := multiserver.ParseNetAddress([]byte(a))
+			if err != nil {
+				return nil, fmt.Errorf("bad argument no %d (%q): %w", i, string(a), err)
+			}
+			args = append(args, na.Ref)
+		}
+	}
+
+	if len(args) == 0 {
+		ct := h.node.GetConnTracker()
+		ct.CloseAll()
+	} else {
+		for _, ref := range args {
+			if edp, has := h.node.GetEndpointFor(ref); has {
+				edp.Terminate()
+			}
+		}
+	}
+
+	return reply{"disconencted"}, nil
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -146,7 +179,7 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
 	}
-	return "connected", nil
+	return reply{"conencted"}, nil
 }
 
 func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -171,5 +204,5 @@ func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interfa
 		return nil, err
 	}
 
-	return "connected", nil
+	return reply{"connected"}, nil
 }

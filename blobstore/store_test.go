@@ -16,6 +16,7 @@ import (
 
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 )
 
 func TestStore(t *testing.T) {
@@ -75,12 +76,8 @@ func TestStore(t *testing.T) {
 			iChangeSink int
 		)
 
-		changesSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+		changesSink := broadcasts.BlobStoreFuncEmitter(func(not ssb.BlobStoreNotification) error {
 			defer func() { iChangeSink++ }()
-			not, ok := v.(ssb.BlobStoreNotification)
-			if !ok {
-				return fmt.Errorf("expected %T but got %T", not, v)
-			}
 
 			if iChangeSink < len(tc.putRefs) {
 				if not.Op != ssb.BlobStoreOpPut {
@@ -120,9 +117,9 @@ func TestStore(t *testing.T) {
 				}
 			}()
 
-			bs.Changes().Register(changesSink)
+			bs.Register(changesSink)
 
-			testRefs := make(map[string]*refs.BlobRef)
+			testRefs := make(map[string]refs.BlobRef)
 
 			for _, refStr := range tc.putRefs {
 				ref, err := bs.Put(strings.NewReader(tc.blobs[refStr]))
@@ -161,11 +158,11 @@ func TestStore(t *testing.T) {
 					r.NoError(err, "error calling Next on list source")
 				}
 
-				ref, ok := v.(*refs.BlobRef)
-				r.Equal(true, ok, "got something that is not a blobref in list: %v(%T)", v, v)
+				ref, ok := v.(refs.BlobRef)
+				r.True(ok, "got something that is not a blobref in list: %v(%T)", v, v)
 
 				_, ok = listExp[ref.Ref()]
-				r.Equal(true, ok, "received unexpected ref in list:", ref)
+				r.True(ok, "received unexpected ref in list: %s", ref)
 
 				delete(listExp, ref.Ref())
 			}

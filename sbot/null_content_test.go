@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
@@ -45,7 +45,7 @@ func XTestNullContentRequest(t *testing.T) {
 	tRepo := repo.New(tRepoPath)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -90,13 +90,13 @@ func XTestNullContentRequest(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		msg, err := mainbot.Get(*ref)
+		msg, err := mainbot.Get(ref)
 		r.NoError(err)
 		r.NotNil(msg)
 
 		r.True(msg.Author().Equal(n2kp[intro.as].Id))
 
-		allMessages = append(allMessages, *ref)
+		allMessages = append(allMessages, ref)
 	}
 
 	// assert helper
@@ -134,7 +134,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 
 	arniesLog = mutil.Indirect(mainbot.ReceiveLog, arniesLog)
-	dcr := refs.NewDropContentRequest(1, allMessages[0])
+	dcr := ssb.NewDropContentRequest(1, allMessages[0])
 	r.False(dcr.Valid(arniesLog))
 
 	// bert is in gg format so it works
@@ -167,18 +167,18 @@ func XTestNullContentRequest(t *testing.T) {
 	}
 
 	for ic, c := range cases {
-		tmsg := refs.NewDropContentRequest(c.seq, c.msgkey)
+		tmsg := ssb.NewDropContentRequest(c.seq, c.msgkey)
 		_, err = json.Marshal(tmsg)
 		r.NoError(err)
 		a.Equal(c.okay, tmsg.Valid(bertLog), "%d: failed", ic)
 	}
 
-	dropContent := refs.NewDropContentRequest(3, *msg.Key())
+	dropContent := ssb.NewDropContentRequest(3, msg.Key())
 	v, err := json.Marshal(dropContent)
 	r.NoError(err)
 	t.Log(string(v))
 
-	msg, err = mainbot.Get(*msg.Key())
+	msg, err = mainbot.Get(msg.Key())
 	r.NoError(err)
 	origContent := msg.ContentBytes()
 	a.NotNil(origContent)
@@ -193,7 +193,7 @@ func XTestNullContentRequest(t *testing.T) {
 	logger.Log("msg", "waited")
 
 	// aaand it's gone
-	msg, err = mainbot.Get(*msg.Key())
+	msg, err = mainbot.Get(msg.Key())
 	r.NoError(err)
 	nulledContent := msg.ContentBytes()
 	a.Nil(nulledContent, "content not nil")
@@ -203,7 +203,7 @@ func XTestNullContentRequest(t *testing.T) {
 	a.NotNil(msg.Seq(), "sequence is still there")
 
 	// can't delete a delete
-	cantDropThis := refs.NewDropContentRequest(6, *del)
+	cantDropThis := ssb.NewDropContentRequest(6, del)
 	a.False(cantDropThis.Valid(bertLog), "can't delete a delete")
 
 	// still try
@@ -213,7 +213,7 @@ func XTestNullContentRequest(t *testing.T) {
 	t.Log("invalid dcr:", del2.Ref())
 
 	// not gone
-	msg, err = mainbot.Get(*del2)
+	msg, err = mainbot.Get(del2)
 	r.NoError(err)
 	a.NotNil(msg.ContentBytes())
 
@@ -241,7 +241,7 @@ func XTestNullContentAndSync(t *testing.T) {
 	bs := newBotServer(ctx, logger)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)

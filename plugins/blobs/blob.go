@@ -10,9 +10,9 @@ import (
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"

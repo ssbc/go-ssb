@@ -12,16 +12,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/muxrpc/v2/codec"
-
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
-
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/muxrpc/v2/codec"
+	"go.mindeco.de/log"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
@@ -30,12 +28,13 @@ import (
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/repo"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func requireFeedRef(
 	t *testing.T,
 	arg string,
-) *refs.FeedRef {
+) refs.FeedRef {
 	ret, err := refs.ParseFeedRef(arg)
 	require.NoError(t, err)
 	return ret
@@ -48,7 +47,7 @@ func loadTestRepo(
 	func(t *testing.T, num int, text string),
 	margaret.Log,
 	multilog.MultiLog,
-	*ssb.KeyPair,
+	ssb.KeyPair,
 ) {
 
 	os.RemoveAll(repoPath)
@@ -60,7 +59,7 @@ func loadTestRepo(
 	rootLog, err := repo.OpenLog(r)
 	require.NoError(t, err, "error opening source repository")
 
-	userFeeds, refresh, err := multilogs.OpenUserFeeds(r)
+	userFeeds, refresh, err := repo.OpenStandaloneMultiLog(r, "userFeeds", multilogs.UserFeedsUpdate)
 	require.NoError(t, err, "error getting dst userfeeds multilog")
 
 	pub, err := message.OpenPublishLog(rootLog, userFeeds, keyPair)
@@ -70,7 +69,6 @@ func loadTestRepo(
 }
 
 func createMessages(pub ssb.Publisher, fill librarian.SinkIndex, rootLog margaret.Log) func(t *testing.T, num int, text string) {
-
 	return func(t *testing.T, num int, text string) {
 		t.Log("creating", num, text)
 		for i := 0; i < num; i++ {
@@ -170,8 +168,8 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			fm := NewFeedManager(context.TODO(), rootLog, userFeeds, infoAlice, nil, nil)
 
-			err = fm.CreateStreamHistory(ctx, sink, &test.Args)
-			r.NoError(err)
+			err = fm.CreateStreamHistory(ctx, sink, test.Args)
+			r.NoError(err, "error from CreateStreamHistory()")
 			t.Log("serving")
 			create(t, test.LiveMessages, "post/live")
 

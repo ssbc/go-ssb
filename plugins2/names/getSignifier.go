@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 )
 
 type hGetSignifier struct {

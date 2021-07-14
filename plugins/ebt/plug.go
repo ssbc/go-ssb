@@ -5,10 +5,10 @@ package ebt
 import (
 	"sync"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
@@ -20,7 +20,7 @@ type Plugin struct{ *MUXRPCHandler }
 
 func NewPlug(
 	i logging.Interface,
-	self *refs.FeedRef,
+	self refs.FeedRef,
 	rootLog margaret.Log,
 	uf multilog.MultiLog,
 	fm *gossip.FeedManager,

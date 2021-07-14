@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbader "go.cryptoscope.co/margaret/indexes/badger"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/repo"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -19,35 +21,31 @@ type Members map[string]bool
 
 // MembershipStore isn't strictly a multilog but putting it in package private gave cyclic import
 type MembershipStore struct {
+	logger log.Logger
+
 	idx         librarian.SeqSetterIndex
-	self        *refs.FeedRef
+	self        refs.FeedRef
 	unboxer     *private.Manager
 	combinedidx *CombinedIndex
 }
 
 var _ io.Closer = (*MembershipStore)(nil)
 
-// NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
-func NewMembershipIndex(r repo.Interface, self *refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex, error) {
-	pth := r.GetPath(repo.PrefixIndex, "groups", "members", "mkv")
-	err := os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: error making index directory: %w", err)
-	}
+var keyPrefix = []byte("group-members")
 
-	db, err := repo.OpenMKV(pth)
-	if err != nil {
-		return nil, nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
-	}
+// NewMembershipIndex tracks group/add-member messages and triggers re-reading box2 messages by the invited people that couldn't be read before.
+func NewMembershipIndex(logger log.Logger, db *badger.DB, self refs.FeedRef, unboxer *private.Manager, comb *CombinedIndex) (*MembershipStore, librarian.SinkIndex) {
 	var store = MembershipStore{
-		idx:         libmkv.NewIndex(db, Members{}),
+		logger: logger,
+
+		idx:         libbader.NewIndexWithKeyPrefix(db, Members{}, keyPrefix),
 		self:        self,
 		unboxer:     unboxer,
 		combinedidx: comb,
 	}
 
 	snk := librarian.NewSinkIndex(store.updateFn, store.idx)
-	return &store, snk, nil
+	return &store, snk
 }
 
 func (mc MembershipStore) Close() error {
@@ -62,7 +60,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 
 	if msg.Author().Equal(mc.self) {
 		// our own message - all is done already
-		fmt.Println("skipping invite from self")
+		level.Debug(mc.logger).Log("msg", "skipping invite from self")
 		return nil
 	}
 
@@ -77,11 +75,11 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		return nil // invalid message
 	}
 
-	var groupID *refs.MessageRef
-	var newMembers []*refs.FeedRef
+	var groupID refs.MessageRef
+	var newMembers []refs.FeedRef
 	for _, r := range addMemberMsg.Recps {
 		rcp, err := refs.ParseMessageRef(r)
-		if err == nil && rcp.Algo == refs.RefAlgoCloakedGroup {
+		if err == nil && rcp.Algo() == refs.RefAlgoCloakedGroup {
 			groupID = rcp
 			continue
 		}
@@ -93,10 +91,6 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		newMembers = append(newMembers, m)
 	}
 
-	if groupID == nil {
-		return nil // invalid message
-	}
-
 	/* TODO? not really required but would fit into the existing scheme
 	   then again, we would need to allocate a value in tfk for this...
 
@@ -106,7 +100,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 		}
 	*/
 
-	idxAddr := librarian.Addr(groupID.Hash)
+	idxAddr := storedrefs.Message(groupID)
 	state, err := mc.idx.Get(ctx, idxAddr)
 	if err != nil {
 		return err
@@ -141,7 +135,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val in
 			if err != nil {
 				return err
 			}
-			fmt.Println("joined group:", cloakedGroupID.Ref())
+			level.Debug(mc.logger).Log("event", "joined group", "id", cloakedGroupID.Ref())
 
 			// if we are invited, we need to index the sending author
 			whoToIndex = msg.Author()

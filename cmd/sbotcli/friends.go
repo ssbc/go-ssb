@@ -1,9 +1,10 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	refs "go.mindeco.de/ssb-refs"
@@ -48,14 +49,14 @@ var friendsIsFollowingCmd = &cli.Command{
 		}
 
 		var arg = struct {
-			Source *refs.FeedRef `json:"source"`
-			Dest   *refs.FeedRef `json:"dest"`
+			Source refs.FeedRef `json:"source"`
+			Dest   refs.FeedRef `json:"dest"`
 		}{Source: srcRef, Dest: dstRef}
 
 		var is bool
 		err = client.Async(longctx, &is, muxrpc.TypeJSON, muxrpc.Method{"friends", "isFollowing"}, arg)
 		if err != nil {
-			return errors.Wrapf(err, "connect: async call failed.")
+			return fmt.Errorf("connect: async call failed: %w", err)
 		}
 
 		log.Log("event", "friends.isFollowing", "is", is)
@@ -73,11 +74,11 @@ var friendsHopsCmd = &cli.Command{
 		arg.Max = ctx.Uint("dist")
 
 		if who := ctx.Args().Get(0); who != "" {
-			var err error
-			arg.Start, err = refs.ParseFeedRef(who)
+			startRef, err := refs.ParseFeedRef(who)
 			if err != nil {
 				return err
 			}
+			arg.Start = &startRef
 		}
 
 		client, err := newClient(ctx)

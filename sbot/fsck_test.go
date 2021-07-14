@@ -8,17 +8,17 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 )
 
-func makeTestBot(t *testing.T) (*Sbot, []Option) {
+func makeFSCKTestBot(t *testing.T) (*Sbot, []Option) {
 	r := require.New(t)
 
 	testPath := filepath.Join("testrun", t.Name())
@@ -50,6 +50,10 @@ func makeTestBot(t *testing.T) (*Sbot, []Option) {
 }
 
 func TestFSCK(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		return
+	}
+
 	testPath := filepath.Join("testrun", t.Name())
 	os.RemoveAll(testPath)
 
@@ -61,7 +65,7 @@ func TestFSCK(t *testing.T) {
 
 func testFSCKcorrect(t *testing.T) {
 	r := require.New(t)
-	theBot, _ := makeTestBot(t)
+	theBot, _ := makeFSCKTestBot(t)
 
 	const n = 32
 	for i := n; i > 0; i-- {
@@ -83,7 +87,7 @@ func testFSCKcorrect(t *testing.T) {
 func testFSCKdouble(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
-	theBot, _ := makeTestBot(t)
+	theBot, _ := makeFSCKTestBot(t)
 
 	// more valid messages
 	const n = 32
@@ -157,7 +161,7 @@ func testFSCKdouble(t *testing.T) {
 func testFSCKmultipleFeeds(t *testing.T) {
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.TODO())
-	theBot, _ := makeTestBot(t)
+	theBot, _ := makeFSCKTestBot(t)
 
 	// some "correct" messages
 	const n = 32
@@ -246,7 +250,7 @@ func testFSCKrepro(t *testing.T) {
 	out, err := exec.Command("cp", "-v", "-r", buggedRepo, tRepoPath).CombinedOutput()
 	r.NoError(err, "got: %s", string(out))
 
-	theBot, _ := makeTestBot(t)
+	theBot, _ := makeFSCKTestBot(t)
 
 	seqV, err := theBot.ReceiveLog.Seq().Value()
 	r.NoError(err)

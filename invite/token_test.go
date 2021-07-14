@@ -15,9 +15,9 @@ import (
 func TestParseParseLegacyToken(t *testing.T) {
 	a := assert.New(t)
 
-	testRef := refs.FeedRef{
-		ID:   bytes.Repeat([]byte("b00p"), 8),
-		Algo: refs.RefAlgoFeedSSB1,
+	testRef, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte("b00p"), 8), refs.RefAlgoFeedSSB1)
+	if err != nil {
+		t.Fatal(err)
 	}
 	var tcases = []struct {
 		input string
@@ -32,7 +32,7 @@ func TestParseParseLegacyToken(t *testing.T) {
 			Address: netwrap.WrapAddr(&net.TCPAddr{
 				IP:   net.ParseIP("255.1.1.255"),
 				Port: 666,
-			}, secretstream.Addr{testRef.ID}),
+			}, secretstream.Addr{testRef.PubKey()}),
 			Peer: testRef,
 			Seed: [32]byte{},
 		}},
@@ -42,7 +42,7 @@ func TestParseParseLegacyToken(t *testing.T) {
 			Address: netwrap.WrapAddr(&net.TCPAddr{
 				IP:   net.ParseIP("fc97:c693:8b07:f84e:cbbf:d89a:16d5:3630"),
 				Port: 1234,
-			}, secretstream.Addr{testRef.ID}),
+			}, secretstream.Addr{testRef.PubKey()}),
 			Peer: testRef,
 			Seed: [32]byte{},
 		}},
@@ -52,7 +52,7 @@ func TestParseParseLegacyToken(t *testing.T) {
 			Address: netwrap.WrapAddr(&net.TCPAddr{
 				IP:   net.ParseIP("127.0.0.1"),
 				Port: 666,
-			}, secretstream.Addr{testRef.ID}),
+			}, secretstream.Addr{testRef.PubKey()}),
 			Peer: testRef,
 			Seed: [32]byte{},
 		}},

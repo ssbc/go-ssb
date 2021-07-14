@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -27,7 +27,7 @@ func (h addHandler) HandleSink(ctx context.Context, req *muxrpc.Request, src *mu
 		return fmt.Errorf("unauthorized")
 	}
 
-	if !requester.Equal(&h.self) {
+	if !requester.Equal(h.self) {
 		return fmt.Errorf("unauthorized")
 	}
 

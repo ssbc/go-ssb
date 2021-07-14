@@ -18,7 +18,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestGabbyFeedFromGo(t *testing.T) {
+func TestGabbyFeedFromGo(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -26,9 +26,8 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 	// hmac not supported on the js side
 	// ts := newRandomSession(t)
 
-	kp, err := ssb.NewKeyPair(nil)
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedGabby)
 	r.NoError(err)
-	kp.Id.Algo = refs.RefAlgoFeedGabby
 
 	ts.startGoBot(sbot.WithKeyPair(kp), sbot.DisableEBT(true))
 	s := ts.gobot
@@ -41,7 +40,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 			pull.collect((err, msgs) => {
 				t.error(err, "no error from the stream")
 				t.equal(msgs.length, 3, "should have 3 elements in stream reply")
-				console.warn(JSON.stringify(msgs))
+				// console.warn(JSON.stringify(msgs))
 				sbot.gabbygrove.verify(msgs[0], (err, evt) => {
 					t.error(err, 'verified msg[0]')
 					t.ok(evt)
@@ -54,7 +53,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 
     run()
 
-	// following is blocked on proper feed format support with new suffixes
+	// following and replication is blocked on proper feed format support with new suffixes
 `
 
 	alice := ts.startJSBot(before, "")
@@ -80,7 +79,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // wait for alice' connection
 
-	aliceEdp, ok := s.Network.GetEndpointFor(*alice)
+	aliceEdp, ok := s.Network.GetEndpointFor(alice)
 	r.True(ok, "no endpoint for alice")
 
 	ctx := context.TODO()
@@ -88,12 +87,12 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 	r.NoError(err)
 
 	// hacky, pretend alice is a gabby formated feed (as if it would respond to createHistoryStream)
-	aliceAsGabby := *alice
-	aliceAsGabby.Algo = refs.RefAlgoFeedGabby
+	aliceAsGabby, err := refs.NewFeedRefFromBytes(alice.PubKey(), refs.RefAlgoFeedGabby)
+	r.NoError(err)
 
 	var saver = message.MargaretSaver{s.ReceiveLog}
 
-	snk := message.NewVerifySink(&aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+	snk := message.NewVerifySink(aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
 
 	for src.Next(ctx) {
 		b, err := src.Bytes()
@@ -107,7 +106,7 @@ func XTestGabbyFeedFromGo(t *testing.T) {
 
 	uf, ok := s.GetMultiLog("userFeeds")
 	r.True(ok)
-	demoLog, err := uf.Get(storedrefs.Feed(&aliceAsGabby))
+	demoLog, err := uf.Get(storedrefs.Feed(aliceAsGabby))
 	r.NoError(err)
 
 	demoLogSeq, err := demoLog.Seq().Value()

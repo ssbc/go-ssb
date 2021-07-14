@@ -10,9 +10,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -66,7 +66,7 @@ func (h *createWantsHandler) HandleConnect(ctx context.Context, edp muxrpc.Endpo
 	if err != nil {
 		return
 	}
-	if ref.Equal(&h.self) {
+	if ref.Equal(h.self) {
 		return
 	}
 

@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cryptix/go/logging/countconn"
 	"github.com/go-kit/kit/metrics/prometheus"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.cryptoscope.co/netwrap"
+	"go.mindeco.de/logging/countconn"
 )
 
 var (

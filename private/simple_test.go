@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/private/box"
@@ -23,7 +24,7 @@ func TestSimple(t *testing.T) {
 		[]byte(`{"hello": true}`),
 	}
 
-	kp, err := ssb.NewKeyPair(nil)
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	boxer := box.NewBoxer(nil)
@@ -49,10 +50,10 @@ func TestNotForMe(t *testing.T) {
 		[]byte(`{"hello": true}`),
 	}
 
-	who, err := ssb.NewKeyPair(nil)
+	who, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	kp, err := ssb.NewKeyPair(nil)
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	boxer := box.NewBoxer(nil)

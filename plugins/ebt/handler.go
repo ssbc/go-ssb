@@ -11,13 +11,13 @@ import (
 	"io"
 	"net"
 
-	"github.com/go-kit/kit/log"
+	"go.mindeco.de/log"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/statematrix"
@@ -29,7 +29,7 @@ import (
 type MUXRPCHandler struct {
 	info logging.Interface
 
-	self      *refs.FeedRef
+	self      refs.FeedRef
 	rootLog   margaret.Log
 	userFeeds multilog.MultiLog
 
@@ -104,7 +104,7 @@ func (h *MUXRPCHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	h.Loop(ctx, snk, src, req.RemoteAddr())
 }
 
-func (h *MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote *refs.FeedRef) error {
+func (h *MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remote refs.FeedRef) error {
 	currState, err := h.stateMatrix.Changed(h.self, remote)
 	if err != nil {
 		return fmt.Errorf("failed to get changed frontier: %w", err)
@@ -177,18 +177,12 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 			// would be rad to get this from the pretty-printed version
 			// and just pass that to verify
 			var msgWithAuthor struct {
-				Author *refs.FeedRef
+				Author refs.FeedRef
 			}
 
 			err := json.Unmarshal(jsonBody, &msgWithAuthor)
 			if err != nil {
 				h.check(err)
-				continue
-			}
-
-			if msgWithAuthor.Author == nil {
-				// fmt.Println("debug body:", string(jsonBody))
-				h.check(fmt.Errorf("message without author?"))
 				continue
 			}
 
@@ -237,7 +231,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				continue
 			}
 
-			arg := &message.CreateHistArgs{
+			arg := message.CreateHistArgs{
 				ID:  feed,
 				Seq: their.Seq + 1,
 			}

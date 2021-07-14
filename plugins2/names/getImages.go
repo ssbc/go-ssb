@@ -4,10 +4,11 @@ package names
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -46,24 +47,21 @@ func (h hImagesFor) HandleAsync(ctx context.Context, req *muxrpc.Request) (inter
 	return mostSet, nil
 }
 
-func parseFeedRefFromArgs(req *muxrpc.Request) (*refs.FeedRef, error) {
-	args := req.Args()
-	if len(args) != 1 {
-		return nil, fmt.Errorf("not enough args")
+func parseFeedRefFromArgs(req *muxrpc.Request) (refs.FeedRef, error) {
+
+	var args []refs.FeedRef
+	err := json.Unmarshal(req.RawArgs, &args)
+	if err == nil && len(args) == 1 {
+		return args[0], nil
 	}
 
-	var refStr string
-	switch arg := args[0].(type) {
-	case string:
-		refStr = arg
-	case map[string]interface{}:
-		refStr, _ = arg["id"].(string)
+	var objArgs []struct {
+		ID refs.FeedRef `json:"id"`
+	}
+	err = json.Unmarshal(req.RawArgs, &objArgs)
+	if err == nil && len(args) == 1 {
+		return objArgs[0].ID, nil
 	}
 
-	ref, err := refs.ParseFeedRef(refStr)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing feed reference: %w", err)
-	}
-
-	return ref, nil
+	return refs.FeedRef{}, fmt.Errorf("error parsing arguments: %v", err)
 }

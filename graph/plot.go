@@ -69,7 +69,7 @@ func (g *Graph) Attributes() []encoding.Attribute {
 
 type contactNode struct {
 	graph.Node
-	feed *refs.FeedRef
+	feed refs.FeedRef
 	name string
 }
 

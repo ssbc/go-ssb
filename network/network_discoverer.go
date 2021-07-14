@@ -17,7 +17,7 @@ import (
 )
 
 type Discoverer struct {
-	local *ssb.KeyPair // to ignore our own
+	local ssb.KeyPair // to ignore our own
 
 	rx4 net.PacketConn
 	rx6 net.PacketConn
@@ -26,7 +26,7 @@ type Discoverer struct {
 	brodcasts map[int]chan net.Addr
 }
 
-func NewDiscoverer(local *ssb.KeyPair) (*Discoverer, error) {
+func NewDiscoverer(local ssb.KeyPair) (*Discoverer, error) {
 	d := &Discoverer{
 		local:     local,
 		brodcasts: make(map[int]chan net.Addr),

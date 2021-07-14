@@ -286,7 +286,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	r.NoError(botgroup.Wait())
 }
 
-func TestFeedsLiveNetworkDiamond(t *testing.T) {
+func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
 	}

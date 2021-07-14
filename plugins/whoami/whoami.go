@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
@@ -26,7 +26,7 @@ func checkAndLog(log logging.Interface, err error) {
 	}
 }
 
-func New(log logging.Interface, id *refs.FeedRef) ssb.Plugin {
+func New(log logging.Interface, id refs.FeedRef) ssb.Plugin {
 	return plugin{handler{
 		log: log,
 		id:  id,
@@ -49,7 +49,7 @@ func (plugin) WrapEndpoint(edp muxrpc.Endpoint) interface{} {
 
 type handler struct {
 	log logging.Interface
-	id  *refs.FeedRef
+	id  refs.FeedRef
 }
 
 func (handler) Handled(m muxrpc.Method) bool { return m.String() == "whoami" }

@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -141,12 +141,12 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 
 var jsBotCnt = 0
 
-func (ts *testSession) startJSBot(jsbefore, jsafter string) *refs.FeedRef {
+func (ts *testSession) startJSBot(jsbefore, jsafter string) refs.FeedRef {
 	return ts.startJSBotWithName("", jsbefore, jsafter)
 }
 
 // returns the jsbots pubkey
-func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.FeedRef {
+func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.FeedRef {
 	ts.t.Log("starting client", name)
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot_client.js")
@@ -199,7 +199,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) *refs.
 	return jsBotRef
 }
 
-func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (*refs.FeedRef, int) {
+func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.FeedRef, int) {
 	ts.t.Log("starting srv", name)
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot_serv.js")

@@ -12,11 +12,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"golang.org/x/crypto/ed25519"
 
 	"go.cryptoscope.co/ssb"
@@ -78,7 +78,7 @@ func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-func NewTCP(own *ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
+func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 	c, err := newClientWithOptions(opts)
 	if err != nil {
 		return nil, err
@@ -179,11 +179,11 @@ func (c Client) Close() error {
 	return nil
 }
 
-func (c Client) Whoami() (*refs.FeedRef, error) {
+func (c Client) Whoami() (refs.FeedRef, error) {
 	var resp message.WhoamiReply
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"whoami"})
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: whoami failed: %w", err)
+		return refs.FeedRef{}, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
 	return resp.ID, nil
 }
@@ -202,35 +202,35 @@ func (c Client) BlobsWant(ref refs.BlobRef) error {
 	if err != nil {
 		return fmt.Errorf("ssbClient: blobs.want failed: %w", err)
 	}
-	c.logger.Log("blob", "wanted", "v", v, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "wanted", "v", v, "ref", ref.Ref())
 	return nil
 }
 
-func (c Client) BlobsHas(ref *refs.BlobRef) (bool, error) {
+func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 	var has bool
 	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
 	if err != nil {
 		return false, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
-	c.logger.Log("blob", "has", "has", has, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "has", "has", has, "ref", ref.Ref())
 	return has, nil
 
 }
 
-func (c Client) BlobsGet(ref *refs.BlobRef) (io.Reader, error) {
+func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	args := blobstore.GetWithSize{Key: ref, Max: blobstore.DefaultMaxSize}
 	v, err := c.Source(c.rootCtx, 0, muxrpc.Method{"blobs", "get"}, args)
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: blobs.get failed: %w", err)
 	}
-	c.logger.Log("blob", "got", "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "got", "ref", ref.Ref())
 
 	return muxrpc.NewSourceReader(v), nil
 }
 
 type NamesGetResult map[string]map[string]string
 
-func (ngr NamesGetResult) GetCommonName(feed *refs.FeedRef) (string, bool) {
+func (ngr NamesGetResult) GetCommonName(feed refs.FeedRef) (string, bool) {
 	namesFor, ok := ngr[feed.Ref()]
 	if !ok {
 		return "", false
@@ -257,62 +257,54 @@ func (c Client) NamesGet() (NamesGetResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: names.get failed: %w", err)
 	}
-	c.logger.Log("names", "get", "cnt", len(res))
+	level.Debug(c.logger).Log("names", "get", "cnt", len(res))
 	return res, nil
 }
 
 func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	var name string
-	err := c.Async(c.rootCtx, &name, muxrpc.TypeJSON, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
+	err := c.Async(c.rootCtx, &name, muxrpc.TypeString, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
 	if err != nil {
 		return "", fmt.Errorf("ssbClient: names.getSignifier failed: %w", err)
 	}
-	c.logger.Log("names", "getSignifier", "name", name, "ref", ref.Ref())
+	level.Debug(c.logger).Log("names", "getSignifier", "name", name, "ref", ref.Ref())
 	return name, nil
 }
 
-func (c Client) NamesImageFor(ref refs.FeedRef) (*refs.BlobRef, error) {
+func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	var blobRef string
-	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeJSON, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
+	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeString, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
+		return refs.BlobRef{}, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
 	}
-	c.logger.Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
+	level.Debug(c.logger).Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
 	return refs.ParseBlobRef(blobRef)
 }
 
-func (c Client) Publish(v interface{}) (*refs.MessageRef, error) {
+func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 	var resp string
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeString, muxrpc.Method{"publish"}, v)
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: publish call failed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("ssbClient: publish call failed: %w", err)
 	}
 	msgRef, err := refs.ParseMessageRef(resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse new message reference: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("failed to parse new message reference: %w", err)
 	}
 	return msgRef, nil
 }
 
-func (c Client) PrivatePublish(v interface{}, recps ...*refs.FeedRef) (*refs.MessageRef, error) {
+func (c Client) PrivatePublish(v interface{}, recps ...refs.FeedRef) (refs.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
-		if ref == nil {
-			return nil, fmt.Errorf("ssbClient: bad call - recp%d is nil", i)
-		}
 		recpRefs[i] = ref.Ref()
 	}
-	var resp string
+	var resp refs.MessageRef
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"private", "publish"}, v, recpRefs)
 	if err != nil {
-		return nil, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
 	}
-	msgRef, err := refs.ParseMessageRef(resp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse new message reference (%q): %w", resp, err)
-	}
-
-	return msgRef, nil
+	return resp, nil
 }
 
 func (c Client) PrivateRead() (*muxrpc.ByteSource, error) {
@@ -347,13 +339,15 @@ func (c Client) MessagesByType(o message.MessagesByTypeArgs) (*muxrpc.ByteSource
 	return src, nil
 }
 
-func (c Client) Tangles(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
-	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "replies"}, o)
+func (c Client) TanglesThread(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "thread"}, o)
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient/tangles: failed to create stream: %w", err)
 	}
 	return src, nil
 }
+
+// TODO: TanglesHeads
 
 type noopHandler struct{ logger log.Logger }
 

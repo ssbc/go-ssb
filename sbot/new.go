@@ -4,38 +4,46 @@ package sbot
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/dgraph-io/badger/v3"
+	"github.com/go-kit/kit/metrics"
 	"github.com/rs/cors"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
-	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/netwrap"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
+	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
+	"go.cryptoscope.co/ssb/internal/multicloser"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message"
+	"go.cryptoscope.co/ssb/message/multimsg"
 	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/network"
 	"go.cryptoscope.co/ssb/plugins/blobs"
-	"go.cryptoscope.co/ssb/plugins/control"
+	"go.cryptoscope.co/ssb/plugins/conn"
 	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/friends"
 	"go.cryptoscope.co/ssb/plugins/get"
@@ -57,102 +65,177 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (sbot *Sbot) Replicate(r *refs.FeedRef) {
-	slog, err := sbot.Users.Get(storedrefs.Feed(r))
-	if err != nil {
-		panic(err)
-	}
+// Sbot is the database and replication server
+type Sbot struct {
+	info kitlog.Logger
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	// TODO: this thing is way to big right now
+	// because it's options and the resulting thing in one
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
-	})
+	// lateInit are options that need to be applied after others (like plugins that depend on keypairs)
+	lateInit []Option
 
-	sbot.Replicator.Replicate(r)
+	rootCtx context.Context
+	// Shutdown needs to be called to shutdown indexing
+	Shutdown  context.CancelFunc
+	closers   multicloser.MultiCloser
+	idxDone   errgroup.Group
+	idxInSync sync.WaitGroup
+
+	closed   bool
+	closedMu sync.Mutex
+	closeErr error
+
+	promisc  bool
+	hopCount uint
+
+	disableEBT                   bool
+	disableLegacyLiveReplication bool
+
+	Network *network.Node
+	// TODO: these should all be options that are applied on the network construction...
+	disableNetwork     bool
+	appKey             []byte
+	listenAddr         net.Addr
+	dialer             netwrap.Dialer
+	edpWrapper         MuxrpcEndpointWrapper
+	networkConnTracker ssb.ConnTracker
+	preSecureWrappers  []netwrap.ConnWrapper
+	postSecureWrappers []netwrap.ConnWrapper
+
+	public ssb.PluginManager
+	master ssb.PluginManager
+
+	authorizer ssb.Authorizer
+
+	enableAdverts   bool
+	enableDiscovery bool
+
+	websocketAddr string
+
+	repoPath string
+	KeyPair  ssb.KeyPair
+
+	Groups *private.Manager
+
+	ReceiveLog multimsg.AlterableLog // the stream of messages as they arrived
+
+	SeqResolver *repo.SequenceResolver
+
+	PublishLog     ssb.Publisher
+	signHMACsecret *[32]byte
+
+	// hardcoded default indexes
+	Users   *roaring.MultiLog // one sublog per feed
+	Private *roaring.MultiLog // one sublog per keypair
+	ByType  *roaring.MultiLog // one sublog per type: ... (special cases for private messages by suffix)
+	Tangles *roaring.MultiLog // one sublog per root:%ref (actual root is in the get index)
+
+	indexStore *badger.DB
+
+	// plugin indexes
+	mlogIndicies map[string]multilog.MultiLog
+	simpleIndex  map[string]librarian.Index
+
+	liveIndexUpdates bool
+	indexStateMu     sync.Mutex
+	indexStates      map[string]string
+
+	ebtState *statematrix.StateMatrix
+
+	verifySink *message.VerifySink
+
+	GraphBuilder graph.Builder
+
+	BlobStore   ssb.BlobStore
+	WantManager ssb.WantManager
+
+	// TODO: wrap better
+	eventCounter metrics.Counter
+	systemGauge  metrics.Gauge
+	latency      metrics.Histogram
+
+	ssb.Replicator
 }
 
-func (sbot *Sbot) DontReplicate(r *refs.FeedRef) {
-	slog, err := sbot.Users.Get(storedrefs.Feed(r))
-	if err != nil {
-		panic(err)
-	}
+// New creates an sbot instance using the passed options to configure it.
+func New(fopts ...Option) (*Sbot, error) {
+	var s = new(Sbot)
+	s.liveIndexUpdates = true
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	s.public = ssb.NewPluginManager()
+	s.master = ssb.NewPluginManager()
 
-	sbot.ebtState.Fill(sbot.KeyPair.Id, []statematrix.ObservedFeed{
-		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
-	})
+	s.mlogIndicies = make(map[string]multilog.MultiLog)
+	s.simpleIndex = make(map[string]librarian.Index)
+	s.indexStates = make(map[string]string)
 
-	sbot.Replicator.DontReplicate(r)
-}
+	s.disableLegacyLiveReplication = true
 
-// ShutdownContext returns a context that returns ssb.ErrShuttingDown when canceld.
-// The server internals use this error to cleanly shut down index processing.
-func ShutdownContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	return ctxutils.WithError(ctx, ssb.ErrShuttingDown)
-}
-
-// Close closes the bot by stopping network connections and closing the internal databases
-func (s *Sbot) Close() error {
-	s.closedMu.Lock()
-	defer s.closedMu.Unlock()
-
-	if s.closed {
-		return s.closeErr
-	}
-
-	closeEvt := kitlog.With(s.info, "event", "sbot closing")
-	s.closed = true
-
-	if s.Network != nil {
-		if err := s.Network.Close(); err != nil {
-			s.closeErr = fmt.Errorf("sbot: failed to close own network node: %w", err)
-			return s.closeErr
+	for i, opt := range fopts {
+		err := opt(s)
+		if err != nil {
+			return nil, fmt.Errorf("error applying option #%d: %w", i, err)
 		}
-		s.Network.GetConnTracker().CloseAll()
-		level.Debug(closeEvt).Log("msg", "connections closed")
 	}
 
-	if err := s.idxDone.Wait(); err != nil {
-		s.closeErr = fmt.Errorf("sbot: index group shutdown failed: %w", err)
-		return s.closeErr
-	}
-	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
+	if s.repoPath == "" {
+		u, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("error getting info on current user: %w", err)
+		}
 
-	if err := s.closers.Close(); err != nil {
-		s.closeErr = err
-		return s.closeErr
+		s.repoPath = filepath.Join(u.HomeDir, ".ssb-go")
 	}
 
-	level.Info(closeEvt).Log("msg", "closers closed")
-	return nil
-}
+	if s.appKey == nil {
+		ak, err := base64.StdEncoding.DecodeString("1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=")
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode default appkey: %w", err)
+		}
+		s.appKey = ak
+	}
 
-// is called by New() in options, sorry
-func initSbot(s *Sbot) (*Sbot, error) {
+	if s.dialer == nil {
+		s.dialer = netwrap.Dial
+	}
+
+	if s.listenAddr == nil {
+		s.listenAddr = &net.TCPAddr{Port: network.DefaultPort}
+	}
+
+	if s.info == nil {
+		logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stdout))
+		logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
+		s.info = logger
+	}
 	log := s.info
-	var err error
+
+	if s.rootCtx == nil {
+		s.rootCtx, s.Shutdown = ShutdownContext(context.Background())
+	}
 	ctx := s.rootCtx
 
 	r := repo.New(s.repoPath)
 
-	// optionize?!
+	var err error
+	if len(s.KeyPair.Pair.Secret) == 0 {
+		s.KeyPair, err = repo.DefaultKeyPair(r)
+		if err != nil {
+			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
+		}
+	}
+
+	// TODO: optionize
 	s.ReceiveLog, err = repo.OpenLog(r)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open rootlog: %w", err)
 	}
 	s.closers.AddCloser(s.ReceiveLog.(io.Closer))
 
-	if s.BlobStore == nil { // load default, local file blob store
+	// if not configured
+	if s.BlobStore == nil {
+		// load default, local file blob store
 		s.BlobStore, err = repo.OpenBlobStore(r)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to open blob store: %w", err)
@@ -185,12 +268,19 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.AddCloser(sm)
 	s.ebtState = sm
 
-	// TODO[major/pgroups] fix storage and resumption
-	// s.SeqResolver, err = repo.NewSequenceResolver(r)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error opening sequence resolver: %w", err)
-	// }
-	// s.closers.AddCloser(s.SeqResolver)
+	// open timestamp and sequence resovlers
+	s.SeqResolver, err = repo.NewSequenceResolver(r)
+	if err != nil {
+		return nil, fmt.Errorf("error opening sequence resolver: %w", err)
+	}
+	idxTimestamps := indexes.NewTimestampSorter(s.SeqResolver)
+	s.closers.AddCloser(idxTimestamps)
+	s.serveIndex("timestamps", idxTimestamps)
+
+	s.indexStore, err = repo.OpenBadgerDB(r.GetPath(repo.PrefixMultiLog, "shared-badger"))
+	if err != nil {
+		return nil, err
+	}
 
 	// default multilogs
 	var mlogs = []struct {
@@ -201,23 +291,20 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		{multilogs.IndexNamePrivates, &s.Private},
 		{"msgTypes", &s.ByType},
 		{"tangles", &s.Tangles},
+		// TODO: channels
+		// TODO: mentions
 	}
 	for _, index := range mlogs {
-		mlogPath := r.GetPath(repo.PrefixMultiLog, "combined", index.Name, "fs-bitmaps")
-
-		ml, err := multifs.NewMultiLog(mlogPath)
+		mlog, err := multibadger.NewShared(s.indexStore, []byte("mlog-"+index.Name))
 		if err != nil {
-			return nil, fmt.Errorf("sbot: failed to open multilog %s: %w", index.Name, err)
+			return nil, err
 		}
-		s.closers.AddCloser(ml)
-		s.mlogIndicies[index.Name] = ml
+		s.closers.AddCloser(mlog)
+		s.mlogIndicies[index.Name] = mlog
 
-		if err := ml.CompressAll(); err != nil {
-			return nil, fmt.Errorf("sbot: failed compress multilog %s: %w", index.Name, err)
-		}
-
-		*index.Mlog = ml
+		*index.Mlog = mlog
 	}
+
 	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
@@ -230,46 +317,33 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to create publish log: %w", err)
 	}
 
-	err = MountSimpleIndex("get", indexes.OpenGet)(s)
+	// get(msgRef) -> rxLog sequence index
+	getIdx, updateSink := indexes.OpenGet(s.indexStore)
+	s.closers.AddCloser(updateSink)
+	s.serveIndex("get", updateSink)
+	s.simpleIndex["get"] = getIdx
+
+	// groups2
+	idxKeys := libbadger.NewIndexWithKeyPrefix(s.indexStore, keys.Recipients{}, []byte("group-and-signing"))
+	keysStore := &keys.Store{
+		Index: idxKeys,
+	}
+	s.closers.AddCloser(idxKeys)
+
+	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, keysStore, s.ReceiveLog, s, s.Tangles)
+
+	groupsHelperMlog, err := multibadger.NewShared(s.indexStore, []byte("group-member-helper"))
 	if err != nil {
 		return nil, err
 	}
-
-	// groups2
-	pth := r.GetPath(repo.PrefixIndex, "groups", "keys", "mkv")
-	err = os.MkdirAll(pth, 0700)
-	if err != nil {
-		return nil, fmt.Errorf("openIndex: error making index directory: %w", err)
-	}
-
-	db, err := repo.OpenMKV(pth)
-	if err != nil {
-		return nil, fmt.Errorf("openIndex: failed to open MKV database: %w", err)
-	}
-
-	idx := libmkv.NewIndex(db, keys.Recipients{})
-	ks := &keys.Store{
-		Index: idx,
-	}
-	s.closers.AddCloser(idx)
-
-	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, ks, s.ReceiveLog, s, s.Tangles)
-
-	updateHelper := func(ctx context.Context, seq margaret.Seq, v interface{}, mlog multilog.MultiLog) error {
-		return nil
-	}
-	groupsHelperMlog, _, err := repo.OpenBadgerMultiLog(r, "group-member-helper", updateHelper)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
-	}
 	s.closers.AddCloser(groupsHelperMlog)
 
+	// the big combined index of most the things
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
 		s.KeyPair.Id,
 		s.ReceiveLog,
-		// s.SeqResolver, // TODO[major/pgroups] fix storage and resumption
 		s.Users,
 		s.Private,
 		s.ByType,
@@ -284,15 +358,17 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.closers.AddCloser(combIdx)
 
 	// groups re-indexing
-	members, membersSnk, err := multilogs.NewMembershipIndex(r, s.KeyPair.Id, s.Groups, combIdx)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open group membership index: %w", err)
-	}
+	members, membersSnk := multilogs.NewMembershipIndex(
+		kitlog.With(s.info, "unit", "private-groups"),
+		s.indexStore,
+		s.KeyPair.Id,
+		s.Groups,
+		combIdx,
+	)
 	s.closers.AddCloser(members)
 	s.closers.AddCloser(membersSnk)
 
 	addMemberIdxAddr := librarian.Addr("string:group/add-member")
-
 	addMemberSeqs, err := groupsHelperMlog.Get(addMemberIdxAddr)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open sublog for add-member messages: %w", err)
@@ -322,7 +398,6 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	}
 	justContacts := mutil.Indirect(s.ReceiveLog, contactLog)
 
-	// LogBuilder doesn't fully work yet
 	if false {
 		level.Warn(s.info).Log("event", "bot init", "msg", "using experimental bytype:contact graph implementation")
 
@@ -331,10 +406,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
 		}
 	} else {
-		gb, seqSetter, updateIdx, err := indexes.OpenContacts(kitlog.With(log, "module", "graph"), r)
-		if err != nil {
-			return nil, fmt.Errorf("sbot: OpenContacts failed: %w", err)
-		}
+		gb, seqSetter, updateIdx := indexes.OpenContacts(kitlog.With(log, "module", "graph"), s.indexStore)
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
 		s.closers.AddCloser(seqSetter)
@@ -349,12 +421,12 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	aboutsOnly := mutil.Indirect(s.ReceiveLog, aboutSeqs)
 
 	var namesPlug names.Plugin
-	_, aboutSnk, err := namesPlug.MakeSimpleIndex(r)
-	if err != nil {
-		return nil, fmt.Errorf("sbot: failed to open about idx: %w", err)
-	}
+	_, aboutSnk := namesPlug.OpenSharedIndex(s.indexStore)
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
+
+	// need to close s.indexStore _after_ the all the indexes closed and flushed
+	s.closers.AddCloser(s.indexStore)
 
 	// which feeds to replicate
 	if s.Replicator == nil {
@@ -380,7 +452,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		}
 
 		for i, feed := range feeds {
-			if feed.Algo != refs.RefAlgoFeedSSB1 {
+			if feed.Algo() != refs.RefAlgoFeedSSB1 {
 				// skip other formats (TODO: gg support)
 				continue
 			}
@@ -432,6 +504,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
+
 		if s.KeyPair.Id.Equal(remote) {
 			return s.master.MakeHandler(conn)
 		}
@@ -471,12 +544,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 		// shit - don't see a way to pass being a different feedtype with shs1
 		// we also need to pass this up the stack...!
-		remote.Algo = refs.RefAlgoFeedGabby
-		err = auth.Authorize(remote)
+		ggRemote, err := refs.NewFeedRefFromBytes(remote.PubKey(), refs.RefAlgoFeedGabby)
+		err = auth.Authorize(ggRemote)
 		if err == nil {
 			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
 			return s.public.MakeHandler(conn)
 		}
+
+		// TOFU restore/resync
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			s.Replicate(s.KeyPair.Id)
@@ -511,7 +586,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), *s.KeyPair.Id, s.BlobStore, wm)
+	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), s.KeyPair.Id, s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -538,12 +613,11 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		histOpts = append(histOpts, s.eventCounter)
 	}
 
-	var verifySink *message.VerifySink
 	if s.signHMACsecret != nil {
 		histOpts = append(histOpts, gossip.HMACSecret(s.signHMACsecret))
 	}
 
-	verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
+	s.verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +632,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		s.KeyPair.Id,
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
-		verifySink,
+		s.verifySink,
 		histOpts...)
 
 	if s.disableEBT {
@@ -571,7 +645,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 			s.Users,
 			fm,
 			sm,
-			verifySink,
+			s.verifySink,
 		)
 		s.public.Register(ebtPlug)
 
@@ -597,10 +671,10 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	// get idx muxrpc handler
 	s.master.Register(get.New(s, s.ReceiveLog, s.Groups))
 
-	//
+	// about information
 	s.master.Register(namesPlug)
 
-	// partial wip
+	// (insecure) partial proof-of-concept for browser-core/demo
 	plug := partial.New(s.info,
 		fm,
 		s.Users,
@@ -615,24 +689,23 @@ func initSbot(s *Sbot) (*Sbot, error) {
 
 	// raw log plugins
 
-	sc := selfChecker{*s.KeyPair.Id}
+	sc := selfChecker{s.KeyPair.Id}
 	s.master.Register(rawread.NewByTypePlugin(
 		s.info,
 		s.ReceiveLog,
 		s.ByType,
 		s.Private,
 		s.Groups,
-		// s.SeqResolver, // TODO[major/pgroups] fix storage and resumption
+		s.SeqResolver,
 		sc))
 	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
 	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
-	// TODO[major/pgroups] fix storage and resumption
-	// s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver))
+	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver))
 	s.master.Register(hist) // createHistoryStream
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
-	s.master.Register(friends.New(log, *s.KeyPair.Id, s.GraphBuilder))
+	s.master.Register(friends.New(log, s.KeyPair.Id, s.GraphBuilder))
 
 	mh := namedPlugin{
 		h:    manifestBlob,
@@ -640,7 +713,14 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(mh)
 	s.public.Register(mh)
 
-	var tplug = tangles.NewPlugin(s.ReceiveLog, s.Tangles, s.Private, s.Groups, sc)
+	var tplug = tangles.NewPlugin(
+		s.info,
+		s,
+		s.ReceiveLog,
+		s.Tangles,
+		s.Private,
+		s.Groups,
+		sc)
 	s.master.Register(tplug)
 
 	// tcp+shs
@@ -709,6 +789,8 @@ func initSbot(s *Sbot) (*Sbot, error) {
 		networkNode,
 		s.PublishLog,
 		s.ReceiveLog,
+		s.Replicator,
+		s.indexStore,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open legacy invites plugin: %w", err)
@@ -716,7 +798,7 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(control.NewPlug(kitlog.With(log, "unit", "ctrl"), networkNode, s))
+	s.master.Register(conn.NewPlug(kitlog.With(log, "unit", "conn"), networkNode, s))
 	s.master.Register(status.New(s))
 
 	s.public.Register(networkNode.TunnelPlugin())
@@ -725,35 +807,49 @@ func initSbot(s *Sbot) (*Sbot, error) {
 	return s, nil
 }
 
+// Close closes the bot by stopping network connections and closing the internal databases
+func (s *Sbot) Close() error {
+	s.closedMu.Lock()
+	defer s.closedMu.Unlock()
+
+	if s.closed {
+		return s.closeErr
+	}
+
+	closeEvt := kitlog.With(s.info, "event", "sbot closing")
+	s.closed = true
+
+	if s.Network != nil {
+		if err := s.Network.Close(); err != nil {
+			s.closeErr = fmt.Errorf("sbot: failed to close own network node: %w", err)
+			return s.closeErr
+		}
+		s.Network.GetConnTracker().CloseAll()
+		level.Debug(closeEvt).Log("msg", "connections closed")
+	}
+
+	if err := s.idxDone.Wait(); err != nil {
+		s.closeErr = fmt.Errorf("sbot: index group shutdown failed: %w", err)
+		return s.closeErr
+	}
+	level.Debug(closeEvt).Log("msg", "waited for indexes to close")
+
+	if err := s.closers.Close(); err != nil {
+		s.closeErr = err
+		return s.closeErr
+	}
+
+	level.Info(closeEvt).Log("msg", "closers closed")
+	return nil
+}
+
 type selfChecker struct {
 	me refs.FeedRef
 }
 
-func (sc selfChecker) Authorize(remote *refs.FeedRef) error {
+func (sc selfChecker) Authorize(remote refs.FeedRef) error {
 	if sc.me.Equal(remote) {
 		return nil
 	}
 	return fmt.Errorf("not authorized")
-}
-
-func (s *Sbot) CurrentSequence(feed *refs.FeedRef) (ssb.Note, error) {
-	l, err := s.Users.Get(storedrefs.Feed(feed))
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
-	}
-	sv, err := l.Seq().Value()
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
-	}
-
-	currSeq := sv.(margaret.BaseSeq)
-	if currSeq != -1 {
-		currSeq++
-	}
-
-	return ssb.Note{
-		Seq:       currSeq.Seq(),
-		Replicate: true,
-		Receive:   true, // TODO: not exactly... we might be getting this feed from somewhre else
-	}, nil
 }

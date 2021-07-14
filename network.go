@@ -15,7 +15,7 @@ import (
 
 // EndpointStat gives some information about a connected peer
 type EndpointStat struct {
-	ID       *refs.FeedRef
+	ID       refs.FeedRef
 	Addr     net.Addr
 	Since    time.Duration
 	Endpoint muxrpc.Endpoint

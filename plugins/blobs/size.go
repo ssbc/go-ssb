@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -27,7 +27,7 @@ func (h sizeHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (inte
 		req.Type = "async"
 	}
 
-	var blobs []*refs.BlobRef
+	var blobs []refs.BlobRef
 	err := json.Unmarshal(req.RawArgs, &blobs)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing blob reference: %w", err)

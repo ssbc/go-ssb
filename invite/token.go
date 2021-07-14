@@ -111,7 +111,7 @@ func ParseLegacyToken(input string) (Token, error) {
 	if err != nil {
 		return Token{}, err
 	}
-	c.Peer = *ref
+	c.Peer = ref
 
 	seed, err := base64.StdEncoding.DecodeString(refAndSeed[1])
 	if err != nil {
@@ -137,7 +137,7 @@ func ParseLegacyToken(input string) (Token, error) {
 		return Token{}, err
 	}
 
-	c.Address = netwrap.WrapAddr(&tcpAddr, secretstream.Addr{ref.ID[:]})
+	c.Address = netwrap.WrapAddr(&tcpAddr, secretstream.Addr{PubKey: ref.PubKey()})
 
 	return c, nil
 }

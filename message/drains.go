@@ -4,6 +4,7 @@
 package message
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sync"
@@ -31,41 +32,48 @@ type SaveMessager interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who *refs.FeedRef, start margaret.Seq, abs refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
-	sd := &streamDrain{
+func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
+	drain := &generalVerifyDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
-		latestMsg: abs,
+		latestMsg: latest,
 		storage:   saver,
 	}
-	switch who.Algo {
+	switch who.Algo() {
 	case refs.RefAlgoFeedSSB1:
-		sd.verify = legacyVerify{hmacKey: hmacKey}
+		drain.verify = &legacyVerify{
+			hmacKey: hmacKey,
+			buf:     new(bytes.Buffer),
+		}
 	case refs.RefAlgoFeedGabby:
-		sd.verify = gabbyVerify{hmacKey: hmacKey}
+		drain.verify = &gabbyVerify{hmacKey: hmacKey}
 	}
-	return sd
+	return drain
 }
 
-type verifier interface {
+type _Verifier interface {
+	// Verify checks if a message is valid and returns it or an error if it isn't
 	Verify([]byte) (refs.Message, error)
 }
 
 type legacyVerify struct {
 	hmacKey *[32]byte
+
+	buf *bytes.Buffer
 }
 
 func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
-	ref, dmsg, err := legacy.Verify(rmsg, lv.hmacKey)
+	lv.buf.Reset()
+	ref, dmsg, err := legacy.VerifyWithBuffer(rmsg, lv.hmacKey, lv.buf)
 	if err != nil {
 		return nil, err
 	}
 
 	return &legacy.StoredMessage{
-		Author_:    &dmsg.Author,
+		Author_:    dmsg.Author,
 		Previous_:  dmsg.Previous,
 		Key_:       ref,
-		Sequence_:  dmsg.Sequence,
+		Sequence_:  int64(dmsg.Sequence),
 		Timestamp_: time.Now(),
 		Raw_:       rmsg,
 	}, nil
@@ -99,11 +107,11 @@ func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 	return
 }
 
-type streamDrain struct {
+type generalVerifyDrain struct {
 	// gets the input from the screen and returns the next decoded message, if it is valid
-	verify verifier
+	verify _Verifier
 
-	who *refs.FeedRef // which feed is pulled
+	who refs.FeedRef // which feed is pulled
 
 	// holds onto the current/newest method (for sequence check and prev hash compare)
 	mu        sync.Mutex
@@ -113,7 +121,7 @@ type streamDrain struct {
 	storage SaveMessager
 }
 
-func (ld *streamDrain) Seq() int64 {
+func (ld *generalVerifyDrain) Seq() int64 {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
 	return int64(ld.latestSeq)
@@ -122,7 +130,7 @@ func (ld *streamDrain) Seq() int64 {
 // Verify passes the raw message bytes to the verifaction function for the message format (legacy or gabby grove).
 // If it passes the message is checked with the current message using ValidateNext().
 // If that also passes it is saved to the storage system.
-func (ld *streamDrain) Verify(msg []byte) error {
+func (ld *generalVerifyDrain) Verify(msg []byte) error {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
 
@@ -179,12 +187,20 @@ func ValidateNext(current, next refs.Message) error {
 	}
 
 	currKey := current.Key()
-	if !currKey.Equal(next.Previous()) {
-		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%v",
+	prev := next.Previous()
+	if prev == nil {
+		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s got nil",
 			author.Ref(),
 			currSeq,
 			current.Key().Ref(),
-			next.Previous(),
+		)
+	}
+	if !currKey.Equal(*prev) {
+		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
+			author.Ref(),
+			currSeq,
+			current.Key().Ref(),
+			next.Previous().Ref(),
 		)
 	}
 

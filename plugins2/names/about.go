@@ -10,13 +10,12 @@ import (
 	"log"
 	"strings"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -33,15 +32,18 @@ type AboutAttribute struct {
 	Prescribed map[string]int
 }
 
+var idxKeyPrefix = []byte("idx-abouts")
+
 func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 	var br refs.BlobRef
 
 	err := ab.kv.View(func(txn *badger.Txn) error {
+
 		addr := ref.Ref()
 		addr += ":"
 		addr += ref.Ref()
 		addr += ":image"
-		it, err := txn.Get([]byte(addr))
+		it, err := txn.Get(append(idxKeyPrefix, []byte(addr)...))
 		if err != nil {
 			return err
 		}
@@ -51,7 +53,7 @@ func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 			if err != nil {
 				return err
 			}
-			br = *newBlobR
+			br = newBlobR
 			return nil
 		})
 		if err != nil {
@@ -69,14 +71,17 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		for iter.Rewind(); iter.Valid(); iter.Next() {
+		for iter.Seek(idxKeyPrefix); iter.ValidForPrefix(idxKeyPrefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if string(k) == "__current_observable" {
+
+			kWoPrefix := bytes.TrimPrefix(k, idxKeyPrefix)
+
+			if string(kWoPrefix) == "__current_observable" {
 				return nil // skip
 			}
 
-			parts := strings.Split(string(k), ":")
+			parts := strings.Split(string(kWoPrefix), ":")
 			if len(parts) != 3 {
 				return fmt.Errorf("about.All: illegal key:%q", string(k))
 			}
@@ -86,7 +91,6 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 			field := parts[2]
 
 			if string(field) == "name" {
-
 				err := it.Value(func(v []byte) error {
 					name := string(v)
 					name = strings.TrimPrefix(name, "\"")
@@ -115,19 +119,8 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 	return ngr, err
 }
 
-func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
-	addr := []byte(ref.Ref() + ":")
-	// from self
-	// addr = append(addr, ref.ID...)
-
-	// explicit lookup
-	// addr = append(addr, []byte(":name")...)
-	// if obs, err := ab.idx.Get(context.TODO(), librarian.Addr(addr)); err == nil {
-	// 	val, err := obs.Value()
-	// 	if err == nil {
-	// 		return val.(string)
-	// 	}
-	// }
+func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
+	addr := append(idxKeyPrefix, []byte(ref.Ref()+":")...)
 
 	// direct badger magic
 	// most of this feels like to direct k:v magic to be honest
@@ -143,18 +136,21 @@ func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
 		for iter.Seek(addr); iter.ValidForPrefix(addr); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
+			k = bytes.TrimPrefix(k, idxKeyPrefix)
 			splitted := bytes.Split(k, []byte(":"))
 
-			c, err := refs.ParseFeedRef(string(splitted[0]))
+			c, err := refs.ParseFeedRef(string(splitted[1]))
 			if err != nil {
 				return fmt.Errorf("about: couldnt make author ref from db key: %s: %w", splitted, err)
 			}
+
 			err = it.Value(func(v []byte) error {
 				var fieldPtr *AboutAttribute
 				var foundVal string
 				if err := json.Unmarshal(v, &foundVal); err != nil {
 					return err
 				}
+
 				switch {
 				case bytes.HasSuffix(k, []byte(":name")):
 					fieldPtr = &reduced.Name
@@ -162,12 +158,12 @@ func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
 					fieldPtr = &reduced.Description
 				case bytes.HasSuffix(k, []byte(":image")):
 					fieldPtr = &reduced.Image
-				}
-				if fieldPtr == nil {
+				default:
 					log.Printf("about debug: %s ", c.Ref())
 					log.Printf("no field for: %q", string(k))
 					return nil
 				}
+
 				if c.Equal(ref) {
 					fieldPtr.Chosen = foundVal
 				} else {
@@ -198,29 +194,27 @@ func (ab aboutStore) CollectedFor(ref *refs.FeedRef) (*AboutInfo, error) {
 
 const FolderNameAbout = "about"
 
-func (plug *Plugin) MakeSimpleIndex(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
-	f := func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-		aboutIdx := libbadger.NewIndex(db, 0)
-		snk := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
-		return aboutIdx, snk
-	}
-
-	db, idx, update, err := repo.OpenBadgerIndex(r, FolderNameAbout, f)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting about index: %w", err)
-	}
+func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
+	aboutIdx := libbadger.NewIndexWithKeyPrefix(db, 0, idxKeyPrefix)
+	update := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
 
 	plug.about = aboutStore{db}
 
-	return idx, update, err
+	return aboutIdx, update
 }
 
 func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{}, idx librarian.SetterIndex) error {
-	msg, ok := msgv.(refs.Message)
-	if !ok {
-		if margaret.IsErrNulled(msgv.(error)) {
+	var msg refs.Message
+
+	switch tv := msgv.(type) {
+	case refs.Message:
+		msg = tv
+	case error:
+		if margaret.IsErrNulled(tv) {
 			return nil
 		}
+		return fmt.Errorf("about(%d): unhandled error type (%T) from index: %w", seq, tv, tv)
+	default:
 		return fmt.Errorf("about(%d): wrong msgT: %T", seq, msgv)
 	}
 
@@ -232,8 +226,6 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 		return nil
 	}
 
-	//	fmt.Println("msg", "decoded", "seq", seq.Seq())
-
 	// about:from:field
 	addr := aboutMSG.About.Ref()
 	addr += ":"
@@ -244,19 +236,19 @@ func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{},
 	if aboutMSG.Name != "" {
 		val = aboutMSG.Name
 		if err := idx.Set(ctx, librarian.Addr(addr+"name"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update name: %w", err)
 		}
 	}
 	if aboutMSG.Description != "" {
 		val = aboutMSG.Description
 		if err := idx.Set(ctx, librarian.Addr(addr+"description"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update description: %w", err)
 		}
 	}
 	if aboutMSG.Image != nil {
 		val = aboutMSG.Image.Ref()
 		if err := idx.Set(ctx, librarian.Addr(addr+"image"), val); err != nil {
-			return fmt.Errorf("db/idx about: failed to update field: %w", err)
+			return fmt.Errorf("db/idx about: failed to update image: %w", err)
 		}
 	}
 

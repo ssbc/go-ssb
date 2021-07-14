@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
@@ -25,7 +25,7 @@ import (
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
-func XTestFeedsGabbySync(t *testing.T) {
+func TestFeedsGabbySync(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -58,9 +58,8 @@ func XTestFeedsGabbySync(t *testing.T) {
 	botgroup.Go(bs.Serve(ali))
 
 	// bob is the one with the other feed format
-	bobsKey, err := ssb.NewKeyPair(nil)
+	bobsKey, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedGabby)
 	r.NoError(err)
-	bobsKey.Id.Algo = refs.RefAlgoFeedGabby
 
 	bob, err := New(
 		WithAppKey(appKey),

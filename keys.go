@@ -11,54 +11,62 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/keks/nocomment"
+	"go.cryptoscope.co/nocomment"
 	"go.cryptoscope.co/secretstream/secrethandshake"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 type KeyPair struct {
-	Id   *refs.FeedRef
+	Id   refs.FeedRef
 	Pair secrethandshake.EdKeyPair
 }
 
 // the format of the .ssb/secret file as defined by the js implementations
 type ssbSecret struct {
-	Curve   string        `json:"curve"`
-	ID      *refs.FeedRef `json:"id"`
-	Private string        `json:"private"`
-	Public  string        `json:"public"`
+	Curve   string       `json:"curve"`
+	ID      refs.FeedRef `json:"id"`
+	Private string       `json:"private"`
+	Public  string       `json:"public"`
 }
 
 // IsValidFeedFormat checks if the passed FeedRef is for one of the two supported formats,
 // legacy/crapp or GabbyGrove.
-func IsValidFeedFormat(r *refs.FeedRef) error {
-	if r.Algo != refs.RefAlgoFeedSSB1 && r.Algo != refs.RefAlgoFeedGabby {
-		return fmt.Errorf("ssb: unsupported feed format:%s", r.Algo)
+func IsValidFeedFormat(r refs.FeedRef) error {
+	ra := r.Algo()
+	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby {
+		return fmt.Errorf("ssb: unsupported feed format: %s", r.Algo())
 	}
 	return nil
 }
 
 // NewKeyPair generates a fresh KeyPair using the passed io.Reader as a seed.
 // Passing nil is fine and will use crypto/rand.
-func NewKeyPair(r io.Reader) (*KeyPair, error) {
+func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
+	if algo == "" {
+		return KeyPair{}, fmt.Errorf("ssb: empty feed format algo for keypair")
+	}
 
 	// generate new keypair
 	kp, err := secrethandshake.GenEdKeyPair(r)
 	if err != nil {
-		return nil, fmt.Errorf("ssb: error building key pair: %w", err)
+		return KeyPair{}, fmt.Errorf("ssb: error building key pair: %w", err)
 	}
 
 	keyPair := KeyPair{
-		Id:   &refs.FeedRef{ID: kp.Public[:], Algo: refs.RefAlgoFeedSSB1},
 		Pair: *kp,
 	}
 
-	return &keyPair, nil
+	keyPair.Id, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
+	if err != nil {
+		return KeyPair{}, err
+	}
+
+	return keyPair, nil
 }
 
 // SaveKeyPair serializes the passed KeyPair to path.
 // It errors if path already exists.
-func SaveKeyPair(kp *KeyPair, path string) error {
+func SaveKeyPair(kp KeyPair, path string) error {
 	if err := IsValidFeedFormat(kp.Id); err != nil {
 		return err
 	}
@@ -86,7 +94,7 @@ func SaveKeyPair(kp *KeyPair, path string) error {
 }
 
 // EncodeKeyPairAsJSON serializes the passed Keypair into the writer w
-func EncodeKeyPairAsJSON(kp *KeyPair, w io.Writer) error {
+func EncodeKeyPairAsJSON(kp KeyPair, w io.Writer) error {
 	var sec = ssbSecret{
 		Curve:   "ed25519",
 		ID:      kp.Id,
@@ -101,24 +109,24 @@ func EncodeKeyPairAsJSON(kp *KeyPair, w io.Writer) error {
 }
 
 // LoadKeyPair opens fname, ignores any line starting with # and passes it ParseKeyPair
-func LoadKeyPair(fname string) (*KeyPair, error) {
+func LoadKeyPair(fname string) (KeyPair, error) {
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, err
+			return KeyPair{}, err
 		}
 
-		return nil, fmt.Errorf("ssb.LoadKeyPair: could not open key file %s: %w", fname, err)
+		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: could not open key file %s: %w", fname, err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("ssb.LoadKeyPair: could not stat key file %s: %w", fname, err)
+		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: could not stat key file %s: %w", fname, err)
 	}
 
 	if perms := info.Mode().Perm(); perms != SecretPerms {
-		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
+		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
 	}
 
 	return ParseKeyPair(nocomment.NewReader(f))
@@ -126,34 +134,34 @@ func LoadKeyPair(fname string) (*KeyPair, error) {
 
 // ParseKeyPair json decodes an object from the reader.
 // It expects std base64 encoded data under the `private` and `public` fields.
-func ParseKeyPair(r io.Reader) (*KeyPair, error) {
+func ParseKeyPair(r io.Reader) (KeyPair, error) {
 	var s ssbSecret
 	if err := json.NewDecoder(r).Decode(&s); err != nil {
-		return nil, fmt.Errorf("ssb.Parse: JSON decoding failed: %w", err)
+		return KeyPair{}, fmt.Errorf("ssb.Parse: JSON decoding failed: %w", err)
 	}
 
 	if err := IsValidFeedFormat(s.ID); err != nil {
-		return nil, err
+		return KeyPair{}, err
 	}
 
 	public, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(s.Public, ".ed25519"))
 	if err != nil {
-		return nil, fmt.Errorf("ssb.Parse: base64 decode of public part failed: %w", err)
+		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of public part failed: %w", err)
 	}
 
 	private, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(s.Private, ".ed25519"))
 	if err != nil {
-		return nil, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
+		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
 	}
 
 	pair, err := secrethandshake.NewKeyPair(public, private)
 	if err != nil {
-		return nil, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
+		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
 	}
 
 	ssbkp := KeyPair{
 		Id:   s.ID,
 		Pair: *pair,
 	}
-	return &ssbkp, nil
+	return ssbkp, nil
 }

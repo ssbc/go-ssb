@@ -47,33 +47,23 @@ type Boxer struct {
 
 type makeHKDFContextList func(...[]byte) [][]byte
 
-func makeInfo(author *refs.FeedRef, prev *refs.MessageRef) (makeHKDFContextList, error) {
-	if prev == nil {
-		if author.Algo != refs.RefAlgoFeedSSB1 {
-			return nil, fmt.Errorf("unsupported feed type: %s", author.Algo)
-		}
-		prev = &refs.MessageRef{
-			Algo: refs.RefAlgoMessageSSB1,
-			Hash: make([]byte, 32),
-		}
-	}
-
+func makeInfo(author refs.FeedRef, prev refs.MessageRef) (makeHKDFContextList, error) {
 	tfkFeed, err := tfk.FeedFromRef(author)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make tfk for author: %w", err)
 	}
 	feedBytes, err := tfkFeed.MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode tfk for author: %w", err)
 	}
 
 	tfkMsg, err := tfk.MessageFromRef(prev)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make tfk for previous message: %w", err)
 	}
 	msgBytes, err := tfkMsg.MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode tfk for previous message: %w", err)
 	}
 
 	return func(infos ...[]byte) [][]byte {
@@ -97,7 +87,7 @@ var (
 
 // Encrypt takes a buffer to write into (out), the plaintext to encrypt, the (author) of the message, her (prev)ious message hash and a list of recipients (recpts).
 // If out is too small to hold the full message, additonal allocations will be made. The ciphertext is returned as the first return value.
-func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.MessageRef, recpts []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRef, recpts []keys.Recipient) ([]byte, error) {
 	if len(plain) == 0 {
 		return nil, ErrEmptyPlaintext
 	}
@@ -122,12 +112,12 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 
 	_, err := bxr.rand.Read(msgKey[:])
 	if err != nil {
-		return nil, fmt.Errorf("error reading random data: %w", err)
+		return nil, fmt.Errorf("box2/encrypt: error reading random data: %w", err)
 	}
 
 	info, err := makeInfo(author, prev)
 	if err != nil {
-		return nil, fmt.Errorf("error constructing keying information: %w", err)
+		return nil, fmt.Errorf("box2/encrypt: error constructing keying information: %w", err)
 	}
 
 	err = DeriveTo(readKey[:], msgKey[:], info([]byte("read_key"))...)
@@ -141,7 +131,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 	// append header ciphertext
 	err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("box2/encrypt: header key derivation vailed: %w", err)
 	}
 
 	out := secretbox.Seal(nil, headerPlain[:], &zero24, &headerKey)
@@ -151,7 +141,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 	for _, bk := range recpts {
 		err = DeriveTo(slotKey[:], bk.Key, info([]byte("slot_key"), []byte(bk.Scheme))...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("box2/encrypt: slot key derivation vailed: %w", err)
 		}
 
 		out = append(out, make([]byte, KeySize)...)
@@ -169,7 +159,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 	// append encrypted body
 	err = DeriveTo(bodyKey[:], readKey[:], info([]byte("body_key"))...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("box2/encrypt: body key derivation vailed: %w", err)
 	}
 
 	out = secretbox.Seal(out, plain, &zero24, &bodyKey)
@@ -179,19 +169,19 @@ func (bxr *Boxer) Encrypt(plain []byte, author *refs.FeedRef, prev *refs.Message
 	return out, nil
 }
 
-func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([][KeySize]byte, makeHKDFContextList, error) {
+func deriveMessageKey(author refs.FeedRef, prev refs.MessageRef, candidates []keys.Recipient) ([][KeySize]byte, makeHKDFContextList, error) {
 	var slotKeys = make([][KeySize]byte, len(candidates))
 
 	info, err := makeInfo(author, prev)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to make info: %w", err)
 	}
 
 	// derive slot keys
 	for i, candidate := range candidates {
 		err = DeriveTo(slotKeys[i][:], candidate.Key, info([]byte("slot_key"), []byte(candidate.Scheme))...)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("derivation for canidate:%d (%s) failed: %w", i, candidate, err)
 		}
 
 	}
@@ -199,7 +189,7 @@ func deriveMessageKey(author *refs.FeedRef, prev *refs.MessageRef, candidates []
 	return slotKeys, info, nil
 }
 
-func (bxr *Boxer) GetReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) GetReadKey(ctxt []byte, author refs.FeedRef, prev refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
 	_, readKey, _, err := bxr.getReadKey(ctxt, author, prev, candidates)
 	if err != nil {
 		return nil, err
@@ -207,7 +197,7 @@ func (bxr *Boxer) GetReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.Messa
 	return readKey[:], nil
 }
 
-func (bxr *Boxer) getReadKey(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) (
+func (bxr *Boxer) getReadKey(ctxt []byte, author refs.FeedRef, prev refs.MessageRef, candidates []keys.Recipient) (
 	[]byte,
 	[KeySize]byte,
 	makeHKDFContextList,
@@ -235,6 +225,7 @@ OUTER:
 		slot = afterHeader[i*KeySize : (i+1)*KeySize]
 
 		for j = 0; j < len(slotKeys); j++ {
+			// xor slotKey and slot to get the msgKey
 			for k = range slotKeys[j] {
 				msgKey[k] = slotKeys[j][k] ^ slot[k]
 			}
@@ -243,6 +234,7 @@ OUTER:
 			if err != nil {
 				return nil, [KeySize]byte{}, nil, err
 			}
+
 			err = DeriveTo(headerKey[:], readKey[:], info([]byte("header_key"))...)
 			if err != nil {
 				return nil, [KeySize]byte{}, nil, err
@@ -264,7 +256,7 @@ OUTER:
 
 // Decrypt takes the ciphertext, it's auther and the previous hash of the message and some canddiates to try to decrypt with.
 // It returns the decrypted cleartext or an error.
-func (bxr *Boxer) Decrypt(ctxt []byte, author *refs.FeedRef, prev *refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
+func (bxr *Boxer) Decrypt(ctxt []byte, author refs.FeedRef, prev refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
 	// TODO
 	hdr, readKey, info, err := bxr.getReadKey(ctxt, author, prev, candidates)
 	if err != nil {

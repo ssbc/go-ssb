@@ -19,6 +19,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
+	"go.cryptoscope.co/ssb/internal/broadcasts"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -98,14 +99,13 @@ func TestBlobFromJS(t *testing.T) {
 	s.Replicate(alice)
 
 	got := make(chan struct{})
-	s.BlobStore.Changes().Register(luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		notif := v.(ssb.BlobStoreNotification)
+	s.BlobStore.Register(broadcasts.BlobStoreFuncEmitter(func(notif ssb.BlobStoreNotification) error {
 		if ssb.BlobStoreOp("put") == notif.Op && fooBarRef == notif.Ref.Ref() {
 			close(got)
 		} else {
 			fmt.Println("warning: wrong blob notify!", notif)
 		}
-		return err
+		return nil
 	}))
 
 	err = s.WantManager.Want(testRef)
@@ -200,7 +200,7 @@ func TestBlobWithHop(t *testing.T) {
 	var m testWrap
 	err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
 	r.NoError(err)
-	r.True(alice.Equal(&m.Author), "wrong author")
+	r.True(alice.Equal(m.Author), "wrong author")
 	r.Equal("test", m.Content.Type)
 	r.NotNil(m.Content.Blob)
 
@@ -234,7 +234,7 @@ run()
 	<-aliceDone
 }
 
-func XTestBlobTooBigWantedByJS(t *testing.T) {
+func TestBlobTooBigWantedByJS(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -331,9 +331,9 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10
 	var testData struct {
-		Type  string        `json:"test-data"`
-		Small *refs.BlobRef `json:"small"`
-		Big   *refs.BlobRef `json:"big"`
+		Type  string       `json:"test-data"`
+		Small refs.BlobRef `json:"small"`
+		Big   refs.BlobRef `json:"big"`
 	}
 	for tries > 0 {
 

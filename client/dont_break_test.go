@@ -4,22 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // this is only a basic test.
@@ -46,7 +46,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	go func() {
 		err := srv.Network.Serve(ctx)
 		if err != nil && err != context.Canceled {
-			srvErrc <- errors.Wrap(err, "ali serve exited")
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
 		}
 		close(srvErrc)
 	}()
@@ -65,7 +65,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	a.Equal(srv.KeyPair.Id.Ref(), ref.Ref())
 
 	// make sure we can publish
-	var msgs []*refs.MessageRef
+	var msgs []refs.MessageRef
 	const msgCount = 15
 	for i := 0; i < msgCount; i++ {
 		ref, err := c.Publish(struct {
@@ -94,13 +94,10 @@ func TestAskForSomethingWeird(t *testing.T) {
 		}
 
 		if i == 5 { // why after 5? - iirc its just somehwere inbetween the open stream
-			t.Error("TODO: add tests to muxrpc for CallError")
-			return
 			var o message.CreateHistArgs
-			o.ID = &refs.FeedRef{
-				Algo: "wrong",
-				ID:   bytes.Repeat([]byte("nope"), 8),
-			}
+			o.ID, err = refs.NewFeedRefFromBytes(bytes.Repeat([]byte("nope"), 8), "wrong")
+			r.NoError(err)
+
 			o.Keys = true
 
 			// starting the call works (although our lib could check that the ref is wrong, too)

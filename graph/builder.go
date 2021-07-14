@@ -9,12 +9,12 @@ import (
 	"math"
 	"sync"
 
-	"github.com/dgraph-io/badger"
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -32,13 +32,14 @@ type Builder interface {
 	Build() (*Graph, error)
 
 	// Follows returns a set of all people ref follows
-	Follows(*refs.FeedRef) (*ssb.StrFeedSet, error)
+	Follows(refs.FeedRef) (*ssb.StrFeedSet, error)
 
-	Hops(*refs.FeedRef, int) *ssb.StrFeedSet
+	// TODO: move this into the graph
+	Hops(refs.FeedRef, int) *ssb.StrFeedSet
 
-	Authorizer(from *refs.FeedRef, maxHops int) ssb.Authorizer
+	Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer
 
-	DeleteAuthor(who *refs.FeedRef) error
+	DeleteAuthor(who refs.FeedRef) error
 }
 
 type IndexingBuilder interface {
@@ -59,11 +60,16 @@ type builder struct {
 	cachedGraph *Graph
 }
 
+var (
+	dbKeyPrefix    = []byte("trust-graph")
+	dbKeyPrefixLen = len(dbKeyPrefix)
+)
+
 // NewBuilder creates a Builder that is backed by a badger database
 func NewBuilder(log kitlog.Logger, db *badger.DB) *builder {
 	b := &builder{
 		kv:  db,
-		idx: libbadger.NewIndex(db, 0),
+		idx: libbadger.NewIndexWithKeyPrefix(db, 0, dbKeyPrefix),
 		log: log,
 	}
 	return b
@@ -125,7 +131,7 @@ func (b *builder) OpenIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
 	return b.idx, b.idxSink
 }
 
-func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
+func (b *builder) DeleteAuthor(who refs.FeedRef) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
 	b.cachedGraph = nil
@@ -133,7 +139,7 @@ func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(storedrefs.Feed(who))
+		prefix := append(dbKeyPrefix, []byte(storedrefs.Feed(who))...)
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 
@@ -146,7 +152,7 @@ func (b *builder) DeleteAuthor(who *refs.FeedRef) error {
 	})
 }
 
-func (b *builder) Authorizer(from *refs.FeedRef, maxHops int) ssb.Authorizer {
+func (b *builder) Authorizer(from refs.FeedRef, maxHops int) ssb.Authorizer {
 	return &authorizer{
 		b:       b,
 		from:    from,
@@ -169,15 +175,15 @@ func (b *builder) Build() (*Graph, error) {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		for iter.Rewind(); iter.Valid(); iter.Next() {
+		for iter.Seek(dbKeyPrefix); iter.ValidForPrefix(dbKeyPrefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
-			if len(k) != 68 {
+			if len(k) != 68+dbKeyPrefixLen {
 				continue
 			}
 
-			rawFrom := k[:34]
-			rawTo := k[34:]
+			rawFrom := k[dbKeyPrefixLen : 34+dbKeyPrefixLen]
+			rawTo := k[34+dbKeyPrefixLen:]
 
 			if bytes.Equal(rawFrom, rawTo) {
 				// contact self?!
@@ -195,9 +201,12 @@ func (b *builder) Build() (*Graph, error) {
 			bfrom := librarian.Addr(rawFrom)
 			nFrom, has := dg.lookup[bfrom]
 			if !has {
-				fromRef := from.Feed()
+				fromRef, err := from.Feed()
+				if err != nil {
+					return err
+				}
 
-				nFrom = &contactNode{dg.NewNode(), fromRef.Copy(), ""}
+				nFrom = &contactNode{dg.NewNode(), fromRef, ""}
 				dg.AddNode(nFrom)
 				dg.lookup[bfrom] = nFrom
 			}
@@ -205,8 +214,11 @@ func (b *builder) Build() (*Graph, error) {
 			bto := librarian.Addr(rawTo)
 			nTo, has := dg.lookup[bto]
 			if !has {
-				toRef := to.Feed()
-				nTo = &contactNode{dg.NewNode(), toRef.Copy(), ""}
+				toRef, err := to.Feed()
+				if err != nil {
+					return err
+				}
+				nTo = &contactNode{dg.NewNode(), toRef, ""}
 				dg.AddNode(nTo)
 				dg.lookup[bto] = nTo
 			}
@@ -220,9 +232,9 @@ func (b *builder) Build() (*Graph, error) {
 				if len(v) >= 1 {
 					switch v[0] {
 					case '0': // not following
-					case '1':
+					case '1': // following
 						w = 1
-					case '2':
+					case '2': // blocking
 						w = math.Inf(1)
 					default:
 						return fmt.Errorf("barbage value in graph strore")
@@ -256,7 +268,7 @@ type Lookup struct {
 	lookup key2node
 }
 
-func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
+func (l Lookup) Dist(to refs.FeedRef) ([]graph.Node, float64) {
 	bto := storedrefs.Feed(to)
 	nTo, has := l.lookup[bto]
 	if !has {
@@ -265,16 +277,13 @@ func (l Lookup) Dist(to *refs.FeedRef) ([]graph.Node, float64) {
 	return l.dijk.To(nTo.ID())
 }
 
-func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
-	if forRef == nil {
-		panic("nil feed ref")
-	}
+func (b *builder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := []byte(storedrefs.Feed(forRef))
+		prefix := append(dbKeyPrefix, storedrefs.Feed(forRef)...)
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -284,11 +293,15 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 					// extract 2nd feed ref out of db key
 					// TODO: use compact StoredAddr
 					var sr tfk.Feed
-					err := sr.UnmarshalBinary(k[34:])
+					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
 						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
 					}
-					if err := fs.AddRef(sr.Feed()); err != nil {
+					fr, err := sr.Feed()
+					if err != nil {
+						return err
+					}
+					if err := fs.AddRef(fr); err != nil {
 						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
 					}
 				}
@@ -307,7 +320,7 @@ func (b *builder) Follows(forRef *refs.FeedRef) (*ssb.StrFeedSet, error) {
 // max == 0: only direct follows of from
 // max == 1: max:0 + follows of friends of from
 // max == 2: max:1 + follows of their friends
-func (b *builder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
+func (b *builder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	max++
 	walked := ssb.NewFeedSet(0)
 	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)
@@ -320,7 +333,7 @@ func (b *builder) Hops(from *refs.FeedRef, max int) *ssb.StrFeedSet {
 	return walked
 }
 
-func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from *refs.FeedRef, depth int) error {
+func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from refs.FeedRef, depth int) error {
 	if depth == 0 {
 		return nil
 	}
@@ -345,6 +358,7 @@ func (b *builder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, f
 			return fmt.Errorf("recurseHops(%d): add list entry(%d) failed: %w", depth, i, err)
 		}
 
+		// TODO: use from follows followedByFrom
 		dstFollows, err := b.Follows(followedByFrom)
 		if err != nil {
 			return fmt.Errorf("recurseHops(%d): follows from entry(%d) failed: %w", depth, i, err)

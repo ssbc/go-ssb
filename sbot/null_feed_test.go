@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
+	kitlog "go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
 
@@ -43,7 +43,7 @@ func TestNullFeed(t *testing.T) {
 	tRepo := repo.New(filepath.Join(tRepoPath, "main"))
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -64,6 +64,7 @@ func TestNullFeed(t *testing.T) {
 		WithHops(2),
 		WithHMACSigning(hk),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(mainbot))
@@ -84,7 +85,7 @@ func TestNullFeed(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		msg, err := mainbot.Get(*ref)
+		msg, err := mainbot.Get(ref)
 		r.NoError(err)
 		r.NotNil(msg)
 
@@ -136,6 +137,7 @@ func TestNullFeed(t *testing.T) {
 		WithRepoPath(filepath.Join(tRepoPath, "bert")),
 		WithHMACSigning(hk),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bertBot))
@@ -210,19 +212,20 @@ func TestNullFetched(t *testing.T) {
 	mainLog := testutils.NewRelativeTimeLogger(nil)
 	bs := newBotServer(ctx, mainLog)
 
+	aliLog := log.With(mainLog, "unit", "ali")
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
-		WithInfo(log.With(mainLog, "unit", "ali")),
+		WithInfo(aliLog),
 		// WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 		// 	return debug.WrapConn(log.With(aliLog, "who", "a"), conn), nil
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(ali))
 
 	bob, err := New(
@@ -235,27 +238,25 @@ func TestNullFetched(t *testing.T) {
 		// }),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
-
 	botgroup.Go(bs.Serve(bob))
 
 	ali.Replicate(bob.KeyPair.Id)
 	bob.Replicate(ali.KeyPair.Id)
 
-	for i := 1000; i > 0; i-- {
+	msgCount := int64(30)
+	for i := msgCount; i > 0; i-- {
 		c := map[string]interface{}{"test:": i, "type": "test"}
 		_, err = bob.PublishLog.Publish(c)
 		r.NoError(err)
 	}
-
-	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
+	firstCtx, firstConnCanel := context.WithCancel(ctx)
+	err = bob.Network.Connect(firstCtx, ali.Network.GetListenAddr())
 	r.NoError(err)
 
-	aliUF, ok := ali.GetMultiLog("userFeeds")
-	r.True(ok)
-
-	alisVersionOfBobsLog, err := aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
+	alisVersionOfBobsLog, err := ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
@@ -267,12 +268,11 @@ func TestNullFetched(t *testing.T) {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
 		s := seq.Seq()
-		if s == 999 {
+		if s == msgCount-1 {
 			close(gotMessage)
 		}
 		return err
 	})
-
 	done := alisVersionOfBobsLog.Seq().Register(updateSink)
 
 	select {
@@ -284,12 +284,22 @@ func TestNullFetched(t *testing.T) {
 	}
 	done()
 
+	ali.Network.GetConnTracker().CloseAll()
+	bob.Network.GetConnTracker().CloseAll()
+	firstConnCanel()
+
 	err = ali.NullFeed(bob.KeyPair.Id)
 	r.NoError(err)
 
-	mainLog.Log("msg", "get a fresh view (shoild be empty now)")
-	alisVersionOfBobsLog, err = aliUF.Get(storedrefs.Feed(bob.KeyPair.Id))
+	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
 	r.NoError(err)
+	v, err := alisVersionOfBobsLog.Seq().Value()
+	r.EqualValues(margaret.SeqEmpty, v)
+
+	mainLog.Log("msg", "get a fresh view (should be empty now)")
+
+	ali.Replicate(bob.KeyPair.Id)
+	bob.Replicate(ali.KeyPair.Id)
 
 	mainLog.Log("msg", "sync should give us the messages again")
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -303,7 +313,7 @@ func TestNullFetched(t *testing.T) {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
 		s := seq.Seq()
-		if s == 999 {
+		if s == msgCount-1 {
 			close(gotMessage)
 		}
 		return err

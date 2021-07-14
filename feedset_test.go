@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestFeedSetEmpty(t *testing.T) {
@@ -13,19 +14,19 @@ func TestFeedSetEmpty(t *testing.T) {
 
 	fs := NewFeedSet(0)
 
-	newkey, err := NewKeyPair(nil)
+	newkey, err := NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	r.False(fs.Has(newkey.Id))
 }
 
 func TestFeedSetCount(t *testing.T) {
 	r := require.New(t)
-	kps := make([]*KeyPair, 50)
+	kps := make([]KeyPair, 50)
 
 	fs := NewFeedSet(50)
 	for i := 0; i < 50; i++ {
 		var err error
-		kps[i], err = NewKeyPair(nil)
+		kps[i], err = NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 		r.NoError(err)
 		err = fs.AddRef(kps[i].Id)
 		r.NoError(err)

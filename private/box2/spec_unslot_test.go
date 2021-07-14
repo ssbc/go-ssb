@@ -20,8 +20,8 @@ type unslotSpecTestInput struct {
 	FeedID    keys.Base64String `json:"feed_id"`
 	PrevMsgID keys.Base64String `json:"prev_msg_id"`
 	Recipient struct {
-		Key    keys.Base64String         `json:"key"`
-		Scheme keys.KeyScheme `json:"scheme"`
+		Key    keys.Base64String `json:"key"`
+		Scheme keys.KeyScheme    `json:"scheme"`
 	} `json:"recipient"`
 }
 
@@ -33,12 +33,16 @@ func (ut unslotSpecTest) Test(t *testing.T) {
 	var f tfk.Feed
 	err := f.UnmarshalBinary(ut.Input.FeedID)
 	require.NoError(t, err)
+	feed, err := f.Feed()
+	require.NoError(t, err)
 
 	var m tfk.Message
 	err = m.UnmarshalBinary(ut.Input.PrevMsgID)
 	require.NoError(t, err)
+	msg, err := m.Message()
+	require.NoError(t, err)
 
-	keySlots, _, err := deriveMessageKey(f.Feed(), m.Message(), []keys.Recipient{
+	keySlots, _, err := deriveMessageKey(feed, msg, []keys.Recipient{
 		{Key: keys.Key(ut.Input.Recipient.Key), Scheme: ut.Input.Recipient.Scheme},
 	})
 	require.NoError(t, err)

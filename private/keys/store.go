@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	refs "go.mindeco.de/ssb-refs"
+	"go.mindeco.de/ssb-refs/tfk"
 )
 
 // Q: what's the relation of ID and key?
@@ -79,7 +81,19 @@ func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 	return mgr.Index.Delete(todoCtx, librarian.Addr(idxkBs))
 }
 
+func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipients, error) {
+	idBytes, err := tfk.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+	return mgr.getKeys(ks, ID(idBytes))
+}
+
 func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
+	return mgr.getKeys(ks, id)
+}
+
+func (mgr *Store) getKeys(ks KeyScheme, id ID) (Recipients, error) {
 	if !ks.Valid() {
 		return nil, Error{Code: ErrorCodeInvalidKeyScheme, Scheme: ks}
 	}

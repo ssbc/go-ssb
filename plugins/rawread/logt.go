@@ -7,16 +7,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
+	"time"
 
-	bmap "github.com/RoaringBitmap/roaring"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
-	"go.cryptoscope.co/librarian"
+	bmap "github.com/dgraph-io/sroar"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
@@ -38,30 +38,32 @@ type Plugin struct {
 	res *repo.SequenceResolver
 
 	h muxrpc.Handler
+
+	info log.Logger
 }
 
 func NewByTypePlugin(
 	log log.Logger,
 	rootLog margaret.Log,
-	ml *roaring.MultiLog,
+	tl *roaring.MultiLog,
 	pl *roaring.MultiLog,
 	pm *private.Manager,
-	// TODO[major/pgroups] fix storage and resumption
-	// res *repo.SequenceResolver,
+	res *repo.SequenceResolver,
 	isSelf ssb.Authorizer,
 ) ssb.Plugin {
 	plug := &Plugin{
 		rxlog: rootLog,
-		types: ml,
+		types: tl,
 
 		priv: pl,
 
 		unboxer: pm,
 
-		// TODO[major/pgroups] fix storage and resumption
-		// res: res,
+		res: res,
 
 		isSelf: isSelf,
+
+		info: log,
 	}
 
 	h := typemux.New(log)
@@ -76,20 +78,23 @@ func (Plugin) Method() muxrpc.Method      { return muxrpc.Method{"messagesByType
 func (lt Plugin) Handler() muxrpc.Handler { return lt.h }
 
 func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc.ByteSink) error {
-	var qry message.MessagesByTypeArgs
-	var args []message.MessagesByTypeArgs
+	var (
+		start  = time.Now()
+		logger = log.With(g.info, "method", "messagesByType")
+		qry    message.MessagesByTypeArgs
+		args   []message.MessagesByTypeArgs
+	)
 
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
-
 		// assume just string for type
 		var args []string
 		err := json.Unmarshal(req.RawArgs, &args)
 		if err != nil {
-			return fmt.Errorf("bad request data: %w", err)
+			return fmt.Errorf("byType: bad request data: %w", err)
 		}
 		if len(args) != 1 {
-			return fmt.Errorf("bad request data: assumed string argument for type field")
+			return fmt.Errorf("byType: bad request data: assumed string argument for type field")
 		}
 		qry.Type = args[0]
 		// Defaults for no arguments
@@ -101,7 +106,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		if nargs == 1 {
 			qry = args[0]
 		} else {
-			return fmt.Errorf("bad request data: assumed one argument object but got %d", nargs)
+			return fmt.Errorf("byType: bad request data: assumed one argument object but got %d", nargs)
 		}
 	}
 
@@ -115,6 +120,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		return fmt.Errorf("not authroized")
 	}
 
+	logger = log.With(logger, "type", qry.Type)
+
 	// create toJSON sink
 	snk := transform.NewKeyValueWrapper(w, qry.Keys)
 
@@ -123,7 +130,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	snk = newSinkCounter(&cnt, snk)
 
 	idxAddr := librarian.Addr("string:" + qry.Type)
-	if true { // TODO[major/pgroups] fix storage and resumption
+	if qry.Live {
 		if qry.Private {
 			return fmt.Errorf("TODO: fix live && private")
 		}
@@ -141,6 +148,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		// if qry.Private { TODO
 		// 	src = g.unboxedSrc(src)
+		// g.unboxer.WrappedUnboxingSink(snk)
 		// }
 
 		err = luigi.Pump(ctx, snk, src)
@@ -150,9 +158,6 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		return snk.Close()
 	}
-	// TODO[major/pgroups] fix storage and resumption
-	// TODO: fix seq resolver filling hiccups
-	return snk.Close()
 
 	/* TODO: i'm skipping a fairly big refactor here to find out what works first.
 	   ideallly the live and not-live code would just be the same, somehow shoving it into Query(...).
@@ -163,8 +168,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	// not live
 	typed, err := g.types.LoadInternalBitmap(idxAddr)
 	if err != nil {
+		level.Warn(g.info).Log("event", "failed to load type bitmap", "err", err)
 		return snk.Close()
-		//		return errors.Wrap(err, "failed to load typed log")
 	}
 
 	if qry.Private {
@@ -175,20 +180,27 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box1")
-			box1 = bmap.New()
+			box1 = bmap.NewBitmap()
 		}
 
 		box2, err := g.priv.LoadInternalBitmap(librarian.Addr("meta:box2"))
 		if err != nil {
 			// TODO: compare not found
 			// return errors.Wrap(err, "failed to load bmap for box2")
-			box2 = bmap.New()
+			box2 = bmap.NewBitmap()
 		}
 
 		box1.Or(box2) // all the boxed messages
 
 		// remove all the boxed ones from the type we are looking up
-		typed.AndNot(box1)
+		it := box1.NewIterator()
+		for it.HasNext() {
+			it.Next()
+			v := it.Val()
+			if typed.Contains(v) {
+				typed.Remove(v)
+			}
+		}
 	}
 
 	// TODO: set _all_ correctly if gt=0 && lt=0
@@ -196,11 +208,9 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		qry.Lt = math.MaxInt64
 	}
 
-	spew.Dump(qry)
-
 	var filter = func(ts int64) bool {
-		isGreater := ts > qry.Gt
-		isSmaller := ts < qry.Lt
+		isGreater := ts > int64(qry.Gt)
+		isSmaller := ts < int64(qry.Lt)
 		return isGreater && isSmaller
 	}
 
@@ -209,18 +219,21 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 		return fmt.Errorf("failed to filter bitmap: %w", err)
 	}
 
+	sorted := time.Now()
+	level.Debug(logger).Log("event", "sorted seqs", "n", len(sort), "took", time.Since(start))
+
 	for _, res := range sort {
 		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
 		if err != nil {
 			if margaret.IsErrNulled(err) {
 				continue
 			}
-			fmt.Fprintln(os.Stderr, "messagesByType failed to get seq:", res.Seq, " with:", err)
+			level.Warn(logger).Log("event", " failed to get seq", "seq", res.Seq, "err", err)
 			continue
 		}
 
 		if err := snk.Pour(ctx, v); err != nil {
-			fmt.Fprintln(os.Stderr, "messagesByType failed send:", res.Seq, " with:", err)
+			level.Warn(logger).Log("event", "messagesByType failed to send", "seq", res.Seq, "err", err)
 			break
 		}
 
@@ -231,7 +244,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 			}
 		}
 	}
-	fmt.Println("streamed", cnt, " for type:", qry.Type)
+
+	level.Debug(logger).Log("event", "messages streamed", "cnt", cnt, "took", time.Since(sorted))
 	return snk.Close()
 }
 

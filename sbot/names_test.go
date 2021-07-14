@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// +build ignore
-
-package names
+package sbot
 
 import (
 	"crypto/rand"
@@ -10,20 +8,24 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/plugins2"
+	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestNames(t *testing.T) {
-	// defer leakcheck.Check(t)
+func TestNames(t *testing.T) {
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
+
+	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	hk := make([]byte, 32)
@@ -36,7 +38,7 @@ func XTestNames(t *testing.T) {
 	tRepo := repo.New(tRepoPath)
 
 	// make three new keypairs with nicknames
-	n2kp := make(map[string]*ssb.KeyPair)
+	n2kp := make(map[string]ssb.KeyPair)
 
 	kpArny, err := repo.NewKeyPair(tRepo, "arny", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -56,13 +58,12 @@ func XTestNames(t *testing.T) {
 
 	// make the bot
 	logger := log.NewLogfmtLogger(os.Stderr)
-	mainbot, err := sbot.New(
-		sbot.WithInfo(logger),
-		sbot.WithRepoPath(tRepoPath),
-		sbot.WithHMACSigning(hk),
-		sbot.WithListenAddr(":0"),
-		sbot.LateOption(sbot.MountPlugin(&Plugin{}, plugins2.AuthMaster)),
-		sbot.LateOption(sbot.WithUNIXSocket()),
+	mainbot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		WithHMACSigning(hk),
+		WithListenAddr(":0"),
+		LateOption(WithUNIXSocket()),
 	)
 	r.NoError(err)
 
@@ -93,6 +94,8 @@ func XTestNames(t *testing.T) {
 
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
+	// TODO: flush indexes
+
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)
 
@@ -105,16 +108,18 @@ func XTestNames(t *testing.T) {
 		"cloe": "i'm cloe!",
 	}
 
+	r.Len(all, len(want), "expected entries for all three keypairs")
+
 	for who, wantName := range want {
 		name, ok := all.GetCommonName(n2kp[who].Id)
-		r.True(ok)
-		r.Equal(wantName, name)
+		r.True(ok, "did not get a name for %s", who)
+		r.Equal(wantName, name, "did not the right name for %s", who)
 	}
 
 	for who, wantName := range want {
-		name2, err := c.NamesSignifier(*n2kp[who].Id)
-		r.NoError(err)
-		r.Equal(wantName, name2)
+		name2, err := c.NamesSignifier(n2kp[who].Id)
+		r.NoError(err, "did not get a name for %s", who)
+		r.Equal(wantName, name2, "did not the right name for %s", who)
 	}
 
 	r.NoError(c.Close())

@@ -85,7 +85,7 @@ func TestFeedFromJS(t *testing.T) {
 		var m testWrap
 		err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
 		r.NoError(err)
-		r.True(alice.Equal(&m.Author), "wrong author")
+		r.True(alice.Equal(m.Author), "wrong author")
 		r.Equal(m.Content.Type, "test")
 		r.Equal(m.Content.Text, "foo")
 		r.Equal(m.Content.I, n-i, "wrong I on msg: %d", i)

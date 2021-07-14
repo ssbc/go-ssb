@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
@@ -42,7 +42,7 @@ func (h getTangleHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) 
 		msg.ValueContentJSON(),
 	}
 
-	threadLog, err := h.roots.Get(librarian.Addr(msg.Key().Hash))
+	threadLog, err := h.roots.Get(storedrefs.Message(msg.Key()))
 	if err != nil {
 		return nil, fmt.Errorf("getTangle: failed to load thread: %w", err)
 	}

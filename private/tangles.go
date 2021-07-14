@@ -5,18 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.TanglePoint {
-	addr := librarian.Addr(append([]byte("v2:"+tname+":"), root.Hash...))
+func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.TanglePoint {
+	var h = make([]byte, 32)
+	root.CopyHashTo(h)
+	addr := librarian.Addr(append([]byte("v2:"+tname+":"), h...))
 	thandle, err := mgr.tangles.Get(addr)
 	if err != nil {
-		return refs.TanglePoint{Root: root, Previous: []*refs.MessageRef{root}}
+		return refs.TanglePoint{Root: &root, Previous: []refs.MessageRef{root}}
 	}
 
 	heads, err := mgr.getLooseEnds(thandle, tname)
@@ -26,7 +28,7 @@ func (mgr *Manager) getTangleState(root *refs.MessageRef, tname string) refs.Tan
 	if len(heads) == 0 {
 		heads = refs.MessageRefs{root}
 	}
-	return refs.TanglePoint{Root: root, Previous: heads}
+	return refs.TanglePoint{Root: &root, Previous: heads}
 }
 
 func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs, error) {
@@ -66,10 +68,9 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 		}
 
 		tps = append(tps, refs.TangledPost(tangledPost{MessageRef: msg.Key(), Tangles: p.Tangles}))
-
 	}
+
 	sorter := refs.ByPrevious{Items: tps, TangleName: tname}
-	sorter.FillLookup()
 	// sort.Sort(sorter) // not required for Heads()
 
 	h := sorter.Heads()
@@ -77,12 +78,12 @@ func (mgr *Manager) getLooseEnds(l margaret.Log, tname string) (refs.MessageRefs
 }
 
 type tangledPost struct {
-	*refs.MessageRef
+	refs.MessageRef
 
 	refs.Tangles
 }
 
-func (tm tangledPost) Key() *refs.MessageRef {
+func (tm tangledPost) Key() refs.MessageRef {
 	return tm.MessageRef
 }
 

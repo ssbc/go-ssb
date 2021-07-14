@@ -24,6 +24,8 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
+// sadly there is no documentation here to explain what this test tries to show
+// and there is only a single case even tho the structure looks table driven
 func XTestWantManager(t *testing.T) {
 	type testcase struct {
 		blobs map[string]string // global key-value register of all blobs
@@ -158,17 +160,15 @@ func XTestWantManager(t *testing.T) {
 
 			sizeWants := func(strs []string) map[string]int64 {
 				var (
-					m   = make(map[string]int64)
-					h   = sha256.New()
-					ref = refs.BlobRef{
-						Algo: refs.RefAlgoBlobSSB1,
-					}
+					m = make(map[string]int64)
+					h = sha256.New()
 				)
 
 				for _, str := range strs {
 					h.Reset()
 					h.Write([]byte(str))
-					ref.Hash = h.Sum(nil)
+					ref, err := refs.NewBlobRefFromBytes(h.Sum(nil), refs.RefAlgoBlobSSB1)
+					r.NoError(err)
 					m[ref.Ref()] = int64(len(str))
 				}
 
@@ -185,10 +185,9 @@ func XTestWantManager(t *testing.T) {
 			r.NoError(err)
 			pkt2, err := outReader.ReadPacket()
 			r.NoError(err)
-			// r.Equal(2, len(outSlice), "output slice length mismatch (%v)", outSlice)
 
 			// this should be our initial want list, but with more dist
-			ourW := wmgr.(*wantManager)
+			ourW := wmgr
 			ourW.l.Lock()
 
 			var wants map[string]int64

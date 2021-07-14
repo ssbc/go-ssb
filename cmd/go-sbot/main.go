@@ -22,12 +22,11 @@ import (
 	// debug
 	_ "net/http/pprof"
 
-	"github.com/cryptix/go/logging"
-	"github.com/go-kit/kit/log/level"
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2/debug"
+	"go.mindeco.de/log/level"
+	"go.mindeco.de/logging"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
@@ -157,7 +156,7 @@ func runSbot() error {
 
 	ak, err := base64.StdEncoding.DecodeString(appKey)
 	if err != nil {
-		return errors.Wrap(err, "application key")
+		return fmt.Errorf("invalid application key/shs-cap: %w", err)
 	}
 
 	startDebug()
@@ -210,14 +209,14 @@ func runSbot() error {
 	if hmacSec != "" {
 		hcbytes, err := base64.StdEncoding.DecodeString(hmacSec)
 		if err != nil {
-			return errors.Wrap(err, "invalid base64 string for HMAC signing secret")
+			return fmt.Errorf("invalid base64 string for HMAC signing secret: %w", err)
 		}
 		opts = append(opts, mksbot.WithHMACSigning(hcbytes))
 	}
 
 	sbot, err := mksbot.New(opts...)
 	if err != nil {
-		return errors.Wrap(err, "failed to instantiate ssb server")
+		return fmt.Errorf("failed to instantiate ssb server: %w", err)
 	}
 
 	c := make(chan os.Signal)
@@ -272,13 +271,13 @@ func runSbot() error {
 
 			err = sbot.NullFeed(report.Ref)
 			if err != nil {
-				return errors.Wrap(err, "fsck: failed to drop broken feed")
+				return fmt.Errorf("fsck: failed to drop broken feed: %w", err)
 			}
 
 			sbot.Shutdown()
 			err := sbot.Close()
 			if err != nil {
-				return errors.Wrap(err, "fsck: failed to stop sbot after repair action")
+				return fmt.Errorf("fsck: failed to stop sbot after repair action: %w", err)
 			}
 
 		case mksbot.ErrConsistencyProblems:
@@ -293,7 +292,7 @@ func runSbot() error {
 			sbot.Shutdown()
 			err := sbot.Close()
 			if err != nil {
-				return errors.Wrap(err, "fsck: failed to halt sbot after repo heal")
+				return fmt.Errorf("fsck: failed to halt sbot after repo heal: %w", err)
 			}
 		default:
 			level.Error(log).Log("fsck", "wrong report type", "T", fmt.Sprintf("%T", err))
@@ -314,16 +313,16 @@ func runSbot() error {
 
 	feeds, err := uf.List()
 	if err != nil {
-		return errors.Wrap(err, "user feed")
+		return fmt.Errorf("user feed: %w", err)
 	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
 	rseq, err := sbot.ReceiveLog.Seq().Value()
 	if err != nil {
-		return errors.Wrap(err, "could not get root log sequence number")
+		return fmt.Errorf("could not get root log sequence number: %w", err)
 	}
 	msgCount := rseq.(margaret.Seq)
-	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq()))
+	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq() + 1))
 
 	level.Info(log).Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 
@@ -347,26 +346,26 @@ func runSbot() error {
 
 		tg, err := sbot.GraphBuilder.Build()
 		if err != nil {
-			return errors.Wrap(err, "failed to build graph during cleanup")
+			return fmt.Errorf("failed to build graph during cleanup: %w", err)
 		}
 
 		botRef := sbot.KeyPair.Id
 		lst, err := tg.BlockedList(botRef).List()
 		if err != nil {
-			return errors.Wrap(err, "cleanup: failed to get blocked list")
+			return fmt.Errorf("cleanup: failed to get blocked list: %w", err)
 		}
 
 		for _, blocked := range lst {
 			isStored, err := multilog.Has(uf, storedrefs.Feed(blocked))
 			if err != nil {
-				return errors.Wrap(err, "blocked lookup in multilog")
+				return fmt.Errorf("blocked lookup in multilog: %w", err)
 			}
 
 			if isStored {
 				level.Info(log).Log("event", "nulled feed", "ref", blocked.Ref())
 				err = sbot.NullFeed(blocked)
 				if err != nil {
-					return errors.Wrapf(err, "failed to null blocked feed %s", blocked.Ref())
+					return fmt.Errorf("failed to null blocked feed %s: %w", blocked.Ref(), err)
 				}
 			}
 		}

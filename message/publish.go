@@ -14,6 +14,7 @@ import (
 	"go.cryptoscope.co/margaret/multilog"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
@@ -21,66 +22,63 @@ import (
 )
 
 type publishLog struct {
-	sync.Mutex
-	margaret.Log
-	rootLog margaret.Log
+	mu         sync.Mutex
+	byAuthor   margaret.Log
+	receiveLog margaret.Log
 
 	create creater
 }
 
-func (p *publishLog) Publish(content interface{}) (*refs.MessageRef, error) {
+func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
 	seq, err := p.Append(content)
 	if err != nil {
-		return nil, err
+		return refs.MessageRef{}, err
 	}
 
-	val, err := p.rootLog.Get(seq)
+	val, err := p.receiveLog.Get(seq)
 	if err != nil {
-		return nil, fmt.Errorf("publish: failed to get new stored message: %w", err)
+		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}
 
 	kv, ok := val.(refs.Message)
 	if !ok {
-		return nil, fmt.Errorf("publish: unsupported keyer %T", val)
+		return refs.MessageRef{}, fmt.Errorf("publish: unsupported keyer %T", val)
 	}
 
-	key := kv.Key()
-	if key == nil {
-		return nil, fmt.Errorf("publish: nil key for new message %d", seq.Seq())
-	}
+	return kv.Key(), nil
+}
 
-	return key, nil
+func (pl publishLog) Seq() luigi.Observable {
+	return pl.byAuthor.Seq()
 }
 
 // Get retreives the message object by traversing the authors sublog to the root log
 func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
 
-	idxv, err := pl.Log.Get(s)
+	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
 	}
 
-	msgv, err := pl.rootLog.Get(idxv.(margaret.Seq))
+	msgv, err := pl.receiveLog.Get(idxv.(margaret.Seq))
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive message from rootlog: %w", err)
 	}
 	return msgv, nil
 }
 
-/*
-TODO: do the same for Query()? but how?
-
-=> just overwrite publish on the authorLog for now
-*/
+func (pl publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
+	return mutil.Indirect(pl.receiveLog, pl.byAuthor).Query(qry...)
+}
 
 func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
-	pl.Lock()
-	defer pl.Unlock()
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
 
 	// current state of the local sig-chain
 	var (
-		nextPrevious *refs.MessageRef // = invalid
-		nextSequence = margaret.SeqEmpty
+		nextPrevious refs.MessageRef
+		nextSequence = int64(-1)
 	)
 
 	currSeq, err := pl.Seq().Value()
@@ -92,15 +90,14 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, fmt.Errorf("publishLog: invalid sequence from publish sublog %v: %T", currSeq, currSeq)
 	}
 
-	currRootSeq, err := pl.Log.Get(seq)
+	currRootSeq, err := pl.byAuthor.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
 		return nil, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
 	}
 	if luigi.IsEOS(err) { // new feed
-		nextPrevious = nil
 		nextSequence = 1
 	} else {
-		currMM, err := pl.rootLog.Get(currRootSeq.(margaret.Seq))
+		currMM, err := pl.receiveLog.Get(currRootSeq.(margaret.Seq))
 		if err != nil {
 			return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
 		}
@@ -109,7 +106,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 			return nil, fmt.Errorf("publishLog: invalid value at sequence %v: %T", currSeq, currMM)
 		}
 		nextPrevious = mm.Key()
-		nextSequence = margaret.BaseSeq(mm.Seq() + 1)
+		nextSequence = mm.Seq() + 1
 	}
 
 	nextMsg, err := pl.create.Create(val, nextPrevious, nextSequence)
@@ -117,7 +114,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		return nil, fmt.Errorf("failed to create next msg: %w", err)
 	}
 
-	rlSeq, err := pl.rootLog.Append(nextMsg)
+	rlSeq, err := pl.receiveLog.Append(nextMsg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to append new msg: %w", err)
 	}
@@ -131,28 +128,28 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // these messages are constructed in the legacy SSB way: The poured object is JSON v8-like pretty printed and then NaCL signed,
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
-func OpenPublishLog(rootLog margaret.Log, sublogs multilog.MultiLog, kp *ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
-	authorLog, err := sublogs.Get(storedrefs.Feed(kp.Id))
+func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
+	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.Id))
 	if err != nil {
 		return nil, fmt.Errorf("publish: failed to open sublog for author: %w", err)
 	}
 
 	pl := &publishLog{
-		Log:     authorLog,
-		rootLog: rootLog,
+		byAuthor:   authorLog,
+		receiveLog: receiveLog,
 	}
 
-	switch kp.Id.Algo {
+	switch kp.Id.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		pl.create = &legacyCreate{
-			key: *kp,
+			key: kp,
 		}
 	case refs.RefAlgoFeedGabby:
 		pl.create = &gabbyCreate{
 			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
 		}
 	default:
-		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo)
+		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo())
 	}
 
 	for i, o := range opts {
@@ -197,7 +194,7 @@ func UseNowTimestamps(yes bool) PublishOption {
 }
 
 type creater interface {
-	Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error)
+	Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error)
 }
 
 type legacyCreate struct {
@@ -206,7 +203,7 @@ type legacyCreate struct {
 	setTimestamp bool
 }
 
-func (lc legacyCreate) Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error) {
+func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
 	// prepare persisted message
 	var stored legacy.StoredMessage
 	stored.Timestamp_ = time.Now() // "rx"
@@ -216,8 +213,10 @@ func (lc legacyCreate) Create(val interface{}, prev *refs.MessageRef, seq margar
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
 	newMsg.Author = lc.key.Id.Ref()
-	newMsg.Previous = prev
-	newMsg.Sequence = margaret.BaseSeq(seq.Seq())
+	if seq > 1 {
+		newMsg.Previous = &prev
+	}
+	newMsg.Sequence = margaret.BaseSeq(seq)
 
 	if bindata, ok := val.([]byte); ok {
 		bindata = bytes.TrimPrefix(bindata, []byte("box1:"))
@@ -236,7 +235,7 @@ func (lc legacyCreate) Create(val interface{}, prev *refs.MessageRef, seq margar
 	}
 
 	stored.Previous_ = newMsg.Previous
-	stored.Sequence_ = newMsg.Sequence
+	stored.Sequence_ = seq
 	stored.Key_ = mr
 	stored.Raw_ = signedMessage
 	return &stored, nil
@@ -246,16 +245,12 @@ type gabbyCreate struct {
 	enc *gabbygrove.Encoder
 }
 
-func (pc gabbyCreate) Create(val interface{}, prev *refs.MessageRef, seq margaret.Seq) (refs.Message, error) {
-	var br *gabbygrove.BinaryRef
-	if prev != nil {
-		var err error
-		br, err = gabbygrove.NewBinaryRef(prev)
-		if err != nil {
-			return nil, err
-		}
+func (pc gabbyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
+	br, err := gabbygrove.NewBinaryRef(prev)
+	if err != nil {
+		return nil, err
 	}
-	nextSeq := uint64(seq.Seq())
+	nextSeq := uint64(seq)
 	tr, _, err := pc.enc.Encode(nextSeq, br, val)
 	if err != nil {
 		return nil, fmt.Errorf("gabby: failed to encode content: %w", err)

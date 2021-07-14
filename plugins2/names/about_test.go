@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-// TODO: move these into the sbot package
-
-// +build ignore
-
 package names_test
 
 import (
@@ -93,7 +89,7 @@ func TestAboutNames(t *testing.T) {
 	r.True(ok, "name for ali not found")
 	r.Equal(newName.Name, name)
 
-	name2, err := c.NamesSignifier(*ali.KeyPair.Id)
+	name2, err := c.NamesSignifier(ali.KeyPair.Id)
 	r.NoError(err)
 	r.Equal(newName.Name, name2)
 

@@ -29,7 +29,7 @@ var streamFlags = []cli.Flag{
 }
 
 func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
-	var ref *refs.FeedRef
+	var ref refs.FeedRef
 	if id := ctx.String("id"); id != "" {
 		var err error
 		ref, err = refs.ParseFeedRef(id)
@@ -43,8 +43,8 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 		AsJSON: ctx.Bool("asJSON"),
 	}
 	args.Limit = ctx.Int64("limit")
-	args.Gt = ctx.Int64("gt")
-	args.Lt = ctx.Int64("lt")
+	args.Gt = message.RoundedInteger(ctx.Int64("gt"))
+	args.Lt = message.RoundedInteger(ctx.Int64("lt"))
 	args.Reverse = ctx.Bool("reverse")
 	args.Live = ctx.Bool("live")
 	args.Keys = ctx.Bool("keys")
@@ -214,7 +214,7 @@ var repliesStreamCmd = &cli.Command{
 		}
 		targs.Name = ctx.String("tname")
 
-		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "read"}, targs)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "replies"}, targs)
 		if err != nil {
 			return fmt.Errorf("source stream call failed: %w", err)
 		}

@@ -22,7 +22,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func XTestEpidemic(t *testing.T) {
+func XTestEpidemicBroadcastTrees(t *testing.T) {
 	r := require.New(t)
 
 	// ts := newRandomSession(t)
@@ -31,6 +31,7 @@ func XTestEpidemic(t *testing.T) {
 	// info := testutils.NewRelativeTimeLogger(nil)
 	var peerCnt = 0
 	ts.startGoBot(
+		sbot.DisableEBT(false),
 		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
 			fr, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
 			if err != nil {
@@ -148,7 +149,7 @@ func XTestEpidemic(t *testing.T) {
 	wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
 		Port: port,
-	}, secretstream.Addr{PubKey: alice.ID})
+	}, secretstream.Addr{PubKey: alice.PubKey()})
 
 	connCtx, connCancel := context.WithCancel(context.TODO())
 	err := sbot.Network.Connect(connCtx, wrappedAddr)
@@ -178,7 +179,7 @@ func XTestEpidemic(t *testing.T) {
 
 	var followTest struct {
 		Type string
-		ID   *refs.FeedRef
+		ID   refs.FeedRef
 	}
 	err = json.Unmarshal(msg.ContentBytes(), &followTest)
 	r.NoError(err)
@@ -256,7 +257,7 @@ func XTestEpidemic(t *testing.T) {
 	wrappedAddr = netwrap.WrapAddr(&net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
 		Port: port,
-	}, secretstream.Addr{PubKey: poop.ID})
+	}, secretstream.Addr{PubKey: poop.PubKey()})
 	t.Log("connecting to poop")
 
 	err = sbot.Network.Connect(context.TODO(), wrappedAddr)

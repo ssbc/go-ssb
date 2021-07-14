@@ -107,15 +107,18 @@ func TestNew(t *testing.T) {
 	r.NoError(m.Close())
 }
 
-func testFeed(i int) *refs.FeedRef {
+func testFeed(i int) refs.FeedRef {
 	k := bytes.Repeat([]byte(strconv.Itoa(i)), 32)
 	if len(k) > 32 {
 		k = k[:32]
 	}
-	return &refs.FeedRef{
-		Algo: refs.RefAlgoFeedSSB1,
-		ID:   k,
+
+	ref, err := refs.NewFeedRefFromBytes(k, refs.RefAlgoFeedSSB1)
+	if err != nil {
+		panic(err)
 	}
+
+	return ref
 }
 
 func TestChanged(t *testing.T) {

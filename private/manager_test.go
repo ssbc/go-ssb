@@ -6,8 +6,8 @@ import (
 
 	"github.com/keks/testops"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
-	libmkv "go.cryptoscope.co/librarian/mkv"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
 	"golang.org/x/crypto/nacl/box"
 	"modernc.org/kv"
 
@@ -39,12 +39,12 @@ func TestManager(t *testing.T) {
 	var ctxt []byte
 
 	tcs2 := []testops.TestCase{
-		testops.TestCase{
+		{
 			Name: "alice->alice",
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []*refs.FeedRef{alice.Id},
+					Recipients: []refs.FeedRef{alice.Id},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -53,12 +53,12 @@ func TestManager(t *testing.T) {
 				},
 			},
 		},
-		testops.TestCase{
+		{
 			Name: "alice->alice+bob",
 			Ops: []testops.Op{
 				OpManagerEncryptBox1{
 					Manager:    alice.manager,
-					Recipients: []*refs.FeedRef{alice.Id, bob.Id},
+					Recipients: []refs.FeedRef{alice.Id, bob.Id},
 					Ciphertext: &ctxt,
 				},
 				OpManagerDecryptBox1{
@@ -71,7 +71,7 @@ func TestManager(t *testing.T) {
 				},
 			},
 		},
-		testops.TestCase{
+		{
 			Name: "alice->alice+bob, box2",
 			Ops: []testops.Op{
 				OpManagerEncryptBox2{
@@ -93,12 +93,14 @@ func TestManager(t *testing.T) {
 		},
 	}
 
-	testops.Run(t, []testops.Env{testops.Env{
-		Name: "private.Manager",
-		Func: func(tc testops.TestCase) (func(*testing.T), error) {
-			return tc.Runner(nil), nil
+	testops.Run(t, []testops.Env{
+		{
+			Name: "private.Manager",
+			Func: func(tc testops.TestCase) (func(*testing.T), error) {
+				return tc.Runner(nil), nil
+			},
 		},
-	}}, tcs2)
+	}, tcs2)
 }
 
 func newMemIndex(tipe interface{}) librarian.SeqSetterIndex {
@@ -112,7 +114,7 @@ func newMemIndex(tipe interface{}) librarian.SeqSetterIndex {
 }
 
 type testIdentity struct {
-	*ssb.KeyPair
+	ssb.KeyPair
 
 	name    string
 	manager *Manager
@@ -128,7 +130,7 @@ func newIdentity(t *testing.T, name string, km *keys.Store) testIdentity {
 
 	rand := rand.New(rand.NewSource(idCount))
 
-	id.KeyPair, err = ssb.NewKeyPair(rand)
+	id.KeyPair, err = ssb.NewKeyPair(rand, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err)
 
 	t.Logf("%s is %s", name, id.Id.Ref())
@@ -163,7 +165,7 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 	for i := range ids {
 		specs = append(specs, keySpec{
 			keys.SchemeDiffieStyleConvertedED25519,
-			keys.ID(ids[i].Id.ID),
+			keys.IDFromFeed(ids[i].Id),
 			keys.Key(ids[i].Pair.Secret[:]),
 		})
 
@@ -172,7 +174,7 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 
 		specs = append(specs, keySpec{
 			keys.SchemeDiffieStyleConvertedED25519,
-			keys.ID(ids[i].Id.ID),
+			keys.IDFromFeed(ids[i].Id),
 			keys.Key(cvSecs[i][:]),
 		})
 	}
@@ -189,7 +191,7 @@ func populateKeyStore(t *testing.T, km *keys.Store, ids ...testIdentity) {
 
 			specs = append(specs, keySpec{
 				keys.SchemeDiffieStyleConvertedED25519,
-				sortAndConcat(keys.ID(ids[i].Id.ID), keys.ID(ids[j].Id.ID)),
+				sortAndConcat(keys.IDFromFeed(ids[i].Id), keys.IDFromFeed(ids[j].Id)),
 				keys.Key(shared[i][j][:]),
 			})
 		}

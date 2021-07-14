@@ -7,12 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestSaveKeyPair(t *testing.T) {
 	fname := path.Join(os.TempDir(), "secret")
 
-	keys, err := NewKeyPair(nil)
+	keys, err := NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err)
 	err = SaveKeyPair(keys, fname)
 	require.NoError(t, err)
@@ -44,7 +45,7 @@ func TestLoadKeyPair(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			fname := path.Join(os.TempDir(), "secret")
 
-			keys, err := NewKeyPair(nil)
+			keys, err := NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 			require.NoError(t, err)
 			err = SaveKeyPair(keys, fname)
 			require.NoError(t, err)

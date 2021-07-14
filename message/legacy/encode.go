@@ -183,13 +183,18 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 // }
 //
 // while preserving the order in which the keys appear
-func EncodePreserveOrder(b []byte) ([]byte, error) {
-	dec := json.NewDecoder(bytes.NewReader(b))
+func EncodePreserveOrder(in []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	return EncodePreserveOrderWithBuffer(in, &buf)
+}
+
+func EncodePreserveOrderWithBuffer(in []byte, buf *bytes.Buffer) ([]byte, error) {
+	dec := json.NewDecoder(bytes.NewReader(in))
 	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
 	// not particular excited to implement all of the above
 	// this keeps the original value as a string
 	dec.UseNumber()
-	var buf bytes.Buffer
+
 	t, err := dec.Token()
 	if err != nil {
 		return nil, fmt.Errorf("message Encode: expected {: %w", err)
@@ -197,8 +202,8 @@ func EncodePreserveOrder(b []byte) ([]byte, error) {
 	if v, ok := t.(json.Delim); !ok || v != '{' {
 		return nil, fmt.Errorf("message Encode: wanted { got %v: %w", t, err)
 	}
-	fmt.Fprint(&buf, "{\n")
-	if err := formatObject(1, &buf, dec); err != nil {
+	fmt.Fprint(buf, "{\n")
+	if err := formatObject(1, buf, dec); err != nil {
 		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
 	}
 	return bytes.Trim(buf.Bytes(), "\n"), nil

@@ -3,13 +3,12 @@ package legacyinvites
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -21,13 +20,11 @@ func (acceptHandler) Handled(m muxrpc.Method) bool { return m.String() == "invit
 
 func (h acceptHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
+// TODO: re-write as typemux.AsyncFunc
 func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
-	h.service.mu.Lock()
-	defer h.service.mu.Unlock()
-
 	// parse passed arguments
 	var args []struct {
-		Feed *refs.FeedRef `json:"feed"`
+		Feed refs.FeedRef `json:"feed"`
 	}
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
 		req.CloseWithError(fmt.Errorf("invalid arguments (%w)", err))
@@ -46,71 +43,49 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	}
 
 	// lookup guest key
-	if err := h.service.kv.BeginTransaction(); err != nil {
-		req.CloseWithError(err)
-		return
-	}
-
-	kvKey := []byte(storedrefs.Feed(guestRef))
-
-	has, err := h.service.kv.Get(nil, kvKey)
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed get guest remote from KV (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	if has == nil {
-		h.service.kv.Rollback()
-		err = errors.New("not for us")
-		req.CloseWithError(err)
-		return
-	}
-
 	var st inviteState
-	if err := json.Unmarshal(has, &st); err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed to probe new key (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
+	kvKey := append(dbKeyPrefix, guestRef.PubKey()...)
+	err = h.service.kv.Update(func(txn *badger.Txn) error {
+		has, err := txn.Get(kvKey)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed get guest remote from KV (%w)", err)
+		}
 
-	if st.Used >= st.Uses {
-		h.service.kv.Delete(kvKey)
-		h.service.kv.Commit()
-		err = fmt.Errorf("invite/kv: invite depleeted")
-		req.CloseWithError(err)
-		return
-	}
+		err = has.Value(func(val []byte) error {
+			return json.Unmarshal(val, &st)
+		})
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed to probe new key (%w)", err)
+		}
 
-	// count uses
-	st.Used++
+		if st.Used >= st.Uses {
+			txn.Delete(kvKey)
+			return fmt.Errorf("invite/kv: invite depleted")
+		}
 
-	updatedState, err := json.Marshal(st)
+		// count uses
+		st.Used++
+
+		updatedState, err := json.Marshal(st)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed marshal updated state data (%w)", err)
+		}
+
+		err = txn.Set(kvKey, updatedState)
+		if err != nil {
+			return fmt.Errorf("invite/kv: failed save updated state data (%w)", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed marshal updated state data (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	err = h.service.kv.Set(kvKey, updatedState)
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed save updated state data (%w)", err)
-		req.CloseWithError(err)
-		return
-	}
-	err = h.service.kv.Commit()
-	if err != nil {
-		h.service.kv.Rollback()
-		err = fmt.Errorf("invite/kv: failed to commit kv transaction (%w)", err)
 		req.CloseWithError(err)
 		return
 	}
 
 	// publish follow for requested Feed
 	var contactWithNote struct {
-		*refs.Contact
+		refs.Contact
 		Note string `json:"note,omitempty"`
 		Pub  bool   `json:"pub"`
 	}
@@ -129,6 +104,9 @@ func (h acceptHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		req.CloseWithError(fmt.Errorf("invite/accept: failed to publish invite accept (%w)", err))
 		return
 	}
+
+	h.service.replicator.Replicate(arg.Feed)
+
 	req.Return(ctx, msgv)
 
 	h.service.logger.Log("invite", "used")

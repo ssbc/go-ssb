@@ -12,11 +12,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
@@ -56,7 +57,6 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 
 		b.StopTimer()
-		// _, snk, err := repo.OpenMultiLog(tr, name, UserFeedsUpdate) // mkv
 		_, snk, err := repo.OpenFileSystemMultiLog(tr, name, UserFeedsUpdate) // fs-bitmaps
 		r.NoError(err)
 		b.StartTimer()
@@ -75,6 +75,10 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 func TestIndexFixtures(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
+
+	if testutils.SkipOnCI(t) {
+		return
+	}
 
 	f, err := os.Open("v2-sloop-authors.json")
 	r.NoError(err)
@@ -142,8 +146,10 @@ func TestIndexFixtures(t *testing.T) {
 			r.NoError(err)
 			sublogSeq := sv.(margaret.Seq).Seq()
 
-			fr := sr.Feed().Ref()
-			seq, has := tc.HeadCount[fr]
+			fr, err := sr.Feed()
+			r.NoError(err)
+
+			seq, has := tc.HeadCount[fr.Ref()]
 			if !a.True(has, "feed not found:%s", fr) {
 				// fmt.Fprintf(f, "%q:%d,\n", fr, sublogSeq)
 				continue
@@ -157,9 +163,9 @@ func TestIndexFixtures(t *testing.T) {
 		r.NoError(ml.Close())
 	}
 
-	mkvMlog, snk, err := repo.OpenMultiLog(tr, "testmkv"+tc.Name, UserFeedsUpdate)
+	mkvMlog, snk, err := repo.OpenStandaloneMultiLog(tr, "testbadger"+tc.Name, UserFeedsUpdate)
 	r.NoError(err)
-	serve("mkv", snk)
+	serve("badger", snk)
 	compare(mkvMlog)
 
 	fsMlog, snk, err := repo.OpenFileSystemMultiLog(tr, "testfs"+tc.Name, UserFeedsUpdate)

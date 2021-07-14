@@ -4,9 +4,10 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/aliases"
@@ -50,8 +51,8 @@ var aliasRegisterCmd = &cli.Command{
 
 		var reg aliases.Registration
 		reg.Alias = alias
-		reg.UserID = *localKey.Id
-		reg.RoomID = *roomID
+		reg.UserID = localKey.Id
+		reg.RoomID = roomID
 
 		conf := reg.Sign(localKey.Pair.Secret)
 		sig := base64.StdEncoding.EncodeToString(conf.Signature) + ".sig.ed25519"
@@ -60,7 +61,7 @@ var aliasRegisterCmd = &cli.Command{
 		method := muxrpc.Method{"room", "registerAlias"}
 		err = client.Async(longctx, &ok, muxrpc.TypeJSON, method, alias, sig)
 		if err != nil {
-			return errors.Wrapf(err, "alias.register: async call failed.")
+			return fmt.Errorf("alias.register: async call failed: %w", err)
 		}
 		log.Log("event", "alias registerd", "ok", ok)
 		return nil
@@ -87,7 +88,7 @@ var aliasRevokeCmd = &cli.Command{
 		var has bool
 		err = client.Async(longctx, &has, muxrpc.TypeJSON, method, ref)
 		if err != nil {
-			return errors.Wrapf(err, "connect: async call failed.")
+			return fmt.Errorf("connect: async call failed: %w", err)
 		}
 		log.Log("event", "blob.has", "r", has)
 

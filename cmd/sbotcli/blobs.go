@@ -1,11 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/pkg/errors"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -29,7 +29,7 @@ var blobsCmd = &cli.Command{
 		var err error
 		blobsStore, err = blobstore.New(localRepo)
 		if err != nil {
-			return errors.Wrap(err, "blobs: failed to construct local edp")
+			return fmt.Errorf("blobs: failed to construct local edp: %w", err)
 		}
 		log.Log("before", "blobs", "locl")
 		return nil
@@ -61,7 +61,7 @@ var blobsHasCmd = &cli.Command{
 		//sz, err := blobsStore.Size()
 		err = client.Async(longctx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
 		if err != nil {
-			return errors.Wrapf(err, "connect: async call failed.")
+			return fmt.Errorf("connect: async call failed: %w", err)
 		}
 		log.Log("event", "blob.has", "r", has)
 
@@ -84,14 +84,14 @@ var blobsWantCmd = &cli.Command{
 		}
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			return errors.Wrap(err, "blobs: failed to parse argument ref")
+			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
 
 		client, err := newClient(ctx)
 		if err != nil {
 			return err
 		}
-		return client.BlobsWant(*br)
+		return client.BlobsWant(br)
 	},
 }
 
@@ -114,7 +114,7 @@ var blobsAddCmd = &cli.Command{
 			var err error
 			rd, err = os.Open(fname)
 			if err != nil {
-				return errors.Wrap(err, "blobs.add: failed to open input file")
+				return fmt.Errorf("blobs.add: failed to open input file: %w", err)
 			}
 		}
 
@@ -140,11 +140,11 @@ var blobsGetCmd = &cli.Command{
 		}
 		br, err := refs.ParseBlobRef(ref)
 		if err != nil {
-			return errors.Wrap(err, "blobs: failed to parse argument ref")
+			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
 		rd, err := blobsStore.Get(br)
 		if err != nil {
-			return errors.Wrap(err, "blobs: failed to parse argument ref")
+			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
 
 		var out io.Writer
@@ -155,7 +155,7 @@ var blobsGetCmd = &cli.Command{
 			var err error
 			out, err = os.Create(outName)
 			if err != nil {
-				return errors.Wrap(err, "blobs.get: failed to open output file")
+				return fmt.Errorf("blobs.get: failed to open output file: %w", err)
 			}
 		}
 

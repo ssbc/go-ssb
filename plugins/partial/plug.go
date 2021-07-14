@@ -5,13 +5,13 @@
 package partial
 
 import (
-	"github.com/cryptix/go/logging"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	"go.mindeco.de/logging"
 )
 
 type plugin struct {

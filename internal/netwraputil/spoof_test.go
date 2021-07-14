@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestSpoof(t *testing.T) {
@@ -13,7 +14,7 @@ func TestSpoof(t *testing.T) {
 
 	rc, wc := net.Pipe()
 
-	kp, err := ssb.NewKeyPair(nil)
+	kp, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	wrap := SpoofRemoteAddress(kp.Id.PubKey())

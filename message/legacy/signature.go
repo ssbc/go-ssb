@@ -36,7 +36,7 @@ func (s Signature) Algo() SigAlgo {
 	return SigAlgoInvalid
 }
 
-func (s Signature) Raw() ([]byte, error) {
+func (s Signature) Bytes() ([]byte, error) {
 	parts := strings.Split(string(s), ".")
 	if n := len(parts); n < 1 {
 		return nil, fmt.Errorf("signature: expected at least one part - got %d", n)
@@ -45,21 +45,24 @@ func (s Signature) Raw() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(b64)
 }
 
-func (s Signature) Verify(content []byte, r *refs.FeedRef) error {
+func (s Signature) Verify(content []byte, r refs.FeedRef) error {
 	switch s.Algo() {
 	case SigAlgoEd25519:
-		if r.Algo != refs.RefAlgoFeedSSB1 {
-			return fmt.Errorf("verify: invalid feed algorithm")
+		if r.Algo() != refs.RefAlgoFeedSSB1 {
+			return fmt.Errorf("invalid feed algorithm")
 		}
-		b, err := s.Raw()
+
+		b, err := s.Bytes()
 		if err != nil {
-			return fmt.Errorf("verify: unpack failed: %w", err)
+			return fmt.Errorf("unpack failed: %w", err)
 		}
+
 		if ed25519.Verify(r.PubKey(), content, b) {
 			return nil
 		}
-		return fmt.Errorf("verify: invalid signature")
+
+		return fmt.Errorf("invalid signature")
 	default:
-		return fmt.Errorf("verify: unknown signature algorithm")
+		return fmt.Errorf("unknown signature algorithm")
 	}
 }

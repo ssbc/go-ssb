@@ -8,30 +8,20 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dgraph-io/badger"
-	"go.cryptoscope.co/librarian"
-	libbadger "go.cryptoscope.co/librarian/badger"
+	"github.com/dgraph-io/badger/v3"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 
-	"go.cryptoscope.co/ssb/repo"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-const FolderNameGet = "get"
-
 // OpenGet supplies the get(msgRef) -> rootLogSeq idx
-func OpenGet(r repo.Interface) (librarian.Index, librarian.SinkIndex, error) {
-	_, idx, sinkIdx, err := repo.OpenBadgerIndex(r, FolderNameGet, createFn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting get() index: %w", err)
-	}
-	return idx, sinkIdx, nil
-}
-
-func createFn(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-	idx := libbadger.NewIndex(db, margaret.BaseSeq(0))
-	sink := librarian.NewSinkIndex(updateFn, idx)
-	return idx, sink
+func OpenGet(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
+	idx := libbadger.NewIndexWithKeyPrefix(db, margaret.BaseSeq(0), []byte("byMsgRef"))
+	sinkIdx := librarian.NewSinkIndex(updateFn, idx)
+	return idx, sinkIdx
 }
 
 func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
@@ -43,7 +33,8 @@ func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librar
 		}
 		return fmt.Errorf("index/get: unexpected message type: %T", val)
 	}
-	err := idx.Set(ctx, librarian.Addr(msg.Key().Hash), seq.Seq())
+
+	err := idx.Set(ctx, storedrefs.Message(msg.Key()), seq.Seq())
 	if err != nil {
 		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Ref(), seq.Seq(), err)
 	}

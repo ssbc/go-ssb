@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ func (op PeopleOpNewPeer) Op(state *testState) error {
 
 type PeopleOpNewPeerWithAglo struct {
 	name string
-	algo string
+	algo refs.RefAlgo
 }
 
 var i uint64
@@ -47,11 +48,10 @@ var i uint64
 func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
-	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)))
+	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)), op.algo)
 	if err != nil {
 		state.t.Fatal(err)
 	}
-	kp.Id.Algo = op.algo
 
 	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, kp)
 	state.peers[op.name] = publisher
@@ -269,7 +269,7 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 
 		for i, assert := range tc.asserts {
 			err := assert(&state)(state.store.gbuilder)
-			if !a.NoError(err, "assertion #%d failed", i) {
+			if !a.NoError(err, "assertion #%d failed", i+1) {
 
 				err = g.RenderSVGToFile(fmt.Sprintf("%s-%d.svg", t.Name(), i))
 				if err != nil {
@@ -277,12 +277,15 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 				}
 			}
 		}
-
-		state.store.close()
 	}
 }
 
 func TestPeople(t *testing.T) {
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
+
 	tcs := []PeopleTestCase{
 		{
 			name: "simple",

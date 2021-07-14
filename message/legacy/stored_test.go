@@ -28,5 +28,5 @@ func TestAbstractStored(t *testing.T) {
 	r.NotNil(contentMap["type"])
 
 	author := a.Author()
-	r.Equal(m.Author_.ID, author.ID)
+	r.True(m.Author_.Equal(author))
 }

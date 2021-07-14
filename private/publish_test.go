@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	kitlog "github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+	kitlog "go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
@@ -32,16 +32,15 @@ func TestPrivatePublish(t *testing.T) {
 	t.Run("gabby", testPublishPerAlgo(refs.RefAlgoFeedGabby))
 }
 
-func testPublishPerAlgo(algo string) func(t *testing.T) {
+func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 	return func(t *testing.T) {
 		r, a := require.New(t), assert.New(t)
 
 		srvRepo := filepath.Join("testrun", t.Name(), "serv")
 		os.RemoveAll(srvRepo)
 
-		alice, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("alice"), 8)))
+		alice, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("alice"), 8)), algo)
 		r.NoError(err)
-		alice.Id.Algo = algo
 
 		srvLog := kitlog.NewNopLogger()
 		if testing.Verbose() {
@@ -93,7 +92,7 @@ func testPublishPerAlgo(algo string) func(t *testing.T) {
 		r.NoError(err, "failed to unnpack msg")
 
 		if !a.True(savedMsg.Key().Equal(ref)) {
-			whoops, err := srv.Get(*ref)
+			whoops, err := srv.Get(ref)
 			r.NoError(err)
 			t.Log(string(whoops.ContentBytes()))
 		}

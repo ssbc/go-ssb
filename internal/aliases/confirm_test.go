@@ -15,26 +15,24 @@ func TestConfirmation(t *testing.T) {
 	r := require.New(t)
 
 	// this is our room, it's not a valid feed but thats fine for this test
-	roomID := refs.FeedRef{
-		ID:   bytes.Repeat([]byte("test"), 8),
-		Algo: "test",
-	}
+	roomID, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte("test"), 8), refs.RefAlgoFeedSSB1)
+	r.NoError(err)
 
 	// to make the test deterministic, decided by fair dice roll.
 	seed := bytes.Repeat([]byte("yeah"), 8)
 	// our user, who will sign the registration
-	userKeyPair, err := ssb.NewKeyPair(bytes.NewReader(seed))
+	userKeyPair, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// create and fill out the registration for an alias (in this case the name of the test)
 	var valid Registration
 	valid.RoomID = roomID
-	valid.UserID = *userKeyPair.Id
+	valid.UserID = userKeyPair.Id
 	valid.Alias = t.Name()
 
 	// internal function to create the registration string
 	msg := valid.createRegistrationMessage()
-	want := "=room-alias-registration:@dGVzdHRlc3R0ZXN0dGVzdHRlc3R0ZXN0dGVzdHRlc3Q=.test:@Rt2aJrtOqWXhBZ5/vlfzeWQ9Bj/z6iT8CMhlr2WWlG4=.ed25519:TestConfirmation"
+	want := "=room-alias-registration:@dGVzdHRlc3R0ZXN0dGVzdHRlc3R0ZXN0dGVzdHRlc3Q=.ed25519:@Rt2aJrtOqWXhBZ5/vlfzeWQ9Bj/z6iT8CMhlr2WWlG4=.ed25519:TestConfirmation"
 	r.Equal(want, string(msg))
 
 	// create the signed confirmation
@@ -44,10 +42,9 @@ func TestConfirmation(t *testing.T) {
 	r.True(yes, "should be valid for this room and feed")
 
 	// make up another id for the invalid test(s)
-	otherID := refs.FeedRef{
-		ID:   bytes.Repeat([]byte("nope"), 8),
-		Algo: "test",
-	}
+
+	otherID, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte("nope"), 8), refs.RefAlgoFeedSSB1)
+	r.NoError(err)
 
 	confirmation.RoomID = otherID
 	yes = confirmation.Verify()

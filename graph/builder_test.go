@@ -8,17 +8,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/librarian"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+	librarian "go.cryptoscope.co/margaret/indexes"
+
 	"go.cryptoscope.co/margaret/multilog"
+	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/ctxutils"
@@ -27,28 +31,63 @@ import (
 	"go.cryptoscope.co/ssb/repo"
 )
 
+func openUserMultilogs(t *testing.T) (multilog.MultiLog, multilog.Sink) {
+	r := require.New(t)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+
+	db, err := repo.OpenBadgerDB(filepath.Join(tRepoPath, "badgerdb"))
+	r.NoError(err)
+	// seqSetterIdx := libbadger.NewIndex(db, 0)
+
+	uf, err := multibadger.NewShared(db, []byte("userFeeds"))
+	r.NoError(err)
+
+	idxStatePath := filepath.Join(tRepoPath, "idx-state")
+	idxStateFile, err := os.Create(idxStatePath)
+	r.NoError(err)
+
+	serveUF := multilog.NewSink(idxStateFile, uf, multilogs.UserFeedsUpdate)
+	t.Cleanup(func() {
+		if err := idxStateFile.Close(); err != nil {
+			fmt.Println("failed to close idxStateFile:", err)
+		}
+
+		if err := db.Close(); err != nil {
+			fmt.Println("failed to close badger:", err)
+		}
+
+		if err := serveUF.Close(); err != nil {
+			fmt.Println("failed to close index serving:", err)
+		}
+	})
+	return uf, serveUF
+}
+
 func makeBadger(t *testing.T) testStore {
 	r := require.New(t)
 	info := testutils.NewRelativeTimeLogger(nil)
 
-	tRepoPath, err := ioutil.TempDir("", "badgerTest")
-	r.NoError(err)
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
+	os.MkdirAll(tRepoPath, 0700)
 
 	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+
+	// TODO: try this
+	// tRootLog := mem.New()
 
 	tRepo := repo.New(tRepoPath)
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
-	// TODO: try this
-	// tRootLog := mem.New()
-	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
-	r.NoError(err)
+
+	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var builder *builder
 
 	var tc testStore
-	_, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	badgerDB, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
 		builder = NewBuilder(info, db)
 		return builder.OpenIndex()
 	})
@@ -58,23 +97,28 @@ func makeBadger(t *testing.T) testStore {
 	tc.gbuilder = builder
 	tc.userLogs = uf
 
-	tc.close = func() {
+	t.Cleanup(func() {
 		r.NoError(uf.Close())
+
+		r.NoError(serve.Close())
 		r.NoError(sinkIdx.Close())
+
+		r.NoError(badgerDB.Close())
+
+		r.NoError(tRootLog.Close())
 		cancel()
 
 		for err := range mergedErrors(ufErrc, cErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")
-	}
+	})
 	return tc
 }
 
 func TestBadger(t *testing.T) {
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
-	tc.close()
 }
 
 func makeTypedLog(t *testing.T) testStore {
@@ -90,13 +134,25 @@ func makeTypedLog(t *testing.T) testStore {
 	tRootLog, err := repo.OpenLog(tRepo)
 	r.NoError(err)
 
-	uf, serveUF, err := multilogs.OpenUserFeeds(tRepo)
-	r.NoError(err)
+	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
 	var tc testStore
 	tc.root = tRootLog
 	tc.userLogs = uf
+
+	t.Cleanup(func() {
+		r.NoError(uf.Close())
+		r.NoError(serveUF.Close())
+		// r.NoError(mt.Close())
+
+		cancel()
+
+		for err := range mergedErrors(ufErrc) {
+			r.NoError(err, "from chan")
+		}
+		t.Log("closed scenary")
+	})
 
 	panic("TODO: plugin refactor")
 	/*
@@ -111,16 +167,6 @@ func makeTypedLog(t *testing.T) testStore {
 		tc.gbuilder, err = NewLogBuilder(info, directedContactLog)
 		r.NoError(err, "sbot: NewLogBuilder failed")
 	*/
-	tc.close = func() {
-		r.NoError(uf.Close())
-		// r.NoError(mt.Close())
-		cancel()
-
-		for err := range mergedErrors(ufErrc) {
-			r.NoError(err, "from chan")
-		}
-		t.Log("closed scenary")
-	}
 
 	return tc
 }
@@ -129,7 +175,6 @@ func makeTypedLog(t *testing.T) testStore {
 func XTestTypedLog(t *testing.T) {
 	tc := makeTypedLog(t)
 	t.Run("scene1", tc.theScenario)
-	tc.close()
 }
 
 type testStore struct {
@@ -137,8 +182,6 @@ type testStore struct {
 	userLogs multilog.MultiLog
 
 	gbuilder Builder
-
-	close func()
 }
 
 func (tc testStore) newPublisher(t *testing.T) *publisher {
@@ -196,7 +239,10 @@ func (tc testStore) theScenario(t *testing.T) {
 	// alice follows claire
 	alice.follow(claire.key.Id)
 
-	t.Log("warning: this needs export LIBRARIAN_WRITEALL=0")
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
 
 	time.Sleep(time.Second / 10)
 
