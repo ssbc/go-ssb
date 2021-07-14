@@ -1,14 +1,20 @@
 PKGS := $(shell go list ./... | grep -v node_modules )
 
+
 TESTFLAGS = -failfast -timeout 5m
+
+# echo -en "\n        $(pkg)\r";
+# this echo is just a trick to print the packge that is tested 
+# and then returning the carriage to let the go test invocation print the result over the line
+# so purly developer experience
 
 .PHONY: test
 test:
-	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(pkg);)
+	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(pkg) || exit 1;)
 
 .PHONY: racetest
 racetest:
-	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(TESTFLAGS) -race $(pkg);)
+	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(TESTFLAGS) -race $(pkg) || exit 1;)
 
 VERSION = $(shell git describe --tags --exact-match)
 ifeq ($(VERSION),)
