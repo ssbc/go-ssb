@@ -138,9 +138,6 @@ func SaveKeyPair(kp KeyPair, path string) error {
 			return fmt.Errorf("ssb.SaveKeyPair: failed to save all encoded bytes of the keypair")
 		}
 	} else {
-		if !ok {
-			fmt.Printf("not a marshaler: %T\n", kp)
-		}
 		if err := EncodeKeyPairAsJSON(kp, f); err != nil {
 			return err
 		}

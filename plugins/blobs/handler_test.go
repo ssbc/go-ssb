@@ -16,6 +16,7 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb"
 	kitlog "go.mindeco.de/log"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/blobstore"
 	"go.cryptoscope.co/ssb/internal/broadcasts"
@@ -29,9 +30,9 @@ func TestReplicate(t *testing.T) {
 	srcRepo, srcPath := test.MakeEmptyPeer(t)
 	dstRepo, dstPath := test.MakeEmptyPeer(t)
 
-	srcKP, err := repo.DefaultKeyPair(srcRepo)
+	srcKP, err := repo.DefaultKeyPair(srcRepo, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	dstKP, err := repo.DefaultKeyPair(dstRepo)
+	dstKP, err := repo.DefaultKeyPair(dstRepo, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	srcBS, err := repo.OpenBlobStore(srcRepo)

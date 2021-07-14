@@ -291,9 +291,16 @@ func TestNullFetched(t *testing.T) {
 	err = ali.NullFeed(bob.KeyPair.ID())
 	r.NoError(err)
 
-	mainLog.Log("msg", "get a fresh view (shoild be empty now)")
+	mainLog.Log("msg", "get a fresh view (should be empty now)")
+
+	_, err = alisVersionOfBobsLog.Seq().Value()
+	r.Error(err)
+
+	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.ID()))
+	r.NoError(err)
 
 	v, err := alisVersionOfBobsLog.Seq().Value()
+	r.NoError(err)
 	r.EqualValues(margaret.SeqEmpty, v)
 
 	mainLog.Log("msg", "get a fresh view (should be empty now)")

@@ -31,13 +31,13 @@ type publishLog struct {
 	create creater
 }
 
-func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
-	seq, err := p.Append(content)
+func (pl *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
+	seq, err := pl.Append(content)
 	if err != nil {
 		return refs.MessageRef{}, err
 	}
 
-	val, err := p.receiveLog.Get(seq)
+	val, err := pl.receiveLog.Get(seq)
 	if err != nil {
 		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}

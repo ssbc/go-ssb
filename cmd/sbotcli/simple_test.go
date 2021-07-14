@@ -244,12 +244,12 @@ func TestInviteCreate(t *testing.T) {
 
 	out, _ := sbotcli("invite", "create")
 
-	has := bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.Pair.Public)))
+	has := bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.ID().PubKey())))
 	a.True(has, "should have the srv's public key in it")
 
 	// TODO: accept the invite
 	out, _ = sbotcli("invite", "create", "--uses", "25")
-	has = bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.Pair.Public)))
+	has = bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.ID().PubKey())))
 	a.True(has, "should have the srv's public key in it")
 
 	// TODO: accept the invite
