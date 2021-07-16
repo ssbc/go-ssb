@@ -10,6 +10,7 @@ import (
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/ssb"
 
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
@@ -35,6 +36,10 @@ func (h getMessagesOfTypeHandler) HandleSource(ctx context.Context, req *muxrpc.
 		return fmt.Errorf("invalid arguments: %w", err)
 	}
 	arg := args[0]
+
+	if err := ssb.IsValidFeedFormat(arg.ID); err != nil {
+		return fmt.Errorf("invalid feed ID: %w", err)
+	}
 
 	workSet, err := h.feeds.LoadInternalBitmap(storedrefs.Feed(arg.ID))
 	if err != nil {

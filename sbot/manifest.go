@@ -84,6 +84,7 @@ const manifestBlob manifestHandler = `
     },
 
 	"friends": {
+	  "hops": "source",
 	  "isFollowing": "async",
 	  "isBlocking": "async"
 	},
