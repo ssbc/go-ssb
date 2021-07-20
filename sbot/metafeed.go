@@ -80,18 +80,23 @@ type metaFeedsService struct {
 	users multilog.MultiLog
 	keys  *keys.Store
 
+	hmacSecret *[32]byte
+
 	rootKeyPair metakeys.KeyPair
 }
 
-func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *keys.Store, keypair ssb.KeyPair) (*metaFeedsService, error) {
+func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *keys.Store, keypair ssb.KeyPair, hmacSecret *[32]byte) (*metaFeedsService, error) {
 	metaKeyPair, ok := keypair.(metakeys.KeyPair)
 	if !ok {
 		return nil, fmt.Errorf("not a metafeed keypair: %T", keypair)
 	}
 
 	return &metaFeedsService{
-		rxLog:       rxLog,
-		users:       users,
+		rxLog: rxLog,
+		users: users,
+
+		hmacSecret: hmacSecret,
+
 		keys:        keyStore,
 		rootKeyPair: metaKeyPair,
 	}, nil
@@ -149,15 +154,14 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 		return refs.FeedRef{}, err
 	}
 
-	// TODO: hmac setting
-	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair)
+	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
 
 	addContent := metamngmt.NewAddMessage(s.rootKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
 
-	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent)
+	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent, s.hmacSecret)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
@@ -171,7 +175,7 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 	return newSubfeedKeyPair.Feed, nil
 }
 
-func (s metaFeedsService) TombstoneSubFeed(t refs.FeedRef) error {
+func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
 	subfeedListing := keys.IDFromFeed(s.rootKeyPair.Feed)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListing)
 	if err != nil {
@@ -191,7 +195,7 @@ func (s metaFeedsService) TombstoneSubFeed(t refs.FeedRef) error {
 	)
 
 	for i, f := range feeds {
-		if f.Metadata.ForFeed.Equal(t) {
+		if f.Metadata.ForFeed.Equal(subfeed) {
 			found = true
 
 			tfkAndPurpose := slp.Decode(f.Key)
@@ -229,13 +233,13 @@ func (s metaFeedsService) TombstoneSubFeed(t refs.FeedRef) error {
 		return fmt.Errorf("failed to delete subfeed signing key: %w", err)
 	}
 
-	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair)
+	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
 		return err
 	}
 
-	tombstoneContent := metamngmt.NewTombstoneMessage(t)
-	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent)
+	tombstoneContent := metamngmt.NewTombstoneMessage(subfeed, s.rootKeyPair.Feed)
+	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent, s.hmacSecret)
 	if err != nil {
 		return err
 	}
@@ -302,8 +306,7 @@ func (s metaFeedsService) Publish(as refs.FeedRef, content interface{}) (refs.Me
 		PrivateKey: ed25519.PrivateKey(keys[0].Key),
 	}
 
-	// TODO: hmac setting
-	publisher, err := message.OpenPublishLog(s.rxLog, s.users, kp)
+	publisher, err := message.OpenPublishLog(s.rxLog, s.users, kp, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
 		return refs.MessageRef{}, err
 	}

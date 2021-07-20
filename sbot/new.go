@@ -484,7 +484,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.MetaFeeds = disabledMetaFeeds{}
 	if s.enableMetafeeds {
-		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair)
+		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 		}

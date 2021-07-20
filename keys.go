@@ -77,7 +77,7 @@ func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
 			return nil, err
 		}
 
-		keyPair, err = metakeys.DeriveFromSeed(seed, metakeys.RootLabel, refs.RefAlgoFeedBendyButt)
+		keyPair, err = metakeys.DeriveFromSeed(seed, "go-ssb-metafeed", refs.RefAlgoFeedBendyButt)
 		if err != nil {
 			return nil, err
 		}

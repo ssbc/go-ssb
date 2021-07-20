@@ -170,17 +170,21 @@ type PublishOption func(*publishLog) error
 
 func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
+		if hmackey == nil {
+			return nil
+		}
+		var err error
 		switch cv := pl.create.(type) {
 		case *legacyCreate:
 			cv.hmac = hmackey
 		case *gabbyCreate:
-			cv.enc.WithHMAC(hmackey[:])
+			err = cv.enc.WithHMAC(hmackey[:])
 		case *metafeedCreate:
-			cv.enc.WithHMAC(hmackey[:])
+			err = cv.enc.WithHMAC(hmackey[:])
 		default:
-			return fmt.Errorf("hmac: unknown creater: %T", cv)
+			err = fmt.Errorf("hmac: unknown creater: %T", cv)
 		}
-		return nil
+		return err
 	}
 }
 

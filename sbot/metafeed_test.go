@@ -2,7 +2,9 @@ package sbot
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -90,7 +92,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	firstMsg := checkSeq(int(0))
 
 	var addMsg metamngmt.Add
-	err = metafeed.VerifySubSignedContent(firstMsg.ContentBytes(), &addMsg)
+	err = metafeed.VerifySubSignedContent(firstMsg.ContentBytes(), &addMsg, nil)
 	r.NoError(err)
 	r.True(addMsg.SubFeed.Equal(subfeedid))
 
@@ -120,7 +122,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	secondMsg := checkSeq(int(1))
 
 	var obituary metamngmt.Tombstone
-	err = metafeed.VerifySubSignedContent(secondMsg.ContentBytes(), &obituary)
+	err = metafeed.VerifySubSignedContent(secondMsg.ContentBytes(), &obituary, nil)
 	r.NoError(err)
 	r.True(obituary.SubFeed.Equal(subfeedid))
 
@@ -136,10 +138,10 @@ func TestMultiFeedManualSync(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
-	// TODO: enable hmac key
-	// hk := make([]byte, 32)
-	// _, err := io.ReadFull(rand.Reader, hk)
-	// r.NoError(err)
+	// use hmac key
+	var hkSecret [32]byte
+	_, err := io.ReadFull(rand.Reader, hkSecret[:])
+	r.NoError(err)
 
 	ctx, cancel := ShutdownContext(context.Background())
 	botgroup, ctx := errgroup.WithContext(ctx)
@@ -155,7 +157,7 @@ func TestMultiFeedManualSync(t *testing.T) {
 		WithInfo(logger),
 		WithRepoPath(filepath.Join(tRepoPath, "mfbot")),
 		WithListenAddr(":0"),
-		// WithHMACSigning(hk),
+		WithHMACSigning(hkSecret[:]),
 		WithMetaFeedMode(true),
 		DisableEBT(true), // TODO: have different formats in ebt
 	)
@@ -187,7 +189,7 @@ func TestMultiFeedManualSync(t *testing.T) {
 		WithInfo(logger),
 		WithRepoPath(filepath.Join(tRepoPath, "rxbot")),
 		WithListenAddr(":0"),
-		// WithHMACSigning(hk),
+		WithHMACSigning(hkSecret[:]),
 		DisableEBT(true), // TODO: have different formats in ebt
 	)
 	r.NoError(err)
