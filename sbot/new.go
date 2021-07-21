@@ -26,7 +26,7 @@ import (
 	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
-	kitlog "go.mindeco.de/log"
+	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
@@ -67,7 +67,7 @@ import (
 
 // Sbot is the database and replication server
 type Sbot struct {
-	info kitlog.Logger
+	info log.Logger
 
 	// TODO: this thing is way to big right now
 	// because it's options and the resulting thing in one
@@ -208,11 +208,10 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	if s.info == nil {
-		logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stdout))
-		logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
+		logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+		logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 		s.info = logger
 	}
-	log := s.info
 
 	if s.rootCtx == nil {
 		s.rootCtx, s.Shutdown = ShutdownContext(context.Background())
@@ -249,7 +248,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 	}
 
-	wantsLog := kitlog.With(log, "module", "WantManager")
+	wantsLog := log.With(s.info, "module", "WantManager")
 	wm := blobstore.NewWantManager(s.BlobStore,
 		blobstore.WantWithLogger(wantsLog),
 		blobstore.WantWithContext(s.rootCtx),
@@ -366,7 +365,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// groups re-indexing
 	members, membersSnk := multilogs.NewMembershipIndex(
-		kitlog.With(s.info, "unit", "private-groups"),
+		log.With(s.info, "unit", "private-groups"),
 		s.indexStore,
 		s.KeyPair.ID(),
 		s.Groups,
@@ -387,7 +386,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	/* TODO: fix deadlock in index update locking
 	if _, ok := s.simpleIndex["content-delete-requests"]; !ok {
 		var dcrTrigger dropContentTrigger
-		dcrTrigger.logger = kitlog.With(log, "module", "dcrTrigger")
+		dcrTrigger.logger = log.With(s.info, "module", "dcrTrigger")
 		dcrTrigger.root = s.ReceiveLog
 		dcrTrigger.feeds = uf
 		dcrTrigger.nuller = s
@@ -413,7 +412,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			return nil, fmt.Errorf("sbot: NewLogBuilder failed: %w", err)
 		}
 	} else {
-		gb, seqSetter, updateIdx := indexes.OpenContacts(kitlog.With(log, "module", "graph"), s.indexStore)
+		gb, seqSetter, updateIdx := indexes.OpenContacts(log.With(s.info, "module", "graph"), s.indexStore)
 
 		s.serveIndexFrom("contacts", updateIdx, justContacts)
 		s.closers.AddCloser(seqSetter)
@@ -498,7 +497,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	// TODO: make plugabble
 	// var peerPlug *peerinvites.Plugin
 	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
-	// 	peerPlug = peerinvites.New(kitlog.With(log, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
+	// 	peerPlug = peerinvites.New(log.With(s.info, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
 	// 	s.public.Register(peerPlug)
 	// 	_, peerServ, err := peerPlug.OpenIndex(r)
 	// 	if err != nil {
@@ -561,13 +560,13 @@ func New(fopts ...Option) (*Sbot, error) {
 		ggRemote, err := refs.NewFeedRefFromBytes(remote.PubKey(), refs.RefAlgoFeedGabby)
 		err = auth.Authorize(ggRemote)
 		if err == nil {
-			level.Debug(log).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
+			level.Debug(s.info).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
 			return s.public.MakeHandler(conn)
 		}
 
 		// TOFU restore/resync
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
-			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
+			level.Warn(s.info).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
 			s.Replicate(s.KeyPair.ID())
 			return s.public.MakeHandler(conn)
 		}
@@ -579,7 +578,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
-	s.master.Register(publish.NewPlug(kitlog.With(log, "unit", "publish"), s.PublishLog, s.Groups, authorLog))
+	s.master.Register(publish.NewPlug(log.With(s.info, "unit", "publish"), s.PublishLog, s.Groups, authorLog))
 
 	// private
 	// TODO: box2
@@ -588,19 +587,19 @@ func New(fopts ...Option) (*Sbot, error) {
 		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
 	s.master.Register(privplug.NewPlug(
-		kitlog.With(log, "unit", "private"),
+		log.With(s.info, "unit", "private"),
 		s.KeyPair.ID(),
 		s.Groups,
 		s.PublishLog,
 		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
-	whoami := whoami.New(kitlog.With(log, "unit", "whoami"), s.KeyPair.ID())
+	whoami := whoami.New(log.With(s.info, "unit", "whoami"), s.KeyPair.ID())
 	s.public.Register(whoami)
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), s.KeyPair.ID(), s.BlobStore, wm)
+	blobs := blobs.New(log.With(s.info, "unit", "blobs"), s.KeyPair.ID(), s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -609,7 +608,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		ctx,
 		s.ReceiveLog,
 		s.Users,
-		kitlog.With(log, "unit", "gossip"),
+		log.With(s.info, "unit", "gossip"),
 		s.systemGauge,
 		s.eventCounter,
 	)
@@ -641,7 +640,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	gossipPlug := gossip.NewFetcher(ctx,
-		kitlog.With(log, "plugin", "gossip"),
+		log.With(s.info, "plugin", "gossip"),
 		r,
 		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
@@ -653,7 +652,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.public.Register(gossipPlug)
 	} else {
 		ebtPlug := ebt.NewPlug(
-			kitlog.With(log, "plugin", "ebt"),
+			log.With(s.info, "plugin", "ebt"),
 			s.KeyPair.ID(),
 			s.ReceiveLog,
 			s.Users,
@@ -664,7 +663,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.public.Register(ebtPlug)
 
 		rn := negPlugin{replicateNegotiator{
-			logger: kitlog.With(log, "module", "replicate-negotiator"),
+			logger: log.With(s.info, "module", "replicate-negotiator"),
 
 			lg:  gossipPlug.LegacyGossip,
 			ebt: ebtPlug.MUXRPCHandler,
@@ -674,7 +673,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// incoming createHistoryStream handler
 	hist := gossip.NewServer(ctx,
-		kitlog.With(log, "unit", "gossip/hist"),
+		log.With(s.info, "unit", "gossip/hist"),
 		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
@@ -719,7 +718,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
-	s.master.Register(friends.New(log, s.KeyPair.ID(), s.GraphBuilder))
+	s.master.Register(friends.New(s.info, s.KeyPair.ID(), s.GraphBuilder))
 
 	mh := namedPlugin{
 		h:    manifestBlob,
@@ -773,7 +772,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		rest := strings.TrimPrefix(req.URL.Path, blobsPathPrefix)
 		blobRef, err := refs.ParseBlobRef(rest)
 		if err != nil {
-			level.Error(log).Log("http-err", err.Error())
+			level.Error(s.info).Log("http-err", err.Error())
 			http.Error(w, "bad blob", http.StatusBadRequest)
 			return
 		}
@@ -781,7 +780,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		br, err := s.BlobStore.Get(blobRef)
 		if err != nil {
 			s.WantManager.Want(blobRef)
-			level.Error(log).Log("http-err", err.Error())
+			level.Error(s.info).Log("http-err", err.Error())
 			http.Error(w, "no such blob", http.StatusNotFound)
 			return
 		}
@@ -791,13 +790,13 @@ func New(fopts ...Option) (*Sbot, error) {
 		w.WriteHeader(http.StatusOK)
 		_, err = io.Copy(w, br)
 		if err != nil {
-			level.Error(log).Log("http-blob", err.Error())
+			level.Error(s.info).Log("http-blob", err.Error())
 		}
 	}))
 	networkNode.HandleHTTP(h)
 
 	inviteService, err = legacyinvites.New(
-		kitlog.With(log, "unit", "legacyInvites"),
+		log.With(s.info, "unit", "legacyInvites"),
 		r,
 		s.KeyPair.ID(),
 		networkNode,
@@ -812,7 +811,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.master.Register(inviteService.MasterPlugin())
 
 	// TODO: should be gossip.connect but conflicts with our namespace assumption
-	s.master.Register(conn.NewPlug(kitlog.With(log, "unit", "conn"), networkNode, s))
+	s.master.Register(conn.NewPlug(log.With(s.info, "unit", "conn"), networkNode, s))
 	s.master.Register(status.New(s))
 
 	s.public.Register(networkNode.TunnelPlugin())
@@ -830,7 +829,7 @@ func (s *Sbot) Close() error {
 		return s.closeErr
 	}
 
-	closeEvt := kitlog.With(s.info, "event", "sbot closing")
+	closeEvt := log.With(s.info, "event", "sbot closing")
 	s.closed = true
 
 	if s.Network != nil {
