@@ -497,6 +497,7 @@ func TestPeople(t *testing.T) {
 
 	tcs = append(tcs, blockScenarios...)
 	tcs = append(tcs, hopsScenarios...)
+	tcs = append(tcs, metafeedsScenarios...)
 	tcs = append(tcs, deleteScenarios...)
 
 	for _, tc := range tcs {

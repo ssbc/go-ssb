@@ -73,6 +73,14 @@ func (g *Graph) Blocks(from, to refs.FeedRef) bool {
 	return math.IsInf(w.Weight(), 1)
 }
 
+func (g *Graph) Subfeed(from, to refs.FeedRef) bool {
+	w, has := g.getEdge(from, to)
+	if !has {
+		return false
+	}
+	return w.Weight() == 0.1
+}
+
 func (g *Graph) BlockedList(from refs.FeedRef) *ssb.StrFeedSet {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()

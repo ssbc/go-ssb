@@ -175,17 +175,32 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 				continue
 			}
 
-			w := math.Inf(-1)
+			var edg graph.WeightedEdge
+
 			err := it.Value(func(v []byte) error {
 				if len(v) >= 1 {
 					switch v[0] {
 					case '0': // not following
+						edg = contactEdge{
+							WeightedEdge: simple.WeightedEdge{F: nFrom, T: nTo, W: math.Inf(-1)},
+							isBlock:      false,
+						}
 					case '1': // following
-						w = 1
+						edg = contactEdge{
+							WeightedEdge: simple.WeightedEdge{F: nFrom, T: nTo, W: 1},
+							isBlock:      false,
+						}
 					case '2': // blocking
-						w = math.Inf(1)
+						edg = contactEdge{
+							WeightedEdge: simple.WeightedEdge{F: nFrom, T: nTo, W: math.Inf(1)},
+							isBlock:      true,
+						}
+					case '3': // metafeed
+						edg = metafeedEdge{
+							WeightedEdge: simple.WeightedEdge{F: nFrom, T: nTo, W: 0.1},
+						}
 					default:
-						return fmt.Errorf("barbage value in graph strore")
+						return fmt.Errorf("barbage value in graph strore %q", string(v))
 					}
 				}
 				return nil
@@ -194,15 +209,12 @@ func (b *BadgerBuilder) Build() (*Graph, error) {
 				return fmt.Errorf("failed to get value from item:%q: %w", string(k), err)
 			}
 
-			if math.IsInf(w, -1) {
+			if math.IsInf(edg.Weight(), -1) {
 				//dg.RemoveEdge(nFrom.ID(), nTo.ID())
 				continue
 			}
 
-			dg.SetWeightedEdge(contactEdge{
-				WeightedEdge: simple.WeightedEdge{F: nFrom, T: nTo, W: w},
-				isBlock:      math.IsInf(w, 1),
-			})
+			dg.SetWeightedEdge(edg)
 		}
 		return nil
 	})
@@ -239,7 +251,44 @@ func (b *BadgerBuilder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 			err := it.Value(func(v []byte) error {
 				if len(v) >= 1 && v[0] == '1' {
 					// extract 2nd feed ref out of db key
-					// TODO: use compact StoredAddr
+					var sr tfk.Feed
+					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
+					if err != nil {
+						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
+					}
+					fr, err := sr.Feed()
+					if err != nil {
+						return err
+					}
+					if err := fs.AddRef(fr); err != nil {
+						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get value from iter: %w", err)
+			}
+		}
+		return nil
+	})
+	return fs, err
+}
+
+func (b *BadgerBuilder) Subfeeds(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
+	fs := ssb.NewFeedSet(50)
+	err := b.kv.View(func(txn *badger.Txn) error {
+		iter := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iter.Close()
+
+		prefix := append(dbKeyPrefix, storedrefs.Feed(forRef)...)
+		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
+			it := iter.Item()
+			k := it.Key()
+
+			err := it.Value(func(v []byte) error {
+				if len(v) >= 1 && v[0] == '3' {
+					// extract 2nd feed ref out of db key
 					var sr tfk.Feed
 					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
@@ -281,47 +330,97 @@ func (b *BadgerBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	return walked
 }
 
-func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, from refs.FeedRef, depth int) error {
+func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, who refs.FeedRef, depth int) error {
 	if depth == 0 {
 		return nil
 	}
 
-	if _, ok := vis[from.Ref()]; ok {
+	// skip if we already visited this peer
+	if _, ok := vis[who.Ref()]; ok {
 		return nil
 	}
 
-	fromFollows, err := b.Follows(from)
+	// find all their subfeeds
+	subfeeds, err := b.Subfeeds(who)
 	if err != nil {
-		return fmt.Errorf("recurseHops(%d): from follow listing failed: %w", depth, err)
+		return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for %s: %w", depth, who.Ref(), err)
 	}
 
-	followLst, err := fromFollows.List()
+	// TODO: add iteration to reduce memory overhead of creating a bunch of slices all the time
+	// ie. feedset.Each(func(f refs.FeedRef) { ... })
+	subfeedList, err := subfeeds.List()
+	if err != nil {
+		return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list for %s: %w", depth, who.Ref(), err)
+	}
+
+	// add them to the set and recurse their follows
+	for j, subfeed := range subfeedList {
+		err = walked.AddRef(subfeed)
+		if err != nil {
+			return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, who.Ref(), err)
+		}
+
+		// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
+		if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
+			return err
+		}
+	}
+
+	whosFollows, err := b.Follows(who)
+	if err != nil {
+		return fmt.Errorf("recurseHops(%d): follow listing for target failed: %w", depth, err)
+	}
+
+	theirFollowList, err := whosFollows.List()
 	if err != nil {
 		return fmt.Errorf("recurseHops(%d): invalid entry in feed set: %w", depth, err)
 	}
 
-	for i, followedByFrom := range followLst {
-		err := walked.AddRef(followedByFrom)
+	for i, followedByWho := range theirFollowList {
+		err := walked.AddRef(followedByWho)
 		if err != nil {
 			return fmt.Errorf("recurseHops(%d): add list entry(%d) failed: %w", depth, i, err)
 		}
 
-		// TODO: use from follows followedByFrom
-		dstFollows, err := b.Follows(followedByFrom)
+		subfeeds, err := b.Subfeeds(followedByWho)
+		if err != nil {
+			return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for list entry(%d): %w", depth, i, err)
+		}
+
+		subfeedList, err := subfeeds.List()
+		if err != nil {
+			return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list entry(%d): %w", depth, i, err)
+		}
+
+		for j, subfeed := range subfeedList {
+			err = walked.AddRef(subfeed)
+			if err != nil {
+				return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.Ref(), err)
+			}
+
+			// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
+			if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
+				return err
+			}
+		}
+
+		// TODO: use from follows followedByWho
+		dstFollows, err := b.Follows(followedByWho)
 		if err != nil {
 			return fmt.Errorf("recurseHops(%d): follows from entry(%d) failed: %w", depth, i, err)
 		}
 
-		isF := dstFollows.Has(from)
+		isF := dstFollows.Has(who)
 		if isF { // found a friend, recurse
-			if err := b.recurseHops(walked, vis, followedByFrom, depth-1); err != nil {
+			if err := b.recurseHops(walked, vis, followedByWho, depth-1); err != nil {
 				return err
 			}
 		}
-		// b.log.Log("depth", depth, "from", from.ShortRef(), "follows", followedByFrom.ShortRef(), "friend", isF, "cnt", dstFollows.Count())
+		// b.log.Log("depth", depth, "from", from.ShortRef(), "follows", followedByWho.ShortRef(), "friend", isF, "cnt", dstFollows.Count())
 	}
 
-	vis[from.Ref()] = struct{}{}
+	// mark them as visited
+	vis[who.Ref()] = struct{}{}
 
 	return nil
 }

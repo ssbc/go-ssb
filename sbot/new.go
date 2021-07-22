@@ -481,36 +481,34 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.MetaFeeds = disabledMetaFeeds{}
 	if s.enableMetafeeds {
-		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
+
+		// a user might want to be able to read/replicate metafeeds without using bendybutt themselves
+		if s.KeyPair.ID().Algo() == refs.RefAlgoFeedBendyButt {
+			s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret))
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
+			}
 		}
 
 		// setup indexing
-
 		justMetafeedMessages := repo.NewFilteredLog(s.ReceiveLog, func(msg refs.Message) bool {
 			content := msg.ContentBytes()
 			var bencoded []bencode.RawMessage
 			err := bencode.DecodeBytes(content, &bencoded)
 			if err != nil {
-				// fmt.Println(string(content))
-				// fmt.Println("bencode array unmarshal failed", err)
 				return false
 			}
 
 			if len(bencoded) != 2 {
-				// fmt.Println("bencode index: not an array of 2")
 				return false
 			}
 
 			var justTheType metamngmt.Typed
 			err = bencode.DecodeBytes(bencoded[0], &justTheType)
 			if err != nil {
-				// fmt.Println("bencode object unmarshal failed", err)
 				return false
 			}
 			rightType := strings.HasPrefix(justTheType.Type, "metafeed/")
-			// fmt.Printf("bencoded message: %q %v\n", justTheType.Type, rightType)
 			return rightType
 		})
 
@@ -586,12 +584,21 @@ func New(fopts ...Option) (*Sbot, error) {
 			return s.public.MakeHandler(conn)
 		}
 
-		// shit - don't see a way to pass being a different feedtype with shs1
-		// we also need to pass this up the stack...!
+		// we also need to pass the other feed type up the stack...!
+		// TODO: wrap conn with a new remoteAddr
 		ggRemote, err := refs.NewFeedRefFromBytes(remote.PubKey(), refs.RefAlgoFeedGabby)
 		err = auth.Authorize(ggRemote)
 		if err == nil {
 			level.Debug(s.info).Log("TODO", "found gg feed, using that. overhaul shs1 to support more payload in the handshake")
+			return s.public.MakeHandler(conn)
+		}
+
+		// we also need to pass the other feed type up the stack...!
+		// TODO: wrap conn with a new remoteAddr
+		bbRemote, err := refs.NewFeedRefFromBytes(remote.PubKey(), refs.RefAlgoFeedBendyButt)
+		err = auth.Authorize(bbRemote)
+		if err == nil {
+			level.Debug(s.info).Log("TODO", "found bendy-butt feed, using that. overhaul shs1 to support more payload in the handshake")
 			return s.public.MakeHandler(conn)
 		}
 

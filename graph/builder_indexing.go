@@ -103,6 +103,11 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, v
 		return fmt.Errorf("index/get: unexpected message type: %T", val)
 	}
 
+	// skip invalid feeds
+	if msg.Author().Algo() != refs.RefAlgoFeedBendyButt {
+		return nil
+	}
+
 	msgLogger := log.With(b.log,
 		"msg-key", msg.Key().ShortRef(),
 
@@ -184,8 +189,8 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, v
 }
 
 func (b *BadgerBuilder) OpenMetafeedsIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
-	if b.idxSinkContacts == nil {
-		b.idxSinkContacts = librarian.NewSinkIndex(b.updateMetafeeds, b.idx)
+	if b.idxSinkMetaFeeds == nil {
+		b.idxSinkMetaFeeds = librarian.NewSinkIndex(b.updateMetafeeds, b.idx)
 	}
-	return b.idx, b.idxSinkContacts
+	return b.idx, b.idxSinkMetaFeeds
 }

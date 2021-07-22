@@ -14,6 +14,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.mindeco.de/log"
@@ -134,7 +135,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	r.NoError(mainbot.Close())
 }
 
-func TestMultiFeedManualSync(t *testing.T) {
+func TestMultiFeedSync(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
@@ -154,7 +155,7 @@ func TestMultiFeedManualSync(t *testing.T) {
 
 	// make the bot
 	multiBot, err := New(
-		WithInfo(logger),
+		WithInfo(log.With(logger, "bot", "creater")),
 		WithRepoPath(filepath.Join(tRepoPath, "mfbot")),
 		WithListenAddr(":0"),
 		WithHMACSigning(hkSecret[:]),
@@ -185,33 +186,73 @@ func TestMultiFeedManualSync(t *testing.T) {
 		r.NoError(err)
 	}
 
+	rxBotKeypair, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+
 	// now start the receiving bot
 	receiveBot, err := New(
-		WithInfo(logger),
+		WithInfo(log.With(logger, "bot", "receiver")),
 		WithRepoPath(filepath.Join(tRepoPath, "rxbot")),
 		WithListenAddr(":0"),
 		WithHMACSigning(hkSecret[:]),
+
+		// use metafeeds but dont have one
+		WithKeyPair(rxBotKeypair),
+		WithMetaFeedMode(true),
+
 		DisableEBT(true), // TODO: have different formats in ebt
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(receiveBot))
 
-	multiBot.PublishLog.Publish(refs.NewContactFollow(receiveBot.KeyPair.ID()))
-
 	// replicate between the two
+	_, err = multiBot.MetaFeeds.Publish(subfeedClassic, refs.NewContactFollow(receiveBot.KeyPair.ID()))
+	r.NoError(err)
+	_, err = receiveBot.PublishLog.Publish(refs.NewContactFollow(multiBot.KeyPair.ID()))
+	r.NoError(err)
 
-	multiBot.Replicate(receiveBot.KeyPair.ID())
+	// multiBot.Replicate(receiveBot.KeyPair.ID())
+	// receiveBot.Replicate(multiBot.KeyPair.ID())
+	// receiveBot.Replicate(subfeedClassic)
+	// receiveBot.Replicate(subfeedGabby)
 
-	receiveBot.Replicate(multiBot.KeyPair.ID())
-	receiveBot.Replicate(subfeedClassic)
-	receiveBot.Replicate(subfeedGabby)
+	time.Sleep(4 * time.Second) // graph update delay
 
-	// sync
+	multibotWantList := multiBot.Replicator.Lister().ReplicationList()
+	r.True(multibotWantList.Has(receiveBot.KeyPair.ID()), "multi doesnt want to peer with rxbot. Count:%d", multibotWantList.Count())
+
+	t.Log("first sync: get the metafeed")
+	firstConnectCtx, cancel := context.WithCancel(ctx)
+	err = receiveBot.Network.Connect(firstConnectCtx, multiBot.Network.GetListenAddr())
+	r.NoError(err)
+	time.Sleep(5 * time.Second)
+	cancel()
+	receiveBot.Network.GetConnTracker().CloseAll()
+
+	// check we got all the messages
+	rxbotWantList := receiveBot.Replicator.Lister().ReplicationList()
+
+	rxbotsVersionOfmultisMetafeed, err := receiveBot.Users.Get(storedrefs.Feed(multiBot.KeyPair.ID()))
+	r.NoError(err)
+
+	// check rxbot got the metafeed
+	r.True(rxbotWantList.Has(multiBot.KeyPair.ID()), "rxbot doesn't want mutlibots metafeed")
+	seqv, err := rxbotsVersionOfmultisMetafeed.Seq().Value()
+	r.NoError(err)
+	r.EqualValues(1, seqv.(margaret.Seq).Seq(), "should have all of the metafeeds messages")
+
+	r.True(rxbotWantList.Has(subfeedClassic), "rxbot doesn't want classic subfeed")
+	r.True(rxbotWantList.Has(subfeedGabby), "rxbot doesn't want gg subfeed")
+
+	// reconnect to iterate and then sync subfeeds
+	time.Sleep(3 * time.Second) // wait for hops rebuild
+
+	t.Log("2nd connect: sync the subfeeds")
 	err = receiveBot.Network.Connect(ctx, multiBot.Network.GetListenAddr())
 	r.NoError(err)
 
 	// wait for all messages to arrive
-	wantCount := margaret.BaseSeq(2*n + 2 - 1)
+	wantCount := margaret.BaseSeq(2*n + 2 + 2 - 1) // 2*n test messages on the subfeeds, 2 announcments on the metafeed and two contact messages to befriend the bots
 	src, err := receiveBot.ReceiveLog.Query(margaret.Gte(wantCount), margaret.Live(true))
 	r.NoError(err)
 	ctx, tsCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -219,9 +260,6 @@ func TestMultiFeedManualSync(t *testing.T) {
 	v, err := src.Next(ctx)
 	r.NoError(err)
 	t.Log(v.(refs.Message).Key().Ref())
-
-	t.Log("time to fetch the graph")
-	time.Sleep(time.Minute)
 
 	// shutdown
 	cancel()

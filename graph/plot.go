@@ -111,3 +111,15 @@ func (n contactEdge) Attributes() []encoding.Attribute {
 		// {Key: "label", Value: fmt.Sprintf(`"%f"`, n.W)},
 	}
 }
+
+type metafeedEdge struct {
+	simple.WeightedEdge
+}
+
+func (n metafeedEdge) Attributes() []encoding.Attribute {
+	c := "green"
+	return []encoding.Attribute{
+		{Key: "color", Value: c},
+		// {Key: "label", Value: fmt.Sprintf(`"%f"`, n.W)},
+	}
+}
