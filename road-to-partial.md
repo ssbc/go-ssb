@@ -42,14 +42,14 @@ Overhauld the `graph` package, which now consumes `type:contact` and `type:metaf
 
 Subfeeds are considerd `sameAs` the metafeed identity that holds them. This was achived by adding two extra decend cases to the recursive `Hops()` function.
 
+## subset replication support
+Implemented the [new RPC method `getSubset`](https://github.com/ssb-ngi-pointer/ssb-subset-replication-spec#getsubsetquery-options-source). This now lives in the new `query` package.
+
+It houses a generic query planer that can receive the JSON structure that describes a query, combine the different multi/sublogs and evaluate the intended bitmaps.
+
 # upcoming changes
 
 These are necessary to get a functional partial replication. They are orderd by dependence/necessity (A needs B) not complexity.
-
-## subset replication support
-Implement [new RPC method `getSubset`](https://github.com/ssb-ngi-pointer/ssb-subset-replication-spec#getsubsetquery-options-source).
-
-We wouldn't have to implement `ssb-ql-1` since the query data is transmitted as JSON. What we do need to implement is a generic query planer that can receive the JSON structures, combine the different multi/sublogs and evaluate the intended bitmaps before returning the messages.
 
 ## [index feed](https://github.com/ssb-ngi-pointer/ssb-meta-feed-spec#claims-or-indexes) writer.
 Come up with a way/API to configure index feed creation for _own_ feeds.

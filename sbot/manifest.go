@@ -62,7 +62,8 @@ const manifestBlob manifestHandler = `
 	"ebt": { "replicate": "duplex" },
 
 	"partialReplication":{
-	 	"getFeed": "source",
+		"getSubset": "source",
+		"getFeed": "source",
 	 	"getFeedReverse": "source",
 	 	"getTangle": "async",
 	 	"getMessagesOfType": "source"
