@@ -160,12 +160,18 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	if sockPath != "" {
 		client, err := ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
 		if err != nil {
-			return nil, fmt.Errorf("unix-path based client init failed: %w", err)
+			level.Warn(log).Log("client", "unix-path based init failed", "err", err)
+			return newTCPClient(ctx)
 		}
+		level.Info(log).Log("client", "connected", "method", "unix sock")
 		return client, nil
 	}
 
 	// Assume TCP connection
+	return newTCPClient(ctx)
+}
+
+func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
 		return nil, err
@@ -195,7 +201,7 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init: failed to connect to %s: %w", shsAddr.String(), err)
 	}
-	log.Log("init", "done")
+	level.Info(log).Log("client", "connected", "method", "tcp")
 	return client, nil
 }
 
