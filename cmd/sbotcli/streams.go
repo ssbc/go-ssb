@@ -257,6 +257,9 @@ func jsonDrain(w io.Writer, r *muxrpc.ByteSource) error {
 			_, err := buf.ReadFrom(r)
 			return err
 		})
+		if err != nil {
+			return err
+		}
 
 		// jsonReply, err := json.MarshalIndent(buf.Bytes(), "", "  ")
 		// if err != nil {
@@ -271,19 +274,3 @@ func jsonDrain(w io.Writer, r *muxrpc.ByteSource) error {
 	}
 	return r.Err()
 }
-
-/*
-
-func query(ctx *cli.Context) error {
-	reply := make(chan map[string]interface{})
-	go func() {
-		for r := range reply {
-			goon.Dump(r)
-		}
-	}()
-	if err := client.Source("query.read", reply, ctx.Args().Get(0)); err != nil {
-		return fmt.Errorf("source stream call failed",err)
-	}
-	return client.Close()
-}
-*/
