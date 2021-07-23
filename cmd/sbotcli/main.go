@@ -373,7 +373,7 @@ var connectCmd = &cli.Command{
 			// js fallback (our mux doesnt support authed namespaces)
 			err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
-				return fmt.Errorf("connect: async call failed: %w.", err)
+				return fmt.Errorf("connect: async call failed: %w", err)
 			}
 		}
 		log.Log("event", "connect reply")
@@ -517,7 +517,7 @@ var groupsPublishToCmd = &cli.Command{
 		var reply interface{}
 		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
 		if err != nil {
-			return fmt.Errorf("publish call failed: %w.", err)
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 		log.Log("event", "publishTo", "type", "raw")
 		goon.Dump(reply)

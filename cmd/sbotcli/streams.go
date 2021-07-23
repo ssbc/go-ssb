@@ -53,8 +53,6 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 	return args
 }
 
-type mapMsg map[string]interface{}
-
 var partialStreamCmd = &cli.Command{
 	Name:  "partial",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
