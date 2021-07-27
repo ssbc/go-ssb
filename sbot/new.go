@@ -400,7 +400,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	*/
 
 	// contact/follow graph
-	gb := graph.NewBuilder(log.With(s.info, "module", "graph"), s.indexStore)
+	gb := graph.NewBuilder(log.With(s.info, "module", "graph"), s.indexStore, s.signHMACsecret)
 	seqSetter, updateContactsSink := gb.OpenContactsIndex()
 
 	// create data source for contacts
@@ -484,7 +484,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 		// a user might want to be able to read/replicate metafeeds without using bendybutt themselves
 		if s.KeyPair.ID().Algo() == refs.RefAlgoFeedBendyButt {
-			s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret))
+			s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 			}

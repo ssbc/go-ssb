@@ -60,6 +60,8 @@ type BadgerBuilder struct {
 
 	cacheLock   sync.Mutex
 	cachedGraph *Graph
+
+	hmacSecret *[32]byte
 }
 
 var (
@@ -68,13 +70,14 @@ var (
 )
 
 // NewBuilder creates a Builder that is backed by a badger database
-func NewBuilder(log log.Logger, db *badger.DB) *BadgerBuilder {
+func NewBuilder(log log.Logger, db *badger.DB, hmacSecret *[32]byte) *BadgerBuilder {
 	b := &BadgerBuilder{
 		kv:  db,
 		log: log,
 
 		idx: libbadger.NewIndexWithKeyPrefix(db, 0, dbKeyPrefix),
-		// idxMetafeeds: libbadger.NewIndexWithKeyPrefix(db, 0, dbKeyPrefix),
+
+		hmacSecret: hmacSecret,
 	}
 	return b
 }

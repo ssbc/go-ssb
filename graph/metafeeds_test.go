@@ -106,7 +106,7 @@ func (op PeopleOpNewSubFeed) Op(state *testState) error {
 
 	addContent := metamngmt.NewAddMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
 
-	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent)
+	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent, nil)
 	if err != nil {
 		return err
 	}

@@ -142,7 +142,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, v
 	switch justTheType.Type {
 	case "metafeed/add":
 		var addMsg metamngmt.Add
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg)
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg, b.hmacSecret)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil
@@ -160,7 +160,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, v
 
 	case "metafeed/tombstone":
 		var tMsg metamngmt.Tombstone
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg)
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg, b.hmacSecret)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil

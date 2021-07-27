@@ -96,7 +96,7 @@ func makeBadger(t *testing.T) testStore {
 	badgerDB, err := badger.Open(badgerOpts)
 	r.NoError(err, "db/idx: badger failed to open")
 
-	builder = NewBuilder(info, badgerDB)
+	builder = NewBuilder(info, badgerDB, nil)
 
 	idxSetter, idxContactsSink := builder.OpenContactsIndex()
 	cErrc := serveLog(ctx, "badgerContacts", tRootLog, idxContactsSink, true)
