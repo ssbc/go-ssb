@@ -53,20 +53,10 @@ func New(log logging.Interface,
 		rxLog:       rxlog,
 	})
 
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getFeed"}, getFeedHandler{
-		fm: fm,
-	})
-
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getFeedReverse"}, getFeedReverseHandler{
-		fm: fm,
-	})
-
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getMessagesOfType"}, getMessagesOfTypeHandler{
-		rxlog: rxlog,
-
-		feeds:  feeds,
-		bytype: bytype,
-	})
+	// TODO:
+	// rootHdlr.RegisterSource(muxrpc.Method{name, "resolveIndexFeed"}, getFeedReverseHandler{
+	// 	fm: fm,
+	// })
 
 	return plugin{
 		h: &rootHdlr,

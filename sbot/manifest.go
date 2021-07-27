@@ -63,10 +63,7 @@ const manifestBlob manifestHandler = `
 
 	"partialReplication":{
 		"getSubset": "source",
-		"getFeed": "source",
-	 	"getFeedReverse": "source",
-	 	"getTangle": "async",
-	 	"getMessagesOfType": "source"
+	 	"getTangle": "async"
 	},
 
 	"private": {
