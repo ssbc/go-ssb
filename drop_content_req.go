@@ -32,7 +32,7 @@ func (dcr DropContentRequest) Valid(log margaret.Log) bool {
 		return false
 	}
 
-	msgv, err := log.Get(margaret.BaseSeq(dcr.Sequence - 1))
+	msgv, err := log.Get(int64(dcr.Sequence - 1))
 	if err != nil {
 		return false
 	}

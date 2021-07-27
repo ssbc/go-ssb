@@ -102,7 +102,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 
 	initialSync(t, theBots, msgCnt)
 
-	seqOfFeedA := margaret.BaseSeq(extraTestMessages) // N pre messages +1 contact (0 indexed)
+	seqOfFeedA := int64(extraTestMessages) // N pre messages +1 contact (0 indexed)
 
 	// did Bi get feed A?
 	botB0 := bLeafs[0]
@@ -110,9 +110,8 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	r.True(ok)
 	feedAonBotB, err := feedIdxOfB0.Get(storedrefs.Feed(botA.KeyPair.ID()))
 	r.NoError(err)
-	seqv, err := feedAonBotB.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(seqOfFeedA, seqv, "botB0 should have all of A's messages")
+
+	a.EqualValues(seqOfFeedA, feedAonBotB.Seq(), "botB0 should have all of A's messages")
 
 	// setup live listener
 	liveQry, err := mutil.Indirect(botB0.ReceiveLog, feedAonBotB).Query(
@@ -166,7 +165,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	time.Sleep(time.Second * 3)
 	cancel()
 
-	finalWantSeq := seqOfFeedA + margaret.BaseSeq(extraTestMessages)
+	finalWantSeq := seqOfFeedA + int64(extraTestMessages)
 	for i, bot := range bLeafs {
 
 		// did Bi get feed A?
@@ -176,9 +175,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.ID()))
 		r.NoError(err)
 
-		seqv, err := feedAonBotB.Seq().Value()
-		r.NoError(err)
-		a.EqualValues(finalWantSeq, seqv, "botB%02d should have all of A's messages", i)
+		a.EqualValues(finalWantSeq, feedAonBotB.Seq(), "botB%02d should have all of A's messages", i)
 	}
 
 	// cleanup

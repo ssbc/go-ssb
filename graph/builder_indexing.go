@@ -27,7 +27,7 @@ const (
 	idxRelValueMetafeed
 )
 
-func (b *BadgerBuilder) updateContacts(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
 
@@ -83,7 +83,7 @@ func (b *BadgerBuilder) OpenContactsIndex() (librarian.SeqSetterIndex, librarian
 	return b.idx, b.idxSinkContacts
 }
 
-func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
 
@@ -135,7 +135,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq margaret.Seq, v
 		return nil
 	}
 
-	level.Debug(msgLogger).Log("processing-rxseq", seq.Seq())
+	level.Debug(msgLogger).Log("processing-rxseq", seq)
 
 	addr := storedrefs.Feed(msg.Author())
 

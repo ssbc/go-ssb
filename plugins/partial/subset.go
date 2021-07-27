@@ -79,7 +79,7 @@ func (h getSubsetHandler) HandleSource(ctx context.Context, req *muxrpc.Request,
 	for it.HasNext() {
 
 		v := it.Next()
-		msgv, err := h.rxLog.Get(margaret.BaseSeq(v))
+		msgv, err := h.rxLog.Get(int64(v))
 		if err != nil {
 			break
 		}

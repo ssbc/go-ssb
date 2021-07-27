@@ -76,21 +76,13 @@ func (g rxLogHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// qry.Values = true
 
 	if qry.Gt == -1 {
-		sv, err := g.root.Seq().Value()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "createLogStream err:", err)
-			req.CloseWithError(fmt.Errorf("logStream: failed to qry current seq: %w", err))
-			return
-		}
-
-		seq := sv.(margaret.Seq)
-		qry.Seq = seq.Seq() - 1
+		qry.Seq = int64(g.root.Seq()) - 1
 	}
 
 	// start := time.Now()
 	src, err := g.root.Query(
 		margaret.SeqWrap(false),
-		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Gte(int64(qry.Seq)),
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live),
 		margaret.Reverse(qry.Reverse),

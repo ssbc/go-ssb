@@ -72,10 +72,7 @@ func newPublishtestSession(t *testing.T) publishTestSession {
 	r.NoError(err, "failed to open receive log")
 	mc.AddCloser(rxl.(io.Closer))
 
-	r.NoError(err, "failed to open root log")
-	seq, err := rxl.Seq().Value()
-	r.NoError(err, "failed to get log seq")
-	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
+	r.Equal(int64(-1), rxl.Seq(), "not empty")
 
 	userLogs, idxUpdate, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
@@ -129,19 +126,16 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 			r.NotNil(mr)
 			errc := asynctesting.ServeLog(context.TODO(), t.Name(), ts.rxLog, ts.indexUpdate, false)
 			r.NoError(<-errc)
-			currSeq, err := authorLog.Seq().Value()
-			r.NoError(err, "failed to get log seq")
-			r.Equal(margaret.BaseSeq(i), currSeq, "failed to ")
+
+			r.EqualValues(i, authorLog.Seq(), "failed to ")
 		}
 
-		latest, err := authorLog.Seq().Value()
-		r.NoError(err, "failed to get log seq")
-		r.Equal(margaret.BaseSeq(2), latest, "not empty %s", ff)
+		r.EqualValues(2, authorLog.Seq(), "not empty %s", ff)
 
 		for i := 0; i < len(tmsgs); i++ {
-			rootSeq, err := authorLog.Get(margaret.BaseSeq(i))
+			rootSeq, err := authorLog.Get(int64(i))
 			r.NoError(err)
-			storedV, err := ts.rxLog.Get(rootSeq.(margaret.Seq))
+			storedV, err := ts.rxLog.Get(rootSeq.(int64))
 			r.NoError(err)
 			storedMsg, ok := storedV.(refs.Message)
 			r.True(ok)
@@ -152,9 +146,9 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 			if i != 0 {
 				a.NotNil(storedMsg.Previous(), "msg:%d - previous", i)
 				// get previous message
-				prevV, err := authorLog.Get(margaret.BaseSeq(i - 1))
+				prevV, err := authorLog.Get(int64(i - 1))
 				r.NoError(err)
-				prevSeq, ok := prevV.(margaret.Seq)
+				prevSeq, ok := prevV.(int64)
 				r.True(ok, "got:%T", prevV)
 				prevV, err = ts.rxLog.Get(prevSeq)
 				r.NoError(err)

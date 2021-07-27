@@ -35,7 +35,7 @@ type WrappedLog struct {
 	receivedNow func() time.Time
 }
 
-func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
+func (wl WrappedLog) Append(val interface{}) (int64, error) {
 	if mm, ok := val.(*MultiMessage); ok {
 		return wl.AlterableLog.Append(*mm)
 	}

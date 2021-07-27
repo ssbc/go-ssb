@@ -346,9 +346,7 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 
 		a.GreaterOrEqual(statusCalls, uint32(1000), "expected more status calls")
 
-		v, err := srv.ReceiveLog.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(n-1, v)
+		r.EqualValues(n-1, srv.ReceiveLog.Seq())
 
 		srv.Shutdown()
 		r.NoError(srv.Close())
@@ -394,9 +392,7 @@ func TestPublish(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.ReceiveLog.Seq().Value()
-	r.NoError(err, "failed to get root log sequence")
-	r.Equal(margaret.SeqEmpty, seqv)
+	r.Equal(margaret.SeqEmpty, srv.ReceiveLog.Seq())
 
 	msg := testMsg{"test", "hello", 23}
 	ref, err := c.Publish(msg)
@@ -404,10 +400,8 @@ func TestPublish(t *testing.T) {
 	r.NotNil(ref)
 
 	// get stored message from the log
-	seqv, err = srv.ReceiveLog.Seq().Value()
-	r.NoError(err, "failed to get root log sequence")
-	wantSeq := margaret.BaseSeq(0)
-	a.Equal(wantSeq, seqv)
+	wantSeq := int64(0)
+	a.Equal(wantSeq, srv.ReceiveLog.Seq())
 	msgv, err := srv.ReceiveLog.Get(wantSeq)
 	r.NoError(err)
 	newMsg, ok := msgv.(refs.Message)

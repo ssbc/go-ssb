@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
@@ -18,18 +17,18 @@ func NewVerificationRouter(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec 
 
 		rxlog: rxlog,
 		feeds: feeds,
-		saver: margaretSaver{rxlog},
+		saver: MargaretSaver{rxlog},
 
 		mu:    new(sync.Mutex),
 		sinks: make(verifyFanIn),
 	}, nil
 }
 
-type margaretSaver struct {
+type MargaretSaver struct {
 	margaret.Log
 }
 
-func (ms margaretSaver) Save(msg refs.Message) error {
+func (ms MargaretSaver) Save(msg refs.Message) error {
 	_, err := ms.Log.Append(msg)
 	return err
 }
@@ -68,7 +67,7 @@ func (vs *VerificationRouter) GetSink(ref refs.FeedRef, complete bool) (Sequence
 		return nil, err
 	}
 
-	snk, err = NewVerifySink(ref, msg, msg, vs.saver, vs.hmacSec)
+	snk, err = NewVerifySink(ref, msg, vs.saver, vs.hmacSec)
 	if err != nil {
 		return nil, err
 	}
@@ -99,40 +98,28 @@ func (vs VerificationRouter) getLatestMsg(ref refs.FeedRef) (refs.Message, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sublog for user: %w", err)
 	}
-	latest, err := userLog.Seq().Value()
-	if err != nil {
-		return nil, fmt.Errorf("failed to observe latest: %w", err)
-	}
+	latest := userLog.Seq()
 
-	switch v := latest.(type) {
-	case librarian.UnsetValue:
-		// nothing stored, fetch from zero
+	if latest < 0 {
 		return firstMessage(ref), nil
-
-	case margaret.BaseSeq:
-		if v < 0 {
-			return firstMessage(ref), nil
-		}
-
-		rxVal, err := userLog.Get(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to look up root seq for latest user sublog: %w", err)
-		}
-		msgV, err := vs.rxlog.Get(rxVal.(margaret.Seq))
-		if err != nil {
-			return nil, fmt.Errorf("failed retreive stored message: %w", err)
-		}
-
-		var ok bool
-		latestMsg, ok := msgV.(refs.Message)
-		if !ok {
-			return nil, fmt.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
-		}
-		return latestMsg, nil
-
-	default:
-		return nil, fmt.Errorf("unexpected return value from index: %T", latest)
 	}
+
+	rxVal, err := userLog.Get(latest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up root seq for latest user sublog: %w", err)
+	}
+	msgV, err := vs.rxlog.Get(rxVal.(int64))
+	if err != nil {
+		return nil, fmt.Errorf("failed retreive stored message: %w", err)
+	}
+
+	var ok bool
+	latestMsg, ok := msgV.(refs.Message)
+	if !ok {
+		return nil, fmt.Errorf("fetch: wrong message type. expected %T - got %T", latestMsg, msgV)
+	}
+
+	return latestMsg, nil
 
 	panic("unreadable")
 }

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -125,13 +124,13 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	aliceLog, err := s.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
+	seqMsg, err := aliceLog.Get(int64(1))
 	r.NoError(err)
-	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
+	r.EqualValues(2, storedMsg.Seq())
 
 	ts.wait()
 }
@@ -182,21 +181,19 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	aliceLog, err := bob.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
-	seq, err := aliceLog.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(n-1), seq)
+	r.EqualValues(n-1, aliceLog.Seq())
 
 	// var lastMsg string
 	for i := 0; i < n; i++ {
-		seqMsg, err := aliceLog.Get(margaret.BaseSeq(i))
+		seqMsg, err := aliceLog.Get(int64(i))
 		r.NoError(err)
-		//r.Equal(seqMsg, margaret.BaseSeq(1+i))
+		//r.Equal(seqMsg, int64(1+i))
 
-		msg, err := bob.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := bob.ReceiveLog.Get(seqMsg.(int64))
 		r.NoError(err)
 		absMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)
-		r.Equal(absMsg.Seq(), margaret.BaseSeq(i+1).Seq())
+		r.EqualValues(i+1, absMsg.Seq())
 
 		if i == 0 {
 			continue // skip contact

@@ -158,9 +158,8 @@ func TestCreateHistoryStream(t *testing.T) {
 			t.Log("created prefil")
 			log, err := userFeeds.Get(storedrefs.Feed(keyPair.ID()))
 			r.NoError(err)
-			seqv, err := log.Seq().Value()
-			r.NoError(err)
-			r.EqualValues(userFeedLen-1, seqv)
+
+			r.EqualValues(userFeedLen-1, log.Seq())
 
 			test.Args.ID = keyPair.ID()
 			var buf = new(bytes.Buffer)

@@ -20,7 +20,6 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb/repo"
 )
 
@@ -44,12 +43,12 @@ func main() {
 	}
 	logPath := os.Args[1]
 
-	var seqs = make([]margaret.BaseSeq, len(os.Args)-2)
+	var seqs = make([]int64, len(os.Args)-2)
 	for i, seq := range os.Args[2:] {
 		parsedSeq, err := strconv.Atoi(seq)
 		check(err)
 
-		seqs[i] = margaret.BaseSeq(parsedSeq)
+		seqs[i] = int64(parsedSeq)
 	}
 
 	repoFrom := repo.New(logPath)
@@ -57,10 +56,7 @@ func main() {
 	theLog, err := repo.OpenLog(repoFrom)
 	check(err)
 
-	seq, err := theLog.Seq().Value()
-	check(err)
-
-	fmt.Println("element count in source log:", seq)
+	fmt.Println("element count in source log:", theLog.Seq())
 
 	fmt.Println("nulling:", seqs)
 

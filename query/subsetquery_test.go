@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
@@ -191,14 +190,7 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 		testRefs = append(testRefs, ref)
 	}
 
-	// assert helper
-	checkLogSeq := func(l margaret.Log, seq int) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(seq, v.(margaret.Seq).Seq())
-	}
-
-	checkLogSeq(mainbot.ReceiveLog, len(testMsgs)-1) // got all the messages
+	r.EqualValues(len(testMsgs)-1, mainbot.ReceiveLog.Seq(), "did not get all the messages")
 
 	sp := query.NewSubsetPlaner(mainbot.Users, mainbot.ByType)
 

@@ -142,9 +142,9 @@ func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 
 	// iterate over those and reindex them
 	for it.HasNext() {
-		rxSeq := it.Next()
+		rxSeq := int64(it.Next())
 
-		msgv, err := idx.rxlog.Get(margaret.BaseSeq(rxSeq))
+		msgv, err := idx.rxlog.Get(rxSeq)
 		if err != nil {
 			return err
 		}
@@ -154,7 +154,7 @@ func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 			return fmt.Errorf("not a message: %T", msgv)
 		}
 
-		err = idx.update(int64(rxSeq), msg)
+		err = idx.update(rxSeq, msg)
 		if err != nil {
 			return err
 		}
@@ -172,7 +172,7 @@ func (idx *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 	if !ok {
 		return fmt.Errorf("error casting seq wrapper. got type %T", swv)
 	}
-	seq := sw.Seq() //received as
+	seq := int64(sw.Seq()) //received as
 
 	// todo: defer state save!?
 	err := persist.Save(idx.file, seq)
@@ -194,7 +194,7 @@ func (idx *CombinedIndex) Pour(ctx context.Context, swv interface{}) error {
 		return fmt.Errorf("error casting message. got type %T", v)
 	}
 
-	return idx.update(seq.Seq(), msg)
+	return idx.update(seq, msg)
 }
 
 // update all the indexes with this new message which was stored as rxSeq (received sequence number)
@@ -207,7 +207,7 @@ func (idx *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	if err != nil {
 		return fmt.Errorf("error opening sublog: %w", err)
 	}
-	_, err = authorLog.Append(margaret.BaseSeq(rxSeq))
+	_, err = authorLog.Append(rxSeq)
 	if err != nil {
 		return fmt.Errorf("error updating author sublog: %w", err)
 	}
@@ -216,7 +216,7 @@ func (idx *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	err = idx.ebtState.Fill(idx.self, []statematrix.ObservedFeed{{
 		Feed: author,
 		Note: ssb.Note{
-			Seq:       msg.Seq(),
+			Seq:       int64(msg.Seq()),
 			Receive:   true,
 			Replicate: true,
 		},
@@ -335,7 +335,7 @@ func (idx *CombinedIndex) QuerySpec() margaret.QuerySpec {
 	idx.l.Lock()
 	defer idx.l.Unlock()
 
-	var seq margaret.BaseSeq
+	var seq int64
 
 	if err := persist.Load(idx.file, &seq); err != nil {
 		if !errors.Is(err, io.EOF) {
@@ -379,7 +379,7 @@ func (idx *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	if _, err := boxTyped.Append(margaret.BaseSeq(rxSeq)); err != nil {
+	if _, err := boxTyped.Append(rxSeq); err != nil {
 		return nil, fmt.Errorf("private: error marking type:box: %w", err)
 	}
 
@@ -415,7 +415,7 @@ func (idx *CombinedIndex) tryDecrypt(msg refs.Message, rxSeq int64) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("combined/private: error opening priv sublog for: %w", err)
 	}
-	if _, err := userPrivs.Append(margaret.BaseSeq(rxSeq)); err != nil {
+	if _, err := userPrivs.Append(rxSeq); err != nil {
 		return nil, fmt.Errorf("combined/private: error appending PM: %w", err)
 	}
 

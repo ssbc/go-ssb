@@ -27,7 +27,7 @@ func TestTimestampSorting(t *testing.T) {
 		seq, err := rxlog.Append(mkTestMessage(i))
 		r.NoError(err)
 		t.Log(seq, i)
-		allSeqs = append(allSeqs, seq.Seq())
+		allSeqs = append(allSeqs, int64(seq))
 	}
 
 	sorter, err := repo.NewSequenceResolverFromLog(rxlog)

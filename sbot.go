@@ -70,7 +70,7 @@ type Status struct {
 	PID      int // process id of the bot
 	Peers    []PeerStatus
 	Blobs    []BlobWant
-	Root     margaret.BaseSeq
+	Root     int64
 	Indicies IndexStates
 }
 
@@ -92,7 +92,7 @@ type ReplicateUpToResponse struct {
 	Sequence int64        `json:"sequence"`
 }
 
-var _ margaret.Seq = ReplicateUpToResponse{}
+var _ margaret.Seqer = ReplicateUpToResponse{}
 
 func (upto ReplicateUpToResponse) Seq() int64 {
 	return upto.Sequence
@@ -124,14 +124,9 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 			return nil, fmt.Errorf("feedSrc(%d): did not load sublog: %w", i, err)
 		}
 
-		currSeq, err := subLog.Seq().Value()
-		if err != nil {
-			return nil, fmt.Errorf("feedSrc(%d): failed to get current seq value: %w", i, err)
-		}
-
 		elem := ReplicateUpToResponse{
 			ID:       authorRef,
-			Sequence: currSeq.(margaret.Seq).Seq() + 1,
+			Sequence: subLog.Seq() + 1,
 		}
 		feedsWithSeqs = append(feedsWithSeqs, elem)
 	}

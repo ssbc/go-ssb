@@ -32,7 +32,7 @@ func (s Note) MarshalJSON() ([]byte, error) {
 	if !s.Replicate {
 		return []byte("-1"), nil
 	}
-	i = s.Seq
+	i = int64(s.Seq)
 	if i == -1 { // -1 is margarets way of saying "no msgs in this feed"
 		i = 0
 	}
@@ -69,7 +69,7 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 		var s Note
 		s.Replicate = i != -1
 		s.Receive = !(i&1 == 1)
-		s.Seq = i >> 1
+		s.Seq = int64(i >> 1)
 
 		newMap[fstr] = s
 	}

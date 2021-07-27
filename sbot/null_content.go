@@ -39,12 +39,12 @@ func (s *Sbot) NullContent(fr refs.FeedRef, seq uint) error {
 	}
 
 	// internal data strucutres are 0-indexed
-	seqv, err := userLog.Get(margaret.BaseSeq(seq - 1))
+	seqv, err := userLog.Get(int64(seq - 1))
 	if err != nil {
 		return fmt.Errorf("nullContent: unable to load feed: %w", err)
 	}
 
-	rootLogSeq, ok := seqv.(margaret.Seq)
+	rootLogSeq, ok := seqv.(int64)
 	if !ok {
 		return fmt.Errorf("not a sequence type: %T", seqv)
 	}
@@ -148,7 +148,7 @@ func (snk *wrappedIndexSink) Close() error {
 }
 
 func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {
-	return librarian.NewSinkIndex(func(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+	return librarian.NewSinkIndex(func(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 		if nulled, ok := val.(error); ok {
 			if margaret.IsErrNulled(nulled) {
 				return nil

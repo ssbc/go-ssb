@@ -27,17 +27,21 @@ func Indirect(root, indirect margaret.Log) margaret.Log {
 	return il
 }
 
-func (il indirectLog) Seq() luigi.Observable {
+func (il indirectLog) Changes() luigi.Observable {
+	return il.indirect.Changes()
+}
+
+func (il indirectLog) Seq() int64 {
 	return il.indirect.Seq()
 }
 
-func (il indirectLog) Get(seq margaret.Seq) (interface{}, error) {
+func (il indirectLog) Get(seq int64) (interface{}, error) {
 	v, err := il.indirect.Get(seq)
 	if err != nil {
 		return nil, fmt.Errorf("indirect: 1st lookup failed: %w", err)
 	}
 
-	rv, err := il.root.Get(v.(margaret.Seq))
+	rv, err := il.root.Get(v.(int64))
 	if err != nil {
 		return nil, fmt.Errorf("indirect: root lookup failed: %w", err)
 	}
@@ -57,7 +61,7 @@ func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 			v = vWrapped.Value()
 		}
 
-		vSeq, ok := v.(margaret.Seq)
+		vSeq, ok := v.(int64)
 		if !ok {
 			// if errv, ok := v.(error); ok && margaret.IsErrNulled(errv) {
 			// 	continue
@@ -81,6 +85,6 @@ func (il indirectLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 }
 
 // Append appends a new entry to the log
-func (il indirectLog) Append(interface{}) (margaret.Seq, error) {
-	return nil, errors.New("can't append to indirected log, sorry")
+func (il indirectLog) Append(interface{}) (int64, error) {
+	return -2, errors.New("can't append to indirected log, sorry")
 }

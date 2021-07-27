@@ -111,10 +111,8 @@ func makeFeedsLiveNetworkChain(chainLen uint) func(t *testing.T) {
 		r.True(ok)
 		feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.ID()))
 		r.NoError(err)
-		seqv, err := feedOfLastBot.Seq().Value()
-		r.NoError(err)
-		wantSeq := margaret.BaseSeq(n - 2)
-		r.EqualValues(wantSeq, seqv, "after connect check")
+		wantSeq := int64(n - 2)
+		r.EqualValues(wantSeq, feedOfLastBot.Seq(), "after connect check")
 
 		// setup live listener
 		gotMsg := make(chan refs.Message)
@@ -133,14 +131,14 @@ func makeFeedsLiveNetworkChain(chainLen uint) func(t *testing.T) {
 			rxSeq, err := theBots[n-1].PublishLog.Append(tmsg)
 			r.NoError(err)
 			published := time.Now()
-			a.EqualValues(margaret.BaseSeq(msgCnt+i), rxSeq)
+			a.EqualValues(int64(msgCnt+i), rxSeq)
 
 			// received new message?
 			select {
 			case <-time.After(2 * time.Second):
 				t.Errorf("timeout %d....", i)
 			case msg := <-gotMsg:
-				a.EqualValues(margaret.BaseSeq(n+i), msg.Seq(), "wrong seq")
+				a.EqualValues(int64(n+i), msg.Seq(), "wrong seq")
 				delayHist.Add(time.Since(published).Seconds())
 			}
 		}
@@ -232,11 +230,9 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	r.True(ok)
 	feedOfBotCAtB, err := ufOfBotB.Get(storedrefs.Feed(botC.KeyPair.ID()))
 	r.NoError(err)
-	seqv, err := feedOfBotCAtB.Seq().Value()
-	r.NoError(err)
 
-	wantSeq := margaret.BaseSeq(1)
-	r.EqualValues(wantSeq, seqv, "after connect check")
+	wantSeq := int64(1)
+	r.EqualValues(wantSeq, feedOfBotCAtB.Seq(), "after connect check")
 
 	t.Log("commencing live tests")
 
@@ -260,7 +256,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	for i := 0; i < testMessageCount; i++ {
 		rxSeq, err := botC.PublishLog.Append(refs.NewPost("some test msg"))
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(6+i), rxSeq)
+		r.Equal(int64(6+i), rxSeq)
 		//t.Log(rxSeq)
 
 		// received new message?
@@ -269,7 +265,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 			t.Errorf("timeout %d....", i)
 			timeouts++
 		case msg := <-gotMsg:
-			a.EqualValues(margaret.BaseSeq(3+i), msg.Seq(), "wrong message seq")
+			a.EqualValues(int64(3+i), msg.Seq(), "wrong message seq")
 		}
 	}
 	a.Equal(0, timeouts, "expected no timeouts")
@@ -394,7 +390,7 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 	feedOfBotC, err := theBots[0].Users.Get(storedrefs.Feed(theBots[5].KeyPair.ID()))
 	r.NoError(err)
 	seqSrc, err := mutil.Indirect(theBots[0].ReceiveLog, feedOfBotC).Query(
-		// margaret.Gte(margaret.BaseSeq(3)),
+		// margaret.Gte(int64(3)),
 		margaret.Live(true))
 	r.NoError(err)
 
@@ -407,7 +403,7 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 		seq, err := theBots[5].PublishLog.Append(tMsg)
 		r.NoError(err)
 		published := time.Now()
-		r.Equal(margaret.BaseSeq(i), seq, "new msg %d", i)
+		r.EqualValues(i, seq, "new msg %d", i)
 
 		// received new message?
 		select {
@@ -418,7 +414,7 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 				t.Fatal("too many timeouts")
 			}
 		case msg := <-gotMsg:
-			a.EqualValues(margaret.BaseSeq(i+1), msg.Seq(), "wrong seq")
+			a.EqualValues(int64(i+1), msg.Seq(), "wrong seq")
 			delayHist.Add(time.Since(published).Seconds())
 		}
 	}

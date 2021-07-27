@@ -750,7 +750,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.Groups,
 		s.SeqResolver,
 		sc))
-	s.master.Register(rawread.NewSequenceStream(s.ReceiveLog))
+
 	s.master.Register(rawread.NewRXLog(s.ReceiveLog)) // createLogStream
 	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver))
 	s.master.Register(hist) // createHistoryStream

@@ -53,7 +53,7 @@ func MakeCompareSink(texpected []string, rootLog margaret.Log) (luigi.FuncSink, 
 			return fmt.Errorf("unexpected error %q", err)
 		}
 
-		v, err = rootLog.Get(v.(margaret.Seq))
+		v, err = rootLog.Get(v.(int64))
 		if err != nil {
 			return fmt.Errorf("error getting message from root log %q", v)
 		}

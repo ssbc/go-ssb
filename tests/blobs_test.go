@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -168,27 +167,27 @@ func TestBlobWithHop(t *testing.T) {
 
 	gotMessage := make(chan struct{})
 	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		seq, has := v.(margaret.Seq)
+		seq, has := v.(int64)
 		if !has {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
-		if seq.Seq() == 0 {
+		if seq == 0 {
 			close(gotMessage)
 		}
 		return err
 	})
-	done := aliceLog.Seq().Register(updateSink)
+	done := aliceLog.Changes().Register(updateSink)
 
 	<-gotMessage
 	done()
 
 	var wantBlob *refs.BlobRef
 
-	msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(margaret.BaseSeq(0))
+	msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(int64(0))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Seq(), margaret.BaseSeq(1).Seq())
+	r.EqualValues(1, storedMsg.Seq())
 
 	type testWrap struct {
 		Author  refs.FeedRef
@@ -337,7 +336,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	}
 	for tries > 0 {
 
-		v, err := jsFeed.Get(margaret.BaseSeq(0))
+		v, err := jsFeed.Get(int64(0))
 		if err == nil {
 			msg, ok := v.(refs.Message)
 			r.True(ok, "not a message")

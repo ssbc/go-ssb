@@ -308,14 +308,10 @@ func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (refs.Mes
 
 func (mgr *Manager) getPrevious() (refs.MessageRef, error) {
 	// get current sequence
-	currSeqV, err := mgr.publog.Seq().Value()
-	if err != nil {
-		return refs.MessageRef{}, err
-	}
-	currSeq := currSeqV.(margaret.Seq)
+	currSeq := mgr.publog.Seq()
 
 	// if first message
-	if currSeq.Seq() == margaret.SeqEmpty.Seq() {
+	if currSeq == margaret.SeqEmpty {
 		return refs.MessageRef{}, nil
 	}
 

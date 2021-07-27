@@ -19,7 +19,7 @@ import (
 )
 
 type SequencedVerificationSink interface {
-	margaret.Seq
+	margaret.Seqer
 
 	Verify([]byte) error
 }
@@ -33,10 +33,10 @@ type SaveMessager interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedVerificationSink, error) {
+func NewVerifySink(who refs.FeedRef, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedVerificationSink, error) {
 	drain := &generalVerifyDrain{
 		who:       who,
-		latestSeq: margaret.BaseSeq(start.Seq()),
+		latestSeq: int64(latest.Seq()),
 		latestMsg: latest,
 		storage:   saver,
 	}
@@ -60,7 +60,7 @@ func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, sa
 	return drain, nil
 }
 
-type _Verifier interface {
+type verifier interface {
 	// Verify checks if a message is valid and returns it or an error if it isn't
 	Verify([]byte) (refs.Message, error)
 }
@@ -135,13 +135,13 @@ func (mv metafeedVerify) Verify(trBytes []byte) (refs.Message, error) {
 
 type generalVerifyDrain struct {
 	// gets the input from the screen and returns the next decoded message, if it is valid
-	verify _Verifier
+	verify verifier
 
 	who refs.FeedRef // which feed is pulled
 
 	// holds onto the current/newest method (for sequence check and prev hash compare)
 	mu        sync.Mutex
-	latestSeq margaret.BaseSeq
+	latestSeq int64
 	latestMsg refs.Message
 
 	storage SaveMessager
@@ -150,7 +150,7 @@ type generalVerifyDrain struct {
 func (ld *generalVerifyDrain) Seq() int64 {
 	ld.mu.Lock()
 	defer ld.mu.Unlock()
-	return int64(ld.latestSeq)
+	return ld.latestSeq
 }
 
 // Verify passes the raw message bytes to the verifaction function for the message format (legacy or gabby grove).
@@ -162,7 +162,7 @@ func (ld *generalVerifyDrain) Verify(msg []byte) error {
 
 	next, err := ld.verify.Verify(msg)
 	if err != nil {
-		return fmt.Errorf("message(%s:%d) verify failed: %w", ld.who.ShortRef(), ld.latestSeq.Seq(), err)
+		return fmt.Errorf("message(%s:%d) verify failed: %w", ld.who.ShortRef(), ld.latestSeq, err)
 	}
 
 	err = ValidateNext(ld.latestMsg, next)
@@ -178,7 +178,7 @@ func (ld *generalVerifyDrain) Verify(msg []byte) error {
 		return fmt.Errorf("message(%s): failed to append message(%s:%d): %w", ld.who.ShortRef(), next.Key().Ref(), next.Seq(), err)
 	}
 
-	ld.latestSeq = margaret.BaseSeq(next.Seq())
+	ld.latestSeq = int64(next.Seq())
 	ld.latestMsg = next
 	return nil
 }

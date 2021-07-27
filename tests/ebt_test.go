@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
@@ -166,10 +165,7 @@ func XTestEpidemicBroadcastTrees(t *testing.T) {
 	alices, err := sbot.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	sv, err := alices.Seq().Value()
-	r.NoError(err)
-
-	seq := sv.(margaret.BaseSeq)
+	seq := alices.Seq()
 	r.EqualValues(14, seq, "wrong rx seq")
 
 	alicesMsgs := mutil.Indirect(sbot.ReceiveLog, alices)

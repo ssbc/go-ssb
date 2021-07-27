@@ -5,8 +5,6 @@ package legacy
 import (
 	"testing"
 
-	"go.cryptoscope.co/margaret"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +26,7 @@ func TestVerifyBugs(t *testing.T) {
 	a, r := assert.New(t), require.New(t)
 	type tcase struct {
 		msg []byte
-		seq margaret.BaseSeq
+		seq int64
 		key string
 	}
 	var tcases = []tcase{

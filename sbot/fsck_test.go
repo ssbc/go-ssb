@@ -113,14 +113,12 @@ func testFSCKdouble(t *testing.T) {
 
 		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
-		t.Log("doubled:", seq.Seq())
+		t.Log("doubled:", seq)
 	}
 
 	// check duplication
-	seqv, err := theBot.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	seq := seqv.(margaret.Seq)
-	r.EqualValues(seq.Seq()+1, n*2)
+	seq := theBot.ReceiveLog.Seq()
+	r.EqualValues(seq+1, n*2)
 
 	// more valid messages
 	for i := 64; i > 32; i-- {
@@ -190,7 +188,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 	// copy the messages from one and two (leaving "main" intact)
 	src, err := theBot.ReceiveLog.Query(
-		margaret.Gt(margaret.BaseSeq(n-1)),
+		margaret.Gt(int64(n-1)),
 		margaret.Limit(5))
 	r.NoError(err)
 	for {
@@ -207,7 +205,7 @@ func testFSCKmultipleFeeds(t *testing.T) {
 
 		seq, err := theBot.ReceiveLog.Append(v)
 		r.NoError(err)
-		t.Log("doubled:", msg.Author().ShortRef(), seq.Seq())
+		t.Log("doubled:", msg.Author().ShortRef(), seq)
 	}
 
 	err = theBot.FSCK(FSCKWithMode(FSCKModeLength))
@@ -252,10 +250,8 @@ func testFSCKrepro(t *testing.T) {
 
 	theBot, _ := makeFSCKTestBot(t)
 
-	seqV, err := theBot.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	latestSeq := seqV.(margaret.Seq)
-	r.EqualValues(latestSeq.Seq(), 6699)
+	latestSeq := theBot.ReceiveLog.Seq()
+	r.EqualValues(latestSeq, 6699)
 
 	err = theBot.FSCK(FSCKWithMode(FSCKModeSequences))
 	r.Error(err)

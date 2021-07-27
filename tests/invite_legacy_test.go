@@ -156,7 +156,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 	r.NoError(err)
 	seqv, err := alicesLog.Seq().Value()
 	r.NoError(err)
-	r.EqualValues(margaret.BaseSeq(2), seqv)
+	r.EqualValues(int64(2), seqv)
 	*/
 
 	ts.wait()

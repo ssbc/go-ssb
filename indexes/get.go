@@ -19,12 +19,12 @@ import (
 
 // OpenGet supplies the get(msgRef) -> rootLogSeq idx
 func OpenGet(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
-	idx := libbadger.NewIndexWithKeyPrefix(db, margaret.BaseSeq(0), []byte("byMsgRef"))
+	idx := libbadger.NewIndexWithKeyPrefix(db, int64(0), []byte("byMsgRef"))
 	sinkIdx := librarian.NewSinkIndex(updateGetFn, idx)
 	return idx, sinkIdx
 }
 
-func updateGetFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func updateGetFn(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	msg, ok := val.(refs.Message)
 	if !ok {
 		err, ok := val.(error)
@@ -34,9 +34,9 @@ func updateGetFn(ctx context.Context, seq margaret.Seq, val interface{}, idx lib
 		return fmt.Errorf("index/get: unexpected message type: %T", val)
 	}
 
-	err := idx.Set(ctx, storedrefs.Message(msg.Key()), seq.Seq())
+	err := idx.Set(ctx, storedrefs.Message(msg.Key()), seq)
 	if err != nil {
-		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Ref(), seq.Seq(), err)
+		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Ref(), seq, err)
 	}
 	return nil
 }

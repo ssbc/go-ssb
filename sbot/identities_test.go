@@ -115,9 +115,7 @@ func XTestMultipleIdentities(t *testing.T) {
 
 	// assert helper
 	checkLogSeq := func(l margaret.Log, seq int) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(seq, v.(margaret.Seq).Seq())
+		r.EqualValues(seq, l.Seq())
 	}
 
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages

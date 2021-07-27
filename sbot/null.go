@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -43,7 +42,7 @@ func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 			}
 			return err
 		}
-		seq, ok := v.(margaret.Seq)
+		seq, ok := v.(int64)
 		if !ok {
 			return fmt.Errorf("NullFeed: not a sequence from userlog query")
 		}

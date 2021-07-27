@@ -126,9 +126,7 @@ func TestPersistence(t *testing.T) {
 	r.Len(feeds, 3)
 
 	checkLogSeq := func(l margaret.Log) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(testMsgCount-1, v.(margaret.Seq).Seq())
+		r.EqualValues(testMsgCount-1, l.Seq())
 	}
 
 	logA, err := botA.Users.Get(storedrefs.Feed(botA.KeyPair.ID()))

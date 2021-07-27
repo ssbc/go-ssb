@@ -148,7 +148,7 @@ func (h handler) handleRead(ctx context.Context, req *muxrpc.Request, snk *muxrp
 	qry.Keys = true
 
 	src, err := h.read.Query(
-		margaret.Gte(margaret.BaseSeq(qry.Seq)),
+		margaret.Gte(qry.Seq),
 		margaret.Limit(int(qry.Limit)),
 		margaret.Live(qry.Live))
 	if err != nil {

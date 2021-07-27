@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -65,12 +64,12 @@ var ErrUnuspportedFormat = fmt.Errorf("ssb: unsupported format")
 // sequence number on the feed between in the offsetlog and the logical entry on the feed
 type ErrWrongSequence struct {
 	Ref             refs.FeedRef
-	Logical, Stored margaret.Seq
+	Logical, Stored int64
 }
 
 func (e ErrWrongSequence) Error() string {
 	return fmt.Sprintf("ssb/consistency error: message sequence missmatch for feed %s Stored:%d Logical:%d",
 		e.Ref.Ref(),
-		e.Stored.Seq(),
-		e.Logical.Seq())
+		e.Stored,
+		e.Logical)
 }

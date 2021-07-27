@@ -13,7 +13,6 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.mindeco.de/log"
@@ -94,14 +93,8 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 }
 
 func (m *FeedManager) serveLiveFeeds() {
-	seqv, err := m.ReceiveLog.Seq().Value()
-	if err != nil {
-		err = fmt.Errorf("failed to get root log sequence: %w", err)
-		panic(err)
-	}
-
 	src, err := m.ReceiveLog.Query(
-		margaret.Gt(seqv.(margaret.BaseSeq)),
+		margaret.Gt(m.ReceiveLog.Seq()),
 		margaret.Live(true),
 	)
 	if err != nil {
@@ -184,23 +177,6 @@ func liveLimit(
 	return lastSeq - startSeq + 1
 }
 
-// getLatestSeq returns the latest Sequence number for the given log.
-// TODO: this should probably be on margret itself... (ie. observable less way to get the current sequence)
-func getLatestSeq(log margaret.Log) (int64, error) {
-	latestSeqValue, err := log.Seq().Value()
-	if err != nil {
-		return 0, fmt.Errorf("failed to observe latest: %w", err)
-	}
-	switch v := latestSeqValue.(type) {
-	case librarian.UnsetValue: // don't have the feed - nothing to do?
-		return 0, nil
-	case margaret.BaseSeq:
-		return v.Seq(), nil
-	default:
-		return 0, fmt.Errorf("wrong type in index. expected margaret.BaseSeq - got %T", v)
-	}
-}
-
 // CreateStreamHistory serves the sink a CreateStreamHistory request to the sink.
 func (m *FeedManager) CreateStreamHistory(
 	ctx context.Context,
@@ -214,10 +190,8 @@ func (m *FeedManager) CreateStreamHistory(
 	if err != nil {
 		return fmt.Errorf("failed to open sublog for user: %w", err)
 	}
-	latest, err := getLatestSeq(userLog)
-	if err != nil {
-		return fmt.Errorf("userLog sequence: %w", err)
-	}
+
+	latest := int64(userLog.Seq())
 
 	if arg.Seq != 0 {
 		arg.Seq--             // our idx is 0 ed
@@ -249,15 +223,15 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	if arg.Seq > 0 {
-		qryArgs = append(qryArgs, margaret.Gte(margaret.BaseSeq(arg.Seq)))
+		qryArgs = append(qryArgs, margaret.Gte(arg.Seq))
 	}
 
 	if arg.Lt > 0 {
-		qryArgs = append(qryArgs, margaret.Lt(margaret.BaseSeq(arg.Lt)))
+		qryArgs = append(qryArgs, margaret.Lt(int64(arg.Lt)))
 	}
 
 	if arg.Gt > 0 {
-		qryArgs = append(qryArgs, margaret.Gt(margaret.BaseSeq(arg.Gt)))
+		qryArgs = append(qryArgs, margaret.Gt(int64(arg.Gt)))
 	}
 
 	resolved := mutil.Indirect(m.ReceiveLog, userLog)

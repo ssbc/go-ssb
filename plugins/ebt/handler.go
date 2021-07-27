@@ -233,7 +233,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 
 			arg := message.CreateHistArgs{
 				ID:  feed,
-				Seq: their.Seq + 1,
+				Seq: int64(their.Seq + 1),
 			}
 			arg.Limit = -1
 			arg.Live = true

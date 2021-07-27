@@ -29,10 +29,12 @@ type FilteredLog struct {
 	filter FilterFunc
 }
 
-func (fl FilteredLog) Seq() luigi.Observable { return fl.backing.Seq() }
+func (fl FilteredLog) Seq() int64 { return fl.backing.Seq() }
+
+func (fl FilteredLog) Changes() luigi.Observable { return fl.backing.Changes() }
 
 // Get retrieves the message object by traversing the authors sublog to the root log
-func (fl FilteredLog) Get(s margaret.Seq) (interface{}, error) {
+func (fl FilteredLog) Get(s int64) (interface{}, error) {
 	v, err := fl.backing.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("filtered get: failed to retrieve sequence for the root log: %w", err)
@@ -78,6 +80,6 @@ func (fl FilteredLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 	return filterdSrc, nil
 }
 
-func (fl FilteredLog) Append(val interface{}) (margaret.Seq, error) {
-	return nil, fmt.Errorf("FitleredLog is read-only")
+func (fl FilteredLog) Append(val interface{}) (int64, error) {
+	return -2, fmt.Errorf("FitleredLog is read-only")
 }

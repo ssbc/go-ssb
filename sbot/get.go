@@ -5,7 +5,6 @@ package sbot
 import (
 	"fmt"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
@@ -27,15 +26,13 @@ func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 		return nil, fmt.Errorf("sbot/get: failed to get current value from obs: %w", err)
 	}
 
-	var seq margaret.Seq
+	var seq int64
 	switch tv := v.(type) {
-	case margaret.Seq:
-		seq = tv
 	case int64:
 		if tv < 0 {
 			return nil, fmt.Errorf("invalid sequence stored in index")
 		}
-		seq = margaret.BaseSeq(tv)
+		seq = int64(tv)
 	default:
 		return nil, fmt.Errorf("sbot/get: wrong sequence type in index: %T", v)
 	}
@@ -58,18 +55,14 @@ func (s *Sbot) CurrentSequence(feed refs.FeedRef) (ssb.Note, error) {
 	if err != nil {
 		return ssb.Note{}, fmt.Errorf("failed to get user log for %s: %w", feed.ShortRef(), err)
 	}
-	sv, err := l.Seq().Value()
-	if err != nil {
-		return ssb.Note{}, fmt.Errorf("failed to get sequence for user log %s: %w", feed.ShortRef(), err)
-	}
 
-	currSeq := sv.(margaret.BaseSeq)
+	currSeq := l.Seq()
 	if currSeq != -1 {
 		currSeq++
 	}
 
 	return ssb.Note{
-		Seq:       currSeq.Seq(),
+		Seq:       currSeq,
 		Replicate: true,
 		Receive:   true, // TODO: not exactly... we might be getting this feed from somewhre else
 	}, nil

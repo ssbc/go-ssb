@@ -3,14 +3,12 @@
 package sbot
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"sort"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/netwrap"
 
 	"go.cryptoscope.co/ssb"
@@ -18,14 +16,9 @@ import (
 )
 
 func (sbot *Sbot) Status() (ssb.Status, error) {
-	v, err := sbot.ReceiveLog.Seq().Value()
-	if err != nil {
-		return ssb.Status{}, fmt.Errorf("failed to get root log sequence: %w", err)
-	}
-
 	s := ssb.Status{
 		PID:   os.Getpid(),
-		Root:  margaret.BaseSeq(v.(margaret.Seq).Seq()),
+		Root:  sbot.ReceiveLog.Seq(),
 		Blobs: sbot.WantManager.AllWants(),
 	}
 
