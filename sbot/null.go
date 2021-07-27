@@ -72,7 +72,7 @@ func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	os.Remove(sfn)
 
 	if !s.disableNetwork {
-		s.verifySink.CloseSink(ref)
+		s.verifyRouter.CloseSink(ref)
 	}
 
 	return nil

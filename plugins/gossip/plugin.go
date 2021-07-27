@@ -36,7 +36,7 @@ func NewFetcher(
 	userFeeds multilog.MultiLog,
 	fm *FeedManager,
 	wantList ssb.ReplicationLister,
-	snk *message.VerifySink,
+	vr *message.VerificationRouter,
 	opts ...interface{},
 ) *plugin {
 	h := &LegacyGossip{
@@ -53,7 +53,7 @@ func NewFetcher(
 		Info:    log,
 		rootCtx: ctx,
 
-		verifySinks: snk,
+		verifyRouter: vr,
 
 		enableLiveStreaming: true,
 	}

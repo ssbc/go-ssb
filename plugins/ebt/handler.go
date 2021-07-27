@@ -39,7 +39,7 @@ type MUXRPCHandler struct {
 
 	stateMatrix *statematrix.StateMatrix
 
-	verify *message.VerifySink
+	verify *message.VerificationRouter
 
 	Sessions Sessions
 }
@@ -186,7 +186,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 				continue
 			}
 
-			vsnk, err := h.verify.GetSink(msgWithAuthor.Author)
+			vsnk, err := h.verify.GetSink(msgWithAuthor.Author, true)
 			if err != nil {
 				h.check(err)
 				continue

@@ -57,7 +57,7 @@ type LegacyGossip struct {
 
 	feedManager *FeedManager
 
-	verifySinks *message.VerifySink
+	verifyRouter *message.VerificationRouter
 
 	rootCtx context.Context
 }

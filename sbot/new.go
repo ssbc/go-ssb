@@ -145,7 +145,7 @@ type Sbot struct {
 
 	ebtState *statematrix.StateMatrix
 
-	verifySink *message.VerifySink
+	verifyRouter *message.VerificationRouter
 
 	GraphBuilder graph.Builder
 
@@ -669,7 +669,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		histOpts = append(histOpts, gossip.HMACSecret(s.signHMACsecret))
 	}
 
-	s.verifySink, err = message.NewVerificationSinker(s.ReceiveLog, s.Users, s.signHMACsecret)
+	s.verifyRouter, err = message.NewVerificationRouter(s.ReceiveLog, s.Users, s.signHMACsecret)
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +684,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
-		s.verifySink,
+		s.verifyRouter,
 		histOpts...)
 
 	if s.disableEBT {
@@ -697,7 +697,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			s.Users,
 			fm,
 			sm,
-			s.verifySink,
+			s.verifyRouter,
 		)
 		s.public.Register(ebtPlug)
 

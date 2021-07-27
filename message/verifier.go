@@ -11,32 +11,34 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// NewVerificationSinker supplies a sink per author that skip duplicate messages.
-func NewVerificationSinker(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec *[32]byte) (*VerifySink, error) {
-	return &VerifySink{
+// NewVerificationRouter supplies a unique drain per author that skip duplicate messages
+func NewVerificationRouter(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec *[32]byte) (*VerificationRouter, error) {
+	return &VerificationRouter{
 		hmacSec: hmacSec,
 
 		rxlog: rxlog,
 		feeds: feeds,
-		saver: MargaretSaver{rxlog},
+		saver: margaretSaver{rxlog},
 
 		mu:    new(sync.Mutex),
 		sinks: make(verifyFanIn),
 	}, nil
 }
 
-type MargaretSaver struct {
+type margaretSaver struct {
 	margaret.Log
 }
 
-func (ms MargaretSaver) Save(msg refs.Message) error {
+func (ms margaretSaver) Save(msg refs.Message) error {
 	_, err := ms.Log.Append(msg)
 	return err
 }
 
-type verifyFanIn map[string]SequencedSink
+// mapping an author ref to a verifySink
+type verifyFanIn map[string]SequencedVerificationSink
 
-type VerifySink struct {
+// VerificationRouter hands out sinks (or drains) to pour messages into for verification and storage
+type VerificationRouter struct {
 	rxlog margaret.Log
 	feeds multilog.MultiLog
 
@@ -48,7 +50,8 @@ type VerifySink struct {
 	sinks verifyFanIn
 }
 
-func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
+// GetSink returns a verification sink for that author. If called twice for the same author it returns the same drink (for deduplication)
+func (vs *VerificationRouter) GetSink(ref refs.FeedRef, complete bool) (SequencedVerificationSink, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -74,7 +77,7 @@ func (vs *VerifySink) GetSink(ref refs.FeedRef) (SequencedSink, error) {
 	return snk, nil
 }
 
-func (vs *VerifySink) CloseSink(ref refs.FeedRef) {
+func (vs *VerificationRouter) CloseSink(ref refs.FeedRef) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 	delete(vs.sinks, ref.Ref())
@@ -90,7 +93,7 @@ func firstMessage(author refs.FeedRef) refs.KeyValueRaw {
 	}
 }
 
-func (vs VerifySink) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
+func (vs VerificationRouter) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
 	frAddr := storedrefs.Feed(ref)
 	userLog, err := vs.feeds.Get(frAddr)
 	if err != nil {
@@ -105,6 +108,7 @@ func (vs VerifySink) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
 	case librarian.UnsetValue:
 		// nothing stored, fetch from zero
 		return firstMessage(ref), nil
+
 	case margaret.BaseSeq:
 		if v < 0 {
 			return firstMessage(ref), nil
@@ -129,5 +133,6 @@ func (vs VerifySink) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
 	default:
 		return nil, fmt.Errorf("unexpected return value from index: %T", latest)
 	}
+
 	panic("unreadable")
 }

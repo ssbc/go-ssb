@@ -91,7 +91,10 @@ func (h *LegacyGossip) fetchFeed(
 	default:
 	}
 
-	snk, err := h.verifySinks.GetSink(fr)
+	// wether to fetch this feed in full (TODO: should be passed in)
+	completeFeed := true
+	var err error
+	snk, err := h.verifyRouter.GetSink(fr, completeFeed)
 	if err != nil {
 		return fmt.Errorf("failed to get verify sink for feed: %w", err)
 	}
