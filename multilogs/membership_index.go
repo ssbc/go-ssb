@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	libbader "go.cryptoscope.co/margaret/indexes/badger"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -52,7 +51,7 @@ func (mc MembershipStore) Close() error {
 	return mc.idx.Close()
 }
 
-func (mc MembershipStore) updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	msg, ok := val.(refs.Message)
 	if !ok {
 		return fmt.Errorf("not a message: %T", val)

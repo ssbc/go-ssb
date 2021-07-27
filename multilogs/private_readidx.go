@@ -64,7 +64,7 @@ func (pr Private) OpenRoaring(r repo.Interface, db *badger.DB) (multilog.MultiLo
 	return mlog, snk, nil
 }
 
-func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{}, mlog multilog.MultiLog) error {
+func (pr Private) update(ctx context.Context, seq int64, val interface{}, mlog multilog.MultiLog) error {
 	if nulled, ok := val.(error); ok {
 		if margaret.IsErrNulled(nulled) {
 			return nil
@@ -133,7 +133,7 @@ func (pr Private) update(ctx context.Context, seq margaret.Seq, val interface{},
 		if err != nil {
 			return fmt.Errorf("private/readidx: error opening priv sublog for %s: %w", kp.ID().Ref(), err)
 		}
-		_, err = userPrivs.Append(seq.Seq())
+		_, err = userPrivs.Append(seq)
 		if err != nil {
 			return fmt.Errorf("private/readidx: error appending PM for %s: %w", kp.ID().Ref(), err)
 		}

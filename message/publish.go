@@ -50,18 +50,22 @@ func (pl *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
 	return kv.Key(), nil
 }
 
-func (pl publishLog) Seq() luigi.Observable {
+func (pl publishLog) Changes() luigi.Observable {
+	return pl.byAuthor.Changes()
+}
+
+func (pl publishLog) Seq() int64 {
 	return pl.byAuthor.Seq()
 }
 
 // Get retreives the message object by traversing the authors sublog to the root log
-func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
+func (pl publishLog) Get(s int64) (interface{}, error) {
 	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
 	}
 
-	msgv, err := pl.receiveLog.Get(idxv.(margaret.Seq))
+	msgv, err := pl.receiveLog.Get(idxv.(int64))
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive message from rootlog: %w", err)
 	}
@@ -72,7 +76,7 @@ func (pl publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 	return mutil.Indirect(pl.receiveLog, pl.byAuthor).Query(qry...)
 }
 
-func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
+func (pl *publishLog) Append(val interface{}) (int64, error) {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 
@@ -82,29 +86,22 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		nextSequence = int64(-1)
 	)
 
-	currSeq, err := pl.byAuthor.Seq().Value()
-	if err != nil {
-		return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
-	}
-	seq, ok := currSeq.(margaret.Seq)
-	if !ok {
-		return nil, fmt.Errorf("publishLog: invalid sequence from publish sublog %v: %T", currSeq, currSeq)
-	}
+	seq := pl.byAuthor.Seq()
 
 	currRootSeq, err := pl.byAuthor.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
-		return nil, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
+		return -2, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
 	}
 	if luigi.IsEOS(err) { // new feed
 		nextSequence = 1
 	} else {
-		currMM, err := pl.receiveLog.Get(currRootSeq.(margaret.Seq))
+		currMM, err := pl.receiveLog.Get(currRootSeq.(int64))
 		if err != nil {
-			return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
+			return -2, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
 		}
 		mm, ok := currMM.(refs.Message)
 		if !ok {
-			return nil, fmt.Errorf("publishLog: invalid value at sequence %v: %T", currSeq, currMM)
+			return -2, fmt.Errorf("publishLog: invalid value at sequence %v: %T", seq, currMM)
 		}
 		nextPrevious = mm.Key()
 		nextSequence = mm.Seq() + 1
@@ -112,12 +109,12 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 
 	nextMsg, err := pl.create.Create(val, nextPrevious, nextSequence)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create next msg: %w", err)
+		return -2, fmt.Errorf("failed to create next msg: %w", err)
 	}
 
 	rlSeq, err := pl.receiveLog.Append(nextMsg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to append new msg: %w", err)
+		return -2, fmt.Errorf("failed to append new msg: %w", err)
 	}
 
 	return rlSeq, nil
@@ -227,7 +224,7 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	if seq > 1 {
 		newMsg.Previous = &prev
 	}
-	newMsg.Sequence = margaret.BaseSeq(seq)
+	newMsg.Sequence = int64(seq)
 
 	if bindata, ok := val.([]byte); ok {
 		bindata = bytes.TrimPrefix(bindata, []byte("box1:"))

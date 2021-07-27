@@ -26,11 +26,7 @@ func (sbot *Sbot) Replicate(r refs.FeedRef) {
 		panic(err)
 	}
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	l := slog.Seq()
 
 	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
@@ -45,11 +41,7 @@ func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
 		panic(err)
 	}
 
-	l := int64(-1)
-	v, err := slog.Seq().Value()
-	if err == nil {
-		l = v.(margaret.Seq).Seq()
-	}
+	l := slog.Seq()
 
 	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
@@ -73,7 +65,7 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 
 	// update for new messages but only once they didnt change in a while
 	// meaning, not while sync is busy with new incoming messages
-	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Seq(), update)
+	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Changes(), update)
 
 	return &r, nil
 }
@@ -122,7 +114,7 @@ func debounce(ctx context.Context, interval time.Duration, obs luigi.Observable,
 		if err != nil {
 			return err
 		}
-		newSeq, ok := val.(margaret.BaseSeq)
+		newSeq, ok := val.(int64)
 		if !ok {
 			return fmt.Errorf("graph rebuild debounce: wrong type: %T", val)
 		}

@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
@@ -156,9 +155,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 			}
 
-			seqv, err := alisLog.Seq().Value()
-			r.NoError(err)
-			a.Equal(margaret.BaseSeq(i), seqv, "check run %d", i)
+			a.Equal(int64(i), alisLog.Seq(), "check run %d", i)
 		}
 
 		err = ali.FSCK(FSCKWithMode(FSCKModeSequences))

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
@@ -63,17 +62,16 @@ func TestFeedFromJS(t *testing.T) {
 	r.True(ok)
 	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
-	seq, err := aliceLog.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(n), seq)
+
+	r.EqualValues(n, aliceLog.Seq())
 
 	var lastMsg string
 	for i := 0; i < n; i++ { // don't check the contact:following message from A to C
-		msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(margaret.BaseSeq(i))
+		msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(int64(i))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)
-		r.Equal(storedMsg.Seq(), margaret.BaseSeq(i+1).Seq())
+		r.EqualValues(i+1, storedMsg.Seq())
 
 		type testWrap struct {
 			Author  refs.FeedRef
@@ -228,9 +226,9 @@ func TestFeedFromGo(t *testing.T) {
 	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
+	seqMsg, err := aliceLog.Get(int64(1))
 	r.NoError(err)
-	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -249,11 +247,10 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok)
 	aliceLog, err = ml.Get(storedrefs.Feed(alice))
 	r.NoError(err)
-	aseq, err := aliceLog.Seq().Value()
+
+	seqMsg, err = aliceLog.Get(aliceLog.Seq())
 	r.NoError(err)
-	seqMsg, err = aliceLog.Get(aseq.(margaret.BaseSeq))
-	r.NoError(err)
-	msg, err = s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err = s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -261,11 +258,10 @@ func TestFeedFromGo(t *testing.T) {
 
 	bobLog, err := ml.Get(storedrefs.Feed(s.KeyPair.ID()))
 	r.NoError(err)
-	bseq, err := bobLog.Seq().Value()
+
+	seqMsg, err = bobLog.Get(bobLog.Seq())
 	r.NoError(err)
-	seqMsg, err = bobLog.Get(bseq.(margaret.BaseSeq))
-	r.NoError(err)
-	msg, err = s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err = s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
@@ -370,13 +366,13 @@ func XTestFeedFromGoLive(t *testing.T) {
 	aliceLog, err := uf.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	seqMsg, err := aliceLog.Get(margaret.BaseSeq(1))
+	seqMsg, err := aliceLog.Get(int64(1))
 	r.NoError(err)
-	msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+	msg, err := s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.Equal(storedMsg.Seq(), margaret.BaseSeq(2).Seq())
+	r.EqualValues(2, storedMsg.Seq())
 
 	ts.wait()
 }

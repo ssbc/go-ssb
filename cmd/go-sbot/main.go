@@ -22,7 +22,6 @@ import (
 	// debug
 	_ "net/http/pprof"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.mindeco.de/log/level"
@@ -263,7 +262,7 @@ func runSbot() error {
 	err = sbot.FSCK(mksbot.FSCKWithFeedIndex(uf), mksbot.FSCKWithMode(fsckMode))
 	if err != nil {
 		if !flagRepair {
-			return err
+			return fmt.Errorf("fsck returned: %w", err)
 		}
 
 		switch report := err.(type) {
@@ -317,12 +316,8 @@ func runSbot() error {
 	}
 	RepoStats.With("part", "feeds").Set(float64(len(feeds)))
 
-	rseq, err := sbot.ReceiveLog.Seq().Value()
-	if err != nil {
-		return fmt.Errorf("could not get root log sequence number: %w", err)
-	}
-	msgCount := rseq.(margaret.Seq)
-	RepoStats.With("part", "msgs").Set(float64(msgCount.Seq() + 1))
+	msgCount := sbot.ReceiveLog.Seq() + 1
+	RepoStats.With("part", "msgs").Set(float64(msgCount))
 
 	level.Info(log).Log("event", "repo open", "feeds", len(feeds), "msgs", msgCount)
 

@@ -49,7 +49,7 @@ func (sp *SubsetPlaner) QuerySubsetMessageRefs(rxLog margaret.Log, qry SubsetOpe
 	for it.HasNext() {
 
 		v := it.Next()
-		msgv, err := rxLog.Get(margaret.BaseSeq(v))
+		msgv, err := rxLog.Get(int64(v))
 		if err != nil {
 			return nil, err
 		}

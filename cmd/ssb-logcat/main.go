@@ -38,7 +38,7 @@ func main() {
 
 	startSeqInt, err := strconv.Atoi(os.Args[2])
 	check(err)
-	startSeq := margaret.BaseSeq(startSeqInt)
+	startSeq := int64(startSeqInt)
 
 	limit, err := strconv.Atoi(os.Args[3])
 	check(err)

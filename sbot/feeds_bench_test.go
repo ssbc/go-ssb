@@ -99,10 +99,9 @@ func benchChain(chainLen int) func(b *testing.B) {
 			r.True(ok)
 			feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.ID()))
 			r.NoError(err)
-			seqv, err := feedOfLastBot.Seq().Value()
-			r.NoError(err)
-			wantSeq := margaret.BaseSeq(n - 2)
-			r.EqualValues(wantSeq, seqv, "after connect check")
+
+			wantSeq := int64(n - 2)
+			r.EqualValues(wantSeq, feedOfLastBot.Seq(), "after connect check")
 
 			seqSrc, err := mutil.Indirect(theBots[0].ReceiveLog, feedOfLastBot).Query(
 				margaret.Gt(wantSeq),
@@ -115,7 +114,7 @@ func benchChain(chainLen int) func(b *testing.B) {
 			for i := 0; i < testMessageCount; i++ {
 				rxSeq, err := theBots[n-1].PublishLog.Append(fmt.Sprintf("some test msg:%02d", n))
 				r.NoError(err)
-				a.EqualValues(margaret.BaseSeq(msgCnt+i), rxSeq)
+				a.EqualValues(int64(msgCnt+i), rxSeq)
 
 				timeoutCtx, done := context.WithTimeout(ctx, 2*time.Second)
 
@@ -123,7 +122,7 @@ func benchChain(chainLen int) func(b *testing.B) {
 				r.NoError(err)
 				msg, ok := v.(refs.Message)
 				r.True(ok)
-				a.EqualValues(margaret.BaseSeq(n+i), msg.Seq(), "wrong seq")
+				a.EqualValues(int64(n+i), msg.Seq(), "wrong seq")
 				done()
 			}
 			b.StopTimer()

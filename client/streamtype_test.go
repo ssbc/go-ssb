@@ -56,9 +56,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 	// end test boilerplate
 
 	// no messages yet
-	seqv, err := srv.ReceiveLog.Seq().Value()
-	r.NoError(err, "failed to get root log sequence")
-	r.Equal(margaret.SeqEmpty, seqv)
+	r.Equal(margaret.SeqEmpty, srv.ReceiveLog.Seq())
 
 	var wantRefs []string
 	for i := 0; i < 10; i++ {
@@ -68,10 +66,8 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		r.NotNil(ref)
 
 		// get stored message from the log
-		seqv, err = srv.ReceiveLog.Seq().Value()
-		r.NoError(err, "failed to get root log sequence")
-		wantSeq := margaret.BaseSeq(i)
-		a.Equal(wantSeq, seqv)
+		wantSeq := int64(i)
+		a.Equal(wantSeq, srv.ReceiveLog.Seq())
 		msgv, err := srv.ReceiveLog.Get(wantSeq)
 		r.NoError(err)
 		newMsg, ok := msgv.(refs.Message)

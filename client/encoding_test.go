@@ -61,9 +61,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 	r.True(muxrpc.IsServer(c.Endpoint), "should be talking to a server")
 
 	// no messages yet
-	seqv, err := srv.ReceiveLog.Seq().Value()
-	r.NoError(err, "failed to get root log sequence")
-	r.Equal(margaret.SeqEmpty, seqv)
+	r.Equal(margaret.SeqEmpty, srv.ReceiveLog.Seq())
 
 	var wantRefs []string
 	for i := 0; i < 10; i++ {
@@ -75,9 +73,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		wantRefs = append(wantRefs, ref.Ref())
 	}
 
-	seqv, err = srv.ReceiveLog.Seq().Value()
-	r.NoError(err, "failed to get root log sequence")
-	r.EqualValues(9, seqv)
+	r.EqualValues(9, srv.ReceiveLog.Seq())
 
 	args := message.CreateHistArgs{
 		ID:     testKP.ID(),

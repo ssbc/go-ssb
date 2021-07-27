@@ -30,13 +30,13 @@ func (idx *Timestamps) Pour(ctx context.Context, swv interface{}) error {
 	if !ok {
 		return fmt.Errorf("error casting seq wrapper. got type %T", swv)
 	}
-	rxSeq := sw.Seq() //received as
+	rxSeq := int64(sw.Seq()) //received as
 
 	v := sw.Value()
 
 	if errV, ok := v.(error); ok {
 		if margaret.IsErrNulled(errV) {
-			err := idx.resolver.Append(rxSeq.Seq(), 0, time.Now(), time.Now())
+			err := idx.resolver.Append(rxSeq, 0, time.Now(), time.Now())
 			if err != nil {
 				return fmt.Errorf("error updating sequence resolver (nulled message): %w", err)
 			}
@@ -50,7 +50,7 @@ func (idx *Timestamps) Pour(ctx context.Context, swv interface{}) error {
 		return fmt.Errorf("error casting message. got type %T", v)
 	}
 
-	err := idx.resolver.Append(rxSeq.Seq(), msg.Seq(), msg.Claimed(), msg.Received())
+	err := idx.resolver.Append(rxSeq, msg.Seq(), msg.Claimed(), msg.Received())
 	if err != nil {
 		return fmt.Errorf("error updating sequence resolver: %w", err)
 	}
@@ -64,7 +64,7 @@ func (idx *Timestamps) QuerySpec() margaret.QuerySpec {
 	resN := idx.resolver.Seq() - 1
 
 	return margaret.MergeQuerySpec(
-		margaret.Gt(margaret.BaseSeq(resN)),
+		margaret.Gt(resN),
 		margaret.SeqWrap(true),
 	)
 }

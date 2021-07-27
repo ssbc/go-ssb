@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 
 	"go.cryptoscope.co/ssb/internal/mutil"
@@ -89,9 +88,8 @@ func XTestGroupsJSCreate(t *testing.T) {
 
 	aliceLog, err := bob.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
-	seq, err := aliceLog.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(n), seq)
+
+	r.EqualValues(n, aliceLog.Seq())
 
 	bob.Network.GetConnTracker().CloseAll()
 
@@ -101,10 +99,9 @@ func XTestGroupsJSCreate(t *testing.T) {
 	r.NoError(err)
 
 	hints := mutil.Indirect(bob.ReceiveLog, hintSeqs)
-	seq, err = hints.Seq().Value()
-	r.NoError(err)
-	firstMsg := margaret.BaseSeq(0)
-	r.Equal(firstMsg, seq, "expected to have hint msg")
+
+	firstMsg := int64(0)
+	r.EqualValues(firstMsg, hints.Seq(), "expected to have hint msg")
 
 	testHintV, err := hints.Get(firstMsg)
 	r.NoError(err)

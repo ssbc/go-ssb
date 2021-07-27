@@ -57,7 +57,7 @@ func TestReceivedSet(t *testing.T) {
 		Key_:      msgKey,
 		Author_:   bobsKey.ID(),
 		Previous_: lm.Previous,
-		Sequence_: lm.Sequence.Seq(),
+		Sequence_: int64(lm.Sequence),
 		Raw_:      []byte(`"fakemsg"`),
 	}
 

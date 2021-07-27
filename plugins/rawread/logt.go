@@ -223,7 +223,7 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 	level.Debug(logger).Log("event", "sorted seqs", "n", len(sort), "took", time.Since(start))
 
 	for _, res := range sort {
-		v, err := g.rxlog.Get(margaret.BaseSeq(res.Seq))
+		v, err := g.rxlog.Get(int64(res.Seq))
 		if err != nil {
 			if margaret.IsErrNulled(err) {
 				continue

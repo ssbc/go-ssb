@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.mindeco.de/log"
@@ -155,18 +154,8 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 
 	// did we get the expected number of messages?
-	getSeq := func(l margaret.Log) int64 {
-		sv, err := l.Seq().Value()
-		r.NoError(err)
-
-		seq, ok := sv.(margaret.Seq)
-		r.True(ok, "wrong seq type: %T", sv)
-
-		return seq.Seq()
-	}
-
-	r.EqualValues(1, getSeq(srhsCopyOfTal))
-	r.EqualValues(3, getSeq(talsCopyOfSrh))
+	r.EqualValues(1, srhsCopyOfTal.Seq())
+	r.EqualValues(3, talsCopyOfSrh.Seq())
 
 	// check messages can be decrypted
 	addMsgCopy, err := tal.Get(addMsgRef)
@@ -202,7 +191,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	time.Sleep(1 * time.Second)
 
-	r.EqualValues(2, getSeq(srhsCopyOfTal))
+	r.EqualValues(2, srhsCopyOfTal.Seq())
 
 	replyMsg, err := srh.Get(reply)
 	r.NoError(err)
@@ -217,9 +206,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 			posts, err := ml.Get(tipe)
 			r.NoError(err)
 
-			pv, err := posts.Seq().Value()
-			r.NoError(err)
-			r.EqualValues(cnt-1, pv, "margaret is 0-indexed (%d)", cnt)
+			r.EqualValues(cnt-1, posts.Seq(), "margaret is 0-indexed (%d)", cnt)
 
 			bmap, err := ml.LoadInternalBitmap(tipe)
 			r.NoError(err)
@@ -302,9 +289,7 @@ func XTestGroupsReindex(t *testing.T) {
 			// r.NoError(err)
 			// t.Logf("%q: %s", tipe, bmap.String())
 
-			pv, err := posts.Seq().Value()
-			r.NoError(err)
-			r.EqualValues(cnt-1, pv, "expected more messages in multilog %q", tipe)
+			r.EqualValues(cnt-1, posts.Seq(), "expected more messages in multilog %q", tipe)
 		}
 	}
 
@@ -461,12 +446,7 @@ func XTestGroupsReindex(t *testing.T) {
 		time.Sleep(5 * time.Second) // let them sync
 
 		// how many messages does raz have from tal?
-		v, err := talsLog.Seq().Value()
-		r.NoError(err)
-		seq, ok := v.(margaret.Seq)
-		r.True(ok)
-
-		if seq.Seq() == 10 {
+		if talsLog.Seq() == 10 {
 			t.Log("received all of tal's messages")
 			break
 		}

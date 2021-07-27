@@ -183,7 +183,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		rxSeq, err := botD.PublishLog.Append(refs.NewPost(fmt.Sprintf("test msg:%d", i)))
 		r.NoError(err)
 		published := time.Now()
-		if !a.Equal(margaret.BaseSeq(i), rxSeq) {
+		if !a.Equal(int64(i), rxSeq) {
 			testutils.StreamLog(t, botD.ReceiveLog)
 			break
 		}
@@ -195,7 +195,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 			timeouts++
 		case msg, ok := <-gotMsg:
 			r.True(ok, "%d: got msg", i)
-			a.EqualValues(margaret.BaseSeq(i+1), msg.Seq(), "wrong seq on try %d", i)
+			a.EqualValues(int64(i+1), msg.Seq(), "wrong seq on try %d", i)
 			delayHist.Add(time.Since(published).Seconds())
 		}
 	}
@@ -293,11 +293,11 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 
 	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+	r.Equal(int64(0), seq)
 
 	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.ID()))
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+	r.Equal(int64(0), seq)
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
@@ -309,10 +309,9 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.ID()))
 	r.NoError(err)
 
-	wantSeq := margaret.BaseSeq(0)
-	seqv, err := alisLog.Seq().Value()
-	r.NoError(err)
-	a.Equal(wantSeq, seqv, "after connect check")
+	wantSeq := int64(0)
+
+	a.Equal(wantSeq, alisLog.Seq(), "after connect check")
 
 	// setup live listener
 	gotMsg := make(chan refs.Message)
@@ -331,20 +330,18 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	for i := 0; i < testMessageCount; i++ {
 		seq, err = ali.PublishLog.Append(refs.NewPost("first msg after connect"))
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(2+i), seq)
+		r.Equal(int64(2+i), seq)
 
 		// received new message?
 		select {
 		case <-time.After(2 * time.Second):
 			t.Errorf("timeout %d....", i)
 		case seq := <-gotMsg:
-			a.EqualValues(margaret.BaseSeq(2+i), seq.Seq(), "wrong seq")
+			a.EqualValues(int64(2+i), seq.Seq(), "wrong seq")
 		}
 	}
 
-	final, err := alisLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(margaret.BaseSeq(testMessageCount), final.(margaret.Seq).Seq(), "wrong seq")
+	a.EqualValues(int64(testMessageCount), alisLog.Seq(), "wrong seq")
 
 	// cleanup
 	err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
@@ -431,7 +428,7 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 	// note: assumes all bot's have the same message count
 	initialSync(t, theBots, extraTestMessages)
 
-	seqOfFeedA := margaret.BaseSeq(extraTestMessages) - 1 // N pre messages -1 for  0-indexed "array"/log
+	seqOfFeedA := int64(extraTestMessages) - 1 // N pre messages -1 for  0-indexed "array"/log
 	var botBreceivedNewMessage []<-chan refs.Message
 	for i, bot := range bLeafs {
 
@@ -440,9 +437,8 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 		r.True(ok)
 		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.ID()))
 		r.NoError(err)
-		seqv, err := feedAonBotB.Seq().Value()
-		r.NoError(err)
-		a.EqualValues(seqOfFeedA, seqv, "botB%02d should have all of A's messages", i)
+
+		a.EqualValues(seqOfFeedA, feedAonBotB.Seq(), "botB%02d should have all of A's messages", i)
 
 		// setup live listener
 		gotMsg := make(chan refs.Message)
@@ -525,13 +521,12 @@ initialSync:
 				broken   = false
 			)
 			for i, bot := range theBots {
-				st, err := bot.ReceiveLog.Seq().Value()
-				r.NoError(err)
-				if rootSeq := int(st.(margaret.Seq).Seq()); rootSeq == expectedMsgCount-1 {
+
+				if rootSeq := int(bot.ReceiveLog.Seq()); rootSeq == expectedMsgCount-1 {
 					complete++
 				} else {
 					if rootSeq > expectedMsgCount-1 {
-						err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
+						err := bot.FSCK(FSCKWithMode(FSCKModeSequences))
 						if err != nil {
 							broken = true
 							t.Error(err)
@@ -556,12 +551,11 @@ initialSync:
 	var failed bool
 	// check fsck,sequences and and disconnect
 	for i, bot := range theBots {
-		sv, err := bot.ReceiveLog.Seq().Value()
-		r.NoError(err)
-		if !a.EqualValues(expectedMsgCount, sv.(margaret.Seq).Seq()+1, "wrong rxSeq on bot %d", i) {
+
+		if !a.EqualValues(expectedMsgCount, bot.ReceiveLog.Seq()+1, "wrong rxSeq on bot %d", i) {
 			failed = true
 		}
-		err = bot.FSCK(FSCKWithMode(FSCKModeSequences))
+		err := bot.FSCK(FSCKWithMode(FSCKModeSequences))
 		r.NoError(err, "FSCK error on bot %d", i)
 		ct := bot.Network.GetConnTracker()
 		ct.CloseAll()

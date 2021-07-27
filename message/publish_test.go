@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/asynctesting"
@@ -34,9 +33,7 @@ func TestSignMessages(t *testing.T) {
 	// TODO: close log
 
 	r.NoError(err, "failed to open root log")
-	seq, err := rl.Seq().Value()
-	r.NoError(err, "failed to get log seq")
-	r.Equal(margaret.BaseSeq(-1), seq, "not empty")
+	r.EqualValues(-1, rl.Seq(), "not empty")
 
 	userFeeds, userFeedsSnk, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
@@ -74,21 +71,19 @@ func TestSignMessages(t *testing.T) {
 	for i, msg := range tmsgs {
 		newSeq, err := w.Append(msg)
 		r.NoError(err, "failed to pour test message %d", i)
-		r.Equal(margaret.BaseSeq(i), newSeq, "advanced")
+		r.EqualValues(i, newSeq, "advanced")
 		// TODO: weird flake
 		// currSeq, err := authorLog.Seq().Value()
 		// r.NoError(err, "failed to get log seq")
 		// r.Equal(newSeq, currSeq, "append messages was not current message?")
 	}
 
-	latest, err := authorLog.Seq().Value()
-	r.NoError(err, "failed to get log seq")
-	r.Equal(margaret.BaseSeq(2), latest, "not empty")
+	r.EqualValues(2, authorLog.Seq(), "not empty")
 
 	for i := 0; i < len(tmsgs); i++ {
-		rootSeq, err := authorLog.Get(margaret.BaseSeq(i))
+		rootSeq, err := authorLog.Get(int64(i))
 		r.NoError(err)
-		storedV, err := rl.Get(rootSeq.(margaret.Seq))
+		storedV, err := rl.Get(rootSeq.(int64))
 		r.NoError(err)
 		storedMsg, ok := storedV.(refs.Message)
 		r.True(ok)

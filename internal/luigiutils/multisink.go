@@ -29,7 +29,7 @@ type sinkContext struct {
 	until int64
 }
 
-var _ margaret.Seq = (*MultiSink)(nil)
+var _ margaret.Seqer = (*MultiSink)(nil)
 
 func NewMultiSink(seq int64) *MultiSink {
 	return &MultiSink{
@@ -39,7 +39,7 @@ func NewMultiSink(seq int64) *MultiSink {
 }
 
 func (f *MultiSink) Seq() int64 {
-	return f.seq
+	return int64(f.seq)
 }
 
 // Register adds a sink to propagate messages to upto the 'until'th sequence.

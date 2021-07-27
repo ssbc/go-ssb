@@ -59,18 +59,16 @@ func TestMultiFeedManagment(t *testing.T) {
 	storedMetafeed, err := mainbot.Users.Get(storedrefs.Feed(mainbot.KeyPair.ID()))
 	r.NoError(err)
 	var checkSeq = func(want int) refs.Message {
-		seqv, err := storedMetafeed.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(want, seqv)
+		r.EqualValues(want, storedMetafeed.Seq())
 
 		if want == -1 {
 			return nil
 		}
 
-		rxSeq, err := storedMetafeed.Get(margaret.BaseSeq(want))
+		rxSeq, err := storedMetafeed.Get(int64(want))
 		r.NoError(err)
 
-		mv, err := mainbot.ReceiveLog.Get(rxSeq.(margaret.BaseSeq))
+		mv, err := mainbot.ReceiveLog.Get(rxSeq.(int64))
 		r.NoError(err)
 
 		return mv.(refs.Message)
@@ -106,9 +104,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	subfeedLog, err := mainbot.Users.Get(storedrefs.Feed(subfeedid))
 	r.NoError(err)
 
-	subfeedLen, err := subfeedLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(0, subfeedLen.(margaret.Seq).Seq())
+	r.EqualValues(0, subfeedLog.Seq())
 
 	// drop it
 	err = mainbot.MetaFeeds.TombstoneSubFeed(subfeedid)
@@ -232,9 +228,8 @@ func TestMultiFeedSync(t *testing.T) {
 
 	// check rxbot got the metafeed
 	r.True(rxbotWantList.Has(multiBot.KeyPair.ID()), "rxbot doesn't want mutlibots metafeed")
-	seqv, err := rxbotsVersionOfmultisMetafeed.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(1, seqv.(margaret.Seq).Seq(), "should have all of the metafeeds messages")
+
+	r.EqualValues(1, rxbotsVersionOfmultisMetafeed.Seq(), "should have all of the metafeeds messages")
 
 	r.True(rxbotWantList.Has(subfeedClassic), "rxbot doesn't want classic subfeed")
 	r.True(rxbotWantList.Has(subfeedGabby), "rxbot doesn't want gg subfeed")
@@ -247,7 +242,7 @@ func TestMultiFeedSync(t *testing.T) {
 	r.NoError(err)
 
 	// wait for all messages to arrive
-	wantCount := margaret.BaseSeq(2*n + 2 + 2 - 1) // 2*n test messages on the subfeeds, 2 announcments on the metafeed and two contact messages to befriend the bots
+	wantCount := int64(2*n + 2 + 2 - 1) // 2*n test messages on the subfeeds, 2 announcments on the metafeed and two contact messages to befriend the bots
 	src, err := receiveBot.ReceiveLog.Query(margaret.Gte(wantCount), margaret.Live(true))
 	r.NoError(err)
 	ctx, tsCancel := context.WithTimeout(ctx, 5*time.Second)

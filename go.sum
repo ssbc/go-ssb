@@ -361,8 +361,6 @@ github.com/spf13/pflag v0.0.0-20170417173400-9e4c21054fa1/go.mod h1:DYY7MBk1bdzu
 github.com/spf13/pflag v1.0.1/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
-github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210720095027-4e095dc81385 h1:VDsNBYFZzJxHqA6IdIbr6fU0eg0lL2OeOSBggjvy57E=
-github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210720095027-4e095dc81385/go.mod h1:+aAKVjVczevz4cinEbRW447mVGiTTot78yR4JRFq9M4=
 github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210727102809-98707678965d h1:simnOA+UTUYzzyrKrDzTQoK1ucP/xAVLsx0ltLu43Zo=
 github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210727102809-98707678965d/go.mod h1:+aAKVjVczevz4cinEbRW447mVGiTTot78yR4JRFq9M4=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
@@ -398,10 +396,8 @@ github.com/zeebo/bencode v1.0.0/go.mod h1:Ct7CkrWIQuLWAy9M3atFHYq4kG9Ao/SsY5cdtC
 go.cryptoscope.co/luigi v0.3.5/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS9btSWTpD+vJk6VJyoW8gV0kWzcc=
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
-go.cryptoscope.co/margaret v0.3.0 h1:OBhDtUhr90LxgUtl6zIpmUBrhXPYjLvTVkgzYoyHGek=
-go.cryptoscope.co/margaret v0.3.0/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
-go.cryptoscope.co/margaret v0.3.1-0.20210723183855-cbac1675c313 h1:3D52h+OZOWK7lyyIAunZokAsj2BmzpoyhEWvndfEMzA=
-go.cryptoscope.co/margaret v0.3.1-0.20210723183855-cbac1675c313/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
+go.cryptoscope.co/margaret v0.4.0 h1:tQhIwhvO4R1sVq+usv7VTLINJZ8A2EZECyAYFHeewNQ=
+go.cryptoscope.co/margaret v0.4.0/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
 go.cryptoscope.co/muxrpc/v2 v2.0.10 h1:H4MhLrdzMfW1vs5SwYYFUHKNkXO0mkhVM4ZRPsVh5Yk=
 go.cryptoscope.co/muxrpc/v2 v2.0.10/go.mod h1:og3Wr0CWnJBVp3aiRa9MmmTUQh901wWNjI96+o3NZag=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=

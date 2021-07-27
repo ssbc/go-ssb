@@ -14,7 +14,7 @@ import (
 
 const IndexNameFeeds = "userFeeds"
 
-func UserFeedsUpdate(ctx context.Context, seq margaret.Seq, value interface{}, mlog multilog.MultiLog) error {
+func UserFeedsUpdate(ctx context.Context, seq int64, value interface{}, mlog multilog.MultiLog) error {
 	if nulled, ok := value.(error); ok {
 		if margaret.IsErrNulled(nulled) {
 			return nil

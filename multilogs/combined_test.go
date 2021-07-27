@@ -44,9 +44,7 @@ func BenchmarkIndexFixturesCombined(b *testing.B) {
 	testLog, err := repo.OpenLog(tr)
 	r.NoError(err, "case %s failed to open", b.Name())
 
-	sv, err := testLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(100000, sv.(margaret.Seq).Seq()+1, "testLog has wrong number of messages")
+	r.EqualValues(100000, testLog.Seq()+1, "testLog has wrong number of messages")
 
 	b.ResetTimer()
 
@@ -142,19 +140,23 @@ type makeMultilog func(t testing.TB, r repo.Interface, name string, mc *multiclo
 
 type testPublisher struct{}
 
-func (tp testPublisher) Get(_ margaret.Seq) (interface{}, error) {
+func (tp testPublisher) Get(_ int64) (interface{}, error) {
 	return nil, fmt.Errorf("cant get from test publisher (just a stub)")
 }
 
-func (tp testPublisher) Append(_ interface{}) (margaret.Seq, error) {
-	return nil, fmt.Errorf("cant append in test setting")
+func (tp testPublisher) Append(_ interface{}) (int64, error) {
+	return -1, fmt.Errorf("cant append in test setting")
 }
 
 func (tp testPublisher) Publish(_ interface{}) (refs.MessageRef, error) {
 	return refs.MessageRef{}, fmt.Errorf("cant publish in test setting")
 }
 
-func (tp testPublisher) Seq() luigi.Observable {
+func (tp testPublisher) Changes() luigi.Observable {
+	panic("not implemented") // TODO: Implement
+}
+
+func (tp testPublisher) Seq() int64 {
 	panic("not implemented") // TODO: Implement
 }
 

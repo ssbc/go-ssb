@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
 	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
@@ -81,11 +80,11 @@ func TestFeedsGabbySync(t *testing.T) {
 
 	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+	r.Equal(int64(0), seq)
 
 	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.ID()))
 	r.NoError(err)
-	r.Equal(margaret.BaseSeq(0), seq)
+	r.Equal(int64(0), seq)
 
 	for i := 0; i < 9; i++ {
 		seq, err := bob.PublishLog.Append(map[string]interface{}{
@@ -93,7 +92,7 @@ func TestFeedsGabbySync(t *testing.T) {
 			"test": i,
 		})
 		r.NoError(err)
-		r.Equal(margaret.BaseSeq(i+1), seq)
+		r.Equal(int64(i+1), seq)
 	}
 
 	// sanity, check bob has his shit together
@@ -102,9 +101,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	bobsOwnLog, err := uf.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
-	seqv, err := bobsOwnLog.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(9), seqv, "bob doesn't have his own log!")
+	r.Equal(int64(9), bobsOwnLog.Seq(), "bob doesn't have his own log!")
 
 	// dial
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
@@ -121,9 +118,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	bosLogAtAli, err := auf.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
-	seqv, err = bosLogAtAli.Seq().Value()
-	r.NoError(err)
-	r.Equal(margaret.BaseSeq(9), seqv)
+	r.Equal(int64(9), bosLogAtAli.Seq())
 
 	src, err := mutil.Indirect(ali.ReceiveLog, bosLogAtAli).Query()
 	r.NoError(err)

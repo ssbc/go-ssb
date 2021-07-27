@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 
-	"go.cryptoscope.co/margaret"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/nacl/auth"
@@ -18,7 +17,7 @@ import (
 type DeserializedMessage struct {
 	Previous  *refs.MessageRef `json:"previous"`
 	Author    refs.FeedRef     `json:"author"`
-	Sequence  margaret.BaseSeq `json:"sequence"`
+	Sequence  int64            `json:"sequence"`
 	Timestamp float64          `json:"timestamp"`
 	Hash      string           `json:"hash"`
 	Content   json.RawMessage  `json:"content"`
@@ -27,7 +26,7 @@ type DeserializedMessage struct {
 type LegacyMessage struct {
 	Previous  *refs.MessageRef `json:"previous"`
 	Author    string           `json:"author"`
-	Sequence  margaret.BaseSeq `json:"sequence"`
+	Sequence  int64            `json:"sequence"`
 	Timestamp int64            `json:"timestamp"`
 	Hash      string           `json:"hash"`
 	Content   interface{}      `json:"content"`

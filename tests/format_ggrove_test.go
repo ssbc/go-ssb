@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+//go:build ignore
+
 package tests
 
 import (
@@ -91,8 +93,8 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	r.NoError(err)
 
 	var saver = message.MargaretSaver{s.ReceiveLog}
-
-	snk, err := message.NewVerifySink(aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+	// TODO: add fakeMessage with only seq:1
+	snk, err := message.NewVerifySink(aliceAsGabby, int64(1), saver, nil)
 	r.NoError(err)
 
 	for src.Next(ctx) {
@@ -110,14 +112,12 @@ func TestGabbyFeedFromGo(t *testing.T) {
 	demoLog, err := uf.Get(storedrefs.Feed(aliceAsGabby))
 	r.NoError(err)
 
-	demoLogSeq, err := demoLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(2, demoLogSeq.(margaret.Seq).Seq())
+	r.EqualValues(2, demoLog.Seq())
 
-	for demoFeedSeq := margaret.BaseSeq(1); demoFeedSeq < 3; demoFeedSeq++ {
+	for demoFeedSeq := int64(1); demoFeedSeq < 3; demoFeedSeq++ {
 		seqMsg, err := demoLog.Get(demoFeedSeq - 1)
 		r.NoError(err)
-		msg, err := s.ReceiveLog.Get(seqMsg.(margaret.BaseSeq))
+		msg, err := s.ReceiveLog.Get(seqMsg.(int64))
 		r.NoError(err)
 		storedMsg, ok := msg.(refs.Message)
 		r.True(ok, "wrong type of message: %T", msg)
@@ -131,7 +131,7 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 		r.Equal(aliceAsGabby.Ref(), storedMsg.Author().Ref())
 
-		r.Equal(demoFeedSeq.Seq(), storedMsg.Seq())
+		r.EqualValues(demoFeedSeq, storedMsg.Seq())
 		switch demoFeedSeq {
 		case 1:
 			r.Equal(testMsg.Message, "hello world")

@@ -49,10 +49,7 @@ func main() {
 	to, err := repo.OpenLog(repoTo)
 	check(err)
 
-	seq, err := from.Seq().Value()
-	check(err)
-
-	fmt.Println("element count in source log:", seq)
+	fmt.Println("element count in source log:", from.Seq())
 	start := time.Now()
 	src, err := from.Query(margaret.Limit(limit))
 	check(err)
@@ -79,8 +76,5 @@ func main() {
 	fmt.Println()
 	fmt.Println("copy done after:", time.Since(start))
 
-	toSeq, err := to.Seq().Value()
-	check(err)
-
-	fmt.Println("target has", toSeq)
+	fmt.Println("target has", to.Seq())
 }

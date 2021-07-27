@@ -203,7 +203,7 @@ func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.S
 	return aboutIdx, update
 }
 
-func updateAboutMessage(ctx context.Context, seq margaret.Seq, msgv interface{}, idx librarian.SetterIndex) error {
+func updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx librarian.SetterIndex) error {
 	var msg refs.Message
 
 	switch tv := msgv.(type) {

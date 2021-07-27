@@ -47,9 +47,7 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 	testLog, err := repo.OpenLog(tr)
 	r.NoError(err, "case %s failed to open", b.Name())
 
-	sv, err := testLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(100000, sv.(margaret.Seq).Seq()+1, "testLog has wrong number of messages")
+	r.EqualValues(100000, testLog.Seq()+1, "testLog has wrong number of messages")
 
 	b.ResetTimer()
 	name := "benchidx"
@@ -108,9 +106,7 @@ func TestIndexFixtures(t *testing.T) {
 	testLog, err := repo.OpenLog(tr)
 	r.NoError(err, "case %s failed to open", t.Name())
 
-	sv, err := testLog.Seq().Value()
-	r.NoError(err)
-	if !a.EqualValues(tc.Length, sv.(margaret.Seq).Seq()+1, "case %s has wrong number of messages", t.Name()) {
+	if !a.EqualValues(tc.Length, testLog.Seq()+1, "case %s has wrong number of messages", t.Name()) {
 		return
 	}
 
@@ -142,9 +138,7 @@ func TestIndexFixtures(t *testing.T) {
 			sublog, err := ml.Get(addr)
 			r.NoError(err)
 
-			sv, err := sublog.Seq().Value()
-			r.NoError(err)
-			sublogSeq := sv.(margaret.Seq).Seq()
+			sublogSeq := sublog.Seq()
 
 			fr, err := sr.Feed()
 			r.NoError(err)
@@ -222,13 +216,11 @@ func benchRandom(i int) func(b *testing.B) {
 		r.NoError(err)
 
 		logLen := int64(100000)
-		sv, err := testLog.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(logLen, sv.(margaret.Seq).Seq()+1)
+		r.EqualValues(logLen, testLog.Seq()+1)
 
-		var seqs []margaret.Seq
+		var seqs []int64
 		for j := i; j > 0; j-- {
-			seqs = append(seqs, margaret.BaseSeq(rand.Int63n(logLen)))
+			seqs = append(seqs, rand.Int63n(logLen))
 
 		}
 

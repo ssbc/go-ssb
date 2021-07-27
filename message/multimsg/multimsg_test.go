@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
 
@@ -54,7 +53,7 @@ func TestMultiMsgLegacy(t *testing.T) {
 	legacy, ok := mm2.AsLegacy()
 	r.True(ok)
 	r.Equal(testContent, legacy.Raw_)
-	r.Equal(margaret.BaseSeq(123).Seq(), legacy.Seq())
+	r.EqualValues(123, legacy.Seq())
 }
 
 func TestMultiMsgGabby(t *testing.T) {
@@ -112,5 +111,5 @@ func TestMultiMsgGabby(t *testing.T) {
 	r.Equal([]byte("none"), gabby.Signature)
 	evt2, err := gabby.UnmarshaledEvent()
 	r.NoError(err)
-	r.Equal(uint64(123), evt2.Sequence)
+	r.EqualValues(123, evt2.Sequence)
 }

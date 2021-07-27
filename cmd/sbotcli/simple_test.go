@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/sbot"
@@ -123,9 +122,7 @@ func TestPublish(t *testing.T) {
 		errc <- srv.Network.Serve(ctx)
 	}()
 
-	v, err := srv.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(-1, v.(margaret.Seq).Seq(), "log not empty")
+	a.EqualValues(-1, srv.ReceiveLog.Seq(), "log not empty")
 
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
 
@@ -134,9 +131,7 @@ func TestPublish(t *testing.T) {
 	has := bytes.Contains(out, []byte(".sha256"))
 	a.True(has, "has a message hash")
 
-	v, err = srv.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(0, v.(margaret.Seq).Seq(), "first message")
+	a.EqualValues(0, srv.ReceiveLog.Seq(), "first message")
 
 	theFeed, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte{1}, 32), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
@@ -146,9 +141,7 @@ func TestPublish(t *testing.T) {
 	has = bytes.Contains(out, []byte(".sha256"))
 	a.True(has, "has a message hash")
 
-	v, err = srv.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(1, v.(margaret.Seq).Seq(), "2nd message")
+	a.EqualValues(1, srv.ReceiveLog.Seq(), "2nd message")
 
 	srv.Shutdown()
 	err = srv.Close()
@@ -183,16 +176,12 @@ func TestGetPublished(t *testing.T) {
 		errc <- srv.Network.Serve(ctx)
 	}()
 
-	v, err := srv.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(-1, v.(margaret.Seq).Seq(), "log not empty")
+	a.EqualValues(-1, srv.ReceiveLog.Seq(), "log not empty")
 
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
 	out, _ := sbotcli("publish", "post", t.Name())
 
-	v, err = srv.ReceiveLog.Seq().Value()
-	r.NoError(err)
-	a.EqualValues(0, v.(margaret.Seq).Seq(), "first message")
+	a.EqualValues(0, srv.ReceiveLog.Seq(), "first message")
 
 	has := bytes.Contains(out, []byte(".sha256"))
 	a.True(has, "has a message hash")

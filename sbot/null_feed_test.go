@@ -94,9 +94,7 @@ func TestNullFeed(t *testing.T) {
 
 	// assert helper
 	checkLogSeq := func(l margaret.Log, seq int) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(seq, v.(margaret.Seq).Seq())
+		r.EqualValues(seq, l.Seq())
 	}
 
 	getUserLog := func(bot *Sbot, name string) margaret.Log {
@@ -163,18 +161,18 @@ func TestNullFeed(t *testing.T) {
 
 	gotMessage := make(chan struct{})
 	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		seq, ok := v.(margaret.Seq)
+		seq, ok := v.(int64)
 		if !ok {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
-		s := seq.Seq()
+		s := seq
 		if s == testMsgCount-1 { // 0 indexed
 			close(gotMessage)
 		}
 		return err
 	})
 	betsLog := getUserLog(mainbot, "bert")
-	done := betsLog.Seq().Register(updateSink)
+	done := betsLog.Changes().Register(updateSink)
 
 	select {
 	case <-time.After(25 * time.Second):
@@ -263,17 +261,16 @@ func TestNullFetched(t *testing.T) {
 
 	gotMessage := make(chan struct{})
 	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		seq, ok := v.(margaret.Seq)
+		seq, ok := v.(int64)
 		if !ok {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
-		s := seq.Seq()
-		if s == msgCount-1 {
+		if int64(seq) == msgCount-1 {
 			close(gotMessage)
 		}
 		return err
 	})
-	done := alisVersionOfBobsLog.Seq().Register(updateSink)
+	done := alisVersionOfBobsLog.Changes().Register(updateSink)
 
 	select {
 	case <-time.After(25 * time.Second):
@@ -293,15 +290,12 @@ func TestNullFetched(t *testing.T) {
 
 	mainLog.Log("msg", "get a fresh view (should be empty now)")
 
-	_, err = alisVersionOfBobsLog.Seq().Value()
-	r.Error(err)
+	r.EqualValues(margaret.SeqSublogDeleted, alisVersionOfBobsLog.Seq(), "TODO: error log value deleted?!")
 
 	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
-	v, err := alisVersionOfBobsLog.Seq().Value()
-	r.NoError(err)
-	r.EqualValues(margaret.SeqEmpty, v)
+	r.EqualValues(margaret.SeqEmpty, alisVersionOfBobsLog.Seq())
 
 	mainLog.Log("msg", "get a fresh view (should be empty now)")
 
@@ -315,18 +309,17 @@ func TestNullFetched(t *testing.T) {
 	// start := time.Now()
 	gotMessage = make(chan struct{})
 	updateSink = luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
-		seq, ok := v.(margaret.Seq)
+		seq, ok := v.(int64)
 		if !ok {
 			return fmt.Errorf("unexpected type:%T", v)
 		}
-		s := seq.Seq()
-		if s == msgCount-1 {
+		if int64(seq) == msgCount-1 {
 			close(gotMessage)
 		}
 		return err
 	})
 
-	done = alisVersionOfBobsLog.Seq().Register(updateSink)
+	done = alisVersionOfBobsLog.Changes().Register(updateSink)
 	select {
 	case <-time.After(25 * time.Second):
 		t.Error("sync timeout (2)")

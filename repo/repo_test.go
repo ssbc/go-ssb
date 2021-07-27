@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"go.cryptoscope.co/margaret"
 )
 
 func TestNew(t *testing.T) {
@@ -22,9 +20,8 @@ func TestNew(t *testing.T) {
 
 	rl, err := OpenLog(repo)
 	r.NoError(err, "failed to open root log")
-	seq, err := rl.Seq().Value()
-	r.NoError(err, "failed to get log seq")
-	r.Equal(margaret.BaseSeq(-1), seq)
+
+	r.EqualValues(-1, rl.Seq())
 
 	if !t.Failed() {
 		os.RemoveAll(rpath)

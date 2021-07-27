@@ -146,21 +146,16 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			return fmt.Errorf("sbot index(%s) error querying receiveLog for message backlog: %w", name, err)
 		}
 
-		currentSeqV, err := msgs.Seq().Value()
-		if err != nil {
-			return err
-		}
-
 		logger := log.With(s.info, "index", name)
 
 		var ps progressSink
 		ps.backing = snk
 
-		totalMessages := currentSeqV.(margaret.Seq).Seq()
+		totalMessages := msgs.Seq()
 
 		ctx, cancel := context.WithCancel(s.rootCtx)
 		go func() {
-			p := progress.NewTicker(ctx, &ps, totalMessages, 7*time.Second)
+			p := progress.NewTicker(ctx, &ps, int64(totalMessages), 7*time.Second)
 			pinfo := log.With(level.Info(logger), "event", "index-progress")
 			for remaining := range p {
 				// how much time until it's done?

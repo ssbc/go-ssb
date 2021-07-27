@@ -99,7 +99,7 @@ func (g sortedPlug) HandleSource(ctx context.Context, req *muxrpc.Request, snk *
 	sender := newSinkCounter(&cnt, toJSON)
 
 	for _, res := range sortedSeqs {
-		v, err := g.root.Get(margaret.BaseSeq(res.Seq))
+		v, err := g.root.Get(int64(res.Seq))
 		if err != nil {
 			level.Warn(logger).Log("event", "failed to get seq", "seq", res.Seq, "err", err)
 			continue

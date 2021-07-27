@@ -101,9 +101,7 @@ func XTestNullContentRequest(t *testing.T) {
 
 	// assert helper
 	checkLogSeq := func(l margaret.Log, seq int) {
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(seq, v.(margaret.Seq).Seq())
+		r.EqualValues(seq, l.Seq())
 	}
 
 	checkUserLogSeq := func(bot *Sbot, name string, seq int) {
@@ -142,7 +140,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.NoError(err)
 
 	bertLog = mutil.Indirect(mainbot.ReceiveLog, bertLog)
-	msgv, err := bertLog.Get(margaret.BaseSeq(2)) // 0-indexed
+	msgv, err := bertLog.Get(int64(2)) // 0-indexed
 	r.NoError(err)
 	msg, ok := msgv.(refs.Message)
 	r.True(ok, "not a msg! %T", msgv)
@@ -266,9 +264,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		l, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
-		v, err := l.Seq().Value()
-		r.NoError(err)
-		r.EqualValues(want, v.(margaret.Seq).Seq(), "userFeed of %s has unexpected sequence", name)
+		r.EqualValues(want, l.Seq(), "userFeed of %s has unexpected sequence", name)
 	}
 
 	checkMessageNulled := func(bot *Sbot, name string, seq uint, isNulled bool) {
@@ -281,7 +277,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		userLog, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
-		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
+		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(int64(seq - 1)) // 0-indexed
 		r.NoError(err)
 
 		msg, ok := msgv.(refs.Message)
@@ -392,7 +388,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		msg, ok := sw.Value().(refs.Message)
 		r.True(ok, "not a msg! %T", sw)
 
-		t.Log(sw.Seq().Seq(), string(msg.ContentBytes()))
+		t.Log(sw.Seq(), string(msg.ContentBytes()))
 		return err
 	})
 	src, err := otherBot.ReceiveLog.Query(margaret.SeqWrap(true))

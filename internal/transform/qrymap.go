@@ -120,7 +120,7 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 
 		sw := sewWrapped{
 			Value: kv,
-			Seq:   seqWrap.Seq().Seq(),
+			Seq:   seqWrap.Seq(),
 		}
 		kvMsg, err := json.Marshal(sw)
 		if err != nil {

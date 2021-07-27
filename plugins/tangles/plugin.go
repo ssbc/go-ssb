@@ -235,7 +235,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 	// get replies and add them to sorter
 	it := threadBmap.NewIterator()
 	for it.HasNext() {
-		seq := margaret.BaseSeq(it.Next())
+		seq := int64(it.Next())
 		v, err := g.rxlog.Get(seq)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "tangles failed to get seq:", seq, " with:", err)

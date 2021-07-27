@@ -36,11 +36,15 @@ func NewUnboxerLog(root, seqlog margaret.Log, kp ssb.KeyPair) margaret.Log {
 	return il
 }
 
-func (il unboxedLog) Seq() luigi.Observable {
+func (il unboxedLog) Changes() luigi.Observable {
+	return il.seqlog.Changes()
+}
+
+func (il unboxedLog) Seq() int64 {
 	return il.seqlog.Seq()
 }
 
-func (il unboxedLog) Get(seq margaret.Seq) (interface{}, error) {
+func (il unboxedLog) Get(seq int64) (interface{}, error) {
 	v, err := il.seqlog.Get(seq)
 	if err != nil {
 		return nil, fmt.Errorf("seqlog: 1st lookup failed: %w", err)
@@ -64,16 +68,16 @@ func (il unboxedLog) Query(args ...margaret.QuerySpec) (luigi.Source, error) {
 }
 
 func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interface{}, error) {
-	var rootSeq margaret.Seq
-	var wrappedSeq margaret.Seq
+	var rootSeq int64
+	var wrappedSeq margaret.Seqer
 	switch tv := iv.(type) {
-	case margaret.Seq:
+	case int64:
 		rootSeq = tv
 	case margaret.SeqWrapper:
-		wrappedSeq = tv.Seq()
+		wrappedSeq = tv
 
 		wrappedVal := tv.Value()
-		seq, ok := wrappedVal.(margaret.Seq)
+		seq, ok := wrappedVal.(int64)
 		if !ok {
 			fmt.Errorf("expected sequence type: %T", wrappedVal)
 		}
@@ -134,7 +138,7 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 	msg.Value.Signature = "go-ssb-unboxed"
 
 	if wrappedSeq != nil {
-		return margaret.WrapWithSeq(msg, wrappedSeq), nil
+		return margaret.WrapWithSeq(msg, wrappedSeq.Seq()), nil
 	}
 
 	return msg, nil
@@ -142,6 +146,6 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 }
 
 // Append doesn't work on this log. They need to go through the proper channels.
-func (il unboxedLog) Append(interface{}) (margaret.Seq, error) {
-	return nil, errors.New("can't append to seqloged log, sorry")
+func (il unboxedLog) Append(interface{}) (int64, error) {
+	return -2, errors.New("can't append to seqloged log, sorry")
 }
