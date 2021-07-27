@@ -3,8 +3,6 @@
 package query
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 
 	"github.com/dgraph-io/sroar"
@@ -13,7 +11,6 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 )
 
@@ -26,65 +23,6 @@ func NewSubsetPlaner(authors, bytype *roaring.MultiLog) *SubsetPlaner {
 		authors: authors,
 		bytype:  bytype,
 	}
-}
-
-func (sp *SubsetPlaner) StreamSubsetQuerySubset(qry SubsetOperation, rxLog margaret.Log, sink *muxrpc.ByteSink) error {
-	resulting, err := combineBitmaps(sp, qry)
-	if err != nil {
-		return err
-	}
-
-	if resulting == nil {
-		sink.Close()
-		return nil
-	}
-
-	sink.SetEncoding(muxrpc.TypeJSON)
-	// iterate over the combined set of bitmaps
-	var (
-		it = resulting.NewIterator()
-
-		buf bytes.Buffer
-		enc = json.NewEncoder(&buf)
-	)
-
-	for it.HasNext() {
-
-		v := it.Next()
-		msgv, err := rxLog.Get(margaret.BaseSeq(v))
-		if err != nil {
-			break
-		}
-
-		msg, ok := msgv.(refs.Message)
-		if !ok {
-			return fmt.Errorf("invalid msg type %T", msgv)
-		}
-
-		if true { // TODO: option
-			buf.Reset()
-
-			var kv refs.KeyValueRaw
-			kv.Key_ = msg.Key()
-			kv.Value = *msg.ValueContent()
-
-			if err := enc.Encode(kv); err != nil {
-				return fmt.Errorf("failed to encode json: %w", err)
-			}
-
-			if _, err = buf.WriteTo(sink); err != nil {
-				return fmt.Errorf("failed to send json data: %w", err)
-			}
-		} else {
-			_, err = sink.Write(msg.ValueContentJSON())
-			if err != nil {
-				return fmt.Errorf("failed to send json data: %w", err)
-			}
-		}
-	}
-
-	sink.Close()
-	return nil
 }
 
 // QuerySubsetBitmap evaluates the passed SubsetOperation and returns a bitmap which maps to messages in the receive log.

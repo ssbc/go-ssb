@@ -10,6 +10,13 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// SubsetOptions defines additional options for the getSubset rpc call
+type SubsetOptions struct {
+	Keys       bool `json:"keys"` // can't omit this falsy value, the JS-stack stack assumes true if it's not there
+	Descending bool `json:"descending,omitempty"`
+	PageLimit  int  `json:"pageLimit,omitempty"`
+}
+
 // SubsetOperation encapsulates the recursive structure of operations for the QuerySubset*() methods
 type SubsetOperation struct {
 	operation string
