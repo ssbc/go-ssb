@@ -75,33 +75,32 @@ func combineBitmaps(sp *SubsetPlaner, qry SubsetOperation) (*sroar.Bitmap, error
 		return sp.bytype.LoadInternalBitmap(indexes.Addr("string:" + qry.string))
 
 	case "or", "and":
-		// the bitmap all operations are applied onto
-		var workBitmap *sroar.Bitmap
+		if len(qry.args) == 0 {
+			return nil, nil
+		}
 
-		for i, op := range qry.args {
+		// run the first operation and use it's result as the workBitmap the rest will be applied to
+		workBitmap, err := combineBitmaps(sp, qry.args[0])
+		if err != nil {
+			return nil, fmt.Errorf("boolean (%s) operation %d of %d failed: %w", qry.operation, 1, len(qry.args), err)
+		}
+
+		// choose the boolean operation that all arguments will use
+		boolOp := workBitmap.Or
+		if qry.operation == "and" {
+			boolOp = workBitmap.And
+		}
+
+		for i, op := range qry.args[1:] {
 
 			// get the bitmap for the current operation
 			opsBitmap, err := combineBitmaps(sp, op)
 			if err != nil {
-				return nil, fmt.Errorf("boolean (%s) operation %d of %d failed: %w",
-					qry.operation,
-					i,
-					len(qry.args),
-					err,
-				)
+				return nil, fmt.Errorf("boolean (%s) operation %d of %d failed: %w", qry.operation, i+1, len(qry.args)-1, err)
 			}
 
-			if i == 0 { // first op in the array just sets the map
-				workBitmap = opsBitmap
-			} else {
-				// now apply the operation either OR or AND
-				// to the previous working bitmap
-				if qry.operation == "or" {
-					workBitmap.Or(opsBitmap)
-				} else {
-					workBitmap.And(opsBitmap)
-				}
-			}
+			// apply the result to the workBitmap
+			boolOp(opsBitmap)
 		}
 		return workBitmap, nil
 
