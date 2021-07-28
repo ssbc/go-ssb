@@ -32,20 +32,20 @@ type testState struct {
 type PeopleOpNewPeer struct{ name string }
 
 func (op PeopleOpNewPeer) Op(state *testState) error {
-	var opk PeopleOpNewPeerWithAglo
+	var opk PeopleOpNewPeerWithAlgo
 	opk.name = op.name
 	opk.algo = refs.RefAlgoFeedSSB1
 	return opk.Op(state)
 }
 
-type PeopleOpNewPeerWithAglo struct {
+type PeopleOpNewPeerWithAlgo struct {
 	name string
 	algo refs.RefAlgo
 }
 
 var i uint64
 
-func (op PeopleOpNewPeerWithAglo) Op(state *testState) error {
+func (op PeopleOpNewPeerWithAlgo) Op(state *testState) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	kp, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat(b, 4)), op.algo)
@@ -436,8 +436,8 @@ func TestPeople(t *testing.T) {
 					PeopleOpNewPeer{"alice"},
 					PeopleOpNewPeer{"claire"},
 
-					PeopleOpNewPeerWithAglo{"piet", ssb.RefAlgoFeedGabby},
-					PeopleOpNewPeerWithAglo{"pew", ssb.RefAlgoFeedGabby},
+					PeopleOpNewPeerWithAlgo{"piet", ssb.RefAlgoFeedGabby},
+					PeopleOpNewPeerWithAlgo{"pew", ssb.RefAlgoFeedGabby},
 
 					PeopleOpFollow{"alice", "piet"},
 					PeopleOpFollow{"piet", "claire"},

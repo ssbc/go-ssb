@@ -211,11 +211,6 @@ func TestMultiFeedSync(t *testing.T) {
 	_, err = receiveBot.PublishLog.Publish(refs.NewContactFollow(multiBot.KeyPair.ID()))
 	r.NoError(err)
 
-	// multiBot.Replicate(receiveBot.KeyPair.ID())
-	// receiveBot.Replicate(multiBot.KeyPair.ID())
-	// receiveBot.Replicate(subfeedClassic)
-	// receiveBot.Replicate(subfeedGabby)
-
 	time.Sleep(4 * time.Second) // graph update delay
 
 	multibotWantList := multiBot.Replicator.Lister().ReplicationList()

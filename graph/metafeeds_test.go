@@ -15,7 +15,7 @@ var metafeedsScenarios = []PeopleTestCase{
 	{
 		name: "metafeeds, simple",
 		ops: []PeopleOp{
-			PeopleOpNewPeerWithAglo{"alice", refs.RefAlgoFeedBendyButt},
+			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
 
 			PeopleOpNewSubFeed{
 				of:    "alice",
@@ -40,7 +40,7 @@ var metafeedsScenarios = []PeopleTestCase{
 		name: "metafeeds of a friend",
 		ops: []PeopleOp{
 			PeopleOpNewPeer{"alice"},
-			PeopleOpNewPeerWithAglo{"bob", refs.RefAlgoFeedBendyButt},
+			PeopleOpNewPeerWithAlgo{"bob", refs.RefAlgoFeedBendyButt},
 
 			// alice and bob are friends
 			PeopleOpFollow{"alice", "bob"},
@@ -65,7 +65,7 @@ var metafeedsScenarios = []PeopleTestCase{
 	{
 		name: "metafeed follows someone",
 		ops: []PeopleOp{
-			PeopleOpNewPeerWithAglo{"alice", refs.RefAlgoFeedBendyButt},
+			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
 			PeopleOpNewPeer{"some"},
 
 			PeopleOpNewSubFeed{

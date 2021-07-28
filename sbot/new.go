@@ -493,18 +493,20 @@ func New(fopts ...Option) (*Sbot, error) {
 		// setup indexing
 		justMetafeedMessages := repo.NewFilteredLog(s.ReceiveLog, func(msg refs.Message) bool {
 			content := msg.ContentBytes()
-			var bencoded []bencode.RawMessage
-			err := bencode.DecodeBytes(content, &bencoded)
+			// the relevant messages will be in the form of [{content,...}, signature]
+			var signedContent []bencode.RawMessage
+			err := bencode.DecodeBytes(content, &signedContent)
 			if err != nil {
 				return false
 			}
 
-			if len(bencoded) != 2 {
+			if len(signedContent) < 2 { // not the expected form
 				return false
 			}
 
 			var justTheType metamngmt.Typed
-			err = bencode.DecodeBytes(bencoded[0], &justTheType)
+			// the 'type:xyz' we are looking for is in the object in the first element of the array
+			err = bencode.DecodeBytes(signedContent[0], &justTheType)
 			if err != nil {
 				return false
 			}
@@ -512,7 +514,6 @@ func New(fopts ...Option) (*Sbot, error) {
 			return rightType
 		})
 
-		// _, mfSink := indexes.OpenMetafeed(log.With(s.info, "unit", "metafeed index"), s.indexStore)
 		_, mfSink := gb.OpenMetafeedsIndex()
 
 		s.serveIndexFrom("metafeed", mfSink, justMetafeedMessages)

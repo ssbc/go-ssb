@@ -10,8 +10,10 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// FilterFunc works on messages of a FilteredLog. If the func returns true, the log is in the filtered log.
 type FilterFunc func(refs.Message) bool
 
+// NewFilteredLog wraps the passed log into a new one, using the FilterFunc to decide if a message is in the log.
 func NewFilteredLog(b margaret.Log, fn FilterFunc) margaret.Log {
 	return FilteredLog{
 		backing: b,
@@ -19,6 +21,8 @@ func NewFilteredLog(b margaret.Log, fn FilterFunc) margaret.Log {
 	}
 }
 
+// FilteredLog omits entries in the backing log as decided by the configured FilterFunc.
+// It does so by claiming the entries are deleted (via returning margaret.ErrNulled instead)
 type FilteredLog struct {
 	backing margaret.Log
 
@@ -27,11 +31,11 @@ type FilteredLog struct {
 
 func (fl FilteredLog) Seq() luigi.Observable { return fl.backing.Seq() }
 
-// Get retreives the message object by traversing the authors sublog to the root log
+// Get retrieves the message object by traversing the authors sublog to the root log
 func (fl FilteredLog) Get(s margaret.Seq) (interface{}, error) {
 	v, err := fl.backing.Get(s)
 	if err != nil {
-		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
+		return nil, fmt.Errorf("filtered get: failed to retrieve sequence for the root log: %w", err)
 	}
 	switch tv := v.(type) {
 	case error:

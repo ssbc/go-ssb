@@ -47,11 +47,11 @@ type IndexingBuilder interface {
 	OpenIndex() (librarian.SeqSetterIndex, librarian.SinkIndex)
 }
 
+// BadgerBuilder can construct a graph from the badger key-value database it was initialized with.
 type BadgerBuilder struct {
 	kv *badger.DB
 
 	idx librarian.SeqSetterIndex
-	// idxMetafeeds librarian.SeqSetterIndex
 
 	idxSinkContacts  librarian.SinkIndex
 	idxSinkMetaFeeds librarian.SinkIndex
