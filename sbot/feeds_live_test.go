@@ -113,7 +113,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		WithHMACSigning(hmacKey),
 	}
 
-	botA := makeNamedTestBot(t, "A", netOpts)
+	botA := makeNamedTestBot(t, "A", append(netOpts, WithWebsocketAddress("localhost:12345")))
 	botgroup.Go(bs.Serve(botA))
 	t.Log("botA:", botA.KeyPair.ID().ShortRef())
 
@@ -200,6 +200,14 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		}
 	}
 	a.EqualValues(0, timeouts, "too many timeouts")
+
+	for _, b := range theBots[1:] {
+		botA.PublishLog.Publish(refs.NewContactFollow(b.KeyPair.ID()))
+	}
+	time.Sleep(time.Second * 15)
+
+	t.Log("time to fetch the graph")
+	time.Sleep(time.Minute)
 
 	cancel()
 	time.Sleep(1 * time.Second)

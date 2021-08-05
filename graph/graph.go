@@ -31,6 +31,14 @@ func NewGraph() *Graph {
 	}
 }
 
+func (g *Graph) getNode(feed refs.FeedRef) (*contactNode, bool) {
+	node, has := g.lookup[storedrefs.Feed(feed)]
+	if !has {
+		return nil, false
+	}
+	return node, true
+}
+
 func (g *Graph) getEdge(from, to refs.FeedRef) (graph.WeightedEdge, bool) {
 	g.Mutex.Lock()
 	defer g.Mutex.Unlock()
@@ -63,6 +71,14 @@ func (g *Graph) Blocks(from, to refs.FeedRef) bool {
 		return false
 	}
 	return math.IsInf(w.Weight(), 1)
+}
+
+func (g *Graph) Subfeed(from, to refs.FeedRef) bool {
+	w, has := g.getEdge(from, to)
+	if !has {
+		return false
+	}
+	return w.Weight() == 0.1
 }
 
 func (g *Graph) BlockedList(from refs.FeedRef) *ssb.StrFeedSet {

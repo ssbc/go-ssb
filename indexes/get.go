@@ -20,11 +20,11 @@ import (
 // OpenGet supplies the get(msgRef) -> rootLogSeq idx
 func OpenGet(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
 	idx := libbadger.NewIndexWithKeyPrefix(db, margaret.BaseSeq(0), []byte("byMsgRef"))
-	sinkIdx := librarian.NewSinkIndex(updateFn, idx)
+	sinkIdx := librarian.NewSinkIndex(updateGetFn, idx)
 	return idx, sinkIdx
 }
 
-func updateFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
+func updateGetFn(ctx context.Context, seq margaret.Seq, val interface{}, idx librarian.SetterIndex) error {
 	msg, ok := val.(refs.Message)
 	if !ok {
 		err, ok := val.(error)

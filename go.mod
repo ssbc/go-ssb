@@ -28,6 +28,7 @@ require (
 	github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210727102809-98707678965d
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.2.6
+	github.com/zeebo/bencode v1.0.0 // indirect
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
 	go.cryptoscope.co/margaret v0.3.0
 	go.cryptoscope.co/muxrpc/v2 v2.0.10

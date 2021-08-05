@@ -71,7 +71,8 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	replicateEvt := log.With(s.info, "event", "update-replicate")
 	update := r.makeUpdater(replicateEvt, s.KeyPair.ID(), int(s.hopCount))
 
-	// update for new messages but only every 15seconds
+	// update for new messages but only once they didnt change in a while
+	// meaning, not while sync is busy with new incoming messages
 	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Seq(), update)
 
 	return &r, nil

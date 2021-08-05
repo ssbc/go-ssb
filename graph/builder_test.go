@@ -84,15 +84,26 @@ func makeBadger(t *testing.T) testStore {
 	uf, serveUF := openUserMultilogs(t)
 	ufErrc := serveLog(ctx, "user feeds", tRootLog, serveUF, true)
 
-	var builder *builder
+	var builder *BadgerBuilder
 
 	var tc testStore
-	badgerDB, sinkIdx, serve, err := repo.OpenBadgerIndex(tRepo, "contacts", func(db *badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex) {
-		builder = NewBuilder(info, db)
-		return builder.OpenIndex()
-	})
-	r.NoError(err)
-	cErrc := serveLog(ctx, "badgerContacts", tRootLog, serve, true)
+
+	pth := tRepo.GetPath("contacts", "db")
+	err = os.MkdirAll(pth, 0700)
+	r.NoError(err, "error making index directory")
+
+	badgerOpts := badger.DefaultOptions(pth).WithLoggingLevel(badger.ERROR)
+	badgerDB, err := badger.Open(badgerOpts)
+	r.NoError(err, "db/idx: badger failed to open")
+
+	builder = NewBuilder(info, badgerDB, nil)
+
+	idxSetter, idxContactsSink := builder.OpenContactsIndex()
+	cErrc := serveLog(ctx, "badgerContacts", tRootLog, idxContactsSink, true)
+
+	_, idxMetafeedsSink := builder.OpenMetafeedsIndex()
+	mfErrc := serveLog(ctx, "badgerMetafeeds", tRootLog, idxMetafeedsSink, true)
+
 	tc.root = tRootLog
 	tc.gbuilder = builder
 	tc.userLogs = uf
@@ -100,15 +111,16 @@ func makeBadger(t *testing.T) testStore {
 	t.Cleanup(func() {
 		r.NoError(uf.Close())
 
-		r.NoError(serve.Close())
-		r.NoError(sinkIdx.Close())
+		r.NoError(idxContactsSink.Close())
+		r.NoError(idxMetafeedsSink.Close())
+		r.NoError(idxSetter.Close())
 
 		r.NoError(badgerDB.Close())
 
 		r.NoError(tRootLog.Close())
 		cancel()
 
-		for err := range mergedErrors(ufErrc, cErrc) {
+		for err := range mergedErrors(ufErrc, cErrc, mfErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")

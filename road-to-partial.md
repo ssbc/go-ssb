@@ -31,21 +31,20 @@ type MetaFeeds interface {
 
 * patch `createHistoryStream` to support sending and receiving bendy-butt messages (_legacy_ replication)
 
+## implement content [validation](https://github.com/ssb-ngi-pointer/bendy-butt-spec#validation) of metafeeds
+
+I added `repo.NewFilteredLog()` which wrapps a log with a filter function to be able just iterate a specific set of messages (like `hasPrefix("metafeed/")`).
+
+With this I was able to add a new indexing function (`OpenMetafeedsIndex()`) to the `graph` package, where the content validation sits, using the pre-existing [VerifySubSignedContent](https://pkg.go.dev/github.com/ssb-ngi-pointer/go-metafeed#VerifySubSignedContent).
+
+## feed replicator
+Overhauld the `graph` package, which now consumes `type:contact` and `type:metafeed/*` messages. So it is able to tell us which (sub)feeds belong to an identity. Which in turn will be fed into the replication engine.
+
+Subfeeds are considerd `sameAs` the metafeed identity that holds them. This was achived by adding two extra decend cases to the recursive `Hops()` function.
+
 # upcoming changes
 
 These are necessary to get a functional partial replication. They are orderd by dependence/necessity (A needs B) not complexity.
-
-## implement content [validation](https://github.com/ssb-ngi-pointer/bendy-butt-spec#validation) of metafeeds
-Right now go-metafeed only handles the overal entry verification but we also need to verify the content portion. There already exists [VerifySubSignedContent](https://pkg.go.dev/github.com/ssb-ngi-pointer/go-metafeed#VerifySubSignedContent) to help with this but it needs to be integrated (aka the buisness logic of what to do with these messages).
-
-**note to self**: instead of wanting a _prefix query_ for `messagesByTypes` (like `metafeed/*`) we could open the individual types and join them into a single source.
-
-## feed replicator
-Overhaul the `graph` package, which currently only consumes `type:contact` messages.
-
-The wanted feature is that it can tell us which (sub)feeds belong to an identity. Which in turn will be fed into the replication engine.
-
-With this structure in place, it's then possible to implement rules of how to walk a tree of identities and which ones to replicate in full and which ones to fetch partially. See [this outline](https://github.com/ssb-ngi-pointer/ssb-secure-partial-replication-impl-spec#ssb-feed-replicator) for how JS does it.
 
 ## subset replication support
 Implement [new RPC method `getSubset`](https://github.com/ssb-ngi-pointer/ssb-subset-replication-spec#getsubsetquery-options-source).
