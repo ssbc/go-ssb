@@ -76,7 +76,7 @@ func jsonAndPreserve(msg interface{}) ([]byte, error) {
 	}
 
 	// pretty-print v8-like
-	pp, err := EncodePreserveOrder(buf.Bytes())
+	pp, err := PrettyPrint(buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("jsonAndPreserve: preserver order failed: %w", err)
 	}

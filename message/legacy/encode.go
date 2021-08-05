@@ -11,7 +11,11 @@ import (
 	"strings"
 )
 
-func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
+func (pp *prettyPrinter) formatArray(depth int) error {
+
+	b := pp.buffer
+	dec := pp.decoder
+
 	for {
 		t, err := dec.Token()
 		if err == io.EOF {
@@ -35,13 +39,13 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 			case '{':
 				fmt.Fprint(b, strings.Repeat("  ", depth))
 				fmt.Fprint(b, "{\n")
-				if err := formatObject(depth+1, b, dec); err != nil {
+				if err := pp.formatObject(depth + 1); err != nil {
 					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
 				}
 			case '[':
 				fmt.Fprint(b, strings.Repeat("  ", depth))
 				fmt.Fprint(b, "[\n")
-				if err := formatArray(depth+1, b, dec); err != nil {
+				if err := pp.formatArray(depth + 1); err != nil {
 					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
 				}
 			default:
@@ -79,8 +83,11 @@ func formatArray(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	}
 }
 
-func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
+func (pp *prettyPrinter) formatObject(depth int) error {
 	var isKey = true // key:value pair toggle
+
+	b := pp.buffer
+	dec := pp.decoder
 
 	for {
 		t, err := dec.Token()
@@ -113,7 +120,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 					// which will use depth-1
 					d = 1
 				}
-				if err := formatObject(d, b, dec); err != nil {
+				if err := pp.formatObject(d); err != nil {
 					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
 				}
 				isKey = true
@@ -128,7 +135,7 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 					// which will use depth-1
 					d = 1
 				}
-				if err := formatArray(d, b, dec); err != nil {
+				if err := pp.formatArray(d); err != nil {
 					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
 				}
 				isKey = true
@@ -138,6 +145,9 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 
 		case string:
 			if isKey {
+				if depth == 1 {
+					pp.topLevelFields = append(pp.topLevelFields, v)
+				}
 				fmt.Fprintf(b, "%s%q: ", strings.Repeat("  ", depth), v)
 			} else {
 				r := strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
@@ -172,7 +182,48 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 	}
 }
 
-// EncodePreserveOrder pretty-prints byte slice b using json.Token izer
+type PrettyPrinterOption func(pp *prettyPrinter)
+
+func WithBuffer(buf *bytes.Buffer) PrettyPrinterOption {
+	return func(pp *prettyPrinter) {
+		pp.buffer = buf
+	}
+}
+
+// WithStrictOrderChecking enables verification of the field names in the first level of the object
+func WithStrictOrderChecking(yes bool) PrettyPrinterOption {
+	return func(pp *prettyPrinter) {
+		pp.checkFieldOrder = yes
+	}
+}
+
+var acceptedFieldOrders = []string{
+	strings.Join([]string{"previous", "author", "sequence", "timestamp", "hash", "content", "signature"}, ":"),
+	strings.Join([]string{"previous", "sequence", "author", "timestamp", "hash", "content", "signature"}, ":"),
+}
+
+func checkFieldOrder(fields []string) error {
+	gotFields := strings.Join(fields, ":")
+
+	for _, accepted := range acceptedFieldOrders {
+		if accepted == gotFields {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ssb/verify: invalid field order: %v", fields)
+}
+
+type prettyPrinter struct {
+	decoder *json.Decoder
+
+	buffer *bytes.Buffer
+
+	checkFieldOrder bool
+	topLevelFields  []string
+}
+
+// PrettyPrinter formats and indents byte slice b using json.Token izer
 // using two spaces like this to mimics JSON.stringify(....)
 // {
 //   "field": "val",
@@ -184,28 +235,42 @@ func formatObject(depth int, b *bytes.Buffer, dec *json.Decoder) error {
 // }
 //
 // while preserving the order in which the keys appear
-func EncodePreserveOrder(in []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	return EncodePreserveOrderWithBuffer(in, &buf)
-}
+func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
+	var pp prettyPrinter
 
-func EncodePreserveOrderWithBuffer(in []byte, buf *bytes.Buffer) ([]byte, error) {
-	dec := json.NewDecoder(bytes.NewReader(in))
+	pp.decoder = json.NewDecoder(bytes.NewReader(input))
+
 	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
 	// not particular excited to implement all of the above
 	// this keeps the original value as a string
-	dec.UseNumber()
+	pp.decoder.UseNumber()
 
-	t, err := dec.Token()
+	for _, o := range opts {
+		o(&pp)
+	}
+
+	if pp.buffer == nil {
+		pp.buffer = new(bytes.Buffer)
+	}
+
+	// start encoding
+	t, err := pp.decoder.Token()
 	if err != nil {
 		return nil, fmt.Errorf("message Encode: expected {: %w", err)
 	}
 	if v, ok := t.(json.Delim); !ok || v != '{' {
 		return nil, fmt.Errorf("message Encode: wanted { got %v: %w", t, err)
 	}
-	fmt.Fprint(buf, "{\n")
-	if err := formatObject(1, buf, dec); err != nil {
+	fmt.Fprint(pp.buffer, "{\n")
+	if err := pp.formatObject(1); err != nil {
 		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
 	}
-	return bytes.Trim(buf.Bytes(), "\n"), nil
+
+	if pp.checkFieldOrder {
+		if err := checkFieldOrder(pp.topLevelFields); err != nil {
+			return nil, err
+		}
+	}
+
+	return bytes.Trim(pp.buffer.Bytes(), "\n"), nil
 }

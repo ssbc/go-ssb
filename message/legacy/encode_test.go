@@ -145,9 +145,9 @@ func TestPreserveOrder(t *testing.T) {
 }
 
 func tPresve(t *testing.T, i int) []byte {
-	encoded, err := EncodePreserveOrder(testMessages[i].Input)
+	encoded, err := PrettyPrint(testMessages[i].Input)
 	if err != nil {
-		t.Errorf("EncodePreserveOrder(%d) failed:\n%+v", i, err)
+		t.Errorf("PrettyPrint(%d) failed:\n%+v", i, err)
 	}
 	return encoded
 }

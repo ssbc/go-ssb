@@ -26,7 +26,7 @@ func TestSignatureVerify(t *testing.T) {
 		n = min(50, n)
 	}
 	for i := 1; i < n; i++ {
-		enc, err := EncodePreserveOrder(testMessages[i].Input)
+		enc, err := PrettyPrint(testMessages[i].Input)
 		r.NoError(err, "encode failed")
 
 		msgWOsig, sig, err := ExtractSignature(enc)
@@ -123,7 +123,7 @@ func TestCompatHMACSign(t *testing.T) {
 	json.NewEncoder(&buf).Encode(lm)
 	r.NoError(err)
 
-	pp, err := EncodePreserveOrder(buf.Bytes())
+	pp, err := PrettyPrint(buf.Bytes())
 	r.NoError(err)
 
 	env := []string{
@@ -206,7 +206,7 @@ func TestCompatSignature(t *testing.T) {
 	json.NewEncoder(&buf).Encode(lm)
 	r.NoError(err)
 
-	pp, err := EncodePreserveOrder(buf.Bytes())
+	pp, err := PrettyPrint(buf.Bytes())
 	r.NoError(err)
 
 	env := []string{

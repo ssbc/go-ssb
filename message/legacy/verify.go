@@ -52,7 +52,7 @@ func runeLength(s string) int {
 }
 
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
-	enc, err := EncodePreserveOrderWithBuffer(raw, buf)
+	enc, err := PrettyPrint(raw, WithBuffer(buf), WithStrictOrderChecking(true))
 	if err != nil {
 		if len(raw) > 15 {
 			raw = raw[:15]
