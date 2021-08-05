@@ -65,13 +65,13 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 	}
 
 	if dmsg.Hash != "sha256" {
-		return nil, nil, errors.Errorf("ssb Verify: scuttlebutt happend anyway")
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt happend anyway")
 	}
 
 	if n := len(dmsg.Content); n < 1 {
-		return nil, nil, errors.Errorf("ssb Verify: has no content (%d)", n)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", n)
 	} else if n > 8000 { // not 100% right. need to count chars in latin1 actually
-		return nil, nil, errors.Errorf("ssb Verify: message too large (%d)", n)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", n)
 	}
 
 	switch dmsg.Content[0] {
@@ -81,26 +81,26 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		}
 		err = json.Unmarshal(dmsg.Content, &typedContent)
 		if err != nil {
-			return nil, nil, err
+			return emptyMsgRef, emptyDMsg, err
 		}
 
 		if tlen := len(typedContent.Type); tlen < 3 || tlen > 52 {
-			return nil, nil, errors.Errorf("ssb Verify: scuttlebutt v1 requires a type field: %q", typedContent.Type)
+			return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt v1 requires a type field: %q", typedContent.Type)
 		}
 
 	case '"':
 		var justString string
 		err = json.Unmarshal(dmsg.Content, &justString)
 		if err != nil {
-			return nil, nil, err
+			return emptyMsgRef, emptyDMsg, err
 		}
 
 		if !strings.HasSuffix(justString, ".box") && !strings.HasSuffix(justString, ".box2") {
-			return nil, nil, errors.Errorf("ssb Verify: scuttlebutt v1 private messages need to have the right suffix")
+			return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt v1 private messages need to have the right suffix")
 		}
 
 	default:
-		return nil, nil, errors.Errorf("ssb Verify: unexpected content: %q", dmsg.Content[0])
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: unexpected content: %q", dmsg.Content[0])
 	}
 
 	woSig, sig, err := ExtractSignature(enc)
