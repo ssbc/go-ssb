@@ -46,6 +46,11 @@ func Verify(raw []byte, hmacSecret *[32]byte) (refs.MessageRef, DeserializedMess
 	return VerifyWithBuffer(raw, hmacSecret, &buf)
 }
 
+func runeLength(s string) int {
+	runes := []rune(s)
+	return len(runes)
+}
+
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
 	enc, err := EncodePreserveOrderWithBuffer(raw, buf)
 	if err != nil {
@@ -65,12 +70,12 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 	}
 
 	if dmsg.Hash != "sha256" {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt happend anyway")
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: wrong hash value (scuttlebutt happend anyway)")
 	}
 
 	if n := len(dmsg.Content); n < 1 {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", n)
-	} else if n > 8000 { // not 100% right. need to count chars in latin1 actually
+	} else if runeLength(string(dmsg.Content)) > 8192 { // not 100% right. need to count chars in latin1 actually
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", n)
 	}
 

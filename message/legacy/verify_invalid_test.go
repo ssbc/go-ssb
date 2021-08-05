@@ -41,13 +41,13 @@ func TestInvalidFuzzed(t *testing.T) {
 		r, d, err := Verify(m.Message, nil)
 
 		if m.Valid {
-			if !a.NoError(err, "in msg %d", i+1) {
+			if !a.NoError(err, "in msg %d", i) {
 				continue
 			}
 			a.NotNil(r, i)
 			a.NotNil(d, i)
 		} else {
-			if !a.Error(err, "in msg %d", i+1) {
+			if !a.Error(err, "in msg %d", i) {
 				t.Logf("expected error: %s", *m.Error)
 				continue
 			}
