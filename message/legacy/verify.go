@@ -75,7 +75,7 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	if n := len(dmsg.Content); n < 1 {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", n)
-	} else if runeLength(string(dmsg.Content)) > 8192 { // not 100% right. need to count chars in latin1 actually
+	} else if runeLength(string(dmsg.Content)) > 8192 {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", n)
 	}
 
