@@ -9,9 +9,11 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"go.mindeco.de/logging"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins/gossip"
-	"go.mindeco.de/logging"
+	"go.cryptoscope.co/ssb/query"
 )
 
 type plugin struct {
@@ -46,20 +48,15 @@ func New(log logging.Interface,
 		rxlog: rxlog,
 	})
 
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getFeed"}, getFeedHandler{
-		fm: fm,
+	rootHdlr.RegisterSource(muxrpc.Method{name, "getSubset"}, getSubsetHandler{
+		queryPlaner: query.NewSubsetPlaner(feeds, bytype),
+		rxLog:       rxlog,
 	})
 
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getFeedReverse"}, getFeedReverseHandler{
-		fm: fm,
-	})
-
-	rootHdlr.RegisterSource(muxrpc.Method{name, "getMessagesOfType"}, getMessagesOfTypeHandler{
-		rxlog: rxlog,
-
-		feeds:  feeds,
-		bytype: bytype,
-	})
+	// TODO:
+	// rootHdlr.RegisterSource(muxrpc.Method{name, "resolveIndexFeed"}, getFeedReverseHandler{
+	// 	fm: fm,
+	// })
 
 	return plugin{
 		h: &rootHdlr,
