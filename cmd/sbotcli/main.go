@@ -365,16 +365,21 @@ var connectCmd = &cli.Command{
 			return err
 		}
 
-		var val string
-		err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"ctrl", "connect"}, to)
-		if err != nil {
-			level.Warn(log).Log("event", "connect command failed", "err", err)
+		// try all three of these
+		var methods = []muxrpc.Method{
+			{"conn", "connect"},   // latest, npm:ssb-conn version, now also supported by go-ssb
+			{"gossip", "connect"}, // previous javascript call
+			{"ctrl", "connect"},   // previous go-ssb version
+		}
 
-			// js fallback (our mux doesnt support authed namespaces)
-			err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"gossip", "connect"}, to)
-			if err != nil {
-				return fmt.Errorf("connect: async call failed: %w", err)
+		var val string
+		for _, m := range methods {
+			err = client.Async(longctx, &val, muxrpc.TypeString, m, to)
+			if err == nil {
+				break
 			}
+			level.Warn(log).Log("event", "connect command failed", "err", err, "method", m.String())
+
 		}
 		log.Log("event", "connect reply")
 		goon.Dump(val)
