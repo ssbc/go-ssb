@@ -104,7 +104,7 @@ func (bxr *Boxer) Decrypt(recpt ssb.KeyPair, rawMsg []byte) ([]byte, error) {
 
 	// construct the key that should/can open the header sbox _for us_
 	var messageShared, cvSec [32]byte
-	extra25519.PrivateKeyToCurve25519(&cvSec, recpt.Pair.Secret)
+	extra25519.PrivateKeyToCurve25519(&cvSec, recpt.Secret())
 	curve25519.ScalarMult(&messageShared, &cvSec, &hdrPub)
 
 	var (

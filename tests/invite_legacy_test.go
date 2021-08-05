@@ -44,7 +44,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 	// manual multiserver address
 	addr := fmt.Sprintf("net:%s", netwrap.GetAddr(wrappedAddr, "tcp").String())
 	addr += "~shs:"
-	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.PubKey())
+	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.ID().PubKey())
 	t.Log("addr:", addr)
 
 	bob.PublishLog.Append(map[string]interface{}{
@@ -115,7 +115,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 
 	ctx := context.TODO()
 
-	err = invite.Redeem(ctx, tok, bob.KeyPair.Id)
+	err = invite.Redeem(ctx, tok, bob.KeyPair.ID())
 	r.NoError(err)
 
 	<-ts.doneJS
@@ -178,7 +178,7 @@ func TestLegacyInviteJSAccept(t *testing.T) {
 	// manual multiserver address
 	addr := fmt.Sprintf("net:%s", netwrap.GetAddr(wrappedAddr, "tcp").String())
 	addr += "~shs:"
-	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.Id.PubKey())
+	addr += base64.StdEncoding.EncodeToString(bob.KeyPair.ID().PubKey())
 	t.Log("addr:", addr)
 
 	bob.PublishLog.Append(map[string]interface{}{

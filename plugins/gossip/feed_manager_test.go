@@ -53,7 +53,7 @@ func loadTestRepo(
 	os.RemoveAll(repoPath)
 	r := repo.New(repoPath)
 
-	keyPair, err := repo.DefaultKeyPair(r)
+	keyPair, err := repo.DefaultKeyPair(r, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err, "error opening src key pair")
 
 	rootLog, err := repo.OpenLog(r)
@@ -156,13 +156,13 @@ func TestCreateHistoryStream(t *testing.T) {
 
 			create(t, userFeedLen, "prefill")
 			t.Log("created prefil")
-			log, err := userFeeds.Get(storedrefs.Feed(keyPair.Id))
+			log, err := userFeeds.Get(storedrefs.Feed(keyPair.ID()))
 			r.NoError(err)
 			seqv, err := log.Seq().Value()
 			r.NoError(err)
 			r.EqualValues(userFeedLen-1, seqv)
 
-			test.Args.ID = keyPair.Id
+			test.Args.ID = keyPair.ID()
 			var buf = new(bytes.Buffer)
 			var sink = muxrpc.NewTestSink(buf)
 

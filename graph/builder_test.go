@@ -204,11 +204,11 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, g.NodeCount())
 
-	auth := tc.gbuilder.Authorizer(myself.key.Id, 0)
+	auth := tc.gbuilder.Authorizer(myself.key.ID(), 0)
 
 	// > create contacts
-	myself.follow(alice.key.Id)
-	myself.block(bob.key.Id)
+	myself.follow(alice.key.ID())
+	myself.block(bob.key.ID())
 
 	time.Sleep(time.Second / 10)
 
@@ -219,25 +219,25 @@ func (tc testStore) theScenario(t *testing.T) {
 	}
 
 	// not followed
-	err = auth.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.ID())
 	r.NotNil(err, "unknown ID")
 	hopsErr, ok := err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.True(hopsErr.Dist < 0)
 
 	// following
-	err = auth.Authorize(alice.key.Id)
+	err = auth.Authorize(alice.key.ID())
 	r.Nil(err)
 
 	// blocked
-	err = auth.Authorize(bob.key.Id)
+	err = auth.Authorize(bob.key.ID())
 	r.NotNil(err, "no error for blocked peer")
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.True(hopsErr.Dist < 0)
 
 	// alice follows claire
-	alice.follow(claire.key.Id)
+	alice.follow(claire.key.ID())
 
 	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
@@ -252,7 +252,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. zero hops and not friends
-	err = auth.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.ID())
 	r.NotNil(err, "authorized wrong person (claire)")
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -260,7 +260,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.Equal(0, hopsErr.Max)
 
 	// alice follows me
-	alice.follow(myself.key.Id)
+	alice.follow(myself.key.ID())
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
@@ -268,7 +268,7 @@ func (tc testStore) theScenario(t *testing.T) {
 	// r.NoError(g.RenderSVG())
 
 	// now allowed. friends with alice but still 0 hops
-	err = auth.Authorize(claire.key.Id)
+	err = auth.Authorize(claire.key.ID())
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
@@ -276,27 +276,27 @@ func (tc testStore) theScenario(t *testing.T) {
 	r.Equal(0, hopsErr.Max)
 
 	// works for 1 hop
-	h1 := tc.gbuilder.Authorizer(myself.key.Id, 1)
-	err = h1.Authorize(claire.key.Id)
+	h1 := tc.gbuilder.Authorizer(myself.key.ID(), 1)
+	err = h1.Authorize(claire.key.ID())
 	r.NoError(err)
 
 	// claire follows debby
-	claire.follow(debby.key.Id)
+	claire.follow(debby.key.ID())
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
 	r.Equal(5, g.NodeCount()) // same nodes more edges
 	// r.NoError(g.RenderSVG())
 
-	err = h1.Authorize(debby.key.Id)
+	err = h1.Authorize(debby.key.ID())
 	r.NotNil(err)
 	hopsErr, ok = err.(*ssb.ErrOutOfReach)
 	r.True(ok, "acutal err: %T\n%+v", err, err)
 	r.Equal(2, hopsErr.Dist)
 	r.Equal(1, hopsErr.Max)
 
-	h2 := tc.gbuilder.Authorizer(myself.key.Id, 2)
-	err = h2.Authorize(debby.key.Id)
+	h2 := tc.gbuilder.Authorizer(myself.key.ID(), 2)
+	err = h2.Authorize(debby.key.ID())
 	r.Nil(err)
 }
 

@@ -279,6 +279,14 @@ func (m *FeedManager) CreateStreamHistory(
 			luigiSink = luigiutils.NewGabbyStreamSink(sink)
 		}
 
+	case refs.RefAlgoFeedBendyButt:
+		switch {
+		case arg.AsJSON:
+			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
+		default:
+			luigiSink = luigiutils.NewBendyStreamSink(sink)
+		}
+
 	default:
 		return fmt.Errorf("unsupported feed format")
 	}

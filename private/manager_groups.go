@@ -130,7 +130,7 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, err
 	}
 
-	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey()), k)
+	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.ID().PubKey(), mgr.author.ID().PubKey()), k)
 	if err != nil {
 		return emptyMsgRef, err
 	}
@@ -298,7 +298,7 @@ func (mgr *Manager) encryptAndPublish(c []byte, recps keys.Recipients) (refs.Mes
 	bxr := box2.NewBoxer(mgr.rand)
 
 	// TODO: maybe fix prev:null case by passing an empty ref instead of nil
-	ciphertext, err := bxr.Encrypt(c, mgr.author.Id, prev, recps)
+	ciphertext, err := bxr.Encrypt(c, mgr.author.ID(), prev, recps)
 	if err != nil {
 		return refs.MessageRef{}, err
 	}

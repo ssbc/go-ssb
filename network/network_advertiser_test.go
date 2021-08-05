@@ -13,13 +13,13 @@ import (
 )
 
 func makeTestPubKey(t *testing.T) ssb.KeyPair {
-	var kp ssb.KeyPair
+	var kp ssb.LegacyKeyPair
 	fr, err := refs.ParseFeedRef("@LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=.ed25519")
 	if err != nil {
 		t.Fatal(err)
 	}
 	kp.Pair.Public = fr.PubKey()
-	kp.Id = fr
+	kp.Feed = fr
 	return kp
 }
 

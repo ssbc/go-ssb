@@ -87,8 +87,8 @@ func makeFeedsLiveNetworkChain(chainLen uint) func(t *testing.T) {
 
 				if fQ == 1 {
 					msgCnt++
-					botI.Replicate(botJ.KeyPair.Id)
-					_, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.Id))
+					botI.Replicate(botJ.KeyPair.ID())
+					_, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.ID()))
 					r.NoError(err)
 				}
 			}
@@ -109,7 +109,7 @@ func makeFeedsLiveNetworkChain(chainLen uint) func(t *testing.T) {
 		// did b0 get feed of bN-1?
 		feedIndexOfBot0, ok := theBots[0].GetMultiLog("userFeeds")
 		r.True(ok)
-		feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.Id))
+		feedOfLastBot, err := feedIndexOfBot0.Get(storedrefs.Feed(theBots[n-1].KeyPair.ID()))
 		r.NoError(err)
 		seqv, err := feedOfLastBot.Seq().Value()
 		r.NoError(err)
@@ -210,8 +210,8 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 			botJ := theBots[j]
 
 			if fQ == 1 {
-				botI.Replicate(botJ.KeyPair.Id)
-				_, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.Id))
+				botI.Replicate(botJ.KeyPair.ID())
+				_, err := botI.PublishLog.Append(refs.NewContactFollow(botJ.KeyPair.ID()))
 				r.NoError(err)
 			}
 		}
@@ -230,7 +230,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	// did B get feed C?
 	ufOfBotB, ok := botB.GetMultiLog("userFeeds")
 	r.True(ok)
-	feedOfBotCAtB, err := ufOfBotB.Get(storedrefs.Feed(botC.KeyPair.Id))
+	feedOfBotCAtB, err := ufOfBotB.Get(storedrefs.Feed(botC.KeyPair.ID()))
 	r.NoError(err)
 	seqv, err := feedOfBotCAtB.Seq().Value()
 	r.NoError(err)
@@ -243,7 +243,7 @@ func TestFeedsLiveNetworkStar(t *testing.T) {
 	// setup listener
 	uf, ok := botA.GetMultiLog("userFeeds")
 	r.True(ok)
-	feedOfBotC, err := uf.Get(storedrefs.Feed(botC.KeyPair.Id))
+	feedOfBotC, err := uf.Get(storedrefs.Feed(botC.KeyPair.ID()))
 	r.NoError(err)
 
 	gotMsg := make(chan refs.Message)
@@ -340,8 +340,8 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 			botJ := theBots[j]
 
 			if fQ == 1 {
-				botI.Replicate(botJ.KeyPair.Id)
-				fmsg, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.Id))
+				botI.Replicate(botJ.KeyPair.ID())
+				fmsg, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.ID()))
 				r.NoError(err)
 				t.Log(i, "followed", j, fmsg.ShortRef())
 				followMsgs++
@@ -355,7 +355,7 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 
 	bot0graph, err := theBots[0].GraphBuilder.Build()
 	r.NoError(err)
-	r.True(bot0graph.Follows(theBots[0].KeyPair.Id, theBots[1].KeyPair.Id))
+	r.True(bot0graph.Follows(theBots[0].KeyPair.ID(), theBots[1].KeyPair.ID()))
 
 	initialSync(t, theBots, followMsgs)
 
@@ -391,7 +391,7 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 	gotMsg := make(chan refs.Message)
 
 	// construct query source
-	feedOfBotC, err := theBots[0].Users.Get(storedrefs.Feed(theBots[5].KeyPair.Id))
+	feedOfBotC, err := theBots[0].Users.Get(storedrefs.Feed(theBots[5].KeyPair.ID()))
 	r.NoError(err)
 	seqSrc, err := mutil.Indirect(theBots[0].ReceiveLog, feedOfBotC).Query(
 		// margaret.Gte(margaret.BaseSeq(3)),

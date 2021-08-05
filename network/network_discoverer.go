@@ -89,7 +89,7 @@ func (d *Discoverer) work(rx net.PacketConn) {
 			continue
 		}
 
-		if na.Ref.Equal(d.local.Id) {
+		if na.Ref.Equal(d.local.ID()) {
 			continue
 		}
 

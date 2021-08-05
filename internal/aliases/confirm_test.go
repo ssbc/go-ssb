@@ -27,7 +27,7 @@ func TestConfirmation(t *testing.T) {
 	// create and fill out the registration for an alias (in this case the name of the test)
 	var valid Registration
 	valid.RoomID = roomID
-	valid.UserID = userKeyPair.Id
+	valid.UserID = userKeyPair.ID()
 	valid.Alias = t.Name()
 
 	// internal function to create the registration string
@@ -36,7 +36,7 @@ func TestConfirmation(t *testing.T) {
 	r.Equal(want, string(msg))
 
 	// create the signed confirmation
-	confirmation := valid.Sign(userKeyPair.Pair.Secret)
+	confirmation := valid.Sign(userKeyPair.Secret())
 
 	yes := confirmation.Verify()
 	r.True(yes, "should be valid for this room and feed")

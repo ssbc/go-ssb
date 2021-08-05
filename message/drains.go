@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/margaret"
 
 	"go.cryptoscope.co/ssb/message/legacy"
@@ -32,7 +33,7 @@ type SaveMessager interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) SequencedSink {
+func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedSink, error) {
 	drain := &generalVerifyDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),
@@ -45,10 +46,18 @@ func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, sa
 			hmacKey: hmacKey,
 			buf:     new(bytes.Buffer),
 		}
+
 	case refs.RefAlgoFeedGabby:
 		drain.verify = &gabbyVerify{hmacKey: hmacKey}
+
+	case refs.RefAlgoFeedBendyButt:
+		drain.verify = &metafeedVerify{hmacKey: hmacKey}
+
+	default:
+		return nil, fmt.Errorf("NewVerifySink: unsupported feed algorithm %s", who.Algo())
+
 	}
-	return drain
+	return drain, nil
 }
 
 type _Verifier interface {
@@ -105,6 +114,23 @@ func (gv gabbyVerify) Verify(trBytes []byte) (msg refs.Message, err error) {
 	}
 	msg = &tr
 	return
+}
+
+type metafeedVerify struct {
+	hmacKey *[32]byte
+}
+
+func (mv metafeedVerify) Verify(trBytes []byte) (refs.Message, error) {
+	var msg metafeed.Message
+	if uErr := msg.UnmarshalBencode(trBytes); uErr != nil {
+		return nil, fmt.Errorf("metafeedVerify: message unmarshal failed: %w", uErr)
+	}
+
+	if !msg.Verify(mv.hmacKey) {
+		return nil, fmt.Errorf("metafeedVerify: verification failed")
+	}
+
+	return &msg, nil
 }
 
 type generalVerifyDrain struct {

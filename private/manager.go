@@ -21,6 +21,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/extra25519"
+	"go.cryptoscope.co/ssb/internal/slp"
 	"go.cryptoscope.co/ssb/private/box"
 	"go.cryptoscope.co/ssb/private/box2"
 	"go.cryptoscope.co/ssb/private/keys"
@@ -65,7 +66,7 @@ var (
 
 // GetOrDeriveKeyFor derives an encryption key for 1:1 private messages with an other feed.
 func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, error) {
-	ourID := keys.ID(sortAndConcat(mgr.author.Id.PubKey(), other.PubKey()))
+	ourID := keys.ID(sortAndConcat(mgr.author.ID().PubKey(), other.PubKey()))
 	scheme := keys.SchemeDiffieStyleConvertedED25519
 
 	ks, err := mgr.keymgr.GetKeys(scheme, ourID)
@@ -87,10 +88,10 @@ func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, erro
 		)
 
 		// for key derivation
-		extra25519.PublicKeyToCurve25519(&myCurvePub, mgr.author.Pair.Public)
+		extra25519.PublicKeyToCurve25519(&myCurvePub, mgr.author.ID().PubKey())
 
 		// shared key input
-		extra25519.PrivateKeyToCurve25519(&myCurveSec, mgr.author.Pair.Secret)
+		extra25519.PrivateKeyToCurve25519(&myCurveSec, mgr.author.Secret())
 		extra25519.PublicKeyToCurve25519(&otherCurvePub, other.PubKey())
 		curve25519.ScalarMult(&keyInput, &myCurveSec, &otherCurvePub)
 
@@ -100,7 +101,7 @@ func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, erro
 			return nil, err
 		}
 
-		tfkMy, err := tfk.Encode(mgr.author.Id)
+		tfkMy, err := tfk.Encode(mgr.author.ID())
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +116,10 @@ func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, erro
 		}
 		sort.Sort(bs)
 
-		slpInfo := box2.EncodeSLP(nil, infoContext, bs[0], bs[1])
+		slpInfo, err := slp.Encode(nil, infoContext, bs[0], bs[1])
+		if err != nil {
+			return nil, err
+		}
 		n, err := hkdf.New(sha256.New, keyInput[:], dmSalt, slpInfo).Read(messageShared)
 		if err != nil {
 			return nil, err
@@ -167,7 +171,7 @@ func (mgr *Manager) EncryptBox2(content []byte, prev refs.MessageRef, recpts []r
 		switch ref := rcpt.(type) {
 		case refs.FeedRef:
 			keyScheme = keys.SchemeDiffieStyleConvertedED25519
-			keyID = keys.ID(sortAndConcat(mgr.author.Id.PubKey(), ref.PubKey()))
+			keyID = keys.ID(sortAndConcat(mgr.author.ID().PubKey(), ref.PubKey()))
 			// roll key if not exist?
 		case refs.MessageRef:
 			// TODO: maybe verify this is a group message?
@@ -186,7 +190,7 @@ func (mgr *Manager) EncryptBox2(content []byte, prev refs.MessageRef, recpts []r
 
 	// then, encrypt message
 	bxr := box2.NewBoxer(mgr.rand)
-	ctxt, err := bxr.Encrypt(content, mgr.author.Id, prev, allKeys)
+	ctxt, err := bxr.Encrypt(content, mgr.author.ID(), prev, allKeys)
 	if err != nil {
 		return nil, fmt.Errorf("error encrypting message (box2): %w", err)
 	}
@@ -226,7 +230,7 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author refs.FeedRef, prev refs.Mess
 	// assumes 1:1 pm
 	// fetch feed2feed shared key
 	keyScheme := keys.SchemeDiffieStyleConvertedED25519
-	keyID := sortAndConcat(mgr.author.Id.PubKey(), author.PubKey())
+	keyID := sortAndConcat(mgr.author.ID().PubKey(), author.PubKey())
 	var allKeys keys.Recipients
 	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
 		allKeys = append(allKeys, ks...)
@@ -234,7 +238,7 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author refs.FeedRef, prev refs.Mess
 
 	// try my groups
 	keyScheme = keys.SchemeLargeSymmetricGroup
-	keyID = sortAndConcat(mgr.author.Id.PubKey(), mgr.author.Id.PubKey())
+	keyID = sortAndConcat(mgr.author.ID().PubKey(), mgr.author.ID().PubKey())
 	if ks, err := mgr.keymgr.GetKeys(keyScheme, keyID); err == nil {
 		allKeys = append(allKeys, ks...)
 	}

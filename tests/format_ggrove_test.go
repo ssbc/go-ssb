@@ -92,7 +92,8 @@ func TestGabbyFeedFromGo(t *testing.T) {
 
 	var saver = message.MargaretSaver{s.ReceiveLog}
 
-	snk := message.NewVerifySink(aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+	snk, err := message.NewVerifySink(aliceAsGabby, margaret.BaseSeq(1), nil, saver, nil)
+	r.NoError(err)
 
 	for src.Next(ctx) {
 		b, err := src.Bytes()

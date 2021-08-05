@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/margaret"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
@@ -55,6 +56,10 @@ func (wl WrappedLog) Append(val interface{}) (margaret.Seq, error) {
 		tv.Timestamp_ = wl.receivedNow()
 	case *gabbygrove.Transfer:
 		mm.tipe = Gabby
+		mm.Message = tv
+		mm.received = wl.receivedNow()
+	case *metafeed.Message:
+		mm.tipe = MetaFeed
 		mm.Message = tv
 		mm.received = wl.receivedNow()
 	default:

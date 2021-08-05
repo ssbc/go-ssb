@@ -124,7 +124,7 @@ func main() {
 	var someMsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": sbot.KeyPair.Id.Ref(),
+			"about": sbot.KeyPair.ID().Ref(),
 			"name":  "my user",
 		},
 		map[string]interface{}{

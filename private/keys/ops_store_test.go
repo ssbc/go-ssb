@@ -84,6 +84,6 @@ func (op opStoreGetKeys) Do(t *testing.T, _ interface{}) {
 	} else {
 		require.EqualErrorf(t, err, op.ExpErr, "expected error %q querying keys, but got: %v", op.ExpErr, err)
 	}
-
+	require.Len(t, recps, len(op.ExpRecps), "number of keys missmatch")
 	require.Equal(t, op.ExpRecps, recps, "keys mismatch")
 }

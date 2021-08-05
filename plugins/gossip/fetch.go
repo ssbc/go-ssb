@@ -126,8 +126,12 @@ func (h *LegacyGossip) fetchFeed(
 	switch fr.Algo() {
 	case refs.RefAlgoFeedSSB1:
 		src, err = edp.Source(ctx, muxrpc.TypeJSON, method, q)
+	case refs.RefAlgoFeedBendyButt:
+		fallthrough
 	case refs.RefAlgoFeedGabby:
 		src, err = edp.Source(ctx, muxrpc.TypeBinary, method, q)
+	default:
+		return fmt.Errorf("fetchFeed(%s): unhandled feed format", fr.Ref())
 	}
 	if err != nil {
 		return fmt.Errorf("fetchFeed(%s:%d) failed to create source: %w", fr.Ref(), latestSeq, err)

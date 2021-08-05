@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
+	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/debug"
@@ -27,7 +28,7 @@ func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {
 	r := require.New(t)
 	rp := repo.New(repopath)
 
-	kp, err := repo.DefaultKeyPair(rp)
+	kp, err := repo.DefaultKeyPair(rp, refs.RefAlgoFeedSSB1)
 	r.NoError(err, "error opening keypair")
 	r.NotNil(kp, "key pair is nil")
 	return rp
@@ -43,10 +44,10 @@ func MakeEmptyPeer(t testing.TB) (repo.Interface, string) {
 
 func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Packer, *muxrpc.Packer, func(rpc1, rpc2 muxrpc.Endpoint) func()) {
 	r := require.New(t)
-	keyAlice, err := repo.DefaultKeyPair(alice)
+	keyAlice, err := repo.DefaultKeyPair(alice, refs.RefAlgoFeedSSB1)
 	r.NoError(err, "error opening alice's key pair")
 
-	keyBob, err := repo.DefaultKeyPair(bob)
+	keyBob, err := repo.DefaultKeyPair(bob, refs.RefAlgoFeedSSB1)
 	r.NoError(err, "error opening bob's key pair")
 
 	p1, p2 := net.Pipe()
@@ -57,13 +58,13 @@ func PrepareConnectAndServe(t testing.TB, alice, bob repo.Interface) (*muxrpc.Pa
 
 	tc1 := &TestConn{
 		Reader: p1, WriteCloser: p1, conn: p1,
-		local:  keyAlice.Pair.Public[:],
-		remote: keyBob.Pair.Public[:],
+		local:  keyAlice.ID().PubKey(),
+		remote: keyBob.ID().PubKey(),
 	}
 	tc2 := &TestConn{
 		Reader: p2, WriteCloser: p2, conn: p2,
-		local:  keyBob.Pair.Public[:],
-		remote: keyAlice.Pair.Public[:],
+		local:  keyBob.ID().PubKey(),
+		remote: keyAlice.ID().PubKey(),
 	}
 
 	var conn1, conn2 net.Conn = tc1, tc2

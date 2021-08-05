@@ -105,7 +105,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 				return fmt.Errorf("no such from peer")
 			}
 
-			hopSet := bld.Hops(alice.key.Id, hops)
+			hopSet := bld.Hops(alice.key.ID(), hops)
 			require.NotNil(state.t, hopSet, "no hopSet for alice")
 			assert.Equal(state.t, len(tos), hopSet.Count(), "set count incorrect")
 			hopList, err := hopSet.List()
@@ -125,7 +125,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 				if !ok {
 					return fmt.Errorf("wanted peer not in known-peers list: %s", nick)
 				}
-				bobRef := bob.key.Id.Ref()
+				bobRef := bob.key.ID().Ref()
 
 				_, ok = hitMap[bobRef]
 				if !ok {

@@ -93,7 +93,7 @@ func setupCombinedIndex(t testing.TB, rxlog margaret.Log, mkMlog makeMultilog) (
 
 	sm, err := statematrix.New(
 		testRepo.GetPath("ebt-state-matrix"),
-		tkp.Id,
+		tkp.ID(),
 	)
 	r.NoError(err)
 
@@ -110,7 +110,7 @@ func setupCombinedIndex(t testing.TB, rxlog margaret.Log, mkMlog makeMultilog) (
 
 	snk, err := NewCombinedIndex(filepath.Join(testPath, "combined"),
 		gm,
-		tkp.Id,
+		tkp.ID(),
 		rxlog,
 
 		user,

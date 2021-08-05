@@ -7,18 +7,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"go.cryptoscope.co/nocomment"
 	"go.cryptoscope.co/secretstream/secrethandshake"
+	"golang.org/x/crypto/ed25519"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type KeyPair struct {
-	Id   refs.FeedRef
+type KeyPair interface {
+	ID() refs.FeedRef
+	Secret() ed25519.PrivateKey
+}
+
+func EdKeyPair(kp KeyPair) secrethandshake.EdKeyPair {
+	return secrethandshake.EdKeyPair{
+		Public: kp.ID().PubKey(),
+		Secret: kp.Secret(),
+	}
+}
+
+type LegacyKeyPair struct {
+	Feed refs.FeedRef
 	Pair secrethandshake.EdKeyPair
+}
+
+func (lkp LegacyKeyPair) ID() refs.FeedRef {
+	return lkp.Feed
+}
+
+func (lkp LegacyKeyPair) Secret() ed25519.PrivateKey {
+	return lkp.Pair.Secret
 }
 
 // the format of the .ssb/secret file as defined by the js implementations
@@ -33,7 +57,7 @@ type ssbSecret struct {
 // legacy/crapp or GabbyGrove.
 func IsValidFeedFormat(r refs.FeedRef) error {
 	ra := r.Algo()
-	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby {
+	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby && ra != refs.RefAlgoFeedBendyButt {
 		return fmt.Errorf("ssb: unsupported feed format: %s", r.Algo())
 	}
 	return nil
@@ -43,22 +67,36 @@ func IsValidFeedFormat(r refs.FeedRef) error {
 // Passing nil is fine and will use crypto/rand.
 func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
 	if algo == "" {
-		return KeyPair{}, fmt.Errorf("ssb: empty feed format algo for keypair")
+		return nil, fmt.Errorf("ssb: empty feed format algo for keypair")
 	}
 
-	// generate new keypair
-	kp, err := secrethandshake.GenEdKeyPair(r)
-	if err != nil {
-		return KeyPair{}, fmt.Errorf("ssb: error building key pair: %w", err)
-	}
+	var keyPair KeyPair
+	if algo == refs.RefAlgoFeedBendyButt {
+		seed, err := metakeys.GenerateSeed()
+		if err != nil {
+			return nil, err
+		}
 
-	keyPair := KeyPair{
-		Pair: *kp,
-	}
+		keyPair, err = metakeys.DeriveFromSeed(seed, "go-ssb-metafeed", refs.RefAlgoFeedBendyButt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// generate new keypair
+		kp, err := secrethandshake.GenEdKeyPair(r)
+		if err != nil {
+			return nil, fmt.Errorf("ssb: error building key pair: %w", err)
+		}
 
-	keyPair.Id, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
-	if err != nil {
-		return KeyPair{}, err
+		lkp := LegacyKeyPair{
+			Pair: *kp,
+		}
+
+		lkp.Feed, err = refs.NewFeedRefFromBytes(kp.Public[:], algo)
+		if err != nil {
+			return nil, err
+		}
+		keyPair = lkp
 	}
 
 	return keyPair, nil
@@ -67,23 +105,42 @@ func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
 // SaveKeyPair serializes the passed KeyPair to path.
 // It errors if path already exists.
 func SaveKeyPair(kp KeyPair, path string) error {
-	if err := IsValidFeedFormat(kp.Id); err != nil {
+	if err := IsValidFeedFormat(kp.ID()); err != nil {
 		return err
 	}
+
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("ssb.SaveKeyPair: key already exists:%q", path)
 	}
+
 	err := os.MkdirAll(filepath.Dir(path), 0700)
 	if err != nil && !os.IsExist(err) {
 		return fmt.Errorf("failed to create folder for keypair: %w", err)
 	}
+
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, SecretPerms)
 	if err != nil {
 		return fmt.Errorf("ssb.SaveKeyPair: failed to create file: %w", err)
 	}
 
-	if err := EncodeKeyPairAsJSON(kp, f); err != nil {
-		return err
+	if enc, ok := kp.(json.Marshaler); ok {
+		data, err := enc.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		n, err := f.Write(data)
+		if err != nil {
+			return err
+		}
+
+		if n != len(data) {
+			return fmt.Errorf("ssb.SaveKeyPair: failed to save all encoded bytes of the keypair")
+		}
+	} else {
+		if err := EncodeKeyPairAsJSON(kp, f); err != nil {
+			return err
+		}
 	}
 
 	if err := f.Close(); err != nil {
@@ -97,9 +154,9 @@ func SaveKeyPair(kp KeyPair, path string) error {
 func EncodeKeyPairAsJSON(kp KeyPair, w io.Writer) error {
 	var sec = ssbSecret{
 		Curve:   "ed25519",
-		ID:      kp.Id,
-		Private: base64.StdEncoding.EncodeToString(kp.Pair.Secret[:]) + ".ed25519",
-		Public:  base64.StdEncoding.EncodeToString(kp.Pair.Public[:]) + ".ed25519",
+		ID:      kp.ID(),
+		Private: base64.StdEncoding.EncodeToString(kp.Secret()) + ".ed25519",
+		Public:  base64.StdEncoding.EncodeToString(kp.ID().PubKey()) + ".ed25519",
 	}
 	err := json.NewEncoder(w).Encode(sec)
 	if err != nil {
@@ -113,23 +170,46 @@ func LoadKeyPair(fname string) (KeyPair, error) {
 	f, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return KeyPair{}, err
+			return nil, err
 		}
 
-		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: could not open key file %s: %w", fname, err)
+		return nil, fmt.Errorf("ssb.LoadKeyPair: could not open key file %s: %w", fname, err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: could not stat key file %s: %w", fname, err)
+		return nil, fmt.Errorf("ssb.LoadKeyPair: could not stat key file %s: %w", fname, err)
 	}
 
 	if perms := info.Mode().Perm(); perms != SecretPerms {
-		return KeyPair{}, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
+		return nil, fmt.Errorf("ssb.LoadKeyPair: expected key file permissions %s, but got %s", SecretPerms, perms)
 	}
 
-	return ParseKeyPair(nocomment.NewReader(f))
+	kp, err := ParseKeyPair(nocomment.NewReader(f))
+	if err == nil {
+		return kp, nil
+	}
+
+	// roll back and read again
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	keyData, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	var mkp metakeys.KeyPair
+	err = mkp.UnmarshalJSON(keyData)
+	if err != nil {
+		return nil, err
+	}
+
+	return mkp, nil
+
 }
 
 // ParseKeyPair json decodes an object from the reader.
@@ -137,30 +217,30 @@ func LoadKeyPair(fname string) (KeyPair, error) {
 func ParseKeyPair(r io.Reader) (KeyPair, error) {
 	var s ssbSecret
 	if err := json.NewDecoder(r).Decode(&s); err != nil {
-		return KeyPair{}, fmt.Errorf("ssb.Parse: JSON decoding failed: %w", err)
+		return nil, fmt.Errorf("ssb.Parse: JSON decoding failed: %w", err)
 	}
 
 	if err := IsValidFeedFormat(s.ID); err != nil {
-		return KeyPair{}, err
+		return nil, err
 	}
 
 	public, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(s.Public, ".ed25519"))
 	if err != nil {
-		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of public part failed: %w", err)
+		return nil, fmt.Errorf("ssb.Parse: base64 decode of public part failed: %w", err)
 	}
 
 	private, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(s.Private, ".ed25519"))
 	if err != nil {
-		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
+		return nil, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
 	}
 
 	pair, err := secrethandshake.NewKeyPair(public, private)
 	if err != nil {
-		return KeyPair{}, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
+		return nil, fmt.Errorf("ssb.Parse: base64 decode of private part failed: %w", err)
 	}
 
-	ssbkp := KeyPair{
-		Id:   s.ID,
+	ssbkp := LegacyKeyPair{
+		Feed: s.ID,
 		Pair: *pair,
 	}
 	return ssbkp, nil

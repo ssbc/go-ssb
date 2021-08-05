@@ -74,8 +74,8 @@ func TestNullFeed(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", refs.NewContactFollow(kpBert.Id)},
-		{"bert", refs.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.ID())},
+		{"bert", refs.NewContactFollow(kpArny.ID())},
 		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
 		{"bert", map[string]interface{}{"type": "test", "world": 456}},
 		{"bert", map[string]interface{}{"type": "test", "spew": true, "delete": "me"}},
@@ -89,7 +89,7 @@ func TestNullFeed(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(msg)
 
-		r.True(msg.Author().Equal(n2kp[intro.as].Id))
+		r.True(msg.Author().Equal(n2kp[intro.as].ID()))
 	}
 
 	// assert helper
@@ -106,7 +106,7 @@ func TestNullFeed(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(storedrefs.Feed(kp.Id))
+		l, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
 		return l
@@ -124,7 +124,7 @@ func TestNullFeed(t *testing.T) {
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", 2)
 
-	err = mainbot.NullFeed(kpBert.Id)
+	err = mainbot.NullFeed(kpBert.ID())
 	r.NoError(err, "null feed bert failed")
 
 	checkUserLogSeq(mainbot, "arny", 1)
@@ -143,14 +143,14 @@ func TestNullFeed(t *testing.T) {
 	botgroup.Go(bs.Serve(bertBot))
 
 	// make main want it
-	_, err = mainbot.PublishLog.Publish(refs.NewContactFollow(kpBert.Id))
+	_, err = mainbot.PublishLog.Publish(refs.NewContactFollow(kpBert.ID()))
 	r.NoError(err)
 
-	_, err = bertBot.PublishLog.Publish(refs.NewContactFollow(mainbot.KeyPair.Id))
+	_, err = bertBot.PublishLog.Publish(refs.NewContactFollow(mainbot.KeyPair.ID()))
 	r.NoError(err)
 
-	mainbot.Replicate(bertBot.KeyPair.Id)
-	bertBot.Replicate(mainbot.KeyPair.Id)
+	mainbot.Replicate(bertBot.KeyPair.ID())
+	bertBot.Replicate(mainbot.KeyPair.ID())
 
 	const testMsgCount = 1000
 	for i := testMsgCount; i > 0; i-- {
@@ -243,8 +243,8 @@ func TestNullFetched(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
 
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
 	msgCount := int64(30)
 	for i := msgCount; i > 0; i-- {
@@ -256,7 +256,7 @@ func TestNullFetched(t *testing.T) {
 	err = bob.Network.Connect(firstCtx, ali.Network.GetListenAddr())
 	r.NoError(err)
 
-	alisVersionOfBobsLog, err := ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
+	alisVersionOfBobsLog, err := ali.Users.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
 	mainLog.Log("msg", "check we got all the messages")
@@ -288,18 +288,25 @@ func TestNullFetched(t *testing.T) {
 	bob.Network.GetConnTracker().CloseAll()
 	firstConnCanel()
 
-	err = ali.NullFeed(bob.KeyPair.Id)
+	err = ali.NullFeed(bob.KeyPair.ID())
 	r.NoError(err)
 
-	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.Id))
+	mainLog.Log("msg", "get a fresh view (should be empty now)")
+
+	_, err = alisVersionOfBobsLog.Seq().Value()
+	r.Error(err)
+
+	alisVersionOfBobsLog, err = ali.Users.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
+
 	v, err := alisVersionOfBobsLog.Seq().Value()
+	r.NoError(err)
 	r.EqualValues(margaret.SeqEmpty, v)
 
 	mainLog.Log("msg", "get a fresh view (should be empty now)")
 
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
 	mainLog.Log("msg", "sync should give us the messages again")
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())

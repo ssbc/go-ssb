@@ -76,14 +76,14 @@ func TestFeedsGabbySync(t *testing.T) {
 	botgroup.Go(bs.Serve(bob))
 
 	// be friends
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
-	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.Id))
+	seq, err := ali.PublishLog.Append(refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(0), seq)
 
-	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.Id))
+	seq, err = bob.PublishLog.Append(refs.NewContactFollow(ali.KeyPair.ID()))
 	r.NoError(err)
 	r.Equal(margaret.BaseSeq(0), seq)
 
@@ -99,7 +99,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	// sanity, check bob has his shit together
 	uf, ok := bob.GetMultiLog("userFeeds")
 	r.True(ok)
-	bobsOwnLog, err := uf.Get(storedrefs.Feed(bob.KeyPair.Id))
+	bobsOwnLog, err := uf.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
 	seqv, err := bobsOwnLog.Seq().Value()
@@ -118,7 +118,7 @@ func TestFeedsGabbySync(t *testing.T) {
 	// check that bobs messages got to ali
 	auf, ok := ali.GetMultiLog("userFeeds")
 	r.True(ok)
-	bosLogAtAli, err := auf.Get(storedrefs.Feed(bob.KeyPair.Id))
+	bosLogAtAli, err := auf.Get(storedrefs.Feed(bob.KeyPair.ID()))
 	r.NoError(err)
 
 	seqv, err = bosLogAtAli.Seq().Value()

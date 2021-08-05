@@ -179,7 +179,7 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 				return err
 			}
 
-			set := g.BlockedList(pFrom.key.Id)
+			set := g.BlockedList(pFrom.key.ID())
 			got := set.Count()
 			if got != len(who) {
 				return fmt.Errorf("BlockedList() wrong length: %d", got)
@@ -191,7 +191,7 @@ func PeopleAssertOnBlocklist(from string, who ...string) PeopleAssertMaker {
 					state.t.Fatal("no such wanted peer:", want)
 					return nil
 				}
-				if !set.Has(pFrom.key.Id) {
+				if !set.Has(pFrom.key.ID()) {
 					state.t.Errorf("expected %s on block list", want)
 				}
 			}

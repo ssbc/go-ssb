@@ -28,7 +28,7 @@ func XTestBlocking(t *testing.T) {
 	ts.startGoBot()
 	bob := ts.gobot
 
-	_, err = bob.PublishAs("alice", refs.NewContactFollow(bob.KeyPair.Id))
+	_, err = bob.PublishAs("alice", refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
 	aliceHelloWorld, err := bob.PublishAs("alice", refs.Post{Type: "post", Text: "hello, world!"})
 	r.NoError(err)
@@ -70,16 +70,16 @@ func XTestBlocking(t *testing.T) {
 		t.equal(msgs.length, results.length, "message count")
 		run() // triggers connect and after block
 	})
-	`, kpAlice.Id.Ref(), aliceHelloWorld.Ref()), ``)
+	`, kpAlice.ID().Ref(), aliceHelloWorld.Ref()), ``)
 
 	newSeq, err := bob.PublishLog.Append(refs.NewContactFollow(claire))
 	r.NoError(err)
 	r.NotNil(newSeq)
-	newSeq, err = bob.PublishLog.Append(refs.NewContactFollow(kpAlice.Id))
+	newSeq, err = bob.PublishLog.Append(refs.NewContactFollow(kpAlice.ID()))
 	r.NoError(err)
 	r.NotNil(newSeq)
 	bob.Replicate(claire)
-	bob.Replicate(kpAlice.Id)
+	bob.Replicate(kpAlice.ID())
 
 	<-ts.doneJS
 
@@ -121,7 +121,7 @@ func XTestBlocking(t *testing.T) {
 		})
 	)
 	`,
-		kpAlice.Id.Ref(),
+		kpAlice.ID().Ref(),
 		aliceHelloWorld.Ref(),
 		dontGet.Ref(),
 	), ``)

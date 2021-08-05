@@ -87,19 +87,19 @@ func XTestMultipleIdentities(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", refs.NewContactFollow(kpBert.Id)},
-		{"bert", refs.NewContactFollow(kpArny.Id)},
-		{"bert", refs.NewContactFollow(kpCloe.Id)},
-		{"cloe", refs.NewContactFollow(kpArny.Id)},
-		{"arny", map[string]interface{}{"type": "test", "hello": 123}},
-		{"bert", map[string]interface{}{"type": "test", "world": 456}},
-		{"cloe", map[string]interface{}{"type": "test", "test": 789}},
-		{"arny", box("A: just talking to myself", kpArny.Id)},
-		{"bert", box("B: just talking to myself", kpBert.Id)},
-		{"cloe", box("C: just talking to myself", kpCloe.Id)},
-		{"cloe", box("hellooo", kpBert.Id, kpCloe.Id)},
-		{"bert", box("you toooo", kpBert.Id, kpCloe.Id)},
-		{"arny", box("to the others", kpBert.Id, kpCloe.Id)},
+		{"arny", refs.NewContactFollow(kpBert.ID())},
+		{"bert", refs.NewContactFollow(kpArny.ID())},
+		{"bert", refs.NewContactFollow(kpCloe.ID())},
+		{"cloe", refs.NewContactFollow(kpArny.ID())},
+		{"arny", map[string]interface{}{"hello": 123}},
+		{"bert", map[string]interface{}{"world": 456}},
+		{"cloe", map[string]interface{}{"test": 789}},
+		{"arny", box("A: just talking to myself", kpArny.ID())},
+		{"bert", box("B: just talking to myself", kpBert.ID())},
+		{"cloe", box("C: just talking to myself", kpCloe.ID())},
+		{"cloe", box("hellooo", kpBert.ID(), kpCloe.ID())},
+		{"bert", box("you toooo", kpBert.ID(), kpCloe.ID())},
+		{"arny", box("to the others", kpBert.ID(), kpCloe.ID())},
 	}
 
 	for idx, intro := range intros {
@@ -110,7 +110,7 @@ func XTestMultipleIdentities(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(msg)
 
-		r.True(msg.Author().Equal(n2kp[intro.as].Id))
+		r.True(msg.Author().Equal(n2kp[intro.as].ID()))
 	}
 
 	// assert helper
@@ -146,11 +146,11 @@ func XTestMultipleIdentities(t *testing.T) {
 	pl, ok := mainbot.GetMultiLog("privLogs")
 	r.True(ok, "no privLogs")
 
-	arnies, err := pl.Get(storedrefs.Feed(kpArny.Id))
+	arnies, err := pl.Get(storedrefs.Feed(kpArny.ID()))
 	r.NoError(err)
-	berts, err := pl.Get(storedrefs.Feed(kpBert.Id))
+	berts, err := pl.Get(storedrefs.Feed(kpBert.ID()))
 	r.NoError(err)
-	cloes, err := pl.Get(storedrefs.Feed(kpCloe.Id))
+	cloes, err := pl.Get(storedrefs.Feed(kpCloe.ID()))
 	r.NoError(err)
 
 	// 0 indexed

@@ -50,7 +50,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		seed := bytes.Repeat([]byte{1}, 32)
 		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		t.Log("ali is", aliKey.Id.Ref())
+		t.Log("ali is", aliKey.ID().Ref())
 
 		botgroup, ctx := errgroup.WithContext(ctx)
 
@@ -91,7 +91,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		seed = bytes.Repeat([]byte{2}, 32)
 		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		t.Log("bob is", bobKey.Id.Ref())
+		t.Log("bob is", bobKey.ID().Ref())
 
 		bobPath := filepath.Join("testrun", t.Name(), "bob")
 		bob, err := New(
@@ -120,13 +120,13 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			return err
 		})
 
-		ali.Replicate(bob.KeyPair.Id)
-		bob.Replicate(ali.KeyPair.Id)
+		ali.Replicate(bob.KeyPair.ID())
+		bob.Replicate(ali.KeyPair.ID())
 
 		uf, ok := bob.GetMultiLog("userFeeds")
 		r.True(ok)
 
-		alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.Id))
+		alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.ID()))
 		r.NoError(err)
 
 		n := 15
@@ -150,9 +150,9 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 
 			// check the note is updated correctly
 			if useEBT {
-				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.Id)
+				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.ID())
 				r.NoError(err)
-				alisNoteAtBob := aliHas[ali.KeyPair.Id.Ref()]
+				alisNoteAtBob := aliHas[ali.KeyPair.ID().Ref()]
 				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 			}
 

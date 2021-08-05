@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -29,13 +31,13 @@ type publishLog struct {
 	create creater
 }
 
-func (p *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
-	seq, err := p.Append(content)
+func (pl *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
+	seq, err := pl.Append(content)
 	if err != nil {
 		return refs.MessageRef{}, err
 	}
 
-	val, err := p.receiveLog.Get(seq)
+	val, err := pl.receiveLog.Get(seq)
 	if err != nil {
 		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}
@@ -54,7 +56,6 @@ func (pl publishLog) Seq() luigi.Observable {
 
 // Get retreives the message object by traversing the authors sublog to the root log
 func (pl publishLog) Get(s margaret.Seq) (interface{}, error) {
-
 	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
@@ -81,7 +82,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 		nextSequence = int64(-1)
 	)
 
-	currSeq, err := pl.Seq().Value()
+	currSeq, err := pl.byAuthor.Seq().Value()
 	if err != nil {
 		return nil, fmt.Errorf("publishLog: failed to establish current seq: %w", err)
 	}
@@ -129,7 +130,7 @@ func (pl *publishLog) Append(val interface{}) (margaret.Seq, error) {
 // then it's pretty printed again (now with the signature inside the message) to construct it's SHA256 hash,
 // which is used to reference it (by replys and it's previous)
 func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ssb.KeyPair, opts ...PublishOption) (ssb.Publisher, error) {
-	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.Id))
+	authorLog, err := authorLogs.Get(storedrefs.Feed(kp.ID()))
 	if err != nil {
 		return nil, fmt.Errorf("publish: failed to open sublog for author: %w", err)
 	}
@@ -139,17 +140,21 @@ func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ss
 		receiveLog: receiveLog,
 	}
 
-	switch kp.Id.Algo() {
+	switch kp.ID().Algo() {
 	case refs.RefAlgoFeedSSB1:
 		pl.create = &legacyCreate{
 			key: kp,
 		}
 	case refs.RefAlgoFeedGabby:
 		pl.create = &gabbyCreate{
-			enc: gabbygrove.NewEncoder(kp.Pair.Secret),
+			enc: gabbygrove.NewEncoder(kp.Secret()),
+		}
+	case refs.RefAlgoFeedBendyButt:
+		pl.create = &metafeedCreate{
+			enc: metafeed.NewEncoder(kp.Secret()),
 		}
 	default:
-		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.Id.Algo())
+		return nil, fmt.Errorf("publish: unsupported feed algorithm: %s", kp.ID().Algo())
 	}
 
 	for i, o := range opts {
@@ -165,15 +170,21 @@ type PublishOption func(*publishLog) error
 
 func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
+		if hmackey == nil {
+			return nil
+		}
+		var err error
 		switch cv := pl.create.(type) {
 		case *legacyCreate:
 			cv.hmac = hmackey
 		case *gabbyCreate:
-			cv.enc.WithHMAC(hmackey[:])
+			err = cv.enc.WithHMAC(hmackey[:])
+		case *metafeedCreate:
+			err = cv.enc.WithHMAC(hmackey[:])
 		default:
-			return fmt.Errorf("hmac: unknown creater: %T", cv)
+			err = fmt.Errorf("hmac: unknown creater: %T", cv)
 		}
-		return nil
+		return err
 	}
 }
 
@@ -182,10 +193,10 @@ func UseNowTimestamps(yes bool) PublishOption {
 		switch cv := pl.create.(type) {
 		case *legacyCreate:
 			cv.setTimestamp = yes
-
 		case *gabbyCreate:
 			cv.enc.WithNowTimestamps(yes)
-
+		case *metafeedCreate:
+			cv.enc.WithNowTimestamps(yes)
 		default:
 			return fmt.Errorf("setTimestamp: unknown creater: %T", cv)
 		}
@@ -207,12 +218,12 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	// prepare persisted message
 	var stored legacy.StoredMessage
 	stored.Timestamp_ = time.Now() // "rx"
-	stored.Author_ = lc.key.Id
+	stored.Author_ = lc.key.ID()
 
 	// set metadata
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
-	newMsg.Author = lc.key.Id.Ref()
+	newMsg.Author = lc.key.ID().Ref()
 	if seq > 1 {
 		newMsg.Previous = &prev
 	}
@@ -229,7 +240,7 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 		newMsg.Timestamp = time.Now().UnixNano() / 1000000
 	}
 
-	mr, signedMessage, err := newMsg.Sign(lc.key.Pair.Secret[:], lc.hmac)
+	mr, signedMessage, err := newMsg.Sign(lc.key.Secret(), lc.hmac)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +265,30 @@ func (pc gabbyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (
 	tr, _, err := pc.enc.Encode(nextSeq, br, val)
 	if err != nil {
 		return nil, fmt.Errorf("gabby: failed to encode content: %w", err)
+	}
+	return tr, nil
+}
+
+type metafeedCreate struct {
+	enc *metafeed.Encoder
+}
+
+func (pc metafeedCreate) Create(val interface{}, prev refs.MessageRef, seq int64) (refs.Message, error) {
+	if seq > math.MaxInt32 {
+		return nil, fmt.Errorf("metafeedCreate: sequence exceeded feed format capacity")
+	}
+	nextSeq := int32(seq)
+
+	if seq == 1 {
+		var err error
+		prev, err = refs.NewMessageRefFromBytes(bytes.Repeat([]byte{0}, 32), refs.RefAlgoMessageBendyButt)
+		if err != nil {
+			return nil, err
+		}
+	}
+	tr, _, err := pc.enc.Encode(nextSeq, prev, val)
+	if err != nil {
+		return nil, fmt.Errorf("metafeedCreate: failed to encode content: %w", err)
 	}
 	return tr, nil
 }

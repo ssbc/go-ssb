@@ -60,32 +60,32 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	theBots = append(theBots, bLeafs...)
 
 	// be-friend the network
-	_, err := botA.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
+	_, err := botA.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.ID()))
 	r.NoError(err)
-	botA.Replicate(botI.KeyPair.Id)
-	_, err = botI.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.Id))
-	botI.Replicate(botA.KeyPair.Id)
+	botA.Replicate(botI.KeyPair.ID())
+	_, err = botI.PublishLog.Append(refs.NewContactFollow(botA.KeyPair.ID()))
+	botI.Replicate(botA.KeyPair.ID())
 	r.NoError(err)
 	var msgCnt = 2
 
 	for i, bot := range bLeafs {
-		_, err := bot.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.Id))
+		_, err := bot.PublishLog.Append(refs.NewContactFollow(botI.KeyPair.ID()))
 		r.NoError(err, "follow b%d>I failed", i)
-		_, err = botI.PublishLog.Append(refs.NewContactFollow(bot.KeyPair.Id))
+		_, err = botI.PublishLog.Append(refs.NewContactFollow(bot.KeyPair.ID()))
 		r.NoError(err, "follow I>b%d failed", i)
 		msgCnt += 2
 
-		bot.Replicate(botI.KeyPair.Id)
-		botI.Replicate(bot.KeyPair.Id)
+		bot.Replicate(botI.KeyPair.ID())
+		botI.Replicate(bot.KeyPair.ID())
 
 		// simulate hops
-		bot.Replicate(botA.KeyPair.Id)
-		botA.Replicate(bot.KeyPair.Id)
+		bot.Replicate(botA.KeyPair.ID())
+		botA.Replicate(bot.KeyPair.ID())
 		for _, botB := range bLeafs {
 			if botB == bot {
 				continue
 			}
-			botB.Replicate(bot.KeyPair.Id)
+			botB.Replicate(bot.KeyPair.ID())
 		}
 	}
 
@@ -108,7 +108,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	botB0 := bLeafs[0]
 	feedIdxOfB0, ok := botB0.GetMultiLog("userFeeds")
 	r.True(ok)
-	feedAonBotB, err := feedIdxOfB0.Get(storedrefs.Feed(botA.KeyPair.Id))
+	feedAonBotB, err := feedIdxOfB0.Get(storedrefs.Feed(botA.KeyPair.ID()))
 	r.NoError(err)
 	seqv, err := feedAonBotB.Seq().Value()
 	r.NoError(err)
@@ -173,7 +173,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		ufOfBotB, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok)
 
-		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.Id))
+		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.ID()))
 		r.NoError(err)
 
 		seqv, err := feedAonBotB.Seq().Value()

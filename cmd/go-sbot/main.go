@@ -236,7 +236,7 @@ func runSbot() error {
 	}()
 	logging.SetCloseChan(c)
 
-	id := sbot.KeyPair.Id
+	id := sbot.KeyPair.ID()
 	uf, ok := sbot.GetMultiLog(multilogs.IndexNameFeeds)
 	if !ok {
 		checkAndLog(fmt.Errorf("missing userFeeds"))
@@ -349,7 +349,7 @@ func runSbot() error {
 			return fmt.Errorf("failed to build graph during cleanup: %w", err)
 		}
 
-		botRef := sbot.KeyPair.Id
+		botRef := sbot.KeyPair.ID()
 		lst, err := tg.BlockedList(botRef).List()
 		if err != nil {
 			return fmt.Errorf("cleanup: failed to get blocked list: %w", err)

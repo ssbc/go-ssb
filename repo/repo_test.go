@@ -3,8 +3,8 @@
 package repo
 
 import (
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,13 +15,10 @@ import (
 func TestNew(t *testing.T) {
 	r := require.New(t)
 
-	rpath, err := ioutil.TempDir("", t.Name())
-	r.NoError(err)
+	rpath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(rpath)
 
 	repo := New(rpath)
-
-	_, err = DefaultKeyPair(repo)
-	r.NoError(err, "failed to open key pair")
 
 	rl, err := OpenLog(repo)
 	r.NoError(err, "failed to open root log")

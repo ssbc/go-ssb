@@ -110,12 +110,14 @@ func New(opts Options) (*Node, error) {
 		n.dialer = netwrap.Dial
 	}
 
-	n.secretClient, err = secretstream.NewClient(opts.KeyPair.Pair, opts.AppKey)
+	connKeyPair := ssb.EdKeyPair(opts.KeyPair)
+
+	n.secretClient, err = secretstream.NewClient(connKeyPair, opts.AppKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating secretstream.Client: %w", err)
 	}
 
-	n.secretServer, err = secretstream.NewServer(opts.KeyPair.Pair, opts.AppKey)
+	n.secretServer, err = secretstream.NewServer(connKeyPair, opts.AppKey)
 	if err != nil {
 		return nil, fmt.Errorf("error creating secretstream.Server: %w", err)
 	}

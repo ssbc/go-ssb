@@ -155,6 +155,9 @@ type Sbot struct {
 	systemGauge  metrics.Gauge
 	latency      metrics.Histogram
 
+	enableMetafeeds bool
+	MetaFeeds       MetaFeeds
+
 	ssb.Replicator
 }
 
@@ -219,8 +222,12 @@ func New(fopts ...Option) (*Sbot, error) {
 	r := repo.New(s.repoPath)
 
 	var err error
-	if len(s.KeyPair.Pair.Secret) == 0 {
-		s.KeyPair, err = repo.DefaultKeyPair(r)
+	if s.KeyPair == nil {
+		algo := refs.RefAlgoFeedSSB1
+		if s.enableMetafeeds {
+			algo = refs.RefAlgoFeedBendyButt
+		}
+		s.KeyPair, err = repo.DefaultKeyPair(r, algo)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
 		}
@@ -260,7 +267,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	sm, err := statematrix.New(
 		r.GetPath("ebt-state-matrix"),
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 	)
 	if err != nil {
 		return nil, err
@@ -342,7 +349,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	combIdx, err := multilogs.NewCombinedIndex(
 		s.repoPath,
 		s.Groups,
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		s.ReceiveLog,
 		s.Users,
 		s.Private,
@@ -361,7 +368,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	members, membersSnk := multilogs.NewMembershipIndex(
 		kitlog.With(s.info, "unit", "private-groups"),
 		s.indexStore,
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		s.Groups,
 		combIdx,
 	)
@@ -436,7 +443,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 	}
 
-	selfNf, err := s.ebtState.Inspect(s.KeyPair.Id)
+	selfNf, err := s.ebtState.Inspect(s.KeyPair.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -464,14 +471,22 @@ func New(fopts ...Option) (*Sbot, error) {
 			selfNf[feed.Ref()] = seq
 		}
 
-		selfNf[s.KeyPair.Id.Ref()], err = s.CurrentSequence(s.KeyPair.Id)
+		selfNf[s.KeyPair.ID().Ref()], err = s.CurrentSequence(s.KeyPair.ID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}
 
-		_, err = s.ebtState.Update(s.KeyPair.Id, selfNf)
+		_, err = s.ebtState.Update(s.KeyPair.ID(), selfNf)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	s.MetaFeeds = disabledMetaFeeds{}
+	if s.enableMetafeeds {
+		s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 		}
 	}
 
@@ -504,8 +519,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
-
-		if s.KeyPair.Id.Equal(remote) {
+		if s.KeyPair.ID().Equal(remote) {
 			return s.master.MakeHandler(conn)
 		}
 
@@ -554,14 +568,14 @@ func New(fopts ...Option) (*Sbot, error) {
 		// TOFU restore/resync
 		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
 			level.Warn(log).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
-			s.Replicate(s.KeyPair.Id)
+			s.Replicate(s.KeyPair.ID())
 			return s.public.MakeHandler(conn)
 		}
 		return nil, err
 	}
 
 	// publish
-	authorLog, err := s.Users.Get(storedrefs.Feed(s.KeyPair.Id))
+	authorLog, err := s.Users.Get(storedrefs.Feed(s.KeyPair.ID()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
@@ -569,24 +583,24 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// private
 	// TODO: box2
-	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(s.KeyPair.Id))
+	userPrivs, err := s.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(s.KeyPair.ID()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open user private index: %w", err)
 	}
 	s.master.Register(privplug.NewPlug(
 		kitlog.With(log, "unit", "private"),
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		s.Groups,
 		s.PublishLog,
 		private.NewUnboxerLog(s.ReceiveLog, userPrivs, s.KeyPair)))
 
 	// whoami
-	whoami := whoami.New(kitlog.With(log, "unit", "whoami"), s.KeyPair.Id)
+	whoami := whoami.New(kitlog.With(log, "unit", "whoami"), s.KeyPair.ID())
 	s.public.Register(whoami)
 	s.master.Register(whoami)
 
 	// blobs
-	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), s.KeyPair.Id, s.BlobStore, wm)
+	blobs := blobs.New(kitlog.With(log, "unit", "blobs"), s.KeyPair.ID(), s.BlobStore, wm)
 	s.public.Register(blobs)
 	s.master.Register(blobs) // TODO: does not need to open a createWants on this one?!
 
@@ -629,7 +643,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	gossipPlug := gossip.NewFetcher(ctx,
 		kitlog.With(log, "plugin", "gossip"),
 		r,
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
 		s.verifySink,
@@ -640,7 +654,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	} else {
 		ebtPlug := ebt.NewPlug(
 			kitlog.With(log, "plugin", "ebt"),
-			s.KeyPair.Id,
+			s.KeyPair.ID(),
 			s.ReceiveLog,
 			s.Users,
 			fm,
@@ -661,7 +675,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	// incoming createHistoryStream handler
 	hist := gossip.NewServer(ctx,
 		kitlog.With(log, "unit", "gossip/hist"),
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
 		s.Replicator.Lister(),
 		fm,
@@ -689,7 +703,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// raw log plugins
 
-	sc := selfChecker{s.KeyPair.Id}
+	sc := selfChecker{s.KeyPair.ID()}
 	s.master.Register(rawread.NewByTypePlugin(
 		s.info,
 		s.ReceiveLog,
@@ -705,7 +719,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.master.Register(replicate.NewPlug(s.Users))
 
-	s.master.Register(friends.New(log, s.KeyPair.Id, s.GraphBuilder))
+	s.master.Register(friends.New(log, s.KeyPair.ID(), s.GraphBuilder))
 
 	mh := namedPlugin{
 		h:    manifestBlob,
@@ -785,7 +799,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	inviteService, err = legacyinvites.New(
 		kitlog.With(log, "unit", "legacyInvites"),
 		r,
-		s.KeyPair.Id,
+		s.KeyPair.ID(),
 		networkNode,
 		s.PublishLog,
 		s.ReceiveLog,

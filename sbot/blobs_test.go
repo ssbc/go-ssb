@@ -79,8 +79,8 @@ func TestBlobsPair(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
 
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
 	sess := &session{
 		ctx:   ctx,
@@ -430,12 +430,12 @@ func TestBlobsWithHops(t *testing.T) {
 	botgroup.Go(bs.Serve(cle))
 
 	// ali <> bob
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
 	// bob <> cle
-	bob.Replicate(cle.KeyPair.Id)
-	cle.Replicate(bob.KeyPair.Id)
+	bob.Replicate(cle.KeyPair.ID())
+	cle.Replicate(bob.KeyPair.ID())
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)
@@ -554,8 +554,8 @@ func TestBlobsTooBig(t *testing.T) {
 	bob.BlobStore.Register(blobUpdate(bobLog))
 	ali.BlobStore.Register(blobUpdate(aliLog))
 
-	ali.Replicate(bob.KeyPair.Id)
-	bob.Replicate(ali.KeyPair.Id)
+	ali.Replicate(bob.KeyPair.ID())
+	bob.Replicate(ali.KeyPair.ID())
 
 	err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 	r.NoError(err)

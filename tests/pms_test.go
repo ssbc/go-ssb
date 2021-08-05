@@ -112,7 +112,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	}
 
 	for i, msg := range tmsgs {
-		sbox, err := boxer.Encrypt(msg, alice, s.KeyPair.Id)
+		sbox, err := boxer.Encrypt(msg, alice, s.KeyPair.ID())
 		r.NoError(err, "failed to create ciphertext %d", i)
 
 		newSeq, err := s.PublishLog.Append(sbox)

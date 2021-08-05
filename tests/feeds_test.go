@@ -202,7 +202,7 @@ func TestFeedFromGo(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": s.KeyPair.Id.Ref(),
+			"about": s.KeyPair.ID().Ref(),
 			"name":  "test user",
 		},
 		map[string]interface{}{
@@ -259,7 +259,7 @@ func TestFeedFromGo(t *testing.T) {
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(storedMsg.Seq(), 2)
 
-	bobLog, err := ml.Get(storedrefs.Feed(s.KeyPair.Id))
+	bobLog, err := ml.Get(storedrefs.Feed(s.KeyPair.ID()))
 	r.NoError(err)
 	bseq, err := bobLog.Seq().Value()
 	r.NoError(err)
@@ -330,7 +330,7 @@ func XTestFeedFromGoLive(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": s.KeyPair.Id.Ref(),
+			"about": s.KeyPair.ID().Ref(),
 			"name":  "test user",
 		},
 		map[string]interface{}{

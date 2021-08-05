@@ -129,7 +129,7 @@ func XTestEpidemicBroadcastTrees(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": sbot.KeyPair.Id.Ref(),
+			"about": sbot.KeyPair.ID().Ref(),
 			"name":  "test user",
 		},
 		map[string]interface{}{"type": "post", "text": `# hello world!`},

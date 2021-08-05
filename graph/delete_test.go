@@ -45,6 +45,6 @@ func (op PeopleOpDeleteAuthor) Op(state *testState) error {
 	if !ok {
 		return fmt.Errorf("delete: no such who %s", op.who)
 	}
-	err := state.store.gbuilder.DeleteAuthor(who.key.Id)
+	err := state.store.gbuilder.DeleteAuthor(who.key.ID())
 	return err
 }

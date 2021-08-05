@@ -63,14 +63,14 @@ func TestReplicateUpTo(t *testing.T) {
 		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
 		r.NoError(err)
 
-		testKeyPairs[kp.Id.Ref()] = i
+		testKeyPairs[kp.ID().Ref()] = i
 		for n := i; n > 0; n-- {
 			ref, err := publish.Publish(struct {
 				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
-			}{"test", true, n, kp.Id.Ref()})
+			}{"test", true, n, kp.ID().Ref()})
 			r.NoError(err)
 			t.Log(ref.Ref())
 		}

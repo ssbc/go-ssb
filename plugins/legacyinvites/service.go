@@ -119,7 +119,7 @@ func (s *Service) Create(uses uint, note string) (*invite.Token, error) {
 			if err != nil {
 				return fmt.Errorf("invite/create: generate seeded keypair (%w)", err)
 			}
-			dbKey = append(dbKeyPrefix, inviteKeyPair.Id.PubKey()...)
+			dbKey = append(dbKeyPrefix, inviteKeyPair.ID().PubKey()...)
 			_, err = txn.Get(dbKey)
 			if err != nil {
 				if errors.Is(err, badger.ErrKeyNotFound) {

@@ -75,8 +75,8 @@ func XTestNullContentRequest(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", refs.NewContactFollow(kpBert.Id)},
-		{"bert", refs.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.ID())},
+		{"bert", refs.NewContactFollow(kpArny.ID())},
 		{"arny", map[string]interface{}{"test": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
@@ -94,7 +94,7 @@ func XTestNullContentRequest(t *testing.T) {
 		r.NoError(err)
 		r.NotNil(msg)
 
-		r.True(msg.Author().Equal(n2kp[intro.as].Id))
+		r.True(msg.Author().Equal(n2kp[intro.as].ID()))
 
 		allMessages = append(allMessages, ref)
 	}
@@ -113,7 +113,7 @@ func XTestNullContentRequest(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(storedrefs.Feed(kp.Id))
+		l, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
 		checkLogSeq(l, seq)
@@ -130,7 +130,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.True(ok, "userFeeds mlog not present")
 
 	// try to request on arnies feed fails because the formt doesn't support it
-	arniesLog, err := uf.Get(storedrefs.Feed(kpArny.Id))
+	arniesLog, err := uf.Get(storedrefs.Feed(kpArny.ID()))
 	r.NoError(err)
 
 	arniesLog = mutil.Indirect(mainbot.ReceiveLog, arniesLog)
@@ -138,7 +138,7 @@ func XTestNullContentRequest(t *testing.T) {
 	r.False(dcr.Valid(arniesLog))
 
 	// bert is in gg format so it works
-	bertLog, err := uf.Get(storedrefs.Feed(kpBert.Id))
+	bertLog, err := uf.Get(storedrefs.Feed(kpBert.ID()))
 	r.NoError(err)
 
 	bertLog = mutil.Indirect(mainbot.ReceiveLog, bertLog)
@@ -147,7 +147,7 @@ func XTestNullContentRequest(t *testing.T) {
 	msg, ok := msgv.(refs.Message)
 	r.True(ok, "not a msg! %T", msgv)
 
-	r.True(msg.Author().Equal(kpBert.Id), "wrong author")
+	r.True(msg.Author().Equal(kpBert.ID()), "wrong author")
 	r.True(bytes.Contains(msg.ContentBytes(), []byte(`"delete":`)), "wrong message")
 
 	type tcase struct {
@@ -263,7 +263,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		l, err := uf.Get(storedrefs.Feed(kp.Id))
+		l, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
 		v, err := l.Seq().Value()
@@ -278,7 +278,7 @@ func XTestNullContentAndSync(t *testing.T) {
 		uf, ok := bot.GetMultiLog("userFeeds")
 		r.True(ok, "userFeeds mlog not present")
 
-		userLog, err := uf.Get(storedrefs.Feed(kp.Id))
+		userLog, err := uf.Get(storedrefs.Feed(kp.ID()))
 		r.NoError(err)
 
 		msgv, err := mutil.Indirect(bot.ReceiveLog, userLog).Get(margaret.BaseSeq(seq - 1)) // 0-indexed
@@ -315,8 +315,8 @@ func XTestNullContentAndSync(t *testing.T) {
 		as string      // nick name
 		c  interface{} // content
 	}{
-		{"arny", refs.NewContactFollow(kpBert.Id)},
-		{"bert", refs.NewContactFollow(kpArny.Id)},
+		{"arny", refs.NewContactFollow(kpBert.ID())},
+		{"bert", refs.NewContactFollow(kpArny.ID())},
 		{"arny", map[string]interface{}{"test": 123}},
 		{"bert", map[string]interface{}{"world": 456}},
 		{"bert", map[string]interface{}{"spew": true, "delete": "me"}},
@@ -337,18 +337,18 @@ func XTestNullContentAndSync(t *testing.T) {
 	checkUserLogSeq(mainbot, "bert", 5)
 
 	// can't null self (because it's in old fomrat)
-	r.Equal(mainbot.KeyPair.Id.Algo, refs.RefAlgoFeedSSB1, "wrong feed format (upgraded default?)")
-	err = mainbot.NullContent(kpArny.Id, 2)
+	r.Equal(mainbot.KeyPair.ID().Algo, refs.RefAlgoFeedSSB1, "wrong feed format (upgraded default?)")
+	err = mainbot.NullContent(kpArny.ID(), 2)
 	r.Error(err, "should not work")
 	r.EqualError(err, ssb.ErrUnuspportedFormat.Error())
 	checkMessageNulled(mainbot, "arny", 2, false)
 
 	// null some content manually
-	err = mainbot.NullContent(kpBert.Id, 3)
+	err = mainbot.NullContent(kpBert.ID(), 3)
 	r.NoError(err, "failed to drop delete: me")
 	checkMessageNulled(mainbot, "bert", 3, true)
 
-	err = mainbot.NullContent(kpBert.Id, 4)
+	err = mainbot.NullContent(kpBert.ID(), 4)
 	r.NoError(err, "failed to drop delete: me")
 	checkMessageNulled(mainbot, "bert", 4, true)
 
@@ -364,10 +364,10 @@ func XTestNullContentAndSync(t *testing.T) {
 	botgroup.Go(bs.Serve(otherBot))
 
 	// conect, should still get the full feeds
-	mainbot.Replicate(otherBot.KeyPair.Id)
-	otherBot.Replicate(mainbot.KeyPair.Id)
-	otherBot.Replicate(kpArny.Id)
-	otherBot.Replicate(kpBert.Id)
+	mainbot.Replicate(otherBot.KeyPair.ID())
+	otherBot.Replicate(mainbot.KeyPair.ID())
+	otherBot.Replicate(kpArny.ID())
+	otherBot.Replicate(kpBert.ID())
 	err = mainbot.Network.Connect(ctx, otherBot.Network.GetListenAddr())
 	r.NoError(err)
 

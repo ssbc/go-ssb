@@ -36,6 +36,7 @@ func TestFormatsSimple(t *testing.T) {
 	var testCases = []testCase{
 		{refs.RefAlgoFeedSSB1},
 		{refs.RefAlgoFeedGabby},
+		{refs.RefAlgoFeedBendyButt},
 	}
 
 	ts := newPublishtestSession(t)
@@ -100,16 +101,16 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 		testAuthor, err := ssb.NewKeyPair(staticRand, ff)
 		r.NoError(err)
 
-		authorLog, err := ts.userLogs.Get(storedrefs.Feed(testAuthor.Id))
+		authorLog, err := ts.userLogs.Get(storedrefs.Feed(testAuthor.ID()))
 		r.NoError(err)
 
 		w, err := OpenPublishLog(ts.rxLog, ts.userLogs, testAuthor)
-		r.NoError(err)
+		r.NoError(err, "publish log didnt open")
 
 		var tmsgs = []interface{}{
 			map[string]interface{}{
 				"type":  "about",
-				"about": testAuthor.Id.Ref(),
+				"about": testAuthor.ID().Ref(),
 				"name":  "test user",
 			},
 			map[string]interface{}{
@@ -183,6 +184,10 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 				r.True(ok)
 				a.True(g.Verify(nil), "gabby failed to validate msg:%d", i)
 
+			case refs.RefAlgoFeedBendyButt:
+				mf, ok := mm.AsMetaFeed()
+				r.True(ok)
+				a.True(mf.Verify(nil))
 			default:
 				r.FailNow("unhandled feed format", "format:%s", ff)
 			}

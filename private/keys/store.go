@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -31,7 +32,7 @@ func (mgr *Store) AddKey(id ID, r Recipient) error {
 
 	idxkBytes, err := idxk.MarshalBinary()
 	if err != nil {
-		return err
+		return fmt.Errorf("keys/store failed to martial index key: %w", err)
 	}
 
 	recps, err := mgr.GetKeys(r.Scheme, id)
@@ -79,6 +80,42 @@ func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 	}
 
 	return mgr.Index.Delete(todoCtx, librarian.Addr(idxkBs))
+}
+
+func (mgr *Store) RmKey(ks KeyScheme, id ID, rmKey Recipient) error {
+	// load current value
+	recps, err := mgr.GetKeys(ks, id)
+	if err != nil {
+		return fmt.Errorf("error getting current value: %w", err)
+	}
+
+	// look for rmKey
+	var idx int = -1
+	for i, r := range recps {
+		if bytes.Equal(r.Key, rmKey.Key) {
+			idx = i
+			break
+		}
+	}
+
+	if idx < 0 {
+		return fmt.Errorf("recpient not in keys list")
+	}
+
+	recps = append(recps[:idx], recps[idx+1:]...)
+
+	// update stored entry
+	idxk := &idxKey{
+		ks: ks,
+		id: id,
+	}
+
+	idxkBs, err := idxk.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), recps)
 }
 
 func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipients, error) {
