@@ -8,8 +8,9 @@ import (
 	"os"
 
 	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
+
+	refs "go.mindeco.de/ssb-refs"
 )
 
 var publishCmd = &cli.Command{

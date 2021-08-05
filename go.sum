@@ -400,6 +400,8 @@ go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/margaret v0.3.0 h1:OBhDtUhr90LxgUtl6zIpmUBrhXPYjLvTVkgzYoyHGek=
 go.cryptoscope.co/margaret v0.3.0/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
+go.cryptoscope.co/margaret v0.3.1-0.20210723183855-cbac1675c313 h1:3D52h+OZOWK7lyyIAunZokAsj2BmzpoyhEWvndfEMzA=
+go.cryptoscope.co/margaret v0.3.1-0.20210723183855-cbac1675c313/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
 go.cryptoscope.co/muxrpc/v2 v2.0.10 h1:H4MhLrdzMfW1vs5SwYYFUHKNkXO0mkhVM4ZRPsVh5Yk=
 go.cryptoscope.co/muxrpc/v2 v2.0.10/go.mod h1:og3Wr0CWnJBVp3aiRa9MmmTUQh901wWNjI96+o3NZag=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=

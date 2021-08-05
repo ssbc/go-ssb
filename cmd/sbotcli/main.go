@@ -5,13 +5,11 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -99,7 +97,6 @@ var app = cli.App{
 		connectCmd,
 		publishCmd,
 		groupsCmd,
-		// tryEBTCmd,
 	},
 }
 
@@ -163,12 +160,18 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	if sockPath != "" {
 		client, err := ssbClient.NewUnix(sockPath, ssbClient.WithContext(longctx))
 		if err != nil {
-			return nil, fmt.Errorf("unix-path based client init failed: %w", err)
+			level.Warn(log).Log("client", "unix-path based init failed", "err", err)
+			return newTCPClient(ctx)
 		}
+		level.Info(log).Log("client", "connected", "method", "unix sock")
 		return client, nil
 	}
 
 	// Assume TCP connection
+	return newTCPClient(ctx)
+}
+
+func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	localKey, err := ssb.LoadKeyPair(ctx.String("key"))
 	if err != nil {
 		return nil, err
@@ -198,7 +201,7 @@ func newClient(ctx *cli.Context) (*ssbClient.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init: failed to connect to %s: %w", shsAddr.String(), err)
 	}
-	log.Log("init", "done")
+	level.Info(log).Log("client", "connected", "method", "tcp")
 	return client, nil
 }
 
@@ -223,8 +226,9 @@ CAVEAT: only one argument...
 		if cmd == "" {
 			return errors.New("call: cmd can't be empty")
 		}
+		method := strings.Split(cmd, ".")
+
 		args := ctx.Args().Slice()
-		v := strings.Split(cmd, ".")
 		var sendArgs []interface{}
 		if len(args) > 1 {
 			sendArgs = make([]interface{}, len(args)-1)
@@ -239,17 +243,23 @@ CAVEAT: only one argument...
 		}
 
 		var reply interface{}
-		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method(v), sendArgs...) // TODO: args[1:]...
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method(method), sendArgs...)
 		if err != nil {
 			return fmt.Errorf("%s: call failed: %w", cmd, err)
 		}
 		level.Debug(log).Log("event", "call reply")
+
 		jsonReply, err := json.MarshalIndent(reply, "", "  ")
 		if err != nil {
 			return fmt.Errorf("%s: indent failed: %w", cmd, err)
 		}
-		_, err = io.Copy(os.Stdout, bytes.NewReader(jsonReply))
-		return fmt.Errorf("%s: result copy failed: %w", cmd, err)
+
+		_, err = os.Stdout.Write(jsonReply)
+		if err != nil {
+			return fmt.Errorf("%s: result copy failed: %w", cmd, err)
+		}
+
+		return nil
 	},
 }
 
@@ -277,7 +287,7 @@ var sourceCmd = &cli.Command{
 		}
 
 		var args = struct {
-			ID    string `json:"id"`
+			ID    string `json:"id,omitempty"`
 			Limit int    `json:"limit"`
 		}{
 			ID:    ctx.String("id"),
@@ -363,7 +373,7 @@ var connectCmd = &cli.Command{
 			// js fallback (our mux doesnt support authed namespaces)
 			err = client.Async(longctx, &val, muxrpc.TypeString, muxrpc.Method{"gossip", "connect"}, to)
 			if err != nil {
-				return fmt.Errorf("connect: async call failed: %w.", err)
+				return fmt.Errorf("connect: async call failed: %w", err)
 			}
 		}
 		log.Log("event", "connect reply")
@@ -402,37 +412,6 @@ var blockCmd = &cli.Command{
 		return nil
 	},
 }
-
-var queryCmd = &cli.Command{
-	Name:   "qry",
-	Action: todo, //query,
-}
-
-/*
-var getCmd = &cli.Command{
-	Name:  "create",
-	Usage: "create a new empty group",
-	Action: func(ctx *cli.Context) error {
-		client, err := newClient(ctx)
-		if err != nil {
-			return err
-		}
-
-		getRef, err := refs.PraseMessageRef(ctx.Args().First())
-		if err != nil {
-			return err
-		}
-
-		msg, err = client.Get(getRef)
-		if err != nil {
-			return err
-		}
-		log.Log("event", "get response")
-		goon.Dump(msg)
-		return nil
-	},
-}
-*/
 
 var groupsCmd = &cli.Command{
 	Name:  "groups",
@@ -538,7 +517,7 @@ var groupsPublishToCmd = &cli.Command{
 		var reply interface{}
 		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
 		if err != nil {
-			return fmt.Errorf("publish call failed: %w.", err)
+			return fmt.Errorf("publish call failed: %w", err)
 		}
 		log.Log("event", "publishTo", "type", "raw")
 		goon.Dump(reply)
@@ -591,58 +570,3 @@ var inviteAcceptCmd = &cli.Command{
 	Usage:  "use an invite code",
 	Action: todo,
 }
-
-/* EBT HACKZ
-var tryEBTCmd = &cli.Command{
-	Name: "ebt",
-	Action: func(ctx *cli.Context) error {
-		client, err := newClient(ctx)
-		if err != nil {
-			return err
-		}
-
-		var opt = map[string]interface{}{
-			"version": 2,
-		}
-		var msgs map[string]interface{}
-		src, snk, err := client.Duplex(longctx, msgs, muxrpc.Method{"ebt", "replicate"}, opt)
-		log.Log("event", "call replicate", "err", err)
-		if err != nil {
-			return err
-		}
-		go pump(longctx, snk)
-		drain(longctx, src)
-		// snk.Close()
-		// <-longctx.Done()
-		return nil
-	},
-}
-
-func pump(ctx context.Context, snk luigi.Sink) {
-	for i := 0; i < 10; i++ {
-		err := snk.Pour(ctx, map[string]interface{}{
-			"@k53z9zrXEsxytIE+38qaApl44ZJS68XvkepQ0fyJLdg=.ed25519": 100 + i,
-			"@vZeAPvi6rMuB0bbGCciXzqJEmORnGt4rojCWVmOYXXU=.ed25519": 0,
-		})
-		log.Log("event", "pump done", "err", err, "i", i)
-		time.Sleep(10 * time.Second)
-	}
-	snk.Close()
-}
-
-func drain(ctx context.Context, src luigi.Source) {
-	snk := luigi.FuncSink(func(ctx context.Context, val interface{}, err error) error {
-		if err != nil {
-			if luigi.IsEOS(err) {
-				return nil
-			}
-			return err
-		}
-		log.Log("event", "drain got")
-		goon.Dump(val)
-		return nil
-	})
-	err := luigi.Pump(ctx, snk, src)
-	log.Log("event", "drain done", "err", err)
-}
-*/

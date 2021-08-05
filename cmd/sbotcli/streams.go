@@ -9,11 +9,11 @@ import (
 	"io"
 	"os"
 
-	"go.cryptoscope.co/ssb/message"
-
 	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
 	cli "gopkg.in/urfave/cli.v2"
+
+	"go.cryptoscope.co/ssb/message"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 var streamFlags = []cli.Flag{
@@ -52,8 +52,6 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 	args.Private = ctx.Bool("private")
 	return args
 }
-
-type mapMsg map[string]interface{}
 
 var partialStreamCmd = &cli.Command{
 	Name:  "partial",
@@ -257,6 +255,9 @@ func jsonDrain(w io.Writer, r *muxrpc.ByteSource) error {
 			_, err := buf.ReadFrom(r)
 			return err
 		})
+		if err != nil {
+			return err
+		}
 
 		// jsonReply, err := json.MarshalIndent(buf.Bytes(), "", "  ")
 		// if err != nil {
@@ -271,19 +272,3 @@ func jsonDrain(w io.Writer, r *muxrpc.ByteSource) error {
 	}
 	return r.Err()
 }
-
-/*
-
-func query(ctx *cli.Context) error {
-	reply := make(chan map[string]interface{})
-	go func() {
-		for r := range reply {
-			goon.Dump(r)
-		}
-	}()
-	if err := client.Source("query.read", reply, ctx.Args().Get(0)); err != nil {
-		return fmt.Errorf("source stream call failed",err)
-	}
-	return client.Close()
-}
-*/

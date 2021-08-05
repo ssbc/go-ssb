@@ -18,7 +18,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type SequencedSink interface {
+type SequencedVerificationSink interface {
 	margaret.Seq
 
 	Verify([]byte) error
@@ -33,7 +33,7 @@ type SaveMessager interface {
 // TODO: start and abs could be the same parameter
 // TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
-func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedSink, error) {
+func NewVerifySink(who refs.FeedRef, start margaret.Seq, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedVerificationSink, error) {
 	drain := &generalVerifyDrain{
 		who:       who,
 		latestSeq: margaret.BaseSeq(start.Seq()),

@@ -7,10 +7,11 @@ import (
 	"os"
 
 	"go.cryptoscope.co/muxrpc/v2"
+	"gopkg.in/urfave/cli.v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
 	refs "go.mindeco.de/ssb-refs"
-	"gopkg.in/urfave/cli.v2"
 )
 
 var blobsStore ssb.BlobStore

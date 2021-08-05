@@ -25,7 +25,7 @@ func NewPlug(
 	uf multilog.MultiLog,
 	fm *gossip.FeedManager,
 	sm *statematrix.StateMatrix,
-	v *message.VerifySink,
+	v *message.VerificationRouter,
 ) *Plugin {
 
 	return &Plugin{&MUXRPCHandler{

@@ -9,10 +9,11 @@ import (
 	"os"
 
 	"go.cryptoscope.co/muxrpc/v2"
+	"gopkg.in/urfave/cli.v2"
+
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/aliases"
 	refs "go.mindeco.de/ssb-refs"
-	"gopkg.in/urfave/cli.v2"
 )
 
 var aliasCmd = &cli.Command{
