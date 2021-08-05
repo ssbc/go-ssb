@@ -29,7 +29,7 @@ func TestSubsetQuerySerializing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cases := []tcaseSerialze{
+	cases := []tcaseSerialized{
 		{
 			name:      "simple type",
 			query:     query.NewSubsetOpByType("foo"),
@@ -96,7 +96,7 @@ func TestSubsetQuerySerializing(t *testing.T) {
 	}
 }
 
-type tcaseSerialze struct {
+type tcaseSerialized struct {
 	name string
 
 	jsonInput string
@@ -105,7 +105,7 @@ type tcaseSerialze struct {
 	invalid bool
 }
 
-func (tc tcaseSerialze) run(t *testing.T) {
+func (tc tcaseSerialized) run(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 

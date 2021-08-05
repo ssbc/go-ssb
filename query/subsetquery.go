@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+// Package query holds the first version of a generic query engine for go-ssb.
+// The Subset operations are able to combine arbitrary boolen combinations of type:xzy and author:@foo filters into one result.
 package query
 
 import (
@@ -72,9 +74,7 @@ func (so *SubsetOperation) UnmarshalJSON(input []byte) error {
 	}
 
 	switch m.Operation {
-	case "and":
-		so.args = m.Args
-	case "or":
+	case "and", "or":
 		so.args = m.Args
 	case "type":
 		so.string = m.String
