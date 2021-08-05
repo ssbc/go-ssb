@@ -16,7 +16,7 @@ import (
 func TestExtractSignature(t *testing.T) {
 	r := require.New(t)
 	var input = []byte(`{"foo":"test","signature":"testSign"}`)
-	enc, err := EncodePreserveOrder(input)
+	enc, err := PrettyPrint(input)
 	r.NoError(err, "encode failed")
 
 	_, sign, err := ExtractSignature(enc)

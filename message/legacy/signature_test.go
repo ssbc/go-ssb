@@ -26,7 +26,7 @@ func TestSignatureVerify(t *testing.T) {
 		n = min(50, n)
 	}
 	for i := 1; i < n; i++ {
-		enc, err := EncodePreserveOrder(testMessages[i].Input)
+		enc, err := PrettyPrint(testMessages[i].Input)
 		r.NoError(err, "encode failed")
 
 		msgWOsig, sig, err := ExtractSignature(enc)
@@ -59,8 +59,10 @@ func TestCompatHMACVerify(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
+	lm.Hash = "sha256"
 	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
+		"type":  "test",
 		"hello": "world",
 	}
 
@@ -94,8 +96,10 @@ func TestCompatHMACSign(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
+	lm.Hash = "sha256"
 	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
+		"type":  "test",
 		"hello": "world",
 	}
 
@@ -119,7 +123,7 @@ func TestCompatHMACSign(t *testing.T) {
 	json.NewEncoder(&buf).Encode(lm)
 	r.NoError(err)
 
-	pp, err := EncodePreserveOrder(buf.Bytes())
+	pp, err := PrettyPrint(buf.Bytes())
 	r.NoError(err)
 
 	env := []string{
@@ -143,8 +147,10 @@ func TestCompatVerify(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
+	lm.Hash = "sha256"
 	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
+		"type":  "test",
 		"hello": "world",
 	}
 
@@ -173,8 +179,10 @@ func TestCompatSignature(t *testing.T) {
 
 	// TODO: be more creative with test data
 	var lm LegacyMessage
+	lm.Hash = "sha256"
 	lm.Author = kp.ID().Ref()
 	lm.Content = map[string]interface{}{
+		"type":  "test",
 		"hello": "world",
 	}
 
@@ -198,7 +206,7 @@ func TestCompatSignature(t *testing.T) {
 	json.NewEncoder(&buf).Encode(lm)
 	r.NoError(err)
 
-	pp, err := EncodePreserveOrder(buf.Bytes())
+	pp, err := PrettyPrint(buf.Bytes())
 	r.NoError(err)
 
 	env := []string{
