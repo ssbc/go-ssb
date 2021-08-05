@@ -905,29 +905,6 @@
     "state": null,
     "hmacKey": null,
     "message": {
-      "previous": "%J9EdQmDUR9+p8SN250e3ZHOCvrBvOql9ilHUdm0rn6s=.sha256",
-      "author": "@+oaWWDs8g73EZFUMfW37R/ULtFEjwKN/DczvdYihjbU=.ed25519",
-      "sequence": 2,
-      "timestamp": 1519858299363,
-      "hash": "sha256",
-      "content": {
-        "type": "pub",
-        "address": {
-          "host": "ssb.ekata.social",
-          "port": 8008,
-          "key": "@FJDMuATvh0a3qIcIPcstUANVIj362fWkYCG5bnkZ5nA=.ed25519"
-        }
-      },
-      "signature": "zqHrgxcxy9umsPaR7FHHn4PFq5Dsev0T3ZTEJbjW7Xqka0GofVls6sVRK69rXbNkecP4UHORPhPZ6c8EN6FADg==.sig.ed25519"
-    },
-    "error": "Message previous must be the previous message ID",
-    "valid": false,
-    "id": "%ULzidT1Bbli5Qax+ap1QeHPjq6AZFbbTgczytrG0ENg=.sha256"
-  },
-  {
-    "state": null,
-    "hmacKey": null,
-    "message": {
       "previous": null,
       "sequence": 1,
       "author": "@+7DLwEDFS+Q/JUD+aAYKjSOFVabm9eUteFxPT54aI7k=.ed25519",
