@@ -1,7 +1,6 @@
 package replicate_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
 	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb"
@@ -80,13 +78,10 @@ func TestListing(t *testing.T) {
 		feeds, err := set.List()
 		r.NoError(err)
 
-		src, err := ssb.WantedFeedsWithSequnce(mainbot.Users, feeds)
+		respSet, err := ssb.WantedFeedsWithSequnce(mainbot.Users, feeds)
 		r.NoError(err)
 
-		var snk []interface{}
-		err = luigi.Pump(context.TODO(), luigi.NewSliceSink(&snk), src)
-		r.NoError(err)
-		assert.Len(t, snk, wanted)
+		assert.Len(t, respSet, wanted)
 	}
 
 	// check with no on one on the want list

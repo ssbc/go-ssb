@@ -7,7 +7,6 @@ package ssb
 import (
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
@@ -105,9 +104,11 @@ func (upto ReplicateUpToResponse) Seq() int64 {
 	return upto.Sequence
 }
 
+type ReplicateUpToResponseSet map[string]ReplicateUpToResponse
+
 // FeedsWithSequnce returns a source that emits one ReplicateUpToResponse per stored feed in feedIndex
 // TODO: make cancelable and with no RAM overhead when only partially used (iterate on demand)
-func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
+func FeedsWithSequnce(feedIndex multilog.MultiLog) (ReplicateUpToResponseSet, error) {
 
 	storedFeeds, err := feedIndex.List()
 	if err != nil {
@@ -133,9 +134,9 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 }
 
 // WantedFeedsWithSequnce is like FeedsWithSequnce but omits feeds that are not in the wanted list.
-func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (luigi.Source, error) {
+func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (ReplicateUpToResponseSet, error) {
 
-	var feedsWithSeqs []interface{}
+	var feedsWithSeqs = make(ReplicateUpToResponseSet, len(wanted))
 
 	for i, author := range wanted {
 
@@ -147,11 +148,10 @@ func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) 
 		}
 
 		if !isStored {
-			elem := ReplicateUpToResponse{
+			feedsWithSeqs[author.Ref()] = ReplicateUpToResponse{
 				ID:       author,
 				Sequence: 0,
 			}
-			feedsWithSeqs = append(feedsWithSeqs, elem)
 			continue
 		}
 
@@ -160,12 +160,12 @@ func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) 
 			return nil, fmt.Errorf("feedSrc(%d): did not load sublog: %w", i, err)
 		}
 
-		elem := ReplicateUpToResponse{
+		feedsWithSeqs[author.Ref()] = ReplicateUpToResponse{
 			ID:       author,
 			Sequence: subLog.Seq() + 1,
 		}
-		feedsWithSeqs = append(feedsWithSeqs, elem)
+
 	}
-	src := luigi.SliceSource(feedsWithSeqs)
-	return &src, nil
+
+	return feedsWithSeqs, nil
 }

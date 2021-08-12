@@ -9,9 +9,9 @@ package replicate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/muxrpc/v2/typemux"
@@ -64,16 +64,19 @@ func (g replicateHandler) HandleSource(ctx context.Context, req *muxrpc.Request,
 		return err
 	}
 
-	src, err := ssb.WantedFeedsWithSequnce(g.users, list)
+	set, err := ssb.WantedFeedsWithSequnce(g.users, list)
 	if err != nil {
 		return fmt.Errorf("replicate: did not get feed source: %w", err)
 	}
 
 	sink.SetEncoding(muxrpc.TypeJSON)
+	enc := json.NewEncoder(sink)
 
-	err = luigi.Pump(ctx, sink.AsStream(), src)
-	if err != nil {
-		return fmt.Errorf("replicate: failed to pump feed statuses: %w", err)
+	for _, resp := range set {
+		err = enc.Encode(resp)
+		if err != nil {
+			return err
+		}
 	}
 
 	return sink.Close()
