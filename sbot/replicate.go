@@ -20,6 +20,7 @@ import (
 
 var _ ssb.Replicator = (*Sbot)(nil)
 
+// Replicate mark a feed for replication and connection acceptance
 func (sbot *Sbot) Replicate(r refs.FeedRef) {
 	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {

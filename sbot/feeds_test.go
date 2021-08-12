@@ -27,6 +27,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
+// two peers, one publishs a message, they connect, assert the new message is there
 func TestFeedsOneByOne(t *testing.T) {
 	defer leakcheck.Check(t)
 	t.Run("legacy", createFeedsOneByOneTest(false))
@@ -35,6 +36,8 @@ func TestFeedsOneByOne(t *testing.T) {
 
 func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 	return func(t *testing.T) {
+		// <boilerplate>
+
 		r := require.New(t)
 		a := assert.New(t)
 		ctx, cancel := ShutdownContext(context.TODO())
@@ -46,11 +49,6 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		hmacKey := make([]byte, 32)
 		rand.Read(hmacKey)
 
-		seed := bytes.Repeat([]byte{1}, 32)
-		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
-		r.NoError(err)
-		t.Log("ali is", aliKey.ID().Ref())
-
 		botgroup, ctx := errgroup.WithContext(ctx)
 
 		mainLog := log.NewNopLogger()
@@ -59,6 +57,14 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			// comment this out for even more verbosity
 			mainLog = level.NewFilter(mainLog, level.AllowInfo())
 		}
+
+		// </boilerplate>
+
+		// create bot 1
+		seed := bytes.Repeat([]byte{1}, 32)
+		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
+		r.NoError(err)
+		t.Log("ali is", aliKey.ID().Ref())
 
 		aliPath := filepath.Join("testrun", t.Name(), "ali")
 		ali, err := New(
@@ -87,6 +93,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			return err
 		})
 
+		// create bot 2
 		seed = bytes.Repeat([]byte{2}, 32)
 		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
@@ -119,13 +126,14 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			return err
 		})
 
+		// bot setup done
+
+		// make ali and bob friends
 		ali.Replicate(bob.KeyPair.ID())
 		bob.Replicate(ali.KeyPair.ID())
 
-		uf, ok := bob.GetMultiLog("userFeeds")
-		r.True(ok)
-
-		alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.ID()))
+		// alisLog is bob's view of ali's feed
+		alisLog, err := bob.Users.Get(storedrefs.Feed(ali.KeyPair.ID()))
 		r.NoError(err)
 
 		n := 15
@@ -144,6 +152,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			t.Logf("connecting (%d)", i)
 			err = bob.Network.Connect(ctx, ali.Network.GetListenAddr())
 			r.NoError(err)
+			// TODO: replace with proper waitUntil bob has ali@i
 			time.Sleep(250 * time.Millisecond)
 			bob.Network.GetConnTracker().CloseAll()
 
@@ -158,6 +167,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			a.Equal(int64(i), alisLog.Seq(), "check run %d", i)
 		}
 
+		// <teardown>
 		err = ali.FSCK(FSCKWithMode(FSCKModeSequences))
 		a.NoError(err, "fsck on A failed")
 		err = bob.FSCK(FSCKWithMode(FSCKModeSequences))
@@ -171,5 +181,6 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		r.NoError(bob.Close())
 
 		r.NoError(botgroup.Wait())
+		// </teardown>
 	}
 }

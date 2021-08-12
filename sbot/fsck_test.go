@@ -3,6 +3,7 @@ package sbot
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,7 +70,8 @@ func testFSCKcorrect(t *testing.T) {
 
 	const n = 32
 	for i := n; i > 0; i-- {
-		_, err := theBot.PublishLog.Publish(i)
+		post := refs.NewPost(fmt.Sprintf("test:%d", i))
+		_, err := theBot.PublishLog.Publish(post)
 		r.NoError(err)
 	}
 
@@ -92,7 +94,8 @@ func testFSCKdouble(t *testing.T) {
 	// more valid messages
 	const n = 32
 	for i := n; i > 0; i-- {
-		_, err := theBot.PublishLog.Publish(i)
+		post := refs.NewPost(fmt.Sprintf("test:%d", i))
+		_, err := theBot.PublishLog.Publish(post)
 		r.NoError(err)
 	}
 
@@ -164,7 +167,8 @@ func testFSCKmultipleFeeds(t *testing.T) {
 	// some "correct" messages
 	const n = 32
 	for i := n; i > 0; i-- {
-		_, err := theBot.PublishLog.Publish(i)
+		post := refs.NewPost(fmt.Sprintf("test:%d", i))
+		_, err := theBot.PublishLog.Publish(post)
 		r.NoError(err)
 	}
 

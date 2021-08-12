@@ -4,8 +4,8 @@ package network
 
 import (
 	"net"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/ssb"
@@ -13,13 +13,10 @@ import (
 )
 
 func makeTestPubKey(t *testing.T) ssb.KeyPair {
-	var kp ssb.LegacyKeyPair
-	fr, err := refs.ParseFeedRef("@LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=.ed25519")
+	kp, err := ssb.NewKeyPair(strings.NewReader(strings.Repeat("bep", 32)), refs.RefAlgoFeedSSB1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	kp.Pair.Public = fr.PubKey()
-	kp.Feed = fr
 	return kp
 }
 
@@ -47,7 +44,7 @@ func TestNewAdvertisement(t *testing.T) {
 			},
 			keyPair:     makeTestPubKey(t),
 			ExpectError: false,
-			Expected:    "net:1.2.3.4:8008~shs:LtQ3tOuLoeQFi5s/ic7U6wDBxWS3t2yxauc4/AwqfWc=",
+			Expected:    "net:1.2.3.4:8008~shs:TK3a+PLY/lPBGFA+jAdq9ZjHug/Je36ARMuwQwibi5A=",
 		},
 	}
 
@@ -60,45 +57,6 @@ func TestNewAdvertisement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, test.Expected, res)
 	}
-}
-
-func XTestBendTCPAddr(t *testing.T) {
-	r := require.New(t)
-
-	pk := makeTestPubKey(t)
-
-	senderAddr, err := net.ResolveTCPAddr("tcp", "localhost:8008")
-	r.NoError(err)
-
-	adv, err := NewAdvertiser(senderAddr, pk)
-	r.NoError(err)
-
-	adv.Start()
-
-	time.Sleep(time.Second * 2)
-	adv.Stop()
-}
-
-func XTestUDPSend(t *testing.T) {
-	r := require.New(t)
-
-	pk := makeTestPubKey(t)
-
-	senderAddr, err := net.ResolveUDPAddr("udp", "localhost:8008")
-	r.NoError(err)
-
-	adv, err := NewAdvertiser(senderAddr, pk)
-	r.NoError(err)
-
-	adv.Start()
-
-	// ch, done := adv.Notify()
-
-	// addr := <-ch
-	// r.Equal("localhost:8008", addr.String())
-	// done()
-
-	adv.Stop()
 }
 
 /*  TODO: test two on different networks

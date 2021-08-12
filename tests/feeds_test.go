@@ -273,15 +273,16 @@ func TestFeedFromGo(t *testing.T) {
 	ts.wait()
 }
 
-// We need more complete tests that cover joining and leaving peers to make sure we don't leak querys, rpc streams or other goroutiens
-func XTestFeedFromGoLive(t *testing.T) {
+func TestFeedFromGoLive(t *testing.T) {
 	defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
-	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot()
+	ts.startGoBot(
+		sbot.WithPromisc(true),
+		sbot.DisableEBT(true),
+	)
 	s := ts.gobot
 
 	before := `fromKey = testBob
@@ -347,7 +348,7 @@ func XTestFeedFromGoLive(t *testing.T) {
 	for i, msg := range tmsgs {
 		ref, err := s.PublishLog.Publish(msg)
 		r.NoError(err, "failed to publish test message %d", i)
-		r.NotNil(ref)
+		r.NotZero(ref)
 	}
 
 	time.Sleep(2 * time.Second)
@@ -361,12 +362,10 @@ func XTestFeedFromGoLive(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(storedrefs.Feed(alice))
+	aliceLog, err := s.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	seqMsg, err := aliceLog.Get(int64(1))
+	seqMsg, err := aliceLog.Get(1)
 	r.NoError(err)
 	msg, err := s.ReceiveLog.Get(seqMsg.(int64))
 	r.NoError(err)

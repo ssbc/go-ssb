@@ -155,7 +155,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 
 	// did we get the expected number of messages?
 	r.EqualValues(1, srhsCopyOfTal.Seq())
-	r.EqualValues(3, talsCopyOfSrh.Seq())
+	r.EqualValues(5, talsCopyOfSrh.Seq())
 
 	// check messages can be decrypted
 	addMsgCopy, err := tal.Get(addMsgRef)
@@ -201,16 +201,16 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	t.Log("decrypted reply:", string(replyContent))
 
 	// indexed?
-	chkCount := func(ml *roaring.MultiLog) func(tipe indexes.Addr, cnt int) {
-		return func(tipe indexes.Addr, cnt int) {
-			posts, err := ml.Get(tipe)
+	chkCount := func(ml *roaring.MultiLog) func(addr indexes.Addr, cnt int) {
+		return func(addr indexes.Addr, cnt int) {
+			posts, err := ml.Get(addr)
 			r.NoError(err)
 
 			r.EqualValues(cnt-1, posts.Seq(), "margaret is 0-indexed (%d)", cnt)
 
-			bmap, err := ml.LoadInternalBitmap(tipe)
+			bmap, err := ml.LoadInternalBitmap(addr)
 			r.NoError(err)
-			t.Logf("%q: %s", tipe, bmap.String())
+			t.Logf("%q: %v", addr, bmap.ToArray())
 		}
 	}
 

@@ -242,6 +242,12 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 		return nil, err
 	}
 
+	// make sure the message we created verifies correctly (type check)
+	_, _, err = legacy.Verify(signedMessage, lc.hmac)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify newly created message: %w", err)
+	}
+
 	stored.Previous_ = newMsg.Previous
 	stored.Sequence_ = seq
 	stored.Key_ = mr

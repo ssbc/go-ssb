@@ -41,8 +41,12 @@ type Indexer interface {
 
 // Replicator is used to tell the bot which feeds to copy from other peers and which ones to block
 type Replicator interface {
+	// Replicate mark a feed for replication and connection acceptance
 	Replicate(refs.FeedRef)
+
+	// DontReplicate stops replicating a feed
 	DontReplicate(refs.FeedRef)
+
 	Block(refs.FeedRef)
 	Unblock(refs.FeedRef)
 

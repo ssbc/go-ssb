@@ -89,6 +89,7 @@ func makeNamedTestBot(t testing.TB, name string, opts []Option) *Sbot {
 // This test creates a chain between for peers: A<>B<>C<>D
 // D publishes messages and they need to reach A before
 func TestFeedsLiveSimpleFour(t *testing.T) {
+	// <setup boilerplate>
 	defer leakcheck.Check(t)
 
 	r := require.New(t)
@@ -112,7 +113,9 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 		WithContext(ctx),
 		WithHMACSigning(hmacKey),
 	}
+	// </setup boilerplate>
 
+	// create bots A to D
 	botA := makeNamedTestBot(t, "A", append(netOpts, WithWebsocketAddress("localhost:12345")))
 	botgroup.Go(bs.Serve(botA))
 	t.Log("botA:", botA.KeyPair.ID().ShortRef())
@@ -148,22 +151,19 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 	theBots := []*Sbot{botA, botB, botC, botD}
 
-	uf, ok := botA.GetMultiLog("userFeeds")
-	r.True(ok)
-	feedOfBotD, err := uf.Get(storedrefs.Feed(botD.KeyPair.ID()))
+	feedOfBotD, err := botA.Users.Get(storedrefs.Feed(botD.KeyPair.ID()))
 	r.NoError(err)
 
 	t.Log("connecting the chain")
 	// dial up A->B, B->C, C->D
 	err = botA.Network.Connect(ctx, botB.Network.GetListenAddr())
 	r.NoError(err)
-	time.Sleep(1 * time.Second)
+
 	err = botB.Network.Connect(ctx, botC.Network.GetListenAddr())
 	r.NoError(err)
-	time.Sleep(1 * time.Second)
+
 	err = botC.Network.Connect(ctx, botD.Network.GetListenAddr())
 	r.NoError(err)
-	time.Sleep(1 * time.Second)
 
 	// setup live listener
 	gotMsg := make(chan refs.Message)
@@ -201,14 +201,6 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	}
 	a.EqualValues(0, timeouts, "too many timeouts")
 
-	for _, b := range theBots[1:] {
-		botA.PublishLog.Publish(refs.NewContactFollow(b.KeyPair.ID()))
-	}
-	time.Sleep(time.Second * 15)
-
-	t.Log("time to fetch the graph")
-	time.Sleep(time.Minute)
-
 	cancel()
 	time.Sleep(1 * time.Second)
 	for _, bot := range theBots {
@@ -226,6 +218,7 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 
 // setup two bots, connect once and publish afterwards
 func TestFeedsLiveSimpleTwo(t *testing.T) {
+	// <setup boilerplate>
 	defer leakcheck.Check(t)
 
 	r := require.New(t)
@@ -243,7 +236,9 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	botgroup, ctx := errgroup.WithContext(ctx)
 
 	mainLog := testutils.NewRelativeTimeLogger(nil)
+	// </setup boilerplate>
 
+	//setup the two bots
 	ali, err := New(
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
@@ -288,6 +283,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 		return err
 	})
 
+	// make them friends
 	ali.Replicate(bob.KeyPair.ID())
 	bob.Replicate(ali.KeyPair.ID())
 
@@ -303,10 +299,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 	r.NoError(err)
 	time.Sleep(time.Second / 2)
 
-	uf, ok := bob.GetMultiLog("userFeeds")
-	r.True(ok)
-
-	alisLog, err := uf.Get(storedrefs.Feed(ali.KeyPair.ID()))
+	alisLog, err := bob.Users.Get(storedrefs.Feed(ali.KeyPair.ID()))
 	r.NoError(err)
 
 	wantSeq := int64(0)
@@ -433,9 +426,7 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 	for i, bot := range bLeafs {
 
 		// did Bi get feed A?
-		ufOfBotB, ok := bot.GetMultiLog("userFeeds")
-		r.True(ok)
-		feedAonBotB, err := ufOfBotB.Get(storedrefs.Feed(botA.KeyPair.ID()))
+		feedAonBotB, err := bot.Users.Get(storedrefs.Feed(botA.KeyPair.ID()))
 		r.NoError(err)
 
 		a.EqualValues(seqOfFeedA, feedAonBotB.Seq(), "botB%02d should have all of A's messages", i)
