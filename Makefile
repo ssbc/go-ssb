@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+# SPDX-License-Identifier: MIT
+
 PKGS := $(shell go list ./... | grep -v node_modules )
 
 

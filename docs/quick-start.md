@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Quick start for go-sbot
 
 This is a quick-start guide to getting go-sbot running on your server and testing that it's working. 

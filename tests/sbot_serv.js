@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
+// SPDX-License-Identifier: MIT
+
 const Path = require('path')
 const tape = require('tape')
 const { readFileSync } = require('fs')

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
 // SPDX-License-Identifier: MIT
 
 // Package aliases implements the validation and signing features of https://ssb-ngi-pointer.github.io/rooms2/#alias

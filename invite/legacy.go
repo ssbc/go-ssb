@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
+// SPDX-License-Identifier: MIT
+
 // Package invite contains functions for parsing invite codes and dialing a pub as a guest to redeem a token.
 // The muxrpc handlers and storage are found in plugins/legacyinvite.
 package invite

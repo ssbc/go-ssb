@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2017 gRPC authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /*
  *
  * Copyright 2017 gRPC authors.

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
 // SPDX-License-Identifier: MIT
 
 // Package gossip implements the createHistoryStream muxrpc call. Legacy (non-EBT) Replication of fetching and verifying the selected feeds is found here.

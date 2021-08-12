@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
 // SPDX-License-Identifier: MIT
 
 // Package replicate roughly translates to npm:ssb-replicate and only selects which feeds to block and fetch.
