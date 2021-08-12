@@ -74,7 +74,8 @@ func createMessages(pub ssb.Publisher, fill librarian.SinkIndex, rootLog margare
 	return func(t *testing.T, num int, text string) {
 		t.Log("creating", num, text)
 		for i := 0; i < num; i++ {
-			msg, err := pub.Publish(fmt.Sprintf("hello world #%d - %s", i, text))
+			post := refs.NewPost(fmt.Sprintf("hello world #%d - %s", i, text))
+			msg, err := pub.Publish(post)
 			require.NoError(t, err)
 			errc := asynctesting.ServeLog(context.TODO(), "helper", rootLog, fill, false)
 			require.NoError(t, <-errc, "refresh failed")
