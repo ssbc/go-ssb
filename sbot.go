@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
 )
@@ -107,12 +108,13 @@ func (upto ReplicateUpToResponse) Seq() int64 {
 // FeedsWithSequnce returns a source that emits one ReplicateUpToResponse per stored feed in feedIndex
 // TODO: make cancelable and with no RAM overhead when only partially used (iterate on demand)
 func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
+
 	storedFeeds, err := feedIndex.List()
 	if err != nil {
 		return nil, fmt.Errorf("feedSrc: did not get user list: %w", err)
 	}
 
-	var feedsWithSeqs []interface{}
+	allTheFeeds := make([]refs.FeedRef, len(storedFeeds))
 
 	for i, author := range storedFeeds {
 		var sr tfk.Feed
@@ -120,18 +122,46 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (luigi.Source, error) {
 		if err != nil {
 			return nil, fmt.Errorf("feedSrc(%d): invalid storage ref: %w", i, err)
 		}
-		authorRef, err := sr.Feed()
+
+		allTheFeeds[i], err = sr.Feed()
 		if err != nil {
 			return nil, fmt.Errorf("feedSrc(%d): failed to get feed: %w", i, err)
 		}
+	}
 
-		subLog, err := feedIndex.Get(author)
+	return WantedFeedsWithSequnce(feedIndex, allTheFeeds)
+}
+
+// WantedFeedsWithSequnce is like FeedsWithSequnce but omits feeds that are not in the wanted list.
+func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (luigi.Source, error) {
+
+	var feedsWithSeqs []interface{}
+
+	for i, author := range wanted {
+
+		idxAddr := storedrefs.Feed(author)
+
+		isStored, err := multilog.Has(feedIndex, idxAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		if !isStored {
+			elem := ReplicateUpToResponse{
+				ID:       author,
+				Sequence: 0,
+			}
+			feedsWithSeqs = append(feedsWithSeqs, elem)
+			continue
+		}
+
+		subLog, err := feedIndex.Get(idxAddr)
 		if err != nil {
 			return nil, fmt.Errorf("feedSrc(%d): did not load sublog: %w", i, err)
 		}
 
 		elem := ReplicateUpToResponse{
-			ID:       authorRef,
+			ID:       author,
 			Sequence: subLog.Seq() + 1,
 		}
 		feedsWithSeqs = append(feedsWithSeqs, elem)
