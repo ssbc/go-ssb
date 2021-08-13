@@ -57,10 +57,9 @@ type ssbSecret struct {
 
 // IsValidFeedFormat checks if the passed FeedRef is for one of the two supported formats,
 // legacy/crapp or GabbyGrove.
-func IsValidFeedFormat(r refs.FeedRef) error {
-	ra := r.Algo()
+func IsValidFeedFormat(ra refs.RefAlgo) error {
 	if ra != refs.RefAlgoFeedSSB1 && ra != refs.RefAlgoFeedGabby && ra != refs.RefAlgoFeedBendyButt {
-		return fmt.Errorf("ssb: unsupported feed format: %s", r.Algo())
+		return fmt.Errorf("ssb: unsupported feed format: %s", ra)
 	}
 	return nil
 }
@@ -107,7 +106,7 @@ func NewKeyPair(r io.Reader, algo refs.RefAlgo) (KeyPair, error) {
 // SaveKeyPair serializes the passed KeyPair to path.
 // It errors if path already exists.
 func SaveKeyPair(kp KeyPair, path string) error {
-	if err := IsValidFeedFormat(kp.ID()); err != nil {
+	if err := IsValidFeedFormat(kp.ID().Algo()); err != nil {
 		return err
 	}
 
@@ -227,7 +226,7 @@ func ParseKeyPair(r io.Reader) (KeyPair, error) {
 		return nil, fmt.Errorf("ssb.Parse: JSON decoding failed: %w", err)
 	}
 
-	if err := IsValidFeedFormat(s.ID); err != nil {
+	if err := IsValidFeedFormat(s.ID.Algo()); err != nil {
 		return nil, err
 	}
 
