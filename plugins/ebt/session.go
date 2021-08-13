@@ -17,8 +17,6 @@ import (
 type session struct {
 	remote net.Addr // netwrap'ed shs address
 
-	// tx *muxrpc.ByteSink // the muxrpc writer to send updates
-
 	// which feeds this session is currently subscribed to
 	mu         sync.Mutex // since the session is only used inside the ebt handler loop, we might not even need this lock
 	subscribed map[string]context.CancelFunc
@@ -132,6 +130,5 @@ func (s *Sessions) WaitFor(ctx context.Context, addr net.Addr, durr time.Duratio
 		return false
 	case <-time.After(durr):
 		return false
-
 	}
 }

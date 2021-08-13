@@ -33,9 +33,12 @@ func (sbot *Sbot) Replicate(r refs.FeedRef) {
 
 	l := slog.Seq()
 
-	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
+	err = sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: true, Replicate: true}},
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	sbot.Replicator.Replicate(r)
 }
@@ -48,9 +51,12 @@ func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
 
 	l := slog.Seq()
 
-	sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
+	err = sbot.ebtState.Fill(sbot.KeyPair.ID(), []statematrix.ObservedFeed{
 		{Feed: r, Note: ssb.Note{Seq: l, Receive: false, Replicate: true}},
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	sbot.Replicator.DontReplicate(r)
 }
@@ -79,15 +85,62 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCount int) func() {
 	return func() {
 		start := time.Now()
-		newWants := r.bot.GraphBuilder.Hops(self, hopCount)
+		newReplicateSet := r.bot.GraphBuilder.Hops(self, hopCount)
 
-		refs, err := newWants.List()
+		var ebtUpdates []statematrix.ObservedFeed
+
+		// 1) go through all the entries in the new want list
+		newWantList, err := newReplicateSet.List()
 		if err != nil {
-			level.Error(log).Log("msg", "want list failed", "err", err, "wants", newWants.Count())
+			level.Error(log).Log("msg", "want list failed", "err", err, "wants", newReplicateSet.Count())
 			return
 		}
-		for _, ref := range refs {
-			r.current.feedWants.AddRef(ref)
+		for _, newFeed := range newWantList {
+			if r.current.feedWants.Has(newFeed) {
+				// alrady followed, skip it
+				continue
+			}
+
+			r.current.feedWants.AddRef(newFeed)
+
+			currNote, wants, err := r.bot.ebtState.WantsFeed(self, newFeed)
+			if err != nil {
+				level.Error(log).Log("msg", "want list ebt update failed", "err", err)
+				return
+			}
+
+			if !wants {
+				level.Warn(log).Log("updating EBT state for", newFeed.ShortSigil())
+				currNote.Receive = true
+				currNote.Replicate = true
+				ebtUpdates = append(ebtUpdates, statematrix.ObservedFeed{Feed: newFeed, Note: currNote})
+			}
+		}
+
+		// 2) go through all the entries in the current want list
+		currWantList, err := r.current.feedWants.List()
+		if err != nil {
+			level.Error(log).Log("msg", "want list failed", "err", err, "wants", newReplicateSet.Count())
+			return
+		}
+		for _, currFeed := range currWantList {
+			if newReplicateSet.Has(currFeed) {
+				continue
+			}
+
+			// if it's gone from the new list
+			// we need to stop fetching it
+			currNote, wants, err := r.bot.ebtState.WantsFeed(self, currFeed)
+			if err != nil {
+				level.Error(log).Log("msg", "want list ebt update failed", "err", err)
+				return
+			}
+
+			if wants {
+				currNote.Receive = false
+				currNote.Replicate = true
+				ebtUpdates = append(ebtUpdates, statematrix.ObservedFeed{Feed: currFeed, Note: currNote})
+			}
 		}
 
 		level.Debug(log).Log("feed-want-count", r.current.feedWants.Count(), "hops", hopCount, "took", time.Since(start))
@@ -105,7 +158,27 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 			for _, bf := range lst {
 				r.current.blocked.AddRef(bf)
 				r.current.feedWants.Delete(bf)
+
+				currNote, wants, err := r.bot.ebtState.WantsFeed(self, bf)
+				if err != nil {
+					level.Error(log).Log("msg", "want list ebt update failed", "err", err)
+					return
+				}
+
+				if wants {
+					level.Error(log).Log("msg", "updating EBT state for blocked", "blocked", bf.ShortSigil())
+					currNote.Receive = false
+					currNote.Replicate = false
+					ebtUpdates = append(ebtUpdates, statematrix.ObservedFeed{Feed: bf, Note: currNote})
+				}
 			}
+		}
+
+		level.Info(log).Log("msg", "updating EBT state", "count", len(ebtUpdates))
+		err = r.bot.ebtState.Fill(self, ebtUpdates)
+		if err != nil {
+			level.Error(log).Log("msg", "want list ebt update failed", "err", err)
+			return
 		}
 	}
 }

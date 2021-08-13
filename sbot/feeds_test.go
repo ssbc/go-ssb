@@ -162,7 +162,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			if useEBT {
 				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.ID())
 				r.NoError(err)
-				alisNoteAtBob := aliHas[ali.KeyPair.ID().String()]
+				alisNoteAtBob := aliHas.Frontier[ali.KeyPair.ID().String()]
 				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 			}
 

@@ -13,10 +13,6 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// NetworkFrontier represents a set of feeds and their length
-// The key is the canonical string representation (feed.Ref())
-type NetworkFrontier map[string]Note
-
 // Note informs about a feeds length and some control settings
 type Note struct {
 	Seq int64
@@ -29,6 +25,7 @@ type Note struct {
 	Receive bool
 }
 
+// MarshalJSON decodes the sequence number and the bools into a single integer for the network layer
 func (s Note) MarshalJSON() ([]byte, error) {
 	var i int64
 	if !s.Replicate {
@@ -47,15 +44,52 @@ func (s Note) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(i, 10)), nil
 }
 
-func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
-	var dummy map[string]int64
-
-	if err := json.Unmarshal(b, &dummy); err != nil {
-		return err
+// UnmarshalJSON decodes the network layer pure integer into the sequence number and the receive/replicate bits
+func (s *Note) UnmarshalJSON(input []byte) error {
+	i, err := strconv.ParseInt(string(input), 10, 64)
+	if err != nil {
+		return fmt.Errorf("ebt/note: not a valid integer: %w", err)
 	}
 
-	var newMap = make(NetworkFrontier, len(dummy))
-	for fstr, i := range dummy {
+	if i < -1 {
+		return fmt.Errorf("ebt/note: negative number")
+	}
+
+	s.Replicate = i != -1
+	if !s.Replicate {
+		return nil
+	}
+
+	s.Receive = !(i&1 == 1)
+	s.Seq = int64(i >> 1)
+
+	return nil
+}
+
+// NetworkFrontier can be filtered by feed format by setting Format before unmarshaling JSON into it.
+type NetworkFrontier struct {
+	Frontier NetworkFrontierMap
+
+	Format refs.RefAlgo
+}
+
+// NewNetworkFrontier returns a new, initialized map
+func NewNetworkFrontier() NetworkFrontier {
+	return NetworkFrontier{
+		Frontier: make(NetworkFrontierMap),
+	}
+}
+
+// NetworkFrontierMap represents a set of feeds and their length
+// The key is the canonical string representation (feed.Ref())
+type NetworkFrontierMap map[string]Note
+
+// MarshalJSON turns the frontier into a JSON object where the field is feed ref and the value is a serialzed note integer.
+// It also filters out any feed that is not in the set Format of the frontier.
+func (nf NetworkFrontier) MarshalJSON() ([]byte, error) {
+	var filtered = make(NetworkFrontierMap, len(nf.Frontier))
+
+	for fstr, s := range nf.Frontier {
 		// validate
 		feed, err := refs.ParseFeedRef(fstr)
 		if err != nil {
@@ -63,27 +97,54 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 			continue
 		}
 
-		if feed.Algo() != refs.RefAlgoFeedSSB1 {
-			// skip other formats (TODO: gg support)
+		if feed.Algo() != nf.Format {
 			continue
 		}
 
-		var s Note
-		s.Replicate = i != -1
-		s.Receive = !(i&1 == 1)
-		s.Seq = int64(i >> 1)
+		filtered[fstr] = s
+	}
+	return json.Marshal(filtered)
+}
+
+// UnmarshalJSON expects a JSON object where each field is a feed reference and the value is a EBT Note value.
+// If no format is set/expected for the frontier it filters using classic refs.RefAlgoFeedSSB1.
+func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
+	if nf.Format == "" {
+		nf.Format = refs.RefAlgoFeedSSB1
+	}
+
+	// first we decode into this dummy map to ignore invalid feed references
+	var dummy map[string]Note
+	if err := json.Unmarshal(b, &dummy); err != nil {
+		return err
+	}
+
+	// now copy the dummy entrys, if they are okay and match the wanted format
+	var newMap = make(NetworkFrontierMap, len(dummy))
+	for fstr, s := range dummy {
+		// validate
+		feed, err := refs.ParseFeedRef(fstr)
+		if err != nil {
+			// just skip invalid feeds
+			continue
+		}
+
+		if feed.Algo() != nf.Format {
+			continue
+		}
 
 		newMap[fstr] = s
 	}
 
-	*nf = newMap
+	nf.Frontier = newMap
 	return nil
 }
 
+// String serializes the frontier into a list of feed references and their length
 func (nf NetworkFrontier) String() string {
 	var sb strings.Builder
 	sb.WriteString("## Network Frontier:\n")
-	for feed, seq := range nf {
+	for feed, seq := range nf.Frontier {
 		fmt.Fprintf(&sb, "\t%s:%+v\n", feed, seq)
 	}
 	return sb.String()

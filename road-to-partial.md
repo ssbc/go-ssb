@@ -53,6 +53,10 @@ Implemented the [new RPC method `getSubset`](https://github.com/ssb-ngi-pointer/
 
 It houses a generic query planer that can receive the JSON structure that describes a query, combine the different multi/sublogs and evaluate the intended bitmaps.
 
+## implement binary support for EBT
+
+Currently the implementation can only replicate _legacy_ feed format. The proposed solution for binary support is to have multiple ebt streams (one per format) which then allows to send binary data in the muxrpc frames instead of JSON. The required refactor is not that large. The feed format needs to be configured and the _EBT session spawning_ code needs to account for the enabled/supported formats.
+
 # upcoming changes
 
 These are necessary to get a functional partial replication. They are orderd by dependence/necessity (A needs B) not complexity.
@@ -88,9 +92,6 @@ If `sbot.WithMetaFeedMode(true)` is passed to `sbot.New()` and it finds a keypai
 ## add HMAC support to go-metafeed
 This should be done if only to achive feature parity with test networks.
 
-## implement binary support for EBT
-
-Currently the implementation can only replicate _legacy_ feed format. The proposed solution for binary support is to have multiple ebt streams (one per format) which then allows to send binary data in the muxrpc frames instead of JSON. The required refactor is not that large. The feed format needs to be configured and the _EBT session spawning_ code needs to account for the enabled/supported formats.
 
 ## [fusion identities](https://github.com/ssb-ngi-pointer/fusion-identity-spec) identities
 

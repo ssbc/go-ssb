@@ -15,6 +15,7 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/plugins/ebt"
 	"go.cryptoscope.co/ssb/plugins/gossip"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 type replicateNegotiator struct {
@@ -22,7 +23,7 @@ type replicateNegotiator struct {
 
 	lg *gossip.LegacyGossip
 
-	ebt *ebt.MUXRPCHandler
+	ebt *ebt.Replicate
 
 	// these control outgoing replication behaviour
 	disableEBT        bool
@@ -53,21 +54,75 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 		return
 	}
 
+	var (
+		replicate       = muxrpc.Method{"ebt", "replicate"}
+		replicateFormat = muxrpc.Method{"ebt", "replicateFormat"}
+	)
+
+	// check if they support the repliacate call
+	if !muxrpc.HasMethod(e, replicate) {
+		return
+	}
+
 	level.Debug(rn.logger).Log("event", "triggering ebt.replicate", "r", remote.ShortSigil())
 
-	var opt = map[string]interface{}{"version": 3}
-
 	// initiate ebt channel
-	rx, tx, err := e.Duplex(ctx, muxrpc.TypeJSON, muxrpc.Method{"ebt", "replicate"}, opt)
+
+	var opt = map[string]interface{}{
+		"version": 3,
+	}
+
+	rx, tx, err := e.Duplex(ctx, muxrpc.TypeJSON, replicate, opt)
 	if err != nil {
-		level.Debug(rn.logger).Log("event", "no ebt support", "err", err)
+		level.Warn(rn.logger).Log("event", "no ebt support", "err", err)
 
 		// fallback to legacy
 		rn.lg.StartLegacyFetching(ctx, e, !rn.disableLiveLegacy)
 		return
 	}
 
-	rn.ebt.Loop(ctx, tx, rx, remoteAddr)
+	go func() {
+		err := rn.ebt.Loop(ctx, tx, rx, remoteAddr, refs.RefAlgoFeedSSB1)
+		if err != nil {
+			level.Warn(rn.logger).Log("event", "ebt loop exited", "err", err)
+		}
+	}()
+
+	// check if they support the repliacateFormat call
+	if !muxrpc.HasMethod(e, replicateFormat) {
+		return
+	}
+
+	level.Debug(rn.logger).Log("event", "triggering ebt.replicateFormat", "r", remote.ShortSigil())
+
+	// start one session per format, if they support that
+	formats := []refs.RefAlgo{
+		refs.RefAlgoFeedBendyButt,
+		refs.RefAlgoFeedGabby,
+	}
+
+	for _, format := range formats {
+		var opt = map[string]interface{}{
+			"version": 3,
+			"format":  format,
+		}
+
+		// initiate ebt channel
+		rx, tx, err := e.Duplex(ctx, muxrpc.TypeJSON, replicateFormat, opt)
+		if err != nil {
+			level.Debug(rn.logger).Log("event", "no ebt support", "err", err)
+
+			// fallback to legacy
+			rn.lg.StartLegacyFetching(ctx, e, !rn.disableLiveLegacy)
+			return
+		}
+		go func(f refs.RefAlgo) {
+			err := rn.ebt.Loop(ctx, tx, rx, remoteAddr, f)
+			if err != nil {
+				level.Warn(rn.logger).Log("event", "ebt loop exited", "format", f, "err", err)
+			}
+		}(format)
+	}
 }
 
 func (replicateNegotiator) Handled(m muxrpc.Method) bool { return false }

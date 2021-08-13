@@ -10,6 +10,8 @@ import (
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
+
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -97,6 +99,10 @@ func firstMessage(author refs.FeedRef) refs.KeyValueRaw {
 }
 
 func (vs VerificationRouter) getLatestMsg(ref refs.FeedRef) (refs.Message, error) {
+	if err := ssb.IsValidFeedFormat(ref.Algo()); err != nil {
+		return nil, err
+	}
+
 	frAddr := storedrefs.Feed(ref)
 	userLog, err := vs.feeds.Get(frAddr)
 	if err != nil {
@@ -124,6 +130,4 @@ func (vs VerificationRouter) getLatestMsg(ref refs.FeedRef) (refs.Message, error
 	}
 
 	return latestMsg, nil
-
-	panic("unreadable")
 }
