@@ -450,7 +450,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	// this peer has no ebt state yet
-	if len(ownFrontier) == 0 {
+	if len(ownFrontier.Frontier) == 0 {
 		// use the replication lister and determine the stored feeds lenghts
 		lister := s.Replicator.Lister().ReplicationList()
 
@@ -464,11 +464,11 @@ func New(fopts ...Option) (*Sbot, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
-			ownFrontier[feed.String()] = seq
+			ownFrontier.Frontier[feed.String()] = seq
 		}
 
 		// also update our own
-		ownFrontier[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
+		ownFrontier.Frontier[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}
@@ -707,7 +707,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			logger: log.With(s.info, "module", "replicate-negotiator"),
 
 			lg:  gossipPlug.LegacyGossip,
-			ebt: ebtPlug.MUXRPCHandler,
+			ebt: ebtPlug.Replicate,
 		}}
 		s.public.Register(rn)
 	}

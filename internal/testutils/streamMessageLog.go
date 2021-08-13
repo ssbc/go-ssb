@@ -9,7 +9,9 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/bencode"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
 
@@ -41,11 +43,24 @@ func StreamLog(t *testing.T, l margaret.Log) {
 			mm.Key().ShortSigil())
 
 		b := mm.ContentBytes()
-		if n := len(b); n > 128 {
-			t.Log("truncating", n, " to last 32 bytes")
-			b = b[len(b)-32:]
+
+		switch mm.Author().Algo() {
+		case refs.RefAlgoFeedSSB1:
+			const max = 512
+			if n := len(b); n > max {
+				t.Logf("truncating %d to last %d bytes", n, max)
+				b = b[len(b)-max:]
+			}
+			t.Logf("\n%s", hex.Dump(b))
+
+		case refs.RefAlgoFeedBendyButt:
+			var v interface{}
+			err = bencode.DecodeBytes(b, &v)
+			if err != nil {
+				continue
+			}
+			t.Logf("\n%s", spew.Sdump(v))
 		}
-		t.Logf("\n%s", hex.Dump(b))
 
 		i++
 	}

@@ -146,8 +146,8 @@ func TestChanged(t *testing.T) {
 	r.NoError(err)
 
 	// changed should have 1 as two still (to get just 3)
-	note, has := changed[testFeed(1).String()]
-	r.True(has, "changed doesnt have feed(1) (has %d entries)", len(changed))
+	note, has := changed.Frontier[testFeed(1).String()]
+	r.True(has, "changed doesnt have feed(1) (has %d entries)", len(changed.Frontier))
 	r.Equal(int64(2), note.Seq)
 	r.True(note.Replicate)
 	r.True(note.Receive)

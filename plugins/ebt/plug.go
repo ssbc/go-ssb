@@ -10,7 +10,8 @@ import (
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 	"go.cryptoscope.co/muxrpc/v2"
-	"go.mindeco.de/logging"
+	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"go.mindeco.de/log"
 
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
@@ -18,10 +19,14 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-type Plugin struct{ *MUXRPCHandler }
+type Plugin struct {
+	*Replicate
+
+	muxer *typemux.HandlerMux
+}
 
 func NewPlug(
-	i logging.Interface,
+	i log.Logger,
 	self refs.FeedRef,
 	rootLog margaret.Log,
 	uf multilog.MultiLog,
@@ -30,7 +35,7 @@ func NewPlug(
 	v *message.VerificationRouter,
 ) *Plugin {
 
-	return &Plugin{&MUXRPCHandler{
+	r := &Replicate{
 		info:      i,
 		self:      self,
 		rootLog:   rootLog,
@@ -48,12 +53,24 @@ func NewPlug(
 
 			waitingFor: make(map[string]chan<- struct{}),
 		},
-	},
 	}
+
+	mux := typemux.New(i)
+
+	mux.RegisterDuplex(muxrpc.Method{"ebt", "replicate"}, typemux.DuplexFunc(r.HandleLegacy))
+	mux.RegisterDuplex(muxrpc.Method{"ebt", "replicateFormat"}, typemux.DuplexFunc(r.HandleFormat))
+	mux.RegisterAsync(muxrpc.Method{"ebt", "clock"}, typemux.AsyncFunc(r.Clock))
+
+	plug := &Plugin{
+		Replicate: r,
+
+		muxer: &mux,
+	}
+
+	return plug
 }
 
 // muxrpc plugin
-
 func (p Plugin) Name() string            { return "ebt" }
 func (p Plugin) Method() muxrpc.Method   { return muxrpc.Method{"ebt"} }
-func (p Plugin) Handler() muxrpc.Handler { return p.MUXRPCHandler }
+func (p Plugin) Handler() muxrpc.Handler { return p.muxer }

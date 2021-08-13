@@ -70,9 +70,13 @@ var manifestBlob manifestHandler = `
 	"messagesByType": "source",
 	"createHistoryStream": "source",
 
-	"ebt": { "replicate": "duplex" },
+	"ebt": {
+		"replicate": "duplex",
+		"replicateFormat": "duplex",
+		"clock": "async"
+	},
 
-	"partialReplication":{
+	"partialReplication": {
 		"getSubset": "source",
 	 	"getTangle": "async"
 	},

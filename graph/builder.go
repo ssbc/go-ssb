@@ -366,10 +366,11 @@ func (b *BadgerBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)
 	err := b.recurseHops(walked, visited, from, max)
 	if err != nil {
-		b.log.Log("event", "error", "msg", "recurse failed", "err", err)
+		level.Error(b.log).Log("event", "recurse failed", "err", err)
 		return nil
 	}
 	walked.Delete(from)
+	// TODO: remove from's metafeeds?!
 	return walked
 }
 
@@ -385,6 +386,11 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 
 	// utility function encapsulating logic around recursing subfeeds
 	recurseSubfeeds := func(feedId refs.FeedRef) error {
+		if feedId.Algo() != refs.RefAlgoFeedBendyButt {
+			// only bendybutt feeds can have subfeeds
+			return nil
+		}
+
 		// find all their subfeeds
 		subfeeds, err := b.Subfeeds(feedId)
 		if err != nil {

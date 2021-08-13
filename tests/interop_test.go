@@ -202,9 +202,17 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 }
 
 func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.FeedRef, int) {
+	return ts.startJSBotAsServerWithFile(name, "./sbot_serv.js", jsbefore, jsafter)
+}
+
+func (ts *testSession) startJSBotAsServerDB2(name, jsbefore, jsafter string) (refs.FeedRef, int) {
+	return ts.startJSBotAsServerWithFile(name, "./sbot_serv_db2.js", jsbefore, jsafter)
+}
+
+func (ts *testSession) startJSBotAsServerWithFile(name, jsscipt, jsbefore, jsafter string) (refs.FeedRef, int) {
 	ts.t.Log("starting srv", name)
 	r := require.New(ts.t)
-	cmd := exec.Command("node", "./sbot_serv.js")
+	cmd := exec.Command("node", jsscipt)
 	cmd.Stderr = os.Stderr
 
 	outrc, err := cmd.StdoutPipe()
