@@ -84,7 +84,7 @@ func (so *SubsetOperation) UnmarshalJSON(input []byte) error {
 		if m.Feed == nil {
 			return fmt.Errorf("subset: author can't be empty")
 		}
-		if err := ssb.IsValidFeedFormat(*m.Feed); err != nil {
+		if err := ssb.IsValidFeedFormat(m.Feed.Algo()); err != nil {
 			return fmt.Errorf("subset: author is invalid feed format: %w", err)
 		}
 		so.feed = m.Feed
