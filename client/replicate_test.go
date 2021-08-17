@@ -40,9 +40,6 @@ func TestReplicateUpTo(t *testing.T) {
 	)
 	r.NoError(err, "sbot srv init failed")
 
-	uf, ok := srv.GetMultiLog("userFeeds")
-	r.True(ok)
-
 	var srvErrc = make(chan error, 1)
 	go func() {
 		err := srv.Network.Serve(context.TODO())
@@ -52,9 +49,23 @@ func TestReplicateUpTo(t *testing.T) {
 		close(srvErrc)
 	}()
 
-	var testKeyPairs = make(map[string]int, 10)
+	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
+	r.NoError(err, "failed to load servers keypair")
+	srvAddr := srv.Network.GetListenAddr()
+
+	c, err := client.NewTCP(kp, srvAddr)
+	r.NoError(err, "failed to make client connection")
+	// end test boilerplate
+
+	// create a bunch of test feeds and messages
+	const n = 10
+	type keyAndCount struct {
+		keyPair ssb.KeyPair
+		count   int
+	}
+	var testKeyPairs = make(map[string]keyAndCount, n)
 	var i int
-	for i = 0; i < 10; i++ {
+	for i = 0; i < n; i++ {
 		var algo = refs.RefAlgoFeedSSB1
 		if i%2 == 0 {
 			algo = refs.RefAlgoFeedGabby
@@ -62,10 +73,10 @@ func TestReplicateUpTo(t *testing.T) {
 		kp, err := ssb.NewKeyPair(nil, algo)
 		r.NoError(err)
 
-		publish, err := message.OpenPublishLog(srv.ReceiveLog, uf, kp)
+		publish, err := message.OpenPublishLog(srv.ReceiveLog, srv.Users, kp)
 		r.NoError(err)
 
-		testKeyPairs[kp.ID().Ref()] = i
+		testKeyPairs[kp.ID().Ref()] = keyAndCount{kp, i}
 		for n := i; n > 0; n-- {
 			ref, err := publish.Publish(struct {
 				Type  string `json:"type"`
@@ -78,39 +89,52 @@ func TestReplicateUpTo(t *testing.T) {
 		}
 	}
 
-	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
-	r.NoError(err, "failed to load servers keypair")
-	srvAddr := srv.Network.GetListenAddr()
-
-	c, err := client.NewTCP(kp, srvAddr)
-	r.NoError(err, "failed to make client connection")
-	// end test boilerplate
-
-	src, err := c.ReplicateUpTo()
-	r.NoError(err)
-
-	ctx := context.TODO()
-	for i = 0; true; i++ {
-		if !src.Next(ctx) {
-			break
-		}
-
-		var upToResp ssb.ReplicateUpToResponse
-		err = src.Reader(func(r io.Reader) error {
-			return json.NewDecoder(r).Decode(&upToResp)
-		})
+	// create helper to create, drain the query and check the responses
+	assertUpToResponse := func() int {
+		src, err := c.ReplicateUpTo()
 		r.NoError(err)
 
-		ref := upToResp.ID.Ref()
-		i, has := testKeyPairs[ref]
-		a.True(has, "upTo not in created set:%s", ref)
-		a.EqualValues(i, upToResp.Sequence)
+		ctx := context.TODO()
+		var i int
+		for i = 0; true; i++ {
+			if !src.Next(ctx) {
+				break
+			}
+
+			var upToResp ssb.ReplicateUpToResponse
+			err = src.Reader(func(r io.Reader) error {
+				return json.NewDecoder(r).Decode(&upToResp)
+			})
+			r.NoError(err)
+
+			ref := upToResp.ID.Ref()
+			// either it's one of the test keypairs
+			kn, has := testKeyPairs[ref]
+			if !has {
+				// if not it's the server itself
+				isSrv := upToResp.ID.Equal(srv.KeyPair.ID())
+				a.True(isSrv, "unexpeted response feed: %+v", upToResp)
+			}
+
+			a.EqualValues(kn.count, upToResp.Sequence)
+		}
+
+		r.False(src.Next(ctx))
+		r.NoError(src.Err())
+
+		return i
 	}
-	r.Equal(i, 9)
 
-	r.False(src.Next(ctx))
-	r.NoError(src.Err())
+	r.Equal(1, assertUpToResponse(), "should only have self")
 
+	// now actually replicate them
+	for _, kp := range testKeyPairs {
+		srv.Replicate(kp.keyPair.ID())
+	}
+
+	r.Equal(n+1, assertUpToResponse(), "should have all the feeds and self")
+
+	// cleanup
 	a.NoError(c.Close())
 
 	srv.Shutdown()
