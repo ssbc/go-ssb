@@ -64,7 +64,7 @@ func (g replicateHandler) HandleSource(ctx context.Context, req *muxrpc.Request,
 		return err
 	}
 
-	set, err := ssb.WantedFeedsWithSequnce(g.users, list)
+	set, err := ssb.WantedFeedsWithSeqs(g.users, list)
 	if err != nil {
 		return fmt.Errorf("replicate: did not get feed source: %w", err)
 	}

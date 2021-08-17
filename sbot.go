@@ -106,10 +106,9 @@ func (upto ReplicateUpToResponse) Seq() int64 {
 
 type ReplicateUpToResponseSet map[string]ReplicateUpToResponse
 
-// FeedsWithSequnce returns a source that emits one ReplicateUpToResponse per stored feed in feedIndex
+// FeedsWithSeqs returns a source that emits one ReplicateUpToResponse per stored feed in feedIndex
 // TODO: make cancelable and with no RAM overhead when only partially used (iterate on demand)
-func FeedsWithSequnce(feedIndex multilog.MultiLog) (ReplicateUpToResponseSet, error) {
-
+func FeedsWithSeqs(feedIndex multilog.MultiLog) (ReplicateUpToResponseSet, error) {
 	storedFeeds, err := feedIndex.List()
 	if err != nil {
 		return nil, fmt.Errorf("feedSrc: did not get user list: %w", err)
@@ -130,12 +129,11 @@ func FeedsWithSequnce(feedIndex multilog.MultiLog) (ReplicateUpToResponseSet, er
 		}
 	}
 
-	return WantedFeedsWithSequnce(feedIndex, allTheFeeds)
+	return WantedFeedsWithSeqs(feedIndex, allTheFeeds)
 }
 
-// WantedFeedsWithSequnce is like FeedsWithSequnce but omits feeds that are not in the wanted list.
-func WantedFeedsWithSequnce(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (ReplicateUpToResponseSet, error) {
-
+// WantedFeedsWithSeqs is like FeedsWithSeqs but omits feeds that are not in the wanted list.
+func WantedFeedsWithSeqs(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (ReplicateUpToResponseSet, error) {
 	var feedsWithSeqs = make(ReplicateUpToResponseSet, len(wanted))
 
 	for i, author := range wanted {
