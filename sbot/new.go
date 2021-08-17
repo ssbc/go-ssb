@@ -757,7 +757,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.master.Register(rawread.NewSortedStream(s.info, s.ReceiveLog, s.SeqResolver))
 	s.master.Register(hist) // createHistoryStream
 
-	s.master.Register(replicate.NewPlug(s.Users))
+	s.master.Register(replicate.NewPlug(s.Users, s.KeyPair.ID(), s.Lister()))
 
 	s.master.Register(friends.New(s.info, s.KeyPair.ID(), s.GraphBuilder))
 
