@@ -78,7 +78,7 @@ func TestListing(t *testing.T) {
 		feeds, err := set.List()
 		r.NoError(err)
 
-		respSet, err := ssb.WantedFeedsWithSequnce(mainbot.Users, feeds)
+		respSet, err := ssb.WantedFeedsWithSeqs(mainbot.Users, feeds)
 		r.NoError(err)
 
 		assert.Len(t, respSet, wanted)
