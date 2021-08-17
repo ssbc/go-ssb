@@ -7,12 +7,25 @@ package graph
 import (
 	"fmt"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var hopsScenarios = []PeopleTestCase{
+	{
+		name: "negative hops",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice"},
+			PeopleOpNewPeer{"bob"},
+
+			// alice is interested in
+			PeopleOpFollow{"alice", "bob"},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertHops("alice", -1),
+		},
+	},
+
 	{
 		name: "hops 0",
 		ops: []PeopleOp{
