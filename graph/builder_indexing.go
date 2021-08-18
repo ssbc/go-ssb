@@ -142,9 +142,27 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	addr := storedrefs.Feed(msg.Author())
 
 	switch justTheType.Type {
-	case "metafeed/add":
-		var addMsg metamngmt.Add
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg, b.hmacSecret)
+	case "metafeed/add/existing":
+		var addMsg metamngmt.AddExisting
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg)
+		if err != nil {
+			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
+			return nil
+		}
+
+		if !addMsg.MetaFeed.Equal(msg.Author()) {
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortRef(), "meta author", msg.Author().ShortRef())
+			// skip invalid add message
+			return nil
+		}
+		addr += storedrefs.Feed(addMsg.SubFeed)
+
+		level.Info(msgLogger).Log("adding", addMsg.SubFeed.Ref())
+		err = idx.Set(ctx, addr, idxRelValueMetafeed)
+
+	case "metafeed/add/derived":
+		var addMsg metamngmt.AddDerived
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil
@@ -162,7 +180,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 
 	case "metafeed/tombstone":
 		var tMsg metamngmt.Tombstone
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg, b.hmacSecret)
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil

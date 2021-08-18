@@ -106,9 +106,9 @@ func (op PeopleOpNewSubFeed) Op(state *testState) error {
 		return fmt.Errorf("failed to create keypair: %w", err)
 	}
 
-	addContent := metamngmt.NewAddMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
+	addContent := metamngmt.NewAddDerivedMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
 
-	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent, nil)
+	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent)
 	if err != nil {
 		return err
 	}

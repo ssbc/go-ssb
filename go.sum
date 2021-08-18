@@ -361,8 +361,8 @@ github.com/spf13/pflag v0.0.0-20170417173400-9e4c21054fa1/go.mod h1:DYY7MBk1bdzu
 github.com/spf13/pflag v1.0.1/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
-github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210727102809-98707678965d h1:simnOA+UTUYzzyrKrDzTQoK1ucP/xAVLsx0ltLu43Zo=
-github.com/ssb-ngi-pointer/go-metafeed v0.0.0-20210727102809-98707678965d/go.mod h1:+aAKVjVczevz4cinEbRW447mVGiTTot78yR4JRFq9M4=
+github.com/ssb-ngi-pointer/go-metafeed v1.0.0 h1:8LL2u3ovjmS2woy7KztORA0K42t04EIAlmHU9YPwFXc=
+github.com/ssb-ngi-pointer/go-metafeed v1.0.0/go.mod h1:IXYkNCacV/ONiWqGkB8knsvxNlEjoUA2sJmd9fmTfM4=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a/go.mod h1:qNTQ5P5JnDBl6z3cMAg/SywNDC5ABu5ApDIw6lUbRmI=

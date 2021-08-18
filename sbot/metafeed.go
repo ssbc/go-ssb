@@ -163,9 +163,9 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 		return refs.FeedRef{}, err
 	}
 
-	addContent := metamngmt.NewAddMessage(s.rootKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
+	addContent := metamngmt.NewAddDerivedMessage(s.rootKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
 
-	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent, s.hmacSecret)
+	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
@@ -243,7 +243,7 @@ func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
 	}
 
 	tombstoneContent := metamngmt.NewTombstoneMessage(subfeed, s.rootKeyPair.Feed)
-	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent, s.hmacSecret)
+	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent)
 	if err != nil {
 		return err
 	}
