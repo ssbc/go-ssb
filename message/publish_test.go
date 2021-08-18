@@ -32,13 +32,19 @@ func TestSignMessages(t *testing.T) {
 
 	testRepo := repo.New(rpath)
 	rl, err := repo.OpenLog(testRepo)
-	// TODO: close log
+	t.Cleanup(func() {
+		rl.Close()
+	})
 
 	r.NoError(err, "failed to open root log")
 	r.EqualValues(-1, rl.Seq(), "not empty")
 
 	userFeeds, userFeedsSnk, err := repo.OpenStandaloneMultiLog(testRepo, "testUsers", multilogs.UserFeedsUpdate)
 	r.NoError(err, "failed to get user feeds multilog")
+	t.Cleanup(func() {
+		userFeeds.Close()
+		userFeedsSnk.Close()
+	})
 
 	killServe, cancel := context.WithCancel(tctx)
 	defer cancel()
@@ -103,6 +109,4 @@ func TestSignMessages(t *testing.T) {
 
 	cancel()
 	r.NoError(<-errc, "serveLog failed")
-
-	r.NoError(rl.Close())
 }

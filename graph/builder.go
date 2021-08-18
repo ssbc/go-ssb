@@ -319,9 +319,12 @@ func (b *BadgerBuilder) Subfeeds(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 }
 
 // Hops returns a slice of feed refrences that are in a particulare range of from
-// max == 0: only direct follows of from
-// max == 1: max:0 + follows of friends of from
-// max == 2: max:1 + follows of their friends
+//
+//    * max == 0: only direct follows of from
+//    * max == 1: max:0 + follows of friends of from
+//    * max == 2: max:1 + follows of their friends
+//
+// See hops_test.go for concrete examples.
 func (b *BadgerBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 	max++
 	walked := ssb.NewFeedSet(0)
@@ -336,7 +339,7 @@ func (b *BadgerBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
 }
 
 func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struct{}, who refs.FeedRef, depth int) error {
-	if depth == 0 {
+	if depth <= 0 {
 		return nil
 	}
 

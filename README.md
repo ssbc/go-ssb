@@ -40,7 +40,7 @@ go install ./cmd/sbotcli
 
 Requirements:
 
-  - [Golang](https://www.golang.org) version 1.13 or higher
+  - [Golang](https://www.golang.org) version 1.17 or higher
 
 ## Running go-sbot
 
