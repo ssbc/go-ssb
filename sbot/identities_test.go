@@ -105,12 +105,8 @@ func XTestMultipleIdentities(t *testing.T) {
 	}
 
 	for idx, intro := range intros {
-		ref, err := mainbot.PublishAs(intro.as, intro.c)
+		msg, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
-		r.NotNil(ref)
-		msg, err := mainbot.Get(ref)
-		r.NoError(err)
-		r.NotNil(msg)
 
 		r.True(msg.Author().Equal(n2kp[intro.as].ID()))
 	}

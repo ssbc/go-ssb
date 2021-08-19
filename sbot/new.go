@@ -160,7 +160,8 @@ type Sbot struct {
 	latency      metrics.Histogram
 
 	enableMetafeeds bool
-	MetaFeeds       MetaFeeds
+	MetaFeeds       ssb.MetaFeeds
+	IndexFeeds      ssb.IndexFeedManager
 
 	ssb.Replicator
 }
@@ -222,7 +223,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 	ctx := s.rootCtx
 
-	r := repo.New(s.repoPath)
+	storageRepo := repo.New(s.repoPath)
 
 	var err error
 	if s.KeyPair == nil {
@@ -230,14 +231,14 @@ func New(fopts ...Option) (*Sbot, error) {
 		if s.enableMetafeeds {
 			algo = refs.RefAlgoFeedBendyButt
 		}
-		s.KeyPair, err = repo.DefaultKeyPair(r, algo)
+		s.KeyPair, err = repo.DefaultKeyPair(storageRepo, algo)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to get keypair: %w", err)
 		}
 	}
 
 	// TODO: optionize
-	s.ReceiveLog, err = repo.OpenLog(r)
+	s.ReceiveLog, err = repo.OpenLog(storageRepo)
 	if err != nil {
 		return nil, fmt.Errorf("sbot: failed to open rootlog: %w", err)
 	}
@@ -246,7 +247,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	// if not configured
 	if s.BlobStore == nil {
 		// load default, local file blob store
-		s.BlobStore, err = repo.OpenBlobStore(r)
+		s.BlobStore, err = repo.OpenBlobStore(storageRepo)
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to open blob store: %w", err)
 		}
@@ -269,7 +270,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	sm, err := statematrix.New(
-		r.GetPath("ebt-state-matrix"),
+		storageRepo.GetPath("ebt-state-matrix"),
 		s.KeyPair.ID(),
 	)
 	if err != nil {
@@ -279,7 +280,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.ebtState = sm
 
 	// open timestamp and sequence resovlers
-	s.SeqResolver, err = repo.NewSequenceResolver(r)
+	s.SeqResolver, err = repo.NewSequenceResolver(storageRepo)
 	if err != nil {
 		return nil, fmt.Errorf("error opening sequence resolver: %w", err)
 	}
@@ -287,7 +288,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	s.closers.AddCloser(idxTimestamps)
 	s.serveIndex("timestamps", idxTimestamps)
 
-	s.indexStore, err = repo.OpenBadgerDB(r.GetPath(repo.PrefixMultiLog, "shared-badger"))
+	s.indexStore, err = repo.OpenBadgerDB(storageRepo.GetPath(repo.PrefixMultiLog, "shared-badger"))
 	if err != nil {
 		return nil, err
 	}
@@ -442,14 +443,15 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 	}
 
-	selfNf, err := s.ebtState.Inspect(s.KeyPair.ID())
+	// load our network frontier
+	ownFrontier, err := s.ebtState.Inspect(s.KeyPair.ID())
 	if err != nil {
 		return nil, err
 	}
 
-	// no ebt state yet
-	if len(selfNf) == 0 {
-		// use the replication lister and determin the stored feeds lenghts
+	// this peer has no ebt state yet
+	if len(ownFrontier) == 0 {
+		// use the replication lister and determine the stored feeds lenghts
 		lister := s.Replicator.Lister().ReplicationList()
 
 		feeds, err := lister.List()
@@ -458,24 +460,20 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 
 		for i, feed := range feeds {
-			if feed.Algo() != refs.RefAlgoFeedSSB1 {
-				// skip other formats (TODO: gg support)
-				continue
-			}
-
 			seq, err := s.CurrentSequence(feed)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
-			selfNf[feed.String()] = seq
+			ownFrontier[feed.String()] = seq
 		}
 
-		selfNf[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
+		// also update our own
+		ownFrontier[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}
 
-		_, err = s.ebtState.Update(s.KeyPair.ID(), selfNf)
+		_, err = s.ebtState.Update(s.KeyPair.ID(), ownFrontier)
 		if err != nil {
 			return nil, err
 		}
@@ -490,6 +488,13 @@ func New(fopts ...Option) (*Sbot, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 			}
+
+			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"))
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize index feed manager: %w", err)
+			}
+
+			s.PublishLog = newWrappedPublisher(s.PublishLog, s.ReceiveLog, s.IndexFeeds)
 		}
 
 		// setup indexing
@@ -680,7 +685,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	gossipPlug := gossip.NewFetcher(ctx,
 		log.With(s.info, "plugin", "gossip"),
-		r,
+		storageRepo,
 		s.KeyPair.ID(),
 		s.ReceiveLog, s.Users,
 		fm, s.Replicator.Lister(),
@@ -848,7 +853,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	inviteService, err = legacyinvites.New(
 		log.With(s.info, "unit", "legacyInvites"),
-		r,
+		storageRepo,
 		s.KeyPair.ID(),
 		networkNode,
 		s.PublishLog,
