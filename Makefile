@@ -13,7 +13,7 @@ TESTFLAGS = -failfast -timeout 5m
 
 .PHONY: test
 test:
-	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(pkg) || exit 1;)
+	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(TESTFLAGS) $(pkg) || exit 1;)
 
 .PHONY: racetest
 racetest:
@@ -37,8 +37,9 @@ $(PLATFORMS):
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o go-sbot ./cmd/go-sbot
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o sbotcli ./cmd/sbotcli
 	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o gossb-truncate-log ./cmd/ssb-truncate-log
-	tar cvf $(ARCHIVENAME) go-sbot sbotcli gossb-truncate-log
-	rm go-sbot sbotcli gossb-truncate-log
+	GOOS=$(os) GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o ssb-offset-converter ./cmd/ssb-offset-converter
+	tar cvf $(ARCHIVENAME) go-sbot sbotcli gossb-truncate-log ssb-offset-converter 
+	rm go-sbot sbotcli gossb-truncate-log ssb-offset-converter
 	zstd -9 $(ARCHIVENAME)
 	rm $(ARCHIVENAME)
 
