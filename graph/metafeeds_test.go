@@ -39,25 +39,62 @@ var metafeedsScenarios = []PeopleTestCase{
 	},
 
 	{
+		name: "metafeeds inside metafeeds",
+		ops: []PeopleOp{
+			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
+
+			PeopleOpNewSubFeed{
+				of:    "alice",
+				name:  "alice-indexes",
+				nonce: "test1",
+				algo:  refs.RefAlgoFeedBendyButt,
+			},
+
+			PeopleOpNewSubFeed{
+				of:    "alice-indexes",
+				name:  "alice-foo",
+				nonce: "idx1",
+				algo:  refs.RefAlgoFeedGabby,
+			},
+			PeopleOpNewSubFeed{
+				of:    "alice-indexes",
+				name:  "alice-bar",
+				nonce: "idx2",
+				algo:  refs.RefAlgoFeedSSB1,
+			},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertIsSubfeed("alice", "alice-indexes", true),
+
+			PeopleAssertIsSubfeed("alice-indexes", "alice-foo", true),
+			PeopleAssertIsSubfeed("alice-indexes", "alice-bar", true),
+
+			PeopleAssertHops("alice", 0, "alice-indexes", "alice-foo", "alice-bar"),
+		},
+	},
+
+	{
 		name: "metafeeds of a friend",
 		ops: []PeopleOp{
 			PeopleOpNewPeer{"alice"},
 			PeopleOpNewPeerWithAlgo{"bob", refs.RefAlgoFeedBendyButt},
 
-			// alice and bob are friends
-			PeopleOpFollow{"alice", "bob"},
-			PeopleOpFollow{"bob", "alice"},
-
 			// bobs subfeeds
 			PeopleOpNewSubFeed{of: "bob",
 				name:  "bob-legacy",
 				nonce: "test1",
-				algo:  refs.RefAlgoFeedSSB1},
+				algo:  refs.RefAlgoFeedSSB1,
+			},
 
 			PeopleOpNewSubFeed{of: "bob",
 				name:  "bob-gabby",
 				nonce: "test2",
-				algo:  refs.RefAlgoFeedGabby},
+				algo:  refs.RefAlgoFeedGabby,
+			},
+
+			// alice and bob are friends
+			PeopleOpFollow{"alice", "bob"},
+			PeopleOpFollow{"bob-legacy", "alice"},
 		},
 		asserts: []PeopleAssertMaker{
 			PeopleAssertHops("alice", 0, "bob", "bob-legacy", "bob-gabby"),
@@ -65,7 +102,7 @@ var metafeedsScenarios = []PeopleTestCase{
 	},
 
 	{
-		name: "metafeed follows someone",
+		name: "metafeeds follow someone",
 		ops: []PeopleOp{
 			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
 			PeopleOpNewPeer{"some"},
