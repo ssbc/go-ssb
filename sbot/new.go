@@ -490,6 +490,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 			}
+
 		}
 
 		// setup indexing

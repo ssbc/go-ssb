@@ -7,6 +7,7 @@ package sbot
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"fmt"
 
 	"github.com/ssb-ngi-pointer/go-metafeed"
@@ -34,17 +35,17 @@ func WithMetaFeedMode(enable bool) Option {
 
 // MetaFeeds allows managing and publishing to subfeeds of a metafeed.
 type MetaFeeds interface {
-	// CreateSubFeed derives a new keypair, stores it in the keystore and publishes a `metafeed/add` message on the housing metafeed.
-	// It takes purpose whic will be published and added to the keystore, too.
-	// The subfeed will use the format
-	CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error)
+	// CreateSubFeed derives a new keypair, stores it in the keystore and publishes a `metafeed/add` message on the metafeed it's mounted on.
+	// It takes purpose which will be published and added to the keystore, too.
+	// The subfeed will use the pased format.
+	CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo) (refs.FeedRef, error)
 
-	// TombstoneSubFeed removes the keypair from the store and publishes a `metafeed/tombstone` message to the feed.
+	// TombstoneSubFeed removes the keypair from the store and publishes a `metafeed/tombstone` message to the metafeed it's mounted on.
 	// Afterwards the referenced feed is unusable.
-	TombstoneSubFeed(refs.FeedRef) error
+	TombstoneSubFeed(mount refs.FeedRef, subfeed refs.FeedRef) error
 
-	// ListSubFeeds returns a list of all _active_ subfeeds of the housing metafeed
-	ListSubFeeds() ([]SubfeedListEntry, error)
+	// ListSubFeeds returns a list of all _active_ subfeeds of the specified metafeed.
+	ListSubFeeds(whose refs.FeedRef) ([]SubfeedListEntry, error)
 
 	// Publish works like normal `Sbot.Publish()` but takes an additional feed reference,
 	// which specifies the subfeed on which the content should be published.
@@ -56,28 +57,9 @@ type SubfeedListEntry struct {
 	Purpose string
 }
 
-// stub for disabled mode
-type disabledMetaFeeds struct{}
-
-var errMetafeedsDisabled = fmt.Errorf("sbot: metafeeds are disabled")
-
-func (disabledMetaFeeds) CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
-	return refs.FeedRef{}, errMetafeedsDisabled
+func (entry SubfeedListEntry) String() string {
+	return fmt.Sprintf("%s (%s)", entry.Feed.Ref(), entry.Purpose)
 }
-
-func (disabledMetaFeeds) TombstoneSubFeed(_ refs.FeedRef) error {
-	return errMetafeedsDisabled
-}
-
-func (disabledMetaFeeds) ListSubFeeds() ([]SubfeedListEntry, error) {
-	return nil, errMetafeedsDisabled
-}
-
-func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
-	return refs.MessageRef{}, errMetafeedsDisabled
-}
-
-// actual implemnation
 
 type metaFeedsService struct {
 	rxLog margaret.Log
@@ -85,14 +67,15 @@ type metaFeedsService struct {
 	keys  *keys.Store
 
 	hmacSecret *[32]byte
-
-	rootKeyPair metakeys.KeyPair
 }
 
 func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *keys.Store, keypair ssb.KeyPair, hmacSecret *[32]byte) (*metaFeedsService, error) {
 	metaKeyPair, ok := keypair.(metakeys.KeyPair)
 	if !ok {
 		return nil, fmt.Errorf("not a metafeed keypair: %T", keypair)
+	}
+	if err := checkOrStoreKeypair(keyStore, metaKeyPair); err != nil {
+		return nil, fmt.Errorf("failed to initialize keystore with root keypair: %w", err)
 	}
 
 	return &metaFeedsService{
@@ -101,25 +84,25 @@ func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *k
 
 		hmacSecret: hmacSecret,
 
-		keys:        keyStore,
-		rootKeyPair: metaKeyPair,
+		keys: keyStore,
 	}, nil
 }
 
-func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
-	// TODO: validate format support
+func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
+	// TODO: validate format support (it's on the ebt multiformat branch)
 
-	// TODO: get rootKey?
-	// s.keys.GetKeys(keys.SchemeMetafeedSubkey)
-
-	// create nonce
-	var nonce = make([]byte, 32)
-	_, err := rand.Read(nonce)
+	mountKeyPair, err := loadMetafeedKeyPairFromStore(s.keys, mount)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
 
-	newSubfeedKeyPair, err := metakeys.DeriveFromSeed(s.rootKeyPair.Seed, string(nonce), format)
+	// create nonce
+	var nonce = make([]byte, 32)
+	if _, err := rand.Read(nonce); err != nil {
+		return refs.FeedRef{}, err
+	}
+
+	newSubfeedKeyPair, err := metakeys.DeriveFromSeed(mountKeyPair.Seed, string(nonce), format)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
@@ -128,13 +111,9 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
-	dbSubkeyID := keys.ID(newSubfeedAsTFK)
 
 	// store the singing key
-	err = s.keys.AddKey(dbSubkeyID, keys.Recipient{
-		Key:    keys.Key(newSubfeedKeyPair.PrivateKey),
-		Scheme: keys.SchemeFeedMessageSigningKey,
-	})
+	err = storeKeyPair(s.keys, newSubfeedKeyPair)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
@@ -145,7 +124,7 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 		return refs.FeedRef{}, err
 	}
 
-	subfeedListID := keys.IDFromFeed(s.rootKeyPair.Feed)
+	subfeedListID := keys.IDFromFeed(mountKeyPair.Feed)
 	err = s.keys.AddKey(subfeedListID, keys.Recipient{
 		Key:    keys.Key(listData),
 		Scheme: keys.SchemeMetafeedSubkey,
@@ -158,12 +137,12 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 		return refs.FeedRef{}, err
 	}
 
-	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair, message.SetHMACKey(s.hmacSecret))
+	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, mountKeyPair, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
 
-	addContent := metamngmt.NewAddMessage(s.rootKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
+	addContent := metamngmt.NewAddMessage(mountKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
 
 	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent, s.hmacSecret)
 	if err != nil {
@@ -179,8 +158,8 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 	return newSubfeedKeyPair.Feed, nil
 }
 
-func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
-	subfeedListing := keys.IDFromFeed(s.rootKeyPair.Feed)
+func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
+	subfeedListing := keys.IDFromFeed(mount)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListing)
 	if err != nil {
 		return fmt.Errorf("metafeed list: failed to get subfeed: %w", err)
@@ -237,12 +216,17 @@ func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
 		return fmt.Errorf("failed to delete subfeed signing key: %w", err)
 	}
 
-	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, s.rootKeyPair, message.SetHMACKey(s.hmacSecret))
+	mountKeyPair, err := loadMetafeedKeyPairFromStore(s.keys, mount)
 	if err != nil {
 		return err
 	}
 
-	tombstoneContent := metamngmt.NewTombstoneMessage(subfeed, s.rootKeyPair.Feed)
+	metaPublisher, err := message.OpenPublishLog(s.rxLog, s.users, mountKeyPair, message.SetHMACKey(s.hmacSecret))
+	if err != nil {
+		return err
+	}
+
+	tombstoneContent := metamngmt.NewTombstoneMessage(subfeed, mountKeyPair.Feed)
 	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent, s.hmacSecret)
 	if err != nil {
 		return err
@@ -257,8 +241,8 @@ func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
 	return nil
 }
 
-func (s metaFeedsService) ListSubFeeds() ([]SubfeedListEntry, error) {
-	subfeedListID := keys.IDFromFeed(s.rootKeyPair.Feed)
+func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]SubfeedListEntry, error) {
+	subfeedListID := keys.IDFromFeed(mount)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListID)
 	if err != nil {
 		return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
@@ -275,6 +259,9 @@ func (s metaFeedsService) ListSubFeeds() ([]SubfeedListEntry, error) {
 
 		var feedID tfk.Feed
 		err = feedID.UnmarshalBinary(tfkAndPurpose[0])
+		if err != nil {
+			return nil, err
+		}
 
 		feedRef, err := feedID.Feed()
 		if err != nil {
@@ -291,29 +278,94 @@ func (s metaFeedsService) ListSubFeeds() ([]SubfeedListEntry, error) {
 }
 
 func (s metaFeedsService) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
-	feedAsTFK, err := tfk.Encode(as)
+	kp, err := loadMetafeedKeyPairFromStore(s.keys, as)
 	if err != nil {
-		return refs.MessageRef{}, err
-	}
-	dbSubkeyID := keys.ID(feedAsTFK)
-
-	keys, err := s.keys.GetKeys(keys.SchemeFeedMessageSigningKey, dbSubkeyID)
-	if err != nil {
-		return refs.MessageRef{}, err
-	}
-	if n := len(keys); n != 1 {
-		return refs.MessageRef{}, fmt.Errorf("expected one signing key but got %d", n)
-	}
-
-	kp := metakeys.KeyPair{
-		Feed:       as,
-		PrivateKey: ed25519.PrivateKey(keys[0].Key),
+		return refs.MessageRef{}, fmt.Errorf("publish(as) failed to load signing keypair: %w", err)
 	}
 
 	publisher, err := message.OpenPublishLog(s.rxLog, s.users, kp, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
-		return refs.MessageRef{}, err
+		return refs.MessageRef{}, fmt.Errorf("publish(as) failed to publish message: %w", err)
 	}
 
 	return publisher.Publish(content)
+}
+
+// utility functions
+func loadMetafeedKeyPairFromStore(store *keys.Store, which refs.FeedRef) (metakeys.KeyPair, error) {
+	feedAsTFK, err := tfk.Encode(which)
+	if err != nil {
+		return metakeys.KeyPair{}, err
+	}
+	dbSubkeyID := keys.ID(feedAsTFK)
+
+	keys, err := store.GetKeys(keys.SchemeFeedMessageSigningKey, dbSubkeyID)
+	if err != nil {
+		return metakeys.KeyPair{}, err
+	}
+	if n := len(keys); n != 2 {
+		return metakeys.KeyPair{}, fmt.Errorf("expected two signing keys but got %d (%+v)", n, keys)
+	}
+
+	return metakeys.KeyPair{
+		Feed:       which,
+		PrivateKey: ed25519.PrivateKey(keys[0].Key),
+
+		Seed: []byte(keys[1].Key),
+	}, nil
+}
+
+// checkOrStoreKeypair only stores the keypair if it isn't stored yet
+func checkOrStoreKeypair(store *keys.Store, kp metakeys.KeyPair) error {
+	feedAsTFK, err := tfk.Encode(kp.Feed)
+	if err != nil {
+		return err
+	}
+	dbKeypairID := keys.ID(feedAsTFK)
+
+	storedKeyPair, err := store.GetKeys(keys.SchemeFeedMessageSigningKey, dbKeypairID)
+	if err == nil && len(storedKeyPair) == 2 { // 2 because secret and seed
+		// keypair stored, store initalized
+		return nil
+	}
+
+	// make sure we got error NoSuchKey
+	var keystoreErr keys.Error
+	if errors.As(err, &keystoreErr) {
+		if keystoreErr.Code != keys.ErrorCodeNoSuchKey {
+			return fmt.Errorf("checkAndStore: expected NoSuchKey error but got: %w", keystoreErr)
+		}
+		// ErrorCodeNoSuchKey as intended
+	} else {
+		return fmt.Errorf("checkAndStore: unexpected keystore failure: %w", err)
+	}
+
+	// now store the yet to be set keypair
+	return storeKeyPair(store, kp)
+}
+
+func storeKeyPair(store *keys.Store, kp metakeys.KeyPair) error {
+	feedAsTFK, err := tfk.Encode(kp.Feed)
+	if err != nil {
+		return err
+	}
+	dbKeypairID := keys.ID(feedAsTFK)
+
+	err = store.AddKey(dbKeypairID, keys.Recipient{
+		Key:    keys.Key(kp.PrivateKey),
+		Scheme: keys.SchemeFeedMessageSigningKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = store.AddKey(dbKeypairID, keys.Recipient{
+		Key:    keys.Key(kp.Seed),
+		Scheme: keys.SchemeFeedMessageSigningKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

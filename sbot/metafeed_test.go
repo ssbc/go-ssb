@@ -81,11 +81,11 @@ func TestMultiFeedManagment(t *testing.T) {
 	checkSeq(int(margaret.SeqEmpty))
 
 	// create a new subfeed
-	subfeedid, err := mainbot.MetaFeeds.CreateSubFeed(t.Name(), refs.RefAlgoFeedSSB1)
+	subfeedid, err := mainbot.MetaFeeds.CreateSubFeed(mainbot.KeyPair.ID(), t.Name(), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// list it
-	lst, err := mainbot.MetaFeeds.ListSubFeeds()
+	lst, err := mainbot.MetaFeeds.ListSubFeeds(mainbot.KeyPair.ID())
 	r.NoError(err)
 	r.Len(lst, 1)
 	r.True(lst[0].Feed.Equal(subfeedid))
@@ -111,11 +111,11 @@ func TestMultiFeedManagment(t *testing.T) {
 	r.EqualValues(0, subfeedLog.Seq())
 
 	// drop it
-	err = mainbot.MetaFeeds.TombstoneSubFeed(subfeedid)
+	err = mainbot.MetaFeeds.TombstoneSubFeed(mainbot.KeyPair.ID(), subfeedid)
 	r.NoError(err)
 
 	// shouldnt be listed as active
-	lst, err = mainbot.MetaFeeds.ListSubFeeds()
+	lst, err = mainbot.MetaFeeds.ListSubFeeds(mainbot.KeyPair.ID())
 	r.NoError(err)
 	r.Len(lst, 0)
 
@@ -166,13 +166,14 @@ func TestMultiFeedSync(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(multiBot))
 
-	r.Equal(multiBot.KeyPair.ID().Algo(), refs.RefAlgoFeedBendyButt)
+	multibotFeed := multiBot.KeyPair.ID()
+	r.Equal(multibotFeed.Algo(), refs.RefAlgoFeedBendyButt)
 
 	// create a two subfeeds
-	subfeedClassic, err := multiBot.MetaFeeds.CreateSubFeed("classic", refs.RefAlgoFeedSSB1)
+	subfeedClassic, err := multiBot.MetaFeeds.CreateSubFeed(multibotFeed, "classic", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	subfeedGabby, err := multiBot.MetaFeeds.CreateSubFeed("gabby", refs.RefAlgoFeedGabby)
+	subfeedGabby, err := multiBot.MetaFeeds.CreateSubFeed(multibotFeed, "gabby", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
 	// create some spam
@@ -263,4 +264,96 @@ func TestMultiFeedSync(t *testing.T) {
 	r.NoError(receiveBot.Close())
 
 	r.NoError(botgroup.Wait())
+}
+
+func TestMetafeedsInsideMetafeeds(t *testing.T) {
+	// defer leakcheck.Check(t)
+	r := require.New(t)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
+
+	// make the bot
+	logger := log.NewLogfmtLogger(os.Stderr)
+	bot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		DisableNetworkNode(),
+		WithMetaFeedMode(true),
+	)
+	r.NoError(err)
+	// </boilerplate>
+
+	// create a subfeed, which is a metafeed, on the "root" metafeed
+	// purposes:indexes example because that's what's used in the spec
+	// https://github.com/ssb-ngi-pointer/ssb-secure-partial-replication-spec#indexes
+	idxSubfeed, err := bot.MetaFeeds.CreateSubFeed(bot.KeyPair.ID(), "indexes", refs.RefAlgoFeedBendyButt)
+	r.NoError(err)
+
+	// now create two index feeds on the just created subfeed for indexes
+	idx1, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index-foo", refs.RefAlgoFeedGabby)
+	r.NoError(err)
+
+	idx2, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index-bar", refs.RefAlgoFeedGabby)
+	r.NoError(err)
+
+	// check we can list them
+	lst, err := bot.MetaFeeds.ListSubFeeds(bot.KeyPair.ID())
+	r.NoError(err)
+	r.Len(lst, 1, "more subfeeds?")
+	r.True(lst[0].Feed.Equal(idxSubfeed))
+
+	lst, err = bot.MetaFeeds.ListSubFeeds(idxSubfeed)
+	r.NoError(err)
+	r.Len(lst, 2, "more subfeeds on the index?")
+
+	var found bool
+	for _, entry := range lst {
+		if entry.Feed.Equal(idx1) {
+			found = true
+			break
+		}
+	}
+	r.True(found, "found idx1")
+	found = false // reset
+
+	for _, entry := range lst {
+		if entry.Feed.Equal(idx2) {
+			found = true
+			break
+		}
+	}
+	r.True(found, "found idx2")
+
+	// TODO: check we can publish as idx1 and idx2
+
+	// try to tumbstone on the wrong mount
+	err = bot.MetaFeeds.TombstoneSubFeed(bot.KeyPair.ID(), idx1)
+	r.Error(err)
+	// TODO assert NotFound error
+
+	// listings stay the same
+	lst, err = bot.MetaFeeds.ListSubFeeds(bot.KeyPair.ID())
+	r.NoError(err)
+	r.Len(lst, 1, "more subfeeds?")
+	lst, err = bot.MetaFeeds.ListSubFeeds(idxSubfeed)
+	r.NoError(err)
+	r.Len(lst, 2, "more subfeeds on the index?")
+
+	// now remove it from the right mount
+	err = bot.MetaFeeds.TombstoneSubFeed(idxSubfeed, idx1)
+	r.NoError(err)
+
+	lst, err = bot.MetaFeeds.ListSubFeeds(idxSubfeed)
+	r.NoError(err)
+	r.Len(lst, 1, "more subfeeds on the index?")
+
+	// TODO:
+	// bot.IndexFeeds.Register(idx1, funct(message) bool {
+	// 	return if message.type == "about"
+	// })
+
+	// <teardown>
+	bot.Shutdown()
+	bot.Close()
 }
