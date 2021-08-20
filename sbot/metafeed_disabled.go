@@ -7,6 +7,7 @@ package sbot
 import (
 	"fmt"
 
+	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -23,7 +24,7 @@ func (disabledMetaFeeds) TombstoneSubFeed(_, _ refs.FeedRef) error {
 	return errMetafeedsDisabled
 }
 
-func (disabledMetaFeeds) ListSubFeeds(mount refs.FeedRef) ([]SubfeedListEntry, error) {
+func (disabledMetaFeeds) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEntry, error) {
 	return nil, errMetafeedsDisabled
 }
 

@@ -160,7 +160,7 @@ type Sbot struct {
 	latency      metrics.Histogram
 
 	enableMetafeeds bool
-	MetaFeeds       MetaFeeds
+	MetaFeeds       ssb.MetaFeeds
 
 	ssb.Replicator
 }

@@ -33,34 +33,6 @@ func WithMetaFeedMode(enable bool) Option {
 	}
 }
 
-// MetaFeeds allows managing and publishing to subfeeds of a metafeed.
-type MetaFeeds interface {
-	// CreateSubFeed derives a new keypair, stores it in the keystore and publishes a `metafeed/add` message on the metafeed it's mounted on.
-	// It takes purpose which will be published and added to the keystore, too.
-	// The subfeed will use the pased format.
-	CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo) (refs.FeedRef, error)
-
-	// TombstoneSubFeed removes the keypair from the store and publishes a `metafeed/tombstone` message to the metafeed it's mounted on.
-	// Afterwards the referenced feed is unusable.
-	TombstoneSubFeed(mount refs.FeedRef, subfeed refs.FeedRef) error
-
-	// ListSubFeeds returns a list of all _active_ subfeeds of the specified metafeed.
-	ListSubFeeds(whose refs.FeedRef) ([]SubfeedListEntry, error)
-
-	// Publish works like normal `Sbot.Publish()` but takes an additional feed reference,
-	// which specifies the subfeed on which the content should be published.
-	Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error)
-}
-
-type SubfeedListEntry struct {
-	Feed    refs.FeedRef
-	Purpose string
-}
-
-func (entry SubfeedListEntry) String() string {
-	return fmt.Sprintf("%s (%s)", entry.Feed.Ref(), entry.Purpose)
-}
-
 type metaFeedsService struct {
 	rxLog margaret.Log
 	users multilog.MultiLog
@@ -149,11 +121,10 @@ func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, form
 		return refs.FeedRef{}, err
 	}
 
-	addedSubfeedMsg, err := metaPublisher.Publish(addMsg)
+	_, err = metaPublisher.Publish(addMsg)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
-	fmt.Println("new subfeed published in", addedSubfeedMsg.Ref())
 
 	return newSubfeedKeyPair.Feed, nil
 }
@@ -199,7 +170,7 @@ func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
 	}
 
 	if !found {
-		return fmt.Errorf("subfeed not marked as active")
+		return ssb.ErrSubfeedNotActive
 	}
 
 	subfeedSigningKey, err := loadMetafeedKeyPairFromStore(s.keys, subfeed)
@@ -232,23 +203,22 @@ func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
 		return err
 	}
 
-	tombstonedSubfeedMsg, err := metaPublisher.Publish(tombstoneMsg)
+	_, err = metaPublisher.Publish(tombstoneMsg)
 	if err != nil {
 		return err
 	}
-	fmt.Println("subfeed tombstone published in", tombstonedSubfeedMsg.Ref())
 
 	return nil
 }
 
-func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]SubfeedListEntry, error) {
+func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEntry, error) {
 	subfeedListID := keys.IDFromFeed(mount)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListID)
 	if err != nil {
 		return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
 	}
 
-	lst := make([]SubfeedListEntry, len(feeds))
+	lst := make([]ssb.SubfeedListEntry, len(feeds))
 	for i, f := range feeds {
 
 		tfkAndPurpose := slp.Decode(f.Key)
@@ -268,7 +238,7 @@ func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]SubfeedListEntry, 
 			return nil, err
 		}
 
-		lst[i] = SubfeedListEntry{
+		lst[i] = ssb.SubfeedListEntry{
 			Feed:    feedRef,
 			Purpose: string(tfkAndPurpose[1]),
 		}

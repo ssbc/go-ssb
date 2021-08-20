@@ -26,7 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestMigrateFromMultiFeed(t *testing.T) {
+func TestMigrateFromMetaFeed(t *testing.T) {
 	// create a repo with a ssb v1 keypair
 
 	// create a bunch of messages with types contact and post
@@ -40,8 +40,7 @@ func TestMigrateFromMultiFeed(t *testing.T) {
 	// FUTURE: assert creation of index-feeds for post types
 }
 
-func TestMultiFeedManagment(t *testing.T) {
-	// defer leakcheck.Check(t)
+func TestMetafeedManagment(t *testing.T) {
 	r := require.New(t)
 
 	tRepoPath := filepath.Join("testrun", t.Name())
@@ -59,7 +58,6 @@ func TestMultiFeedManagment(t *testing.T) {
 
 	r.Equal(mainbot.KeyPair.ID().Algo(), refs.RefAlgoFeedBendyButt)
 
-	// did b0 get feed of bN-1?
 	storedMetafeed, err := mainbot.Users.Get(storedrefs.Feed(mainbot.KeyPair.ID()))
 	r.NoError(err)
 	var checkSeq = func(want int) refs.Message {
@@ -135,8 +133,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	r.NoError(mainbot.Close())
 }
 
-func TestMultiFeedSync(t *testing.T) {
-	// defer leakcheck.Check(t)
+func TestMetafeedSync(t *testing.T) {
 	r := require.New(t)
 
 	// use hmac key
@@ -266,8 +263,7 @@ func TestMultiFeedSync(t *testing.T) {
 	r.NoError(botgroup.Wait())
 }
 
-func TestMetafeedsInsideMetafeeds(t *testing.T) {
-	// defer leakcheck.Check(t)
+func TestMetafeedInsideMetafeed(t *testing.T) {
 	r := require.New(t)
 
 	tRepoPath := filepath.Join("testrun", t.Name())
@@ -325,12 +321,15 @@ func TestMetafeedsInsideMetafeeds(t *testing.T) {
 	}
 	r.True(found, "found idx2")
 
-	// TODO: check we can publish as idx1 and idx2
+	// check we can publish as idx1 and idx2
+	_, err = bot.MetaFeeds.Publish(idx1, refs.NewPost("foo!"))
+	r.NoError(err)
+	_, err = bot.MetaFeeds.Publish(idx2, refs.NewPost("bar!"))
+	r.NoError(err)
 
 	// try to tumbstone on the wrong mount
 	err = bot.MetaFeeds.TombstoneSubFeed(bot.KeyPair.ID(), idx1)
 	r.Error(err)
-	// TODO assert NotFound error
 
 	// listings stay the same
 	lst, err = bot.MetaFeeds.ListSubFeeds(bot.KeyPair.ID())
