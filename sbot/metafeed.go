@@ -202,7 +202,7 @@ func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
 		return fmt.Errorf("subfeed not marked as active")
 	}
 
-	subfeedSigningKey, err := s.keys.GetKeys(keys.SchemeFeedMessageSigningKey, subfeedSignKeyID)
+	subfeedSigningKey, err := loadMetafeedKeyPairFromStore(s.keys, subfeed)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
 	}
 
 	tombstoneContent := metamngmt.NewTombstoneMessage(subfeed, mountKeyPair.Feed)
-	tombstoneMsg, err := metafeed.SubSignContent(ed25519.PrivateKey(subfeedSigningKey[0].Key), tombstoneContent, s.hmacSecret)
+	tombstoneMsg, err := metafeed.SubSignContent(subfeedSigningKey.PrivateKey, tombstoneContent, s.hmacSecret)
 	if err != nil {
 		return err
 	}
@@ -303,15 +303,19 @@ func loadMetafeedKeyPairFromStore(store *keys.Store, which refs.FeedRef) (metake
 	if err != nil {
 		return metakeys.KeyPair{}, err
 	}
-	if n := len(keys); n != 2 {
-		return metakeys.KeyPair{}, fmt.Errorf("expected two signing keys but got %d (%+v)", n, keys)
+	if n := len(keys); n != 1 {
+		return metakeys.KeyPair{}, fmt.Errorf("expected one signing key but got %d", n)
+	}
+
+	keyMaterial := slp.Decode(keys[0].Key)
+	if n := len(keyMaterial); n != 2 {
+		return metakeys.KeyPair{}, fmt.Errorf("expected two parts of key material but got %d", n)
 	}
 
 	return metakeys.KeyPair{
 		Feed:       which,
-		PrivateKey: ed25519.PrivateKey(keys[0].Key),
-
-		Seed: []byte(keys[1].Key),
+		PrivateKey: ed25519.PrivateKey(keyMaterial[0]),
+		Seed:       []byte(keyMaterial[1]),
 	}, nil
 }
 
@@ -324,7 +328,7 @@ func checkOrStoreKeypair(store *keys.Store, kp metakeys.KeyPair) error {
 	dbKeypairID := keys.ID(feedAsTFK)
 
 	storedKeyPair, err := store.GetKeys(keys.SchemeFeedMessageSigningKey, dbKeypairID)
-	if err == nil && len(storedKeyPair) == 2 { // 2 because secret and seed
+	if err == nil && len(storedKeyPair) == 1 {
 		// keypair stored, store initalized
 		return nil
 	}
@@ -351,16 +355,13 @@ func storeKeyPair(store *keys.Store, kp metakeys.KeyPair) error {
 	}
 	dbKeypairID := keys.ID(feedAsTFK)
 
-	err = store.AddKey(dbKeypairID, keys.Recipient{
-		Key:    keys.Key(kp.PrivateKey),
-		Scheme: keys.SchemeFeedMessageSigningKey,
-	})
+	keyMaterial, err := slp.Encode(kp.PrivateKey, kp.Seed)
 	if err != nil {
 		return err
 	}
 
 	err = store.AddKey(dbKeypairID, keys.Recipient{
-		Key:    keys.Key(kp.Seed),
+		Key:    keyMaterial,
 		Scheme: keys.SchemeFeedMessageSigningKey,
 	})
 	if err != nil {
