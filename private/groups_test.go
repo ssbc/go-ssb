@@ -76,7 +76,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
-	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
+	t.Log(cloaked.Sigil(), "\nroot:", groupTangleRoot.Sigil())
 
 	suffix := []byte(".box2\"")
 
@@ -341,7 +341,7 @@ func XTestGroupsReindex(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
-	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
+	t.Log(cloaked.Sigil(), "\nroot:", groupTangleRoot.Sigil())
 
 	// publish a message to the group
 	for i := 10; i > 0; i-- {
@@ -429,7 +429,7 @@ func XTestGroupsReindex(t *testing.T) {
 
 	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.ID(), "welcome razi!")
 	r.NoError(err)
-	t.Log("invited raz:", invref2.Ref())
+	t.Log("invited raz:", invref2.Sigil())
 
 	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.ID()))
 	r.NoError(err)

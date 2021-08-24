@@ -205,7 +205,7 @@ func (mgr *Manager) AddMember(groupID refs.MessageRef, r refs.FeedRef, welcome s
 	groupRoot := gskey[0].Metadata.GroupRoot
 	ga.Root = groupRoot
 
-	ga.Recps = []string{groupID.Ref(), r.Sigil()}
+	ga.Recps = []string{groupID.Sigil(), r.Sigil()}
 
 	ga.Tangles = make(refs.Tangles)
 

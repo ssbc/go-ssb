@@ -174,7 +174,7 @@ func (s metaFeedsService) CreateSubFeed(purpose string, format refs.RefAlgo) (re
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
-	fmt.Println("new subfeed published in", addedSubfeedMsg.Ref())
+	fmt.Println("new subfeed published in", addedSubfeedMsg.Sigil())
 
 	return newSubfeedKeyPair.Feed, nil
 }
@@ -252,7 +252,7 @@ func (s metaFeedsService) TombstoneSubFeed(subfeed refs.FeedRef) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("subfeed tombstone published in", tombstonedSubfeedMsg.Ref())
+	fmt.Println("subfeed tombstone published in", tombstonedSubfeedMsg.Sigil())
 
 	return nil
 }

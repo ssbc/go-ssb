@@ -90,7 +90,7 @@ func TestFeedFromJS(t *testing.T) {
 		r.Equal(m.Content.Text, "foo")
 		r.Equal(m.Content.I, n-i, "wrong I on msg: %d", i)
 		if i == n-1 {
-			lastMsg = storedMsg.Key().Ref()
+			lastMsg = storedMsg.Key().Sigil()
 		}
 	}
 

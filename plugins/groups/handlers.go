@@ -41,7 +41,7 @@ func (h create) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 		return nil, err
 	}
 
-	level.Info(h.log).Log("event", "group created", "cloaked", cloaked.Ref())
+	level.Info(h.log).Log("event", "group created", "cloaked", cloaked.Sigil())
 
 	return struct {
 		Group refs.MessageRef `json:"group_id"`
@@ -79,7 +79,7 @@ func (h publishTo) HandleAsync(ctx context.Context, req *muxrpc.Request) (interf
 		return nil, fmt.Errorf("failed to publish message to group")
 	}
 
-	return newMsg.Ref(), nil
+	return newMsg.Sigil(), nil
 }
 
 type invite struct {
@@ -118,5 +118,5 @@ func (h invite) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface
 		return nil, fmt.Errorf("failed to publish invite to group")
 	}
 
-	return newMsg.Ref(), nil
+	return newMsg.Sigil(), nil
 }

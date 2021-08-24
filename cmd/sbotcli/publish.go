@@ -53,8 +53,8 @@ var publishRawCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "raw", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "raw", "ref", newMsg.Sigil())
+		fmt.Fprintln(os.Stdout, newMsg.Sigil())
 		return nil
 	},
 }
@@ -106,8 +106,8 @@ var publishPostCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "post", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "post", "ref", newMsg.Sigil())
+		fmt.Fprintln(os.Stdout, newMsg.Sigil())
 		return nil
 	},
 }
@@ -133,7 +133,7 @@ var publishVoteCmd = &cli.Command{
 
 		arg := map[string]interface{}{
 			"vote": map[string]interface{}{
-				"link":       mref.Ref(),
+				"link":       mref.Sigil(),
 				"value":      ctx.Int("value"),
 				"expression": ctx.String("expression"),
 			},
@@ -173,8 +173,8 @@ var publishVoteCmd = &cli.Command{
 			return err
 		}
 
-		log.Log("event", "published", "type", "vote", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "vote", "ref", newMsg.Sigil())
+		fmt.Fprintln(os.Stdout, newMsg.Sigil())
 		return nil
 	},
 }
@@ -220,8 +220,8 @@ var publishAboutCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "about", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "about", "ref", newMsg.Sigil())
+		fmt.Fprintln(os.Stdout, newMsg.Sigil())
 		return nil
 	},
 }
@@ -265,8 +265,8 @@ var publishContactCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "contact", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "contact", "ref", newMsg.Sigil())
+		fmt.Fprintln(os.Stdout, newMsg.Sigil())
 		return nil
 	},
 }

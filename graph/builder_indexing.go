@@ -183,7 +183,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().Ref(), err)
+		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().Sigil(), err)
 	}
 
 	return nil

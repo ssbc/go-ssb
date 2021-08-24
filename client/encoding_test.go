@@ -72,7 +72,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		r.NoError(err, "failed to call publish")
 		r.NotNil(ref)
 
-		wantRefs = append(wantRefs, ref.Ref())
+		wantRefs = append(wantRefs, ref.Sigil())
 	}
 
 	r.EqualValues(9, srv.ReceiveLog.Seq())

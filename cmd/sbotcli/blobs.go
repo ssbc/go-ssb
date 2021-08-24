@@ -124,7 +124,7 @@ var blobsAddCmd = &cli.Command{
 		}
 
 		ref, err := blobsStore.Put(rd)
-		log.Log("blobs.add", ref.Ref())
+		log.Log("blobs.add", ref.Sigil())
 		return err
 	},
 }
@@ -165,7 +165,7 @@ var blobsGetCmd = &cli.Command{
 		}
 
 		n, err := io.Copy(out, rd)
-		log.Log("blobs.get", br.Ref(), "written", n)
+		log.Log("blobs.get", br.Sigil(), "written", n)
 		return err
 	},
 }

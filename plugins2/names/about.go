@@ -248,7 +248,7 @@ func updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx li
 		}
 	}
 	if aboutMSG.Image != nil {
-		val = aboutMSG.Image.Ref()
+		val = aboutMSG.Image.Sigil()
 		if err := idx.Set(ctx, librarian.Addr(addr+"image"), val); err != nil {
 			return fmt.Errorf("db/idx about: failed to update image: %w", err)
 		}

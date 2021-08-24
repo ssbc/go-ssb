@@ -49,7 +49,7 @@ func TestBlobToJS(t *testing.T) {
 
 	ref, err := s.BlobStore.Put(strings.NewReader("bl0000p123123"))
 	r.NoError(err)
-	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Ref())
+	r.Equal("&rCJbx8pzYys3zFkmXyYG6JtKZO9/LX51AMME12+WvCY=.sha256", ref.Sigil())
 
 	ts.wait()
 
@@ -101,7 +101,7 @@ func TestBlobFromJS(t *testing.T) {
 
 	got := make(chan struct{})
 	s.BlobStore.Register(broadcasts.BlobStoreFuncEmitter(func(notif ssb.BlobStoreNotification) error {
-		if ssb.BlobStoreOp("put") == notif.Op && fooBarRef == notif.Ref.Ref() {
+		if ssb.BlobStoreOp("put") == notif.Op && fooBarRef == notif.Ref.Sigil() {
 			close(got)
 		} else {
 			fmt.Println("warning: wrong blob notify!", notif)
@@ -224,7 +224,7 @@ sbot.blobs.want(wantHash, (err, has) => {
 })
 
 run()
-`, wantBlob.Ref())
+`, wantBlob.Sigil())
 
 	claire := ts.startJSBot(before, "")
 
@@ -257,7 +257,7 @@ func TestBlobTooBigWantedByJS(t *testing.T) {
 	big, err := s.BlobStore.Put(io.LimitReader(zerof, veryLarge))
 	r.NoError(err)
 
-	t.Log("added too big", big.Ref())
+	t.Log("added too big", big.Sigil())
 	ts.startJSBot(`timeoutLength = 600000;run()`,
 		fmt.Sprintf(`
 		let small = %q
@@ -275,7 +275,7 @@ func TestBlobTooBigWantedByJS(t *testing.T) {
 				setTimeout(exit, 5000)
 			})
 		}, 1000)
-		`, small.Ref(), big.Ref()))
+		`, small.Sigil(), big.Sigil()))
 
 	ts.wait()
 }
@@ -353,8 +353,8 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	if tries == 0 {
 		t.Fatal("did not get test-data message")
 	}
-	r.Equal("&SqtVEGDZDsEI53s3k9lHORXAgFjYmRK7pFDcAuYoo2c=.sha256", testData.Small.Ref())
-	r.Equal("&BcIXzoawDrJrq7ETyZxLmbL/cJzPnRCu76l5Qlgw1T4=.sha256", testData.Big.Ref())
+	r.Equal("&SqtVEGDZDsEI53s3k9lHORXAgFjYmRK7pFDcAuYoo2c=.sha256", testData.Small.Sigil())
+	r.Equal("&BcIXzoawDrJrq7ETyZxLmbL/cJzPnRCu76l5Qlgw1T4=.sha256", testData.Big.Sigil())
 	s.WantManager.Want(testData.Small)
 	s.WantManager.Want(testData.Big)
 	time.Sleep(3 * time.Second)

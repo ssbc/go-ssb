@@ -195,7 +195,7 @@ func TestGetPublished(t *testing.T) {
 	testMsgRef, err := refs.ParseMessageRef(actualRef)
 	r.NoError(err)
 
-	out, _ = sbotcli("get", testMsgRef.Ref())
+	out, _ = sbotcli("get", testMsgRef.Sigil())
 
 	var msg map[string]interface{}
 	err = json.Unmarshal(out, &msg)

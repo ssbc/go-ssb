@@ -106,7 +106,7 @@ type BlobStoreNotification struct {
 }
 
 func (bn BlobStoreNotification) String() string {
-	s := bn.Op.String() + ": " + bn.Ref.Ref()
+	s := bn.Op.String() + ": " + bn.Ref.Sigil()
 	if bn.Size > 0 {
 		s += fmt.Sprintf(" (size: %d)", bn.Size)
 	}

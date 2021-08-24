@@ -85,7 +85,7 @@ func TestReplicateUpTo(t *testing.T) {
 				Hello string
 			}{"test", true, n, kp.ID().Sigil()})
 			r.NoError(err)
-			t.Log(ref.Ref())
+			t.Log(ref.Sigil())
 		}
 	}
 

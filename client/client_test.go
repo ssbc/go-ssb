@@ -338,7 +338,7 @@ func LotsOfStatusCalls(newPair mkPair) func(t *testing.T) {
 			})
 			r.NoError(err, "message live err %d errored", i)
 
-			a.True(msg.Key().Equal(ref), "wrong message: %d - %s", i, ref.Ref())
+			a.True(msg.Key().Equal(ref), "wrong message: %d - %s", i, ref.Sigil())
 		}
 		time.Sleep(1 * time.Second)
 		a.NoError(c.Close())

@@ -487,11 +487,11 @@ var groupsInviteCmd = &cli.Command{
 		}
 
 		var reply interface{}
-		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Sigil())
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Sigil(), member.Sigil())
 		if err != nil {
 			return fmt.Errorf("invite call failed: %w", err)
 		}
-		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Sigil())
+		log.Log("event", "member added", "group", groupID.Sigil(), "member", member.Sigil())
 		goon.Dump(reply)
 		return nil
 	},
@@ -522,7 +522,7 @@ var groupsPublishToCmd = &cli.Command{
 		}
 
 		var reply interface{}
-		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Ref(), content)
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "publishTo"}, groupID.Sigil(), content)
 		if err != nil {
 			return fmt.Errorf("publish call failed: %w", err)
 		}

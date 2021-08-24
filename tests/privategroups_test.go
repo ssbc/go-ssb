@@ -121,7 +121,7 @@ func XTestGroupsJSCreate(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(hintContent.Invite)
 
-	t.Log("hint:", hintContent.Invite.Ref())
+	t.Log("hint:", hintContent.Invite.Sigil())
 	inviteMsg, err := bob.Get(*hintContent.Invite)
 	r.NoError(err)
 	r.True(inviteMsg.Author().Equal(alice), "not from alice?!")
@@ -138,7 +138,7 @@ func XTestGroupsJSCreate(t *testing.T) {
 	// use the add to join the group
 	cloaked, err := bob.Groups.Join(ga.GroupKey, ga.Root)
 	r.NoError(err)
-	assert.Equal(t, hintContent.GroupID, cloaked.Ref(), "wrong derived cloaked id")
+	assert.Equal(t, hintContent.GroupID, cloaked.Sigil(), "wrong derived cloaked id")
 
 	// reply after joining
 	helloGroup, err := bob.Groups.PublishPostTo(cloaked, "hello test group!")
@@ -181,7 +181,7 @@ func XTestGroupsJSCreate(t *testing.T) {
 			})
 		}, 2000)
 	}))
-`, alice.Sigil(), helloGroup.Ref()), ``)
+`, alice.Sigil(), helloGroup.Sigil()), ``)
 
 	bob.Network.GetConnTracker().CloseAll()
 
@@ -216,7 +216,7 @@ func XTestGroupsGoCreate(t *testing.T) {
 		jsonContent := fmt.Sprintf(`{"type":"test", "count":%d}`, i)
 		spam, err := bob.Groups.PublishTo(groupID, []byte(jsonContent))
 		r.NoError(err)
-		t.Logf("%d: spam %s", i, spam.Ref())
+		t.Logf("%d: spam %s", i, spam.Sigil())
 	}
 
 	inviteRef, err := bob.Groups.AddMember(groupID, alice, "what's up alice?")
@@ -240,7 +240,7 @@ func XTestGroupsGoCreate(t *testing.T) {
 			})
 		},10000) // was getting the error below
 	}))
-`, inviteRef.Ref()), ``)
+`, inviteRef.Sigil()), ``)
 
 	ts.wait()
 }

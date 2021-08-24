@@ -202,21 +202,21 @@ func (c Client) ReplicateUpTo() (*muxrpc.ByteSource, error) {
 
 func (c Client) BlobsWant(ref refs.BlobRef) error {
 	var v interface{}
-	err := c.Async(c.rootCtx, &v, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	err := c.Async(c.rootCtx, &v, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Sigil())
 	if err != nil {
 		return fmt.Errorf("ssbClient: blobs.want failed: %w", err)
 	}
-	level.Debug(c.logger).Log("blob", "wanted", "v", v, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "wanted", "v", v, "ref", ref.Sigil())
 	return nil
 }
 
 func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 	var has bool
-	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Ref())
+	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Sigil())
 	if err != nil {
 		return false, fmt.Errorf("ssbClient: whoami failed: %w", err)
 	}
-	level.Debug(c.logger).Log("blob", "has", "has", has, "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "has", "has", has, "ref", ref.Sigil())
 	return has, nil
 
 }
@@ -227,7 +227,7 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ssbClient: blobs.get failed: %w", err)
 	}
-	level.Debug(c.logger).Log("blob", "got", "ref", ref.Ref())
+	level.Debug(c.logger).Log("blob", "got", "ref", ref.Sigil())
 
 	return muxrpc.NewSourceReader(v), nil
 }

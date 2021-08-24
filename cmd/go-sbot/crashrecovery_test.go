@@ -114,7 +114,7 @@ func TestRecoverFromCrash(t *testing.T) {
 				Try, I int
 			}{"test", "working!", try, i})
 			r.NoError(err)
-			t.Logf("%d:connection established (i:%d) %s", try, i, ref.Ref())
+			t.Logf("%d:connection established (i:%d) %s", try, i, ref.Sigil())
 
 			c.Close()
 			break

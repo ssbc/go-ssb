@@ -177,7 +177,7 @@ func (ld *generalVerifyDrain) Verify(msg []byte) error {
 
 	err = ld.storage.Save(next)
 	if err != nil {
-		return fmt.Errorf("message(%s): failed to append message(%s:%d): %w", ld.who.ShortRef(), next.Key().Ref(), next.Seq(), err)
+		return fmt.Errorf("message(%s): failed to append message(%s:%d): %w", ld.who.ShortRef(), next.Key().Sigil(), next.Seq(), err)
 	}
 
 	ld.latestSeq = int64(next.Seq())
@@ -220,15 +220,15 @@ func ValidateNext(current, next refs.Message) error {
 		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s got nil",
 			author.Sigil(),
 			currSeq,
-			current.Key().Ref(),
+			current.Key().Sigil(),
 		)
 	}
 	if !currKey.Equal(*prev) {
 		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
 			author.Sigil(),
 			currSeq,
-			current.Key().Ref(),
-			next.Previous().Ref(),
+			current.Key().Sigil(),
+			next.Previous().Sigil(),
 		)
 	}
 
