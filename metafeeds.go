@@ -41,3 +41,16 @@ type SubfeedListEntry struct {
 func (entry SubfeedListEntry) String() string {
 	return fmt.Sprintf("%s (%s)", entry.Feed.Ref(), entry.Purpose)
 }
+
+// IndexFeedManager allows setting up index feeds
+type IndexFeedManager interface {
+	// RegisterOnType registers index feed creation on an input feed using the passed msgType to filter messages.
+	// input is the feed where messages are read from.
+	// output is the index feed where the index messages are published to.
+	RegisterOnType(input, output refs.FeedRef, msgType string) error
+
+	Process(refs.Message)
+
+	// TODO List() []refs.FeedRef
+	// TODO Stop(refs.FeedRef)
+}
