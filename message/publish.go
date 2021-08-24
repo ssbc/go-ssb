@@ -33,23 +33,23 @@ type publishLog struct {
 	create creater
 }
 
-func (pl *publishLog) Publish(content interface{}) (refs.MessageRef, error) {
+func (pl *publishLog) Publish(content interface{}) (refs.Message, error) {
 	seq, err := pl.Append(content)
 	if err != nil {
-		return refs.MessageRef{}, err
+		return nil, err
 	}
 
 	val, err := pl.receiveLog.Get(seq)
 	if err != nil {
-		return refs.MessageRef{}, fmt.Errorf("publish: failed to get new stored message: %w", err)
+		return nil, fmt.Errorf("publish: failed to get new stored message: %w", err)
 	}
 
 	kv, ok := val.(refs.Message)
 	if !ok {
-		return refs.MessageRef{}, fmt.Errorf("publish: unsupported keyer %T", val)
+		return nil, fmt.Errorf("publish: unsupported keyer %T", val)
 	}
 
-	return kv.Key(), nil
+	return kv, nil
 }
 
 func (pl publishLog) Changes() luigi.Observable {

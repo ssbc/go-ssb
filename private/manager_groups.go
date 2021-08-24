@@ -339,5 +339,5 @@ func (mgr *Manager) publishCiphertext(ctxt []byte) (refs.MessageRef, error) {
 	if err != nil {
 		return refs.MessageRef{}, err
 	}
-	return r, nil
+	return r.Key(), nil
 }

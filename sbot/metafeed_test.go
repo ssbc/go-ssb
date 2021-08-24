@@ -98,9 +98,9 @@ func TestMetafeedManagment(t *testing.T) {
 	r.True(addMsg.SubFeed.Equal(subfeedid))
 
 	// publish from it
-	postRef, err := mainbot.MetaFeeds.Publish(subfeedid, refs.NewPost("hello from my testing subfeed"))
+	postMsg, err := mainbot.MetaFeeds.Publish(subfeedid, refs.NewPost("hello from my testing subfeed"))
 	r.NoError(err)
-	t.Log(postRef.Ref())
+	t.Log(postMsg.Key().Ref())
 
 	// check it has the msg
 	subfeedLog, err := mainbot.Users.Get(storedrefs.Feed(subfeedid))
@@ -126,7 +126,7 @@ func TestMetafeedManagment(t *testing.T) {
 	r.True(obituary.SubFeed.Equal(subfeedid))
 
 	// try to publish from it
-	postRef, err = mainbot.MetaFeeds.Publish(subfeedid, refs.NewPost("still working?!"))
+	_, err = mainbot.MetaFeeds.Publish(subfeedid, refs.NewPost("still working?!"))
 	r.Error(err)
 
 	mainbot.Shutdown()

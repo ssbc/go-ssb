@@ -28,6 +28,6 @@ func (disabledMetaFeeds) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEntr
 	return nil, errMetafeedsDisabled
 }
 
-func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
-	return refs.MessageRef{}, errMetafeedsDisabled
+func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.Message, error) {
+	return nil, errMetafeedsDisabled
 }

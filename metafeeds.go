@@ -29,7 +29,7 @@ type MetaFeeds interface {
 
 	// Publish works like normal `Sbot.Publish()` but takes an additional feed reference,
 	// which specifies the subfeed on which the content should be published.
-	Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error)
+	Publish(as refs.FeedRef, content interface{}) (refs.Message, error)
 }
 
 // SubfeedListEntry is returned by Metafeeds.ListSubFeeds()

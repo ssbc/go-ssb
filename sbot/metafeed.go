@@ -10,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
-	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
 
+	"github.com/ssb-ngi-pointer/go-metafeed"
+	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
+	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/slp"
 	"go.cryptoscope.co/ssb/message"
@@ -247,15 +247,15 @@ func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEnt
 	return lst, nil
 }
 
-func (s metaFeedsService) Publish(as refs.FeedRef, content interface{}) (refs.MessageRef, error) {
+func (s metaFeedsService) Publish(as refs.FeedRef, content interface{}) (refs.Message, error) {
 	kp, err := loadMetafeedKeyPairFromStore(s.keys, as)
 	if err != nil {
-		return refs.MessageRef{}, fmt.Errorf("publish(as) failed to load signing keypair: %w", err)
+		return nil, fmt.Errorf("publish(as) failed to load signing keypair: %w", err)
 	}
 
 	publisher, err := message.OpenPublishLog(s.rxLog, s.users, kp, message.SetHMACKey(s.hmacSecret))
 	if err != nil {
-		return refs.MessageRef{}, fmt.Errorf("publish(as) failed to publish message: %w", err)
+		return nil, fmt.Errorf("publish(as) failed to publish message: %w", err)
 	}
 
 	return publisher.Publish(content)
