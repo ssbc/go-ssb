@@ -137,7 +137,7 @@ func newIdentity(t *testing.T, name string, km *keys.Store) testIdentity {
 	id.KeyPair, err = ssb.NewKeyPair(rand, refs.RefAlgoFeedSSB1)
 	require.NoError(t, err)
 
-	t.Logf("%s is %s", name, id.ID().Ref())
+	t.Logf("%s is %s", name, id.ID().Sigil())
 
 	id.manager = &Manager{
 		author: id.KeyPair,

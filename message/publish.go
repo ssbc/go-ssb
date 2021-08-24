@@ -222,7 +222,7 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	// set metadata
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
-	newMsg.Author = lc.key.ID().Ref()
+	newMsg.Author = lc.key.ID().Sigil()
 	if seq > 1 {
 		newMsg.Previous = &prev
 	}

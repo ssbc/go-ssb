@@ -86,7 +86,7 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 
 	msg := val.(refs.Message)
 	author := msg.Author()
-	sink, ok := m.liveFeeds[author.Ref()]
+	sink, ok := m.liveFeeds[author.Sigil()]
 	if !ok {
 		return nil
 	}
@@ -201,7 +201,7 @@ func (m *FeedManager) CreateStreamHistory(
 			if arg.Live {
 				return m.addLiveFeed(
 					ctx, sink,
-					arg.ID.Ref(),
+					arg.ID.Sigil(),
 					latest,
 					liveLimit(arg, latest),
 				)
@@ -291,7 +291,7 @@ func (m *FeedManager) CreateStreamHistory(
 	if arg.Live {
 		return m.addLiveFeed(
 			ctx, sink,
-			arg.ID.Ref(),
+			arg.ID.Sigil(),
 			latest,
 			liveLimit(arg, latest),
 		)

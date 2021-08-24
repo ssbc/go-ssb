@@ -53,7 +53,7 @@ func TestReceivedSet(t *testing.T) {
 
 	var lm legacy.LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = bobsKey.ID().Ref()
+	lm.Author = bobsKey.ID().Sigil()
 	lm.Previous = nil
 	lm.Sequence = 666
 

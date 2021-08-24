@@ -68,7 +68,7 @@ func main() {
 	kp, err := repo.NewKeyPair(r, args[0], feedAlgo)
 	check(err)
 
-	fmt.Println(kp.ID().Ref())
+	fmt.Println(kp.ID().Sigil())
 }
 
 func isValidFormat(f refs.RefAlgo) error {

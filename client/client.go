@@ -235,11 +235,11 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 type NamesGetResult map[string]map[string]string
 
 func (ngr NamesGetResult) GetCommonName(feed refs.FeedRef) (string, bool) {
-	namesFor, ok := ngr[feed.Ref()]
+	namesFor, ok := ngr[feed.Sigil()]
 	if !ok {
 		return "", false
 	}
-	selfChosen, ok := namesFor[feed.Ref()]
+	selfChosen, ok := namesFor[feed.Sigil()]
 	if !ok {
 		for about, mapv := range ngr {
 			_ = about
@@ -267,21 +267,21 @@ func (c Client) NamesGet() (NamesGetResult, error) {
 
 func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	var name string
-	err := c.Async(c.rootCtx, &name, muxrpc.TypeString, muxrpc.Method{"names", "getSignifier"}, ref.Ref())
+	err := c.Async(c.rootCtx, &name, muxrpc.TypeString, muxrpc.Method{"names", "getSignifier"}, ref.Sigil())
 	if err != nil {
 		return "", fmt.Errorf("ssbClient: names.getSignifier failed: %w", err)
 	}
-	level.Debug(c.logger).Log("names", "getSignifier", "name", name, "ref", ref.Ref())
+	level.Debug(c.logger).Log("names", "getSignifier", "name", name, "ref", ref.Sigil())
 	return name, nil
 }
 
 func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	var blobRef string
-	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeString, muxrpc.Method{"names", "getImageFor"}, ref.Ref())
+	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeString, muxrpc.Method{"names", "getImageFor"}, ref.Sigil())
 	if err != nil {
 		return refs.BlobRef{}, fmt.Errorf("ssbClient: names.getImageFor failed: %w", err)
 	}
-	level.Debug(c.logger).Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Ref())
+	level.Debug(c.logger).Log("names", "getImageFor", "image-blob", blobRef, "feed", ref.Sigil())
 	return refs.ParseBlobRef(blobRef)
 }
 
@@ -301,7 +301,7 @@ func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 func (c Client) PrivatePublish(v interface{}, recps ...refs.FeedRef) (refs.MessageRef, error) {
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
-		recpRefs[i] = ref.Ref()
+		recpRefs[i] = ref.Sigil()
 	}
 	var resp refs.MessageRef
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"private", "publish"}, v, recpRefs)

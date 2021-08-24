@@ -93,7 +93,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		})
 		r.NoError(err)
 
-		a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
+		a.Equal(newMsg.Author().Sigil(), streamMsg.Author().Sigil())
 
 		a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 

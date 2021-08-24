@@ -54,7 +54,7 @@ func TestUnixSock(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(srv.KeyPair.ID().Ref(), ref.Ref())
+	a.Equal(srv.KeyPair.ID().Sigil(), ref.Sigil())
 
 	// make sure we can publish
 	var msgs []refs.MessageRef
@@ -132,7 +132,7 @@ func TestWhoami(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(kp.ID().Ref(), ref.Ref())
+	a.Equal(kp.ID().Sigil(), ref.Sigil())
 
 	a.NoError(c.Close())
 
@@ -166,7 +166,7 @@ func TestLotsOfWhoami(t *testing.T) {
 		ref, err := c.Whoami()
 		r.NoError(err, "call %d errored", i)
 		r.NotNil(ref)
-		a.Equal(srv.KeyPair.ID().Ref(), ref.Ref(), "call %d has wrong result", i)
+		a.Equal(srv.KeyPair.ID().Sigil(), ref.Sigil(), "call %d has wrong result", i)
 	}
 
 	a.NoError(c.Close())
@@ -423,7 +423,7 @@ func TestPublish(t *testing.T) {
 	})
 	r.NoError(err)
 
-	a.Equal(newMsg.Author().Ref(), streamMsg.Author().Ref())
+	a.Equal(newMsg.Author().Sigil(), streamMsg.Author().Sigil())
 	a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
 	r.False(src.Next(context.TODO()))

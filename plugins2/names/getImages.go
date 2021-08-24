@@ -28,7 +28,7 @@ func (h hImagesFor) HandleAsync(ctx context.Context, req *muxrpc.Request) (inter
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		return nil, fmt.Errorf("do not have about for: %s", ref.Ref())
+		return nil, fmt.Errorf("do not have about for: %s", ref.Sigil())
 	}
 
 	if ai.Image.Chosen != "" {

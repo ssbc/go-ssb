@@ -76,14 +76,14 @@ func TestReplicateUpTo(t *testing.T) {
 		publish, err := message.OpenPublishLog(srv.ReceiveLog, srv.Users, kp)
 		r.NoError(err)
 
-		testKeyPairs[kp.ID().Ref()] = keyAndCount{kp, i}
+		testKeyPairs[kp.ID().Sigil()] = keyAndCount{kp, i}
 		for n := i; n > 0; n-- {
 			ref, err := publish.Publish(struct {
 				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
-			}{"test", true, n, kp.ID().Ref()})
+			}{"test", true, n, kp.ID().Sigil()})
 			r.NoError(err)
 			t.Log(ref.Ref())
 		}
@@ -107,7 +107,7 @@ func TestReplicateUpTo(t *testing.T) {
 			})
 			r.NoError(err)
 
-			ref := upToResp.ID.Ref()
+			ref := upToResp.ID.Sigil()
 			// either it's one of the test keypairs
 			kn, has := testKeyPairs[ref]
 			if !has {

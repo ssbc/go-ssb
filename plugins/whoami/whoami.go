@@ -63,7 +63,7 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		ID string `json:"id"`
 	}
 
-	err := req.Return(ctx, ret{h.id.Ref()})
+	err := req.Return(ctx, ret{h.id.Sigil()})
 	checkAndLog(h.log, err)
 }
 

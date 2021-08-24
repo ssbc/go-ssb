@@ -125,7 +125,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 	}
 
 	for _, nm := range newMembers {
-		_, indexed := currentMembers[nm.Ref()]
+		_, indexed := currentMembers[nm.Sigil()]
 		if indexed {
 			// already processed
 			continue
@@ -150,7 +150,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 		}
 
 		// mark as indexed
-		currentMembers[whoToIndex.Ref()] = true
+		currentMembers[whoToIndex.Sigil()] = true
 	}
 
 	err = mc.idx.Set(ctx, idxAddr, currentMembers)

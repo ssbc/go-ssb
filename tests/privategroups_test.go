@@ -72,7 +72,7 @@ func XTestGroupsJSCreate(t *testing.T) {
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 
 
-`, claire.Ref()), ``)
+`, claire.Sigil()), ``)
 
 	bob.PublishLog.Publish(refs.NewContactFollow(alice))
 	bob.PublishLog.Publish(refs.NewContactFollow(claire))
@@ -181,7 +181,7 @@ func XTestGroupsJSCreate(t *testing.T) {
 			})
 		}, 2000)
 	}))
-`, alice.Ref(), helloGroup.Ref()), ``)
+`, alice.Sigil(), helloGroup.Ref()), ``)
 
 	bob.Network.GetConnTracker().CloseAll()
 

@@ -44,7 +44,7 @@ func newPublisherWithKP(t *testing.T, root margaret.Log, users multilog.MultiLog
 func (p publisher) follow(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
-		"contact":   ref.Ref(),
+		"contact":   ref.Sigil(),
 		"following": true,
 	})
 	p.r.NoError(err)
@@ -54,7 +54,7 @@ func (p publisher) follow(ref refs.FeedRef) {
 func (p publisher) unfollow(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":      "contact",
-		"contact":   ref.Ref(),
+		"contact":   ref.Sigil(),
 		"following": false,
 	})
 	p.r.NoError(err)
@@ -64,7 +64,7 @@ func (p publisher) unfollow(ref refs.FeedRef) {
 func (p publisher) unblock(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
-		"contact":  ref.Ref(),
+		"contact":  ref.Sigil(),
 		"blocking": false,
 	})
 	p.r.NoError(err)
@@ -74,7 +74,7 @@ func (p publisher) unblock(ref refs.FeedRef) {
 func (p publisher) block(ref refs.FeedRef) {
 	newSeq, err := p.publish.Append(map[string]interface{}{
 		"type":     "contact",
-		"contact":  ref.Ref(),
+		"contact":  ref.Sigil(),
 		"blocking": true,
 	})
 	p.r.NoError(err)

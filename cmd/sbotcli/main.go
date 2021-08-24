@@ -405,7 +405,7 @@ var blockCmd = &cli.Command{
 			if err != nil {
 				return err
 			}
-			blocked[fr.Ref()] = true
+			blocked[fr.Sigil()] = true
 		}
 		log.Log("blocking", len(blocked))
 
@@ -487,11 +487,11 @@ var groupsInviteCmd = &cli.Command{
 		}
 
 		var reply interface{}
-		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Ref())
+		err = client.Async(longctx, &reply, muxrpc.TypeJSON, muxrpc.Method{"groups", "invite"}, groupID.Ref(), member.Sigil())
 		if err != nil {
 			return fmt.Errorf("invite call failed: %w", err)
 		}
-		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Ref())
+		log.Log("event", "member added", "group", groupID.Ref(), "member", member.Sigil())
 		goon.Dump(reply)
 		return nil
 	},

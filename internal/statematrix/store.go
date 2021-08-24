@@ -48,7 +48,7 @@ func New(base string, self refs.FeedRef) (*StateMatrix, error) {
 	sm := StateMatrix{
 		basePath: base,
 
-		self: self.Ref(),
+		self: self.Sigil(),
 
 		open: make(currentFrontiers),
 	}
@@ -80,7 +80,7 @@ func (sm *StateMatrix) StateFileName(peer refs.FeedRef) (string, error) {
 }
 
 func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, error) {
-	curr, has := sm.open[peer.Ref()]
+	curr, has := sm.open[peer.Sigil()]
 	if has {
 		return curr, nil
 	}
@@ -98,7 +98,7 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, err
 
 		// new file, nothing to see here
 		curr = make(ssb.NetworkFrontier)
-		sm.open[peer.Ref()] = curr
+		sm.open[peer.Sigil()] = curr
 		return curr, nil
 	}
 	defer peerFile.Close()
@@ -108,14 +108,14 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, err
 	if err != nil {
 		return nil, err
 	}
-	sm.open[peer.Ref()] = curr
+	sm.open[peer.Sigil()] = curr
 	return curr, nil
 }
 
 func (sm *StateMatrix) SaveAndClose(peer refs.FeedRef) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	return sm.saveAndClose(peer.Ref())
+	return sm.saveAndClose(peer.Sigil())
 }
 
 func (sm *StateMatrix) saveAndClose(peer string) error {
@@ -146,7 +146,7 @@ func (sm *StateMatrix) save(peer refs.FeedRef) error {
 		return err
 	}
 
-	nf, has := sm.open[peer.Ref()]
+	nf, has := sm.open[peer.Sigil()]
 	if !has {
 		return nil
 	}
@@ -260,7 +260,7 @@ func (sm *StateMatrix) WantsFeed(peer, feed refs.FeedRef) (bool, error) {
 		return false, err
 	}
 
-	n, has := nf[feed.Ref()]
+	n, has := nf[feed.Sigil()]
 	if !has {
 		return false, nil
 	}
@@ -298,7 +298,7 @@ func (sm *StateMatrix) Changed(self, peer refs.FeedRef) (ssb.NetworkFrontier, er
 			continue
 		}
 
-		if !theirNote.Receive && wantedFeed != peer.Ref() {
+		if !theirNote.Receive && wantedFeed != peer.Sigil() {
 			// they dont care about this feed
 			continue
 		}
@@ -331,7 +331,7 @@ func (sm *StateMatrix) Update(who refs.FeedRef, update ssb.NetworkFrontier) (ssb
 		current[feed] = note
 	}
 
-	sm.open[who.Ref()] = current
+	sm.open[who.Sigil()] = current
 	return current, nil
 }
 
@@ -347,14 +347,14 @@ func (sm *StateMatrix) Fill(who refs.FeedRef, feeds []ObservedFeed) error {
 
 	for _, updatedFeed := range feeds {
 		if updatedFeed.Replicate {
-			nf[updatedFeed.Feed.Ref()] = updatedFeed.Note
+			nf[updatedFeed.Feed.Sigil()] = updatedFeed.Note
 		} else {
 			// seq == -1 means drop it
-			delete(nf, updatedFeed.Feed.Ref())
+			delete(nf, updatedFeed.Feed.Sigil())
 		}
 	}
 
-	sm.open[who.Ref()] = nf
+	sm.open[who.Sigil()] = nf
 	return nil
 }
 

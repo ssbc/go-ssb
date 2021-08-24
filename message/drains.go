@@ -218,14 +218,14 @@ func ValidateNext(current, next refs.Message) error {
 	prev := next.Previous()
 	if prev == nil {
 		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s got nil",
-			author.Ref(),
+			author.Sigil(),
 			currSeq,
 			current.Key().Ref(),
 		)
 	}
 	if !currKey.Equal(*prev) {
 		return fmt.Errorf("ValidateNext(%s:%d): previous compare failed expected:%s incoming:%s",
-			author.Ref(),
+			author.Sigil(),
 			currSeq,
 			current.Key().Ref(),
 			next.Previous().Ref(),

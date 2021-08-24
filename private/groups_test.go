@@ -182,7 +182,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(cloaked.Equal(cloaked2), "cloaked ID not equal")
 
 	// post back to group
-	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Ref()))
+	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Sigil()))
 	r.NoError(err, "tal failed to publish to group")
 	t.Log("reply:", reply.ShortRef())
 
@@ -330,7 +330,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
-	t.Log("srh is:", srh.KeyPair.ID().Ref())
+	t.Log("srh is:", srh.KeyPair.ID().Sigil())
 
 	// just a simple paintext message
 	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
@@ -361,7 +361,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
-	t.Log("tal is:", tal.KeyPair.ID().Ref())
+	t.Log("tal is:", tal.KeyPair.ID().Sigil())
 
 	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
@@ -412,7 +412,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(raz))
-	t.Log("raz is:", raz.KeyPair.ID().Ref())
+	t.Log("raz is:", raz.KeyPair.ID().Sigil())
 
 	_, err = raz.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
 	r.NoError(err)

@@ -192,7 +192,7 @@ var publishAboutCmd = &cli.Command{
 			return fmt.Errorf("publish/about: invalid feed ref: %w", err)
 		}
 		arg := map[string]interface{}{
-			"about": aboutRef.Ref(),
+			"about": aboutRef.Sigil(),
 			"type":  "about",
 		}
 		if n := ctx.String("name"); n != "" {
@@ -244,7 +244,7 @@ var publishContactCmd = &cli.Command{
 			return fmt.Errorf("publish/contact: can't be both true")
 		}
 		arg := map[string]interface{}{
-			"contact":   cref.Ref(),
+			"contact":   cref.Sigil(),
 			"type":      "contact",
 			"following": ctx.Bool("following"),
 			"blocking":  ctx.Bool("blocking"),

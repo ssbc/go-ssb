@@ -128,7 +128,7 @@ func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 	fromAuthor.And(allBox2)
 
 	if fromAuthor.GetCardinality() == 0 {
-		fmt.Println("skipping empty set", allBox2.GetCardinality(), author.Ref())
+		fmt.Println("skipping empty set", allBox2.GetCardinality(), author.Sigil())
 		return nil
 	}
 

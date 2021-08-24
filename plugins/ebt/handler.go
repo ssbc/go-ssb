@@ -112,7 +112,7 @@ func (h *MUXRPCHandler) sendState(ctx context.Context, tx *muxrpc.ByteSink, remo
 		return fmt.Errorf("failed to get changed frontier: %w", err)
 	}
 
-	selfRef := h.self.Ref()
+	selfRef := h.self.Sigil()
 
 	// don't receive your own feed
 	if myNote, has := currState[selfRef]; has {

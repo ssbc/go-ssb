@@ -228,7 +228,7 @@ run()
 
 	claire := ts.startJSBot(before, "")
 
-	t.Logf("started claire: %s", claire.Ref())
+	t.Logf("started claire: %s", claire.Sigil())
 	bob.Replicate(claire)
 
 	ts.wait()

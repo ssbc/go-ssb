@@ -74,7 +74,7 @@ func TestBlocking(t *testing.T) {
 		t.equal(msgs.length, results.length, "message count")
 		run() // triggers connect and after block
 	})
-	`, kpAlice.ID().Ref(), aliceHelloWorld.Ref()), ``)
+	`, kpAlice.ID().Sigil(), aliceHelloWorld.Ref()), ``)
 
 	newSeq, err := bob.PublishLog.Append(refs.NewContactFollow(claire))
 	r.NoError(err)
@@ -125,7 +125,7 @@ func TestBlocking(t *testing.T) {
 		})
 	)
 	`,
-		kpAlice.ID().Ref(),
+		kpAlice.ID().Sigil(),
 		aliceHelloWorld.Ref(),
 		dontGet.Ref(),
 	), ``)

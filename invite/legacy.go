@@ -36,7 +36,7 @@ func Redeem(ctx context.Context, tok Token, longTerm refs.FeedRef) error {
 	var ret refs.KeyValueRaw
 	var param = struct {
 		Feed string `json:"feed"`
-	}{longTerm.Ref()}
+	}{longTerm.Sigil()}
 
 	err = inviteClient.Async(ctx, &ret, muxrpc.TypeJSON, muxrpc.Method{"invite", "use"}, param)
 	if err != nil {

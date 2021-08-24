@@ -28,7 +28,7 @@ type StoredMessage struct {
 }
 
 func (sm StoredMessage) String() string {
-	s := fmt.Sprintf("msg(%s:%d) %s", sm.Author_.Ref(), sm.Sequence_, sm.Key_.Ref())
+	s := fmt.Sprintf("msg(%s:%d) %s", sm.Author_.Sigil(), sm.Sequence_, sm.Key_.Ref())
 	b, _ := PrettyPrint(sm.Raw_)
 	s += "\n"
 	s += string(b)
