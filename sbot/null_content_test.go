@@ -91,16 +91,12 @@ func XTestNullContentRequest(t *testing.T) {
 
 	var allMessages []refs.MessageRef
 	for idx, intro := range intros {
-		ref, err := mainbot.PublishAs(intro.as, intro.c)
+		msg, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
-		r.NotNil(ref)
-		msg, err := mainbot.Get(ref)
-		r.NoError(err)
-		r.NotNil(msg)
 
 		r.True(msg.Author().Equal(n2kp[intro.as].ID()))
 
-		allMessages = append(allMessages, ref)
+		allMessages = append(allMessages, msg.Key())
 	}
 
 	// assert helper
@@ -188,7 +184,7 @@ func XTestNullContentRequest(t *testing.T) {
 	del, err := mainbot.PublishAs("bert", dropContent)
 	r.NoError(err)
 	r.NotNil(del)
-	t.Log("first, valid dcr request:", del.Ref())
+	t.Log("first, valid dcr request:", del.Key().Ref())
 	logger.Log("msg", "req published")
 
 	time.Sleep(1 * time.Second)
@@ -205,17 +201,17 @@ func XTestNullContentRequest(t *testing.T) {
 	a.NotNil(msg.Seq(), "sequence is still there")
 
 	// can't delete a delete
-	cantDropThis := ssb.NewDropContentRequest(6, del)
+	cantDropThis := ssb.NewDropContentRequest(6, del.Key())
 	a.False(cantDropThis.Valid(bertLog), "can't delete a delete")
 
 	// still try
 	del2, err := mainbot.PublishAs("bert", cantDropThis)
 	r.NoError(err)
 	r.NotNil(del2)
-	t.Log("invalid dcr:", del2.Ref())
+	t.Log("invalid dcr:", del2.Key().Ref())
 
 	// not gone
-	msg, err = mainbot.Get(del2)
+	msg, err = mainbot.Get(del2.Key())
 	r.NoError(err)
 	a.NotNil(msg.ContentBytes())
 
