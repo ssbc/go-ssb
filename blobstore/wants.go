@@ -150,7 +150,7 @@ type hasBlob struct {
 }
 
 func (wmgr *WantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref refs.BlobRef) error {
-	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortRef())
+	log := log.With(wmgr.info, "event", "blobs.get", "ref", ref.ShortSigil())
 
 	arg := GetWithSize{ref, wmgr.maxSize}
 	src, err := edp.Source(ctx, 0, muxrpc.Method{"blobs", "get"}, arg)
@@ -172,11 +172,11 @@ func (wmgr *WantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref r
 	if !newBr.Equal(ref) {
 		// TODO: make this a type of error?
 		wmgr.bs.Delete(newBr)
-		level.Warn(log).Log("msg", "removed after missmatch", "want", ref.ShortRef())
+		level.Warn(log).Log("msg", "removed after missmatch", "want", ref.ShortSigil())
 		return errors.New("blobs: inconsitency(or size limit)")
 	}
 	sz, _ := wmgr.bs.Size(newBr)
-	level.Info(log).Log("msg", "stored", "ref", ref.ShortRef(), "sz", sz)
+	level.Info(log).Log("msg", "stored", "ref", ref.ShortSigil(), "sz", sz)
 	return nil
 }
 
@@ -288,7 +288,7 @@ func (wmgr *WantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink,
 
 	var remote = "unknown"
 	if r, err := ssb.GetFeedRefFromAddr(proc.edp.Remote()); err == nil {
-		remote = r.ShortRef()
+		remote = r.ShortSigil()
 	}
 	proc.info = log.With(proc.wmgr.info, "remote", remote)
 
@@ -342,7 +342,7 @@ func (proc *wantProc) EmitBlob(notif ssb.BlobStoreNotification) error {
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
-	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortRef())
+	dbg = log.With(dbg, "op", notif.Op.String(), "ref", notif.Ref.ShortSigil())
 	proc.wmgr.promEvent(notif.Op.String(), 1)
 
 	if _, wants := proc.remoteWants[notif.Ref.Sigil()]; !wants {
@@ -368,7 +368,7 @@ func (proc *wantProc) EmitWant(w ssb.BlobWant) error {
 	proc.l.Lock()
 	defer proc.l.Unlock()
 
-	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortRef(), "dist", w.Dist)
+	dbg = log.With(dbg, "event", "wantBroadcast", "ref", w.Ref.ShortSigil(), "dist", w.Dist)
 
 	if _, blocked := proc.wmgr.blocked[w.Ref.Sigil()]; blocked {
 		return nil

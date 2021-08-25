@@ -278,7 +278,7 @@ func (n *Node) handleConnection(ctx context.Context, origConn net.Conn, isServer
 		level.Error(n.log).Log("conn", "not shs authorized", "err", err)
 		return
 	}
-	rLogger := log.With(n.log, "peer", remoteRef.ShortRef())
+	rLogger := log.With(n.log, "peer", remoteRef.ShortSigil())
 
 	ok, ctx := n.connTracker.OnAccept(ctx, conn)
 	if !ok {

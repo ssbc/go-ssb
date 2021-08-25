@@ -93,7 +93,7 @@ type BlobWant struct {
 }
 
 func (w BlobWant) String() string {
-	return fmt.Sprintf("%s:%d", w.Ref.ShortRef(), w.Dist)
+	return fmt.Sprintf("%s:%d", w.Ref.ShortSigil(), w.Dist)
 }
 
 // BlobStoreNotification contains info on a single change of the blob store.

@@ -72,7 +72,7 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref re
 			return err
 		} else if err != nil {
 			// just logging the error assuming forked feed for instance
-			level.Warn(h.Info).Log("event", "skipped updating of stored feed", "err", err, "fr", ref.ShortRef())
+			level.Warn(h.Info).Log("event", "skipped updating of stored feed", "err", err, "fr", ref.ShortSigil())
 		}
 
 		return nil
@@ -104,7 +104,7 @@ func (h *LegacyGossip) fetchFeed(
 	var latestSeq = int(snk.Seq())
 	startSeq := latestSeq
 	info := log.With(h.Info, "event", "gossiprx",
-		"fr", fr.ShortRef(),
+		"fr", fr.ShortSigil(),
 		"starting", latestSeq) // , "me", g.Id.ShortRef())
 
 	var q = message.NewCreateHistoryStreamArgs()

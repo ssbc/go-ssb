@@ -504,7 +504,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 		case bytes.HasPrefix(tr.Content, prefixBox2):
 			return nil, tr.Content[5:], nil
 		default:
-			return nil, nil, fmt.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortRef())
+			return nil, nil, fmt.Errorf("private/ssb1: unknown content type: %s", msg.Key().ShortSigil())
 		}
 
 	case refs.RefAlgoFeedBendyButt:

@@ -92,7 +92,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// publish a message to the group
 	postRef, err := srh.Groups.PublishPostTo(cloaked, "just a small test group!")
 	r.NoError(err, "failed to publish post to group")
-	t.Log("post", postRef.ShortRef())
+	t.Log("post", postRef.ShortSigil())
 
 	// make sure this is an encrypted message
 	msg, err = srh.Get(postRef)
@@ -126,7 +126,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// add bot2 to the new group
 	addMsgRef, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome, tal!")
 	r.NoError(err)
-	t.Log("added:", addMsgRef.ShortRef())
+	t.Log("added:", addMsgRef.ShortSigil())
 
 	// it's an encrypted message
 	msg, err = srh.Get(addMsgRef)
@@ -184,7 +184,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// post back to group
 	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Sigil()))
 	r.NoError(err, "tal failed to publish to group")
-	t.Log("reply:", reply.ShortRef())
+	t.Log("reply:", reply.ShortSigil())
 
 	// reconnect to get the reply
 	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.ID())
@@ -347,7 +347,7 @@ func XTestGroupsReindex(t *testing.T) {
 	for i := 10; i > 0; i-- {
 		postRef, err := srh.Groups.PublishPostTo(cloaked, fmt.Sprintf("some test spam %d", i))
 		r.NoError(err)
-		t.Logf("pre-invite spam %d: %s", i, postRef.ShortRef())
+		t.Logf("pre-invite spam %d: %s", i, postRef.ShortSigil())
 	}
 
 	// create a 2nd bot
@@ -370,7 +370,7 @@ func XTestGroupsReindex(t *testing.T) {
 	// now invite tal now that we have some content to reindex BEFORE the invite
 	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome tal!")
 	r.NoError(err)
-	t.Log("inviteed tal:", invref.ShortRef())
+	t.Log("inviteed tal:", invref.ShortSigil())
 
 	// now replicate a bit
 	srh.Replicate(tal.KeyPair.ID())
@@ -390,7 +390,7 @@ func XTestGroupsReindex(t *testing.T) {
 		txt := fmt.Sprintf("WOHOOO thanks for having me %d", i)
 		postRef, err := tal.Groups.PublishPostTo(cloaked, txt)
 		r.NoError(err)
-		t.Logf("post-invite spam %d: %s", i, postRef.ShortRef())
+		t.Logf("post-invite spam %d: %s", i, postRef.ShortSigil())
 	}
 
 	// we dont have live streaming yet

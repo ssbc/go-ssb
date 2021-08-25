@@ -131,7 +131,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		return fmt.Errorf("not authroized")
 	}
 
-	logger = log.With(logger, "root", qry.Root.ShortRef())
+	logger = log.With(logger, "root", qry.Root.ShortSigil())
 
 	// create toJSON sink
 	lsnk := transform.NewKeyValueWrapper(snk, qry.Keys)

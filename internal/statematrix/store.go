@@ -176,7 +176,7 @@ type HasLongerResult struct {
 }
 
 func (hlr HasLongerResult) String() string {
-	return fmt.Sprintf("%s: %s:%d", hlr.Peer.ShortRef(), hlr.Feed.ShortRef(), hlr.Len)
+	return fmt.Sprintf("%s: %s:%d", hlr.Peer.ShortSigil(), hlr.Feed.ShortSigil(), hlr.Len)
 }
 
 // HasLonger returns all the feeds which have more messages then we have and who has them.

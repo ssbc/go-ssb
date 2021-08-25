@@ -139,7 +139,7 @@ func (h *MUXRPCHandler) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrp
 		return
 	}
 
-	peerLogger := log.With(h.info, "r", peer.ShortRef())
+	peerLogger := log.With(h.info, "r", peer.ShortSigil())
 
 	defer func() {
 		h.Sessions.Ended(remoteAddr)

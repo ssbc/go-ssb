@@ -64,7 +64,7 @@ func (h connectHandler) HandleDuplex(ctx context.Context, req *muxrpc.Request, p
 		return err
 	}
 
-	portalLogger := kitlog.With(h.logger, "portal", portal.ShortRef())
+	portalLogger := kitlog.With(h.logger, "portal", portal.ShortSigil())
 	level.Info(portalLogger).Log("event", "incomming tunnel.connect", "args", string(req.RawArgs))
 
 	// wrap muxrpc duplex into a net.Conn like thing
@@ -93,7 +93,7 @@ func (h connectHandler) HandleDuplex(ctx context.Context, req *muxrpc.Request, p
 		return err
 	}
 
-	level.Info(portalLogger).Log("event", "tunnel.connect established", "origin", origin.ShortRef())
+	level.Info(portalLogger).Log("event", "tunnel.connect established", "origin", origin.ShortSigil())
 
 	// start serving the connection
 	go h.network.handleConnection(ctx, conn, true)
@@ -116,7 +116,7 @@ func (newConn handleNewConnection) HandleConnect(ctx context.Context, edp muxrpc
 		return
 	}
 
-	peerLogger := kitlog.With(newConn.logger, "peer", remote.ShortRef())
+	peerLogger := kitlog.With(newConn.logger, "peer", remote.ShortSigil())
 
 	// check tunnel.isRoom
 	var meta interface{}
@@ -175,7 +175,7 @@ func (newConn handleNewConnection) HandleConnect(ctx context.Context, edp muxrpc
 			level.Warn(peerLogger).Log("event", "failed to read from endpoints", "err", err)
 			break
 		}
-		level.Info(peerLogger).Log(stateChange.Type, stateChange.ID.ShortRef())
+		level.Info(peerLogger).Log(stateChange.Type, stateChange.ID.ShortSigil())
 	}
 
 	if err := src.Err(); err != nil {

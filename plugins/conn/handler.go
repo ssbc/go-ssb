@@ -175,7 +175,7 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	}
 
 	wrappedAddr := netwrap.WrapAddr(&msaddr.Addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
-	level.Info(h.info).Log("event", "connecting to peer", "remote", msaddr.Ref.ShortRef())
+	level.Info(h.info).Log("event", "connecting to peer", "remote", msaddr.Ref.ShortSigil())
 	// TODO: add context to tracker to cancel connections
 	err = h.node.Connect(context.Background(), wrappedAddr)
 	if err != nil {

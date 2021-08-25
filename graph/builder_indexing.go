@@ -111,7 +111,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	msgLogger := log.With(b.log,
-		"msg-key", msg.Key().ShortRef(),
+		"msg-key", msg.Key().ShortSigil(),
 
 		// debugging
 		"author", msg.Author().Sigil(),
@@ -151,7 +151,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 
 		if !addMsg.MetaFeed.Equal(msg.Author()) {
-			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortRef(), "meta author", msg.Author().ShortRef())
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortSigil(), "meta author", msg.Author().ShortSigil())
 			// skip invalid add message
 			return nil
 		}
@@ -169,7 +169,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 
 		if !tMsg.MetaFeed.Equal(msg.Author()) {
-			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", tMsg.MetaFeed.ShortRef(), "meta author", msg.Author().ShortRef())
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", tMsg.MetaFeed.ShortSigil(), "meta author", msg.Author().ShortSigil())
 			// skip invalid add message
 			return nil
 		}

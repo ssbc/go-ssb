@@ -31,9 +31,9 @@ func StreamLog(t *testing.T, l margaret.Log) {
 
 		t.Logf("log seq: %d - %s:%d (%s)",
 			i,
-			mm.Author().ShortRef(),
+			mm.Author().ShortSigil(),
 			mm.Seq(),
-			mm.Key().ShortRef())
+			mm.Key().ShortSigil())
 
 		b := mm.ContentBytes()
 		if n := len(b); n > 128 {

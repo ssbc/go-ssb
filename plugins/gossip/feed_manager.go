@@ -185,7 +185,7 @@ func (m *FeedManager) CreateStreamHistory(
 	sink *muxrpc.ByteSink,
 	arg message.CreateHistArgs,
 ) error {
-	feedLogger := log.With(m.logger, "fr", arg.ID.ShortRef())
+	feedLogger := log.With(m.logger, "fr", arg.ID.ShortSigil())
 
 	// check what we got
 	userLog, err := m.UserFeeds.Get(storedrefs.Feed(arg.ID))

@@ -122,19 +122,19 @@ func TestFeedsLiveSimpleFour(t *testing.T) {
 	// create bots A to D
 	botA := makeNamedTestBot(t, "A", append(netOpts, WithWebsocketAddress("localhost:12345")))
 	botgroup.Go(bs.Serve(botA))
-	t.Log("botA:", botA.KeyPair.ID().ShortRef())
+	t.Log("botA:", botA.KeyPair.ID().ShortSigil())
 
 	botB := makeNamedTestBot(t, "B", netOpts)
 	botgroup.Go(bs.Serve(botB))
-	t.Log("botB:", botB.KeyPair.ID().ShortRef())
+	t.Log("botB:", botB.KeyPair.ID().ShortSigil())
 
 	botC := makeNamedTestBot(t, "C", netOpts)
 	botgroup.Go(bs.Serve(botC))
-	t.Log("botC:", botC.KeyPair.ID().ShortRef())
+	t.Log("botC:", botC.KeyPair.ID().ShortSigil())
 
 	botD := makeNamedTestBot(t, "D", netOpts)
 	botgroup.Go(bs.Serve(botD))
-	t.Log("botD:", botD.KeyPair.ID().ShortRef())
+	t.Log("botD:", botD.KeyPair.ID().ShortSigil())
 
 	// replicate the network
 	botA.Replicate(botB.KeyPair.ID())

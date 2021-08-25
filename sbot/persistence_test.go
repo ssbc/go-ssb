@@ -53,15 +53,15 @@ func TestPersistence(t *testing.T) {
 
 	botA := makeNamedTestBot(t, "A", netOpts)
 	botgroup.Go(bs.Serve(botA))
-	t.Log("botA:", botA.KeyPair.ID().ShortRef())
+	t.Log("botA:", botA.KeyPair.ID().ShortSigil())
 
 	botB := makeNamedTestBot(t, "B", netOpts)
 	botgroup.Go(bs.Serve(botB))
-	t.Log("botB:", botB.KeyPair.ID().ShortRef())
+	t.Log("botB:", botB.KeyPair.ID().ShortSigil())
 
 	botC := makeNamedTestBot(t, "C", netOpts)
 	botgroup.Go(bs.Serve(botC))
-	t.Log("botC:", botC.KeyPair.ID().ShortRef())
+	t.Log("botC:", botC.KeyPair.ID().ShortSigil())
 
 	// replicate the network
 	botA.Replicate(botB.KeyPair.ID())
