@@ -127,10 +127,7 @@ type PeopleOpAnnounceMetafeed struct {
 type metafeedAnnounceMsg struct {
 	MsgType string `json:"type"`
 	Metafeed string `json:"metafeed"`
-	Tangles struct {
-		Root interface{} `json:"root"`
-		Previous interface{} `json:"previous"`
-	} `json:"tangles"`
+	Tangles refs.TanglePoint
 }
 
 func safeSSBURI (input string) string {
@@ -174,6 +171,7 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	*/
 
 	// construct announcement message according to the JSON template above 
+	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce 
 	var announcement metafeedAnnounceMsg
 	announcement.MsgType = "metafeed/announce"
 	// TODO: replace safeSSBURI with cryptix's ref->Sigil/URI PR
@@ -203,6 +201,17 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	// TODO: create a bendybutt message on root metafeed tying the mf and main feeds together
 	// sign the bendybutt message with mf.Secret + main.Secret
 
+
+	// mfAddExisting <=> "metafeed/add/existing"
+	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
+	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
+
+	signedAddExistingContent, err := metafeed.SubSignContent(kpMain.Secret(), mfAddExisting)
+	if err != nil {
+		return err
+	}
+	mf.publish.Append(signedAddExistingContent)
+
 	return nil
 }
 
@@ -227,9 +236,9 @@ func (op PeopleOpNewSubFeed) Op(state *testState) error {
 		return fmt.Errorf("failed to create keypair: %w", err)
 	}
 
-	addContent := metamngmt.NewAddMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
+	addContent := metamngmt.NewAddDerivedMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
 
-	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent, nil)
+	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent)
 	if err != nil {
 		return err
 	}
