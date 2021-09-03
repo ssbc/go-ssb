@@ -7,6 +7,8 @@ package graph
 import (
 	"fmt"
 
+	"strings"
+	"go.cryptoscope.co/ssb"
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
@@ -83,6 +85,125 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleAssertHops("alice", 0, "alice-legacy", "some"),
 		},
 	},
+
+		// name: "main announces fake metafeed, should not work",
+		// name: "followed peer has newly announced metafeed",
+	{
+		name: "follow peer with metafeed announcement",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice-main"},
+			PeopleOpNewPeer{"bob-main"},
+			PeopleOpFollow{"alice-main", "bob-main"},
+			PeopleOpNewPeerWithAlgo{"bob-mf", refs.RefAlgoFeedBendyButt},
+			PeopleOpAnnounceMetafeed{"bob-main", "bob-mf"},
+			// question: do we need to add a new op for adding an existing subfeed?
+			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
+
+			// question: how do we actually test that the announcement works correctly?
+			// i assume we need to create a normal feed (normie) following bob-main, and then check that 
+			// the hops from normie->{bob-mf,bob-main,bob-indexes: about} == 0 (using hops 0 according to go-ssb hops conventions)
+			//
+			// following that logic: we should also have a test that maliciously creates an announcement for a metafeed that
+			// they do not own, and make sure that situation is not replicated
+			PeopleOpNewSubFeed{
+				of:    "bob-mf",
+				name:  "bob-indexes: about",
+				nonce: "test1",
+				algo:  refs.RefAlgoFeedSSB1,
+			},
+		},
+		/* note: in go-ssb hops are one less than the equivalent in nodejs */
+		asserts: []PeopleAssertMaker{
+			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes: about"),
+			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes: about"),
+		},
+	},
+}
+
+type PeopleOpAnnounceMetafeed struct {
+	main, mf string
+}
+
+type metafeedAnnounceMsg struct {
+	MsgType string `json:"type"`
+	Metafeed string `json:"metafeed"`
+	Tangles struct {
+		Root interface{} `json:"root"`
+		Previous interface{} `json:"previous"`
+	} `json:"tangles"`
+}
+
+func safeSSBURI (input string) string {
+	input = strings.ReplaceAll(input, "+", "-")
+	input = strings.ReplaceAll(input, "/", "_")
+	// TODO: remove kludge
+	return strings.TrimSuffix(input, ".bbfeed-v1")
+}
+
+func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
+	var err error
+	mainFeed, ok := state.peers[op.main]
+	if !ok {
+		return fmt.Errorf("no such main peer: %s", op.main)
+	}
+	mf, ok := state.peers[op.mf]
+	if !ok {
+		return fmt.Errorf("no such mf peer: %s", op.mf)
+	}
+
+	kpMain, ok := mainFeed.key.(ssb.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
+	}
+	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
+	}
+
+	/* message structure for the announcement
+			content: {
+			  type: 'metafeed/announce',
+			  metafeed: 'ssb:feed/bendybutt-v1/-oaWWDs8g73EZFUMfW37R_ULtFEjwKN_DczvdYihjbU=',
+			  tangles: {
+			  	metafeed: {
+			  		root: null,
+			  		previous: null
+			  	}
+			  }
+		}
+	*/
+
+	// construct announcement message according to the JSON template above 
+	var announcement metafeedAnnounceMsg
+	announcement.MsgType = "metafeed/announce"
+	// TODO: replace safeSSBURI with cryptix's ref->Sigil/URI PR
+	announcement.Metafeed = fmt.Sprintf("ssb:feed/bendybutt-v1/%s", safeSSBURI(kpMetafeed.ID().Ref()))
+	announcement.Tangles.Root = nil
+	announcement.Tangles.Previous = nil
+
+	_, err = mainFeed.publish.Append(announcement)
+	if err != nil {
+		return err
+	}
+
+	/* metafeed's corresponding ackowledgement of the announcement
+	in bendybutt format
+  "type" => "metafeed/add/existing",
+  "feedpurpose" => "main",
+  "subfeed" => (BFE-encoded feed ID for the 'main' feed),
+  "metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
+  "tangles" => {
+    "metafeed" => {
+      "root" => (BFE nil),
+      "previous" => (BFE nil)
+    }
+  }
+	*/
+
+	// TODO: create a bendybutt message on root metafeed tying the mf and main feeds together
+	// sign the bendybutt message with mf.Secret + main.Secret
+
+	return nil
 }
 
 type PeopleOpNewSubFeed struct {
