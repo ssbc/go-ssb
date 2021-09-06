@@ -29,6 +29,46 @@ const (
 	idxRelValueMetafeed
 )
 
+// TODO: hook up function to indexing pipeline
+func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
+	b.cacheLock.Lock()
+	defer b.cacheLock.Unlock()
+
+	if nulled, ok := val.(error); ok {
+		if margaret.IsErrNulled(nulled) {
+			return nil
+		}
+		return nulled
+	}
+
+	abs, ok := val.(refs.Message)
+	if !ok {
+		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
+		level.Warn(b.log).Log("msg", "contact eval failed", "reason", err)
+		return err
+	}
+
+	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce 
+	var c metafeedAnnounceMsg
+	err := c.UnmarshalJSON(abs.ContentBytes())
+	if err != nil {
+		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
+		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)
+		return nil
+	}
+
+	addr := storedrefs.Feed(abs.Author())
+	addr += storedrefs.Feed(c.Metafeed)
+	err = idx.Set(ctx, addr, idxRelValueFollowing)
+	if err != nil {
+		return fmt.Errorf("db/idx contacts: failed to update index. %+v: %w", c, err)
+	}
+
+	b.cachedGraph = nil
+	// TODO: patch existing graph instead of invalidating
+	return nil
+}
+
 func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
@@ -83,6 +123,13 @@ func (b *BadgerBuilder) OpenContactsIndex() (librarian.SeqSetterIndex, librarian
 		b.idxSinkContacts = librarian.NewSinkIndex(b.updateContacts, b.idx)
 	}
 	return b.idx, b.idxSinkContacts
+}
+
+func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	if b.idxSinkAnnouncements == nil {
+		b.idxSinkAnnouncements = librarian.NewSinkIndex(b.updateAnnouncement, b.idx)
+	}
+	return b.idx, b.idxSinkAnnouncements
 }
 
 func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {

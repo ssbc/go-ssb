@@ -57,6 +57,7 @@ type BadgerBuilder struct {
 
 	idxSinkContacts  librarian.SinkIndex
 	idxSinkMetaFeeds librarian.SinkIndex
+	idxSinkAnnouncements  librarian.SinkIndex
 
 	log log.Logger
 
