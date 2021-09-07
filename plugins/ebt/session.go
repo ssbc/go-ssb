@@ -37,7 +37,7 @@ func (s *session) Subscribed(feed refs.FeedRef, cancelFn context.CancelFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	fr := feed.Sigil()
+	fr := feed.String()
 	if fn, has := s.subscribed[fr]; has {
 		fn()
 		delete(s.subscribed, fr)
@@ -51,7 +51,7 @@ func (s *session) Unubscribe(feed refs.FeedRef) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	fr := feed.Sigil()
+	fr := feed.String()
 	if fn, has := s.subscribed[fr]; has {
 		fn()
 		delete(s.subscribed, fr)

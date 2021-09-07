@@ -29,7 +29,7 @@ func DefaultKeyPair(r Interface, algo refs.RefAlgo) (ssb.KeyPair, error) {
 		if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
 			return nil, fmt.Errorf("repo: error saving new identity file: %w", err)
 		}
-		log.Printf("saved identity %s to %s", keyPair.ID().Sigil(), secPath)
+		log.Printf("saved identity %s to %s", keyPair.ID().String(), secPath)
 	}
 	return keyPair, nil
 }
@@ -71,7 +71,7 @@ func newKeyPair(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (ss
 	if err := ssb.SaveKeyPair(keyPair, secPath); err != nil {
 		return nil, fmt.Errorf("repo: error saving new identity file: %w", err)
 	}
-	log.Printf("saved identity %s to %s", keyPair.ID().Sigil(), secPath)
+	log.Printf("saved identity %s to %s", keyPair.ID().String(), secPath)
 	return keyPair, nil
 }
 

@@ -75,7 +75,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		newMsg, ok := msgv.(refs.Message)
 		r.True(ok)
 		r.Equal(newMsg.Key(), ref)
-		wantRefs = append(wantRefs, ref.Sigil())
+		wantRefs = append(wantRefs, ref.String())
 
 		opts := message.CreateLogArgs{}
 		opts.Keys = true
@@ -93,7 +93,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		})
 		r.NoError(err)
 
-		a.Equal(newMsg.Author().Sigil(), streamMsg.Author().Sigil())
+		a.Equal(newMsg.Author().String(), streamMsg.Author().String())
 
 		a.EqualValues(newMsg.Seq(), streamMsg.Seq())
 
@@ -121,7 +121,7 @@ func TestReadStreamAsInterfaceMessage(t *testing.T) {
 		})
 		r.NoError(err)
 
-		a.Equal(wantRefs[i], msg.Key().Sigil())
+		a.Equal(wantRefs[i], msg.Key().String())
 	}
 
 	r.False(src.Next(ctx))

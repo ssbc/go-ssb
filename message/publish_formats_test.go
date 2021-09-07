@@ -109,7 +109,7 @@ func (ts publishTestSession) makeFormatTest(ff refs.RefAlgo) func(t *testing.T) 
 		var tmsgs = []interface{}{
 			map[string]interface{}{
 				"type":  "about",
-				"about": testAuthor.ID().Sigil(),
+				"about": testAuthor.ID().String(),
 				"name":  "test user",
 			},
 			map[string]interface{}{

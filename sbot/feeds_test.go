@@ -66,7 +66,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		seed := bytes.Repeat([]byte{1}, 32)
 		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		t.Log("ali is", aliKey.ID().Sigil())
+		t.Log("ali is", aliKey.ID().String())
 
 		aliPath := filepath.Join("testrun", t.Name(), "ali")
 		ali, err := New(
@@ -99,7 +99,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 		seed = bytes.Repeat([]byte{2}, 32)
 		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
 		r.NoError(err)
-		t.Log("bob is", bobKey.ID().Sigil())
+		t.Log("bob is", bobKey.ID().String())
 
 		bobPath := filepath.Join("testrun", t.Name(), "bob")
 		bob, err := New(
@@ -162,7 +162,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			if useEBT {
 				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.ID())
 				r.NoError(err)
-				alisNoteAtBob := aliHas[ali.KeyPair.ID().Sigil()]
+				alisNoteAtBob := aliHas[ali.KeyPair.ID().String()]
 				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)
 			}
 

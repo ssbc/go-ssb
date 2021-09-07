@@ -62,7 +62,7 @@ func TestCompatHMACVerify(t *testing.T) {
 	// TODO: be more creative with test data
 	var lm LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = kp.ID().Sigil()
+	lm.Author = kp.ID().String()
 	lm.Content = map[string]interface{}{
 		"type":  "test",
 		"hello": "world",
@@ -76,7 +76,7 @@ func TestCompatHMACVerify(t *testing.T) {
 		"testaction=hmac_verify",
 		"testhmackey=" + base64.StdEncoding.EncodeToString(hmacKey),
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.ID().Sigil(),
+		"testpublic=" + kp.ID().String(),
 		"testobj=" + base64.StdEncoding.EncodeToString(msgbytes),
 	}
 	runCompatScript(t, env)
@@ -99,7 +99,7 @@ func TestCompatHMACSign(t *testing.T) {
 	// TODO: be more creative with test data
 	var lm LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = kp.ID().Sigil()
+	lm.Author = kp.ID().String()
 	lm.Content = map[string]interface{}{
 		"type":  "test",
 		"hello": "world",
@@ -132,7 +132,7 @@ func TestCompatHMACSign(t *testing.T) {
 		"testaction=hmac_sign",
 		"testhmackey=" + base64.StdEncoding.EncodeToString(hmacKey),
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.ID().Sigil(),
+		"testpublic=" + kp.ID().String(),
 		"testobj=" + base64.StdEncoding.EncodeToString(pp),
 	}
 	out := runCompatScript(t, env)
@@ -150,7 +150,7 @@ func TestCompatVerify(t *testing.T) {
 	// TODO: be more creative with test data
 	var lm LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = kp.ID().Sigil()
+	lm.Author = kp.ID().String()
 	lm.Content = map[string]interface{}{
 		"type":  "test",
 		"hello": "world",
@@ -166,7 +166,7 @@ func TestCompatVerify(t *testing.T) {
 	env := []string{
 		"testaction=verify",
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.ID().Sigil(),
+		"testpublic=" + kp.ID().String(),
 		"testobj=" + base64.StdEncoding.EncodeToString(msgbytes),
 	}
 	runCompatScript(t, env)
@@ -182,7 +182,7 @@ func TestCompatSignature(t *testing.T) {
 	// TODO: be more creative with test data
 	var lm LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = kp.ID().Sigil()
+	lm.Author = kp.ID().String()
 	lm.Content = map[string]interface{}{
 		"type":  "test",
 		"hello": "world",
@@ -214,7 +214,7 @@ func TestCompatSignature(t *testing.T) {
 	env := []string{
 		"testaction=sign",
 		"testseed=" + base64.StdEncoding.EncodeToString(seed),
-		"testpublic=" + kp.ID().Sigil(),
+		"testpublic=" + kp.ID().String(),
 		"testobj=" + base64.StdEncoding.EncodeToString(pp),
 	}
 	out := runCompatScript(t, env)

@@ -116,5 +116,5 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 
 	level.Info(h.info).Log("event", "published message", "refKey", ref.ShortSigil())
 
-	return ref.Sigil(), nil
+	return ref.String(), nil
 }

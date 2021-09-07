@@ -120,7 +120,7 @@ func (op PeopleOpNewSubFeed) Op(state *testState) error {
 
 	publisher := newPublisherWithKP(state.t, state.store.root, state.store.userLogs, subKeyPair)
 	state.peers[op.name] = publisher
-	ref := publisher.key.ID().Sigil()
+	ref := publisher.key.ID().String()
 	state.refToName[ref] = op.name
 	state.t.Logf("created(%d) %s as %s (algo:%s) as subfeed of %s ", i, op.name, ref, op.algo, op.of)
 	i++

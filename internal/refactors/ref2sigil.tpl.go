@@ -7,10 +7,10 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func before(r refs.FeedRef) string {
-	return r.Ref()
+func before(r refs.MessageRef) string {
+	return r.Sigil()
 }
 
-func after(r refs.FeedRef) string {
-	return r.Sigil()
+func after(r refs.MessageRef) string {
+	return r.String()
 }

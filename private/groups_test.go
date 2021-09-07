@@ -76,7 +76,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
-	t.Log(cloaked.Sigil(), "\nroot:", groupTangleRoot.Sigil())
+	t.Log(cloaked.String(), "\nroot:", groupTangleRoot.String())
 
 	suffix := []byte(".box2\"")
 
@@ -182,7 +182,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(cloaked.Equal(cloaked2), "cloaked ID not equal")
 
 	// post back to group
-	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Sigil()))
+	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().String()))
 	r.NoError(err, "tal failed to publish to group")
 	t.Log("reply:", reply.ShortSigil())
 
@@ -330,7 +330,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
-	t.Log("srh is:", srh.KeyPair.ID().Sigil())
+	t.Log("srh is:", srh.KeyPair.ID().String())
 
 	// just a simple paintext message
 	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
@@ -341,7 +341,7 @@ func XTestGroupsReindex(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
-	t.Log(cloaked.Sigil(), "\nroot:", groupTangleRoot.Sigil())
+	t.Log(cloaked.String(), "\nroot:", groupTangleRoot.String())
 
 	// publish a message to the group
 	for i := 10; i > 0; i-- {
@@ -361,7 +361,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
-	t.Log("tal is:", tal.KeyPair.ID().Sigil())
+	t.Log("tal is:", tal.KeyPair.ID().String())
 
 	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
@@ -412,7 +412,7 @@ func XTestGroupsReindex(t *testing.T) {
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(raz))
-	t.Log("raz is:", raz.KeyPair.ID().Sigil())
+	t.Log("raz is:", raz.KeyPair.ID().String())
 
 	_, err = raz.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
 	r.NoError(err)
@@ -429,7 +429,7 @@ func XTestGroupsReindex(t *testing.T) {
 
 	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.ID(), "welcome razi!")
 	r.NoError(err)
-	t.Log("invited raz:", invref2.Sigil())
+	t.Log("invited raz:", invref2.String())
 
 	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.ID()))
 	r.NoError(err)

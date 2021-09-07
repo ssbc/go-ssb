@@ -40,7 +40,7 @@ func XTestEpidemicBroadcastTrees(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Log("muxwrap:", fr.Sigil(), "is peer ", peerCnt)
+			t.Log("muxwrap:", fr.String(), "is peer ", peerCnt)
 			tpath := filepath.Join("testrun", t.Name(), fmt.Sprintf("peer-%d", peerCnt))
 			peerCnt++
 			return debug.WrapDump(tpath, conn)
@@ -132,13 +132,13 @@ func XTestEpidemicBroadcastTrees(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": sbot.KeyPair.ID().Sigil(),
+			"about": sbot.KeyPair.ID().String(),
 			"name":  "test user",
 		},
 		map[string]interface{}{"type": "post", "text": `# hello world!`},
 		map[string]interface{}{
 			"type":  "about",
-			"about": alice.Sigil(),
+			"about": alice.String(),
 			"name":  "test alice",
 		},
 	}
@@ -243,12 +243,12 @@ func XTestEpidemicBroadcastTrees(t *testing.T) {
 			clearInterval(spam)
 			t.comment(rpc.id, "disconnected")
 		})
-	})`, alice.Sigil()), ``)
+	})`, alice.String()), ``)
 
 	sbot.Replicate(poop)
 	sbot.PublishLog.Publish(map[string]interface{}{
 		"type": "spam-feed",
-		"feed": poop.Sigil(),
+		"feed": poop.String(),
 	})
 
 	t.Log("published spam-feed pointer")

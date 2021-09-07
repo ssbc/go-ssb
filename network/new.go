@@ -201,7 +201,7 @@ func (n *Node) GetEndpointFor(ref refs.FeedRef) (muxrpc.Endpoint, bool) {
 	n.remotesLock.Lock()
 	defer n.remotesLock.Unlock()
 
-	edp, has := n.remotes[ref.Sigil()]
+	edp, has := n.remotes[ref.String()]
 	return edp, has
 }
 
@@ -248,7 +248,7 @@ func (n *Node) addRemote(edp muxrpc.Endpoint) {
 	// }
 	// }
 	// replace with new
-	n.remotes[r.Sigil()] = edp
+	n.remotes[r.String()] = edp
 }
 
 // TODO: merge with conntracker
@@ -259,7 +259,7 @@ func (n *Node) removeRemote(edp muxrpc.Endpoint) {
 	if err != nil {
 		panic(err)
 	}
-	delete(n.remotes, r.Sigil())
+	delete(n.remotes, r.String())
 }
 
 func (n *Node) handleConnection(ctx context.Context, origConn net.Conn, isServer bool, hws ...muxrpc.HandlerWrapper) {

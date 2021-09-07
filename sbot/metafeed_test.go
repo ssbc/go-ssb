@@ -102,7 +102,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	// publish from it
 	postRef, err := mainbot.MetaFeeds.Publish(subfeedid, refs.NewPost("hello from my testing subfeed"))
 	r.NoError(err)
-	t.Log(postRef.Sigil())
+	t.Log(postRef.String())
 
 	// check it has the msg
 	subfeedLog, err := mainbot.Users.Get(storedrefs.Feed(subfeedid))
@@ -253,7 +253,7 @@ func TestMultiFeedSync(t *testing.T) {
 	defer tsCancel()
 	v, err := src.Next(ctx)
 	r.NoError(err)
-	t.Log(v.(refs.Message).Key().Sigil())
+	t.Log(v.(refs.Message).Key().String())
 
 	// shutdown
 	cancel()

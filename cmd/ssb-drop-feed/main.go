@@ -67,8 +67,8 @@ func main() {
 		start := time.Now()
 
 		err := rmbot.NullFeed(fr)
-		check(err, "failed to null feed: %s", fr.Sigil())
-		log.Printf("feed(%d) %s nulled (took %v)", i, fr.Sigil(), time.Since(start))
+		check(err, "failed to null feed: %s", fr.String())
+		log.Printf("feed(%d) %s nulled (took %v)", i, fr.String(), time.Since(start))
 	}
 
 	rmbot.Shutdown()

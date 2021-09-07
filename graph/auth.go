@@ -27,7 +27,7 @@ type ErrNoSuchFrom struct {
 }
 
 func (nsf ErrNoSuchFrom) Error() string {
-	return fmt.Sprintf("ssb/graph: no such from: %s", nsf.Who.Sigil())
+	return fmt.Sprintf("ssb/graph: no such from: %s", nsf.Who.String())
 }
 
 func (a *authorizer) Authorize(to refs.FeedRef) error {

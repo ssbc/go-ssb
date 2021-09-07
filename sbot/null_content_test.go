@@ -188,7 +188,7 @@ func XTestNullContentRequest(t *testing.T) {
 	del, err := mainbot.PublishAs("bert", dropContent)
 	r.NoError(err)
 	r.NotNil(del)
-	t.Log("first, valid dcr request:", del.Sigil())
+	t.Log("first, valid dcr request:", del.String())
 	logger.Log("msg", "req published")
 
 	time.Sleep(1 * time.Second)
@@ -212,7 +212,7 @@ func XTestNullContentRequest(t *testing.T) {
 	del2, err := mainbot.PublishAs("bert", cantDropThis)
 	r.NoError(err)
 	r.NotNil(del2)
-	t.Log("invalid dcr:", del2.Sigil())
+	t.Log("invalid dcr:", del2.String())
 
 	// not gone
 	msg, err = mainbot.Get(del2)

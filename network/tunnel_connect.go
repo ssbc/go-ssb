@@ -157,7 +157,7 @@ func (newConn handleNewConnection) HandleConnect(ctx context.Context, edp muxrpc
 		return
 	}
 	for i, f := range initState.IDs {
-		level.Info(peerLogger).Log("i", i, "attendant", f.Sigil())
+		level.Info(peerLogger).Log("i", i, "attendant", f.String())
 	}
 
 	// stream further updates

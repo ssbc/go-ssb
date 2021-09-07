@@ -114,7 +114,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		"msg-key", msg.Key().ShortSigil(),
 
 		// debugging
-		"author", msg.Author().Sigil(),
+		"author", msg.Author().String(),
 		"seq", msg.Seq(),
 	)
 
@@ -157,7 +157,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 		addr += storedrefs.Feed(addMsg.SubFeed)
 
-		level.Info(msgLogger).Log("adding", addMsg.SubFeed.Sigil())
+		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
 
 	case "metafeed/tombstone":
@@ -175,7 +175,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 		addr += storedrefs.Feed(tMsg.SubFeed)
 
-		level.Info(msgLogger).Log("removing", tMsg.SubFeed.Sigil())
+		level.Info(msgLogger).Log("removing", tMsg.SubFeed.String())
 		err = idx.Set(ctx, addr, idxRelValueNone)
 
 	default:
@@ -183,7 +183,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().Sigil(), err)
+		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().String(), err)
 	}
 
 	return nil

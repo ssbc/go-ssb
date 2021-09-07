@@ -112,7 +112,7 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Sigil(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
 	if hmacSecret != nil {
@@ -121,13 +121,13 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 	}
 
 	if err := sig.Verify(woSig, dmsg.Author); err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.Sigil(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string
 	v8warp, err := InternalV8Binary(enc)
 	if err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.Sigil(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))

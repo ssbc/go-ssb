@@ -38,7 +38,7 @@ func updateGetFn(ctx context.Context, seq int64, val interface{}, idx librarian.
 
 	err := idx.Set(ctx, storedrefs.Message(msg.Key()), seq)
 	if err != nil {
-		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().Sigil(), seq, err)
+		return fmt.Errorf("index/get: failed to update message %s (seq: %d): %w", msg.Key().String(), seq, err)
 	}
 	return nil
 }

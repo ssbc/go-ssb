@@ -54,7 +54,7 @@ func TestFeedFromJS(t *testing.T) {
 		t.equal(n+1, results.length, "message count")
 		run() // triggers connect and after block
 	})
-`, claire.Sigil()), ``)
+`, claire.String()), ``)
 
 	bob.Replicate(alice)
 
@@ -90,7 +90,7 @@ func TestFeedFromJS(t *testing.T) {
 		r.Equal(m.Content.Text, "foo")
 		r.Equal(m.Content.I, n-i, "wrong I on msg: %d", i)
 		if i == n-1 {
-			lastMsg = storedMsg.Key().Sigil()
+			lastMsg = storedMsg.Key().String()
 		}
 	}
 
@@ -135,10 +135,10 @@ pull(
 
 }) // friends.get
 
-}) // publish`, alice.Sigil(), lastMsg)
+}) // publish`, alice.String(), lastMsg)
 	claire = ts.startJSBotWithName("claire", before, "")
 
-	t.Logf("started claire: %s", claire.Sigil())
+	t.Logf("started claire: %s", claire.String())
 	bob.Replicate(claire)
 
 	ts.wait()
@@ -202,7 +202,7 @@ func TestFeedFromGo(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": s.KeyPair.ID().Sigil(),
+			"about": s.KeyPair.ID().String(),
 			"name":  "test user",
 		},
 		map[string]interface{}{
@@ -211,7 +211,7 @@ func TestFeedFromGo(t *testing.T) {
 		},
 		map[string]interface{}{
 			"type":  "about",
-			"about": alice.Sigil(),
+			"about": alice.String(),
 			"name":  "test alice",
 		},
 	}
@@ -329,12 +329,12 @@ func TestFeedFromGoLive(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": s.KeyPair.ID().Sigil(),
+			"about": s.KeyPair.ID().String(),
 			"name":  "test user",
 		},
 		map[string]interface{}{
 			"type":      "contact",
-			"contact":   alice.Sigil(),
+			"contact":   alice.String(),
 			"following": true,
 		},
 		map[string]interface{}{
@@ -343,7 +343,7 @@ func TestFeedFromGoLive(t *testing.T) {
 		},
 		map[string]interface{}{
 			"type":  "about",
-			"about": alice.Sigil(),
+			"about": alice.String(),
 			"name":  "test alice",
 		},
 	}

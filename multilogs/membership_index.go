@@ -125,7 +125,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 	}
 
 	for _, nm := range newMembers {
-		_, indexed := currentMembers[nm.Sigil()]
+		_, indexed := currentMembers[nm.String()]
 		if indexed {
 			// already processed
 			continue
@@ -138,7 +138,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 			if err != nil {
 				return err
 			}
-			level.Debug(mc.logger).Log("event", "joined group", "id", cloakedGroupID.Sigil())
+			level.Debug(mc.logger).Log("event", "joined group", "id", cloakedGroupID.String())
 
 			// if we are invited, we need to index the sending author
 			whoToIndex = msg.Author()
@@ -150,7 +150,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 		}
 
 		// mark as indexed
-		currentMembers[whoToIndex.Sigil()] = true
+		currentMembers[whoToIndex.String()] = true
 	}
 
 	err = mc.idx.Set(ctx, idxAddr, currentMembers)

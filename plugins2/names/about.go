@@ -41,9 +41,9 @@ func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 
 	err := ab.kv.View(func(txn *badger.Txn) error {
 
-		addr := ref.Sigil()
+		addr := ref.String()
 		addr += ":"
-		addr += ref.Sigil()
+		addr += ref.String()
 		addr += ":image"
 		it, err := txn.Get(append(idxKeyPrefix, []byte(addr)...))
 		if err != nil {
@@ -122,7 +122,7 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 }
 
 func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
-	addr := append(idxKeyPrefix, []byte(ref.Sigil()+":")...)
+	addr := append(idxKeyPrefix, []byte(ref.String()+":")...)
 
 	// direct badger magic
 	// most of this feels like to direct k:v magic to be honest
@@ -161,7 +161,7 @@ func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
 				case bytes.HasSuffix(k, []byte(":image")):
 					fieldPtr = &reduced.Image
 				default:
-					log.Printf("about debug: %s ", c.Sigil())
+					log.Printf("about debug: %s ", c.String())
 					log.Printf("no field for: %q", string(k))
 					return nil
 				}
@@ -229,9 +229,9 @@ func updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx li
 	}
 
 	// about:from:field
-	addr := aboutMSG.About.Sigil()
+	addr := aboutMSG.About.String()
 	addr += ":"
-	addr += msg.Author().Sigil()
+	addr += msg.Author().String()
 	addr += ":"
 
 	var val string

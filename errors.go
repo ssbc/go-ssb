@@ -71,7 +71,7 @@ type ErrWrongSequence struct {
 
 func (e ErrWrongSequence) Error() string {
 	return fmt.Sprintf("ssb/consistency error: message sequence missmatch for feed %s Stored:%d Logical:%d",
-		e.Ref.Sigil(),
+		e.Ref.String(),
 		e.Stored,
 		e.Logical)
 }

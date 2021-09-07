@@ -359,10 +359,10 @@ func runSbot() error {
 			}
 
 			if isStored {
-				level.Info(log).Log("event", "nulled feed", "ref", blocked.Sigil())
+				level.Info(log).Log("event", "nulled feed", "ref", blocked.String())
 				err = sbot.NullFeed(blocked)
 				if err != nil {
-					return fmt.Errorf("failed to null blocked feed %s: %w", blocked.Sigil(), err)
+					return fmt.Errorf("failed to null blocked feed %s: %w", blocked.String(), err)
 				}
 			}
 		}
@@ -371,7 +371,7 @@ func runSbot() error {
 		return sbot.Close()
 	}
 
-	level.Info(log).Log("event", "serving", "ID", id.Sigil(), "addr", listenAddr, "version", Version, "build", Build)
+	level.Info(log).Log("event", "serving", "ID", id.String(), "addr", listenAddr, "version", Version, "build", Build)
 	for {
 		// Note: This is where the serving starts ;)
 		err = sbot.Network.Serve(ctx)

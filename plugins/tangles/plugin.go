@@ -229,7 +229,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			tps = append(tps, tp)
 		} else {
 			if qry.Private {
-				return fmt.Errorf("failed to unpack root message %s: %w", root.Key().Sigil(), err)
+				return fmt.Errorf("failed to unpack root message %s: %w", root.Key().String(), err)
 			}
 		}
 	}
@@ -268,7 +268,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		var tp tangledPost
 		err = json.Unmarshal(content, &tp.Value.Content)
 		if err != nil {
-			return fmt.Errorf("failed to unpack message %s: %w", msg.Key().Sigil(), err)
+			return fmt.Errorf("failed to unpack message %s: %w", msg.Key().String(), err)
 		}
 		tp.TheKey = msg.Key()
 		tp.Value.Author = msg.Author()

@@ -25,7 +25,7 @@ func (h hGetSignifier) HandleAsync(ctx context.Context, req *muxrpc.Request) (in
 
 	ai, err := h.as.CollectedFor(ref)
 	if err != nil {
-		return nil, fmt.Errorf("do not have about for: %s: %w", ref.Sigil(), err)
+		return nil, fmt.Errorf("do not have about for: %s: %w", ref.String(), err)
 
 	}
 	var name = ai.Name.Chosen
@@ -35,7 +35,7 @@ func (h hGetSignifier) HandleAsync(ctx context.Context, req *muxrpc.Request) (in
 			break
 		}
 		if name == "" {
-			name = ref.Sigil()
+			name = ref.String()
 		}
 	}
 

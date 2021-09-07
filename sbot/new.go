@@ -467,10 +467,10 @@ func New(fopts ...Option) (*Sbot, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
-			selfNf[feed.Sigil()] = seq
+			selfNf[feed.String()] = seq
 		}
 
-		selfNf[s.KeyPair.ID().Sigil()], err = s.CurrentSequence(s.KeyPair.ID())
+		selfNf[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}

@@ -147,7 +147,7 @@ func TestIndexFixtures(t *testing.T) {
 			fr, err := sr.Feed()
 			r.NoError(err)
 
-			seq, has := tc.HeadCount[fr.Sigil()]
+			seq, has := tc.HeadCount[fr.String()]
 			if !a.True(has, "feed not found:%s", fr) {
 				// fmt.Fprintf(f, "%q:%d,\n", fr, sublogSeq)
 				continue

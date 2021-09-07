@@ -40,7 +40,7 @@ func (c Token) String() string {
 	var s strings.Builder
 	s.WriteString(addr.String())
 	s.WriteString(":")
-	s.WriteString(c.Peer.Sigil())
+	s.WriteString(c.Peer.String())
 	s.WriteString("~")
 	s.WriteString(base64.StdEncoding.EncodeToString(c.Seed[:]))
 	return s.String()

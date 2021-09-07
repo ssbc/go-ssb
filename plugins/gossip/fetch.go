@@ -136,10 +136,10 @@ func (h *LegacyGossip) fetchFeed(
 	case refs.RefAlgoFeedGabby:
 		src, err = edp.Source(ctx, muxrpc.TypeBinary, method, q)
 	default:
-		return fmt.Errorf("fetchFeed(%s): unhandled feed format", fr.Sigil())
+		return fmt.Errorf("fetchFeed(%s): unhandled feed format", fr.String())
 	}
 	if err != nil {
-		return fmt.Errorf("fetchFeed(%s:%d) failed to create source: %w", fr.Sigil(), latestSeq, err)
+		return fmt.Errorf("fetchFeed(%s:%d) failed to create source: %w", fr.String(), latestSeq, err)
 	}
 
 	var buf = &bytes.Buffer{}
@@ -162,7 +162,7 @@ func (h *LegacyGossip) fetchFeed(
 	}
 
 	if err := src.Err(); err != nil {
-		return fmt.Errorf("fetchFeed(%s:%d) gossip pump failed: %w", fr.Sigil(), latestSeq, err)
+		return fmt.Errorf("fetchFeed(%s:%d) gossip pump failed: %w", fr.String(), latestSeq, err)
 	}
 
 	return nil
