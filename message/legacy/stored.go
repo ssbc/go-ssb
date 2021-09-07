@@ -10,6 +10,7 @@ import (
 	"log"
 	"time"
 
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.mindeco.de/encodedTime"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -17,9 +18,9 @@ import (
 // really dislike the underlines but they are there to implement the message interface more easily
 
 type StoredMessage struct {
-	Author_    refs.FeedRef     // @... pubkey
-	Previous_  *refs.MessageRef // %... message hashsha
-	Key_       refs.MessageRef  // %... message hashsha
+	Author_    storedrefs.SerialzedFeed     // @... pubkey
+	Previous_  *storedrefs.SerialzedMessage // %... message hashsha
+	Key_       storedrefs.SerialzedMessage  // %... message hashsha
 	Sequence_  int64
 	Timestamp_ time.Time
 	Raw_       []byte // the original message for gossiping see ssb.EncodePreserveOrdering for why
@@ -42,15 +43,18 @@ func (sm StoredMessage) Seq() int64 {
 }
 
 func (sm StoredMessage) Key() refs.MessageRef {
-	return sm.Key_
+	return sm.Key_.MessageRef
 }
 
 func (sm StoredMessage) Author() refs.FeedRef {
-	return sm.Author_
+	return sm.Author_.FeedRef
 }
 
 func (sm StoredMessage) Previous() *refs.MessageRef {
-	return sm.Previous_
+	if sm.Previous_ == nil {
+		return nil
+	}
+	return &sm.Previous_.MessageRef
 }
 
 func (sm StoredMessage) Claimed() time.Time {
@@ -76,8 +80,10 @@ func (sm StoredMessage) ContentBytes() []byte {
 
 func (sm StoredMessage) ValueContent() *refs.Value {
 	var msg refs.Value
-	msg.Previous = sm.Previous_
-	msg.Author = sm.Author_
+	if sm.Previous_ != nil {
+		msg.Previous = &sm.Previous_.MessageRef
+	}
+	msg.Author = sm.Author_.FeedRef
 	msg.Sequence = sm.Sequence_
 	msg.Hash = "sha256"
 	var cs struct {

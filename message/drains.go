@@ -15,6 +15,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/margaret"
 
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
@@ -79,15 +80,17 @@ func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &legacy.StoredMessage{
-		Author_:    dmsg.Author,
-		Previous_:  dmsg.Previous,
-		Key_:       ref,
+	sm := &legacy.StoredMessage{
+		Key_:       storedrefs.SerialzedMessage{ref},
+		Author_:    storedrefs.SerialzedFeed{dmsg.Author},
 		Sequence_:  int64(dmsg.Sequence),
 		Timestamp_: time.Now(),
 		Raw_:       rmsg,
-	}, nil
+	}
+	if prev := dmsg.Previous; prev != nil {
+		sm.Previous_ = &storedrefs.SerialzedMessage{*prev}
+	}
+	return sm, nil
 }
 
 type gabbyVerify struct {

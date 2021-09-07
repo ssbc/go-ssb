@@ -56,17 +56,17 @@ func runeLength(s string) int {
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
 	enc, err := PrettyPrint(raw, WithBuffer(buf), WithStrictOrderChecking(true))
 	if err != nil {
-		if len(raw) > 15 {
-			raw = raw[:15]
+		if len(raw) > 32 {
+			raw = append(raw[:32], '.', '.', '.')
 		}
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not encode message (%q): %w", raw, err)
 	}
 
-	// destroys it for the network layer but makes it easier to access its values
+	// this unmarshal destroys it for the network layer but makes it easier to access its values
 	var dmsg DeserializedMessage
 	if err := json.Unmarshal(raw, &dmsg); err != nil {
-		if len(raw) > 15 {
-			raw = raw[:15]
+		if len(raw) > 32 {
+			raw = append(raw[:32], '.', '.', '.')
 		}
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
