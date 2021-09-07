@@ -550,7 +550,10 @@ func New(fopts ...Option) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
-		if s.KeyPair.ID().Equal(remote) {
+
+		// TODO: we still can't see the feed format type from this
+
+		if s.KeyPair.ID().PubKey().Equal(remote.PubKey()) {
 			return s.master.MakeHandler(conn)
 		}
 
