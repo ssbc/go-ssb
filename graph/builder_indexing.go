@@ -6,6 +6,7 @@ package graph
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/zeebo/bencode"
@@ -30,9 +31,9 @@ const (
 )
 
 type metafeedAnnounceMsg struct {
-	MsgType string `json:"type"`
-	Metafeed string `json:"metafeed"`
-	Tangles refs.TanglePoint
+	MsgType  string       `json:"type"`
+	Metafeed refs.FeedRef `json:"metafeed"`
+	Tangles  refs.TanglePoint
 }
 
 func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
@@ -53,9 +54,9 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 		return err
 	}
 
-	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce 
+	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
 	var c metafeedAnnounceMsg
-	err := c.UnmarshalJSON(abs.ContentBytes())
+	err := json.Unmarshal(abs.ContentBytes(), &c)
 	if err != nil {
 		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
 		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)

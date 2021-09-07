@@ -8,10 +8,11 @@ import (
 	"fmt"
 
 	"strings"
-	"go.cryptoscope.co/ssb"
+
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
+	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -140,16 +141,16 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 	}
 
 	/* metafeed's corresponding ackowledgement of an announcement in bendybutt format
-  "type" => "metafeed/add/existing",
-  "feedpurpose" => "main",
-  "subfeed" => (BFE-encoded feed ID for the 'main' feed),
-  "metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
-  "tangles" => {
-    "metafeed" => {
-      "root" => (BFE nil),
-      "previous" => (BFE nil)
-    }
-  }
+	"type" => "metafeed/add/existing",
+	"feedpurpose" => "main",
+	"subfeed" => (BFE-encoded feed ID for the 'main' feed),
+	"metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
+	"tangles" => {
+	  "metafeed" => {
+	    "root" => (BFE nil),
+	    "previous" => (BFE nil)
+	  }
+	}
 	*/
 
 	// create a bendybutt message on root metafeed tying the mf and main feeds together
@@ -167,13 +168,7 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 	return nil
 }
 
-type metafeedAnnounceMsg struct {
-	MsgType string `json:"type"`
-	Metafeed string `json:"metafeed"`
-	Tangles refs.TanglePoint
-}
-
-func safeSSBURI (input string) string {
+func safeSSBURI(input string) string {
 	input = strings.ReplaceAll(input, "+", "-")
 	input = strings.ReplaceAll(input, "/", "_")
 	// TODO: remove kludge
@@ -199,33 +194,35 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	if !ok {
 		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
 	}
+
 	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
 	if !ok {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
 	/* message structure for the announcement
-			content: {
-			  type: 'metafeed/announce',
-			  metafeed: 'ssb:feed/bendybutt-v1/-oaWWDs8g73EZFUMfW37R_ULtFEjwKN_DczvdYihjbU=',
-			  tangles: {
-			  	metafeed: {
-			  		root: null,
-			  		previous: null
-			  	}
-			  }
-		}
+		content: {
+		  type: 'metafeed/announce',
+		  metafeed: 'ssb:feed/bendybutt-v1/-oaWWDs8g73EZFUMfW37R_ULtFEjwKN_DczvdYihjbU=',
+		  tangles: {
+		  	metafeed: {
+		  		root: null,
+		  		previous: null
+		  	}
+		  }
+	}
 	*/
 
-	// construct announcement message according to the JSON template above 
-	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce 
+	// construct announcement message according to the JSON template above
+	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
 	var announcement metafeedAnnounceMsg
 	announcement.MsgType = "metafeed/announce"
-	// TODO: replace safeSSBURI with cryptix's ref->Sigil/URI PR
-	// TODO: just use <metafeedRef>.String() when ssb uri rewrite lands
-	announcement.Metafeed = fmt.Sprintf("ssb:feed/bendybutt-v1/%s", safeSSBURI(kpMetafeed.ID().Ref()))
+	announcement.Metafeed = kpMetafeed.ID()
 	announcement.Tangles.Root = nil
 	announcement.Tangles.Previous = nil
+
+	// TODO: sign metafeedAnnounceMsg with metafeed keypair
+	_ = kpMain
 
 	_, err = mainFeed.publish.Append(announcement)
 	if err != nil {
