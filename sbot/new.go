@@ -526,18 +526,6 @@ func New(fopts ...Option) (*Sbot, error) {
 		return s, nil
 	}
 
-	// TODO: make plugabble
-	// var peerPlug *peerinvites.Plugin
-	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
-	// 	peerPlug = peerinvites.New(log.With(s.info, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
-	// 	s.public.Register(peerPlug)
-	// 	_, peerServ, err := peerPlug.OpenIndex(r)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "sbot: failed to open about idx")
-	// 	}
-	// 	s.serveIndex(ctx, "contacts", peerServ)
-	// }
-
 	var inviteService *legacyinvites.Service
 
 	// muxrpc handler creation and authoratization decider
@@ -556,12 +544,6 @@ func New(fopts ...Option) (*Sbot, error) {
 		if s.KeyPair.ID().PubKey().Equal(remote.PubKey()) {
 			return s.master.MakeHandler(conn)
 		}
-
-		// if peerPlug != nil {
-		// 	if err := peerPlug.Authorize(remote); err == nil {
-		// 		return peerPlug.Handler(), nil
-		// 	}
-		// }
 
 		if inviteService != nil {
 			err := inviteService.Authorize(remote)
