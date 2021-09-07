@@ -86,8 +86,6 @@ var metafeedsScenarios = []PeopleTestCase{
 		},
 	},
 
-		// name: "main announces fake metafeed, should not work",
-		// name: "followed peer has newly announced metafeed",
 	{
 		name: "follow peer with metafeed announcement",
 		ops: []PeopleOp{
@@ -100,12 +98,8 @@ var metafeedsScenarios = []PeopleTestCase{
 			// question: do we need to add a new op for adding an existing subfeed?
 			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
 
-			// question: how do we actually test that the announcement works correctly?
-			// i assume we need to create a normal feed (normie) following bob-main, and then check that 
-			// the hops from normie->{bob-mf,bob-main,bob-indexes: about} == 0 (using hops 0 according to go-ssb hops conventions)
-			//
-			// following that logic: we should also have a test that maliciously creates an announcement for a metafeed that
-			// they do not own, and make sure that situation is not replicated
+			// open question: we should also have a test that maliciously creates an announcement for a metafeed that they do
+			// not own, and make sure that situation is not replicated
 			PeopleOpNewSubFeed{
 				of:    "bob-mf",
 				name:  "bob-indexes: about",
@@ -145,8 +139,7 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
-	/* metafeed's corresponding ackowledgement of the announcement
-	in bendybutt format
+	/* metafeed's corresponding ackowledgement of an announcement in bendybutt format
   "type" => "metafeed/add/existing",
   "feedpurpose" => "main",
   "subfeed" => (BFE-encoded feed ID for the 'main' feed),
@@ -158,13 +151,13 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
     }
   }
 	*/
-	// TODO: create a bendybutt message on root metafeed tying the mf and main feeds together
-	// sign the bendybutt message with mf.Secret + main.Secret
 
+	// create a bendybutt message on root metafeed tying the mf and main feeds together
 	// mfAddExisting <=> "metafeed/add/existing"
 	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
 	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
 
+	// sign the bendybutt message with mf.Secret + main.Secret
 	signedAddExistingContent, err := metafeed.SubSignContent(kpMain.Secret(), mfAddExisting)
 	if err != nil {
 		return err

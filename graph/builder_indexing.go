@@ -35,7 +35,6 @@ type metafeedAnnounceMsg struct {
 	Tangles refs.TanglePoint
 }
 
-// TODO: hook up function to indexing pipeline
 func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
@@ -67,7 +66,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 	addr += storedrefs.Feed(c.Metafeed)
 	err = idx.Set(ctx, addr, idxRelValueMetafeed)
 	if err != nil {
-		return fmt.Errorf("db/idx contacts: failed to update index. %+v: %w", c, err)
+		return fmt.Errorf("db/idx announcements: failed to update index. %+v: %w", c, err)
 	}
 
 	b.cachedGraph = nil
