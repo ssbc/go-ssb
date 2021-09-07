@@ -95,6 +95,7 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleOpNewPeer{"bob-main"},
 			PeopleOpFollow{"alice-main", "bob-main"},
 			PeopleOpNewPeerWithAlgo{"bob-mf", refs.RefAlgoFeedBendyButt},
+			PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
 			PeopleOpAnnounceMetafeed{"bob-main", "bob-mf"},
 			// question: do we need to add a new op for adding an existing subfeed?
 			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
@@ -120,8 +121,57 @@ var metafeedsScenarios = []PeopleTestCase{
 	},
 }
 
-type PeopleOpAnnounceMetafeed struct {
+type PeopleOpMetafeedAddExisting struct {
 	main, mf string
+}
+
+func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
+	var err error
+	mainFeed, ok := state.peers[op.main]
+	if !ok {
+		return fmt.Errorf("no such main peer: %s", op.main)
+	}
+	mf, ok := state.peers[op.mf]
+	if !ok {
+		return fmt.Errorf("no such mf peer: %s", op.mf)
+	}
+
+	kpMain, ok := mainFeed.key.(ssb.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
+	}
+	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
+	}
+
+	/* metafeed's corresponding ackowledgement of the announcement
+	in bendybutt format
+  "type" => "metafeed/add/existing",
+  "feedpurpose" => "main",
+  "subfeed" => (BFE-encoded feed ID for the 'main' feed),
+  "metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
+  "tangles" => {
+    "metafeed" => {
+      "root" => (BFE nil),
+      "previous" => (BFE nil)
+    }
+  }
+	*/
+	// TODO: create a bendybutt message on root metafeed tying the mf and main feeds together
+	// sign the bendybutt message with mf.Secret + main.Secret
+
+	// mfAddExisting <=> "metafeed/add/existing"
+	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
+	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
+
+	signedAddExistingContent, err := metafeed.SubSignContent(kpMain.Secret(), mfAddExisting)
+	if err != nil {
+		return err
+	}
+	mf.publish.Append(signedAddExistingContent)
+
+	return nil
 }
 
 type metafeedAnnounceMsg struct {
@@ -135,6 +185,10 @@ func safeSSBURI (input string) string {
 	input = strings.ReplaceAll(input, "/", "_")
 	// TODO: remove kludge
 	return strings.TrimSuffix(input, ".bbfeed-v1")
+}
+
+type PeopleOpAnnounceMetafeed struct {
+	main, mf string
 }
 
 func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
@@ -175,6 +229,7 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	var announcement metafeedAnnounceMsg
 	announcement.MsgType = "metafeed/announce"
 	// TODO: replace safeSSBURI with cryptix's ref->Sigil/URI PR
+	// TODO: just use <metafeedRef>.String() when ssb uri rewrite lands
 	announcement.Metafeed = fmt.Sprintf("ssb:feed/bendybutt-v1/%s", safeSSBURI(kpMetafeed.ID().Ref()))
 	announcement.Tangles.Root = nil
 	announcement.Tangles.Previous = nil
@@ -183,35 +238,6 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-
-	/* metafeed's corresponding ackowledgement of the announcement
-	in bendybutt format
-  "type" => "metafeed/add/existing",
-  "feedpurpose" => "main",
-  "subfeed" => (BFE-encoded feed ID for the 'main' feed),
-  "metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
-  "tangles" => {
-    "metafeed" => {
-      "root" => (BFE nil),
-      "previous" => (BFE nil)
-    }
-  }
-	*/
-
-	// TODO: create a bendybutt message on root metafeed tying the mf and main feeds together
-	// sign the bendybutt message with mf.Secret + main.Secret
-
-
-	// mfAddExisting <=> "metafeed/add/existing"
-	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
-	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
-
-	signedAddExistingContent, err := metafeed.SubSignContent(kpMain.Secret(), mfAddExisting)
-	if err != nil {
-		return err
-	}
-	mf.publish.Append(signedAddExistingContent)
-
 	return nil
 }
 
