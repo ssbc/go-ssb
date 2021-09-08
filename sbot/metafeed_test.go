@@ -94,8 +94,8 @@ func TestMultiFeedManagment(t *testing.T) {
 	// check we published the new sub-feed on the metafeed
 	firstMsg := checkSeq(int(0))
 
-	var addMsg metamngmt.Add
-	err = metafeed.VerifySubSignedContent(firstMsg.ContentBytes(), &addMsg, nil)
+	var addMsg metamngmt.AddDerived
+	err = metafeed.VerifySubSignedContent(firstMsg.ContentBytes(), &addMsg)
 	r.NoError(err)
 	r.True(addMsg.SubFeed.Equal(subfeedid))
 
@@ -123,7 +123,7 @@ func TestMultiFeedManagment(t *testing.T) {
 	secondMsg := checkSeq(int(1))
 
 	var obituary metamngmt.Tombstone
-	err = metafeed.VerifySubSignedContent(secondMsg.ContentBytes(), &obituary, nil)
+	err = metafeed.VerifySubSignedContent(secondMsg.ContentBytes(), &obituary)
 	r.NoError(err)
 	r.True(obituary.SubFeed.Equal(subfeedid))
 
