@@ -63,7 +63,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 
 	if msg.Author().Equal(mc.self) {
 		// our own message - all is done already
-		level.Debug(mc.logger).Log("msg", "skipping invite from self")
+		level.Debug(mc.logger).Log("msg", "skipping own invite")
 		return nil
 	}
 
@@ -93,15 +93,11 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 		}
 		newMembers = append(newMembers, m)
 	}
-
-	/* TODO? not really required but would fit into the existing scheme
-	   then again, we would need to allocate a value in tfk for this...
-
-		groupAsTFK, err := tfk.Encode(groupID)
-		if err != nil {
-			return err
-		}
-	*/
+	level.Debug(mc.logger).Log("msg", "new members",
+		"author", msg.Author().ShortSigil(),
+		"group", groupID.ShortSigil(),
+		"members", fmt.Sprintf("%v", newMembers),
+	)
 
 	idxAddr := storedrefs.Message(groupID)
 	state, err := mc.idx.Get(ctx, idxAddr)
@@ -127,7 +123,10 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 	for _, nm := range newMembers {
 		_, indexed := currentMembers[nm.String()]
 		if indexed {
-			// already processed
+			level.Debug(mc.logger).Log("msg", "already indexed",
+				"group", groupID.ShortSigil(),
+				"who", nm,
+			)
 			continue
 		}
 
@@ -143,7 +142,10 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 			// if we are invited, we need to index the sending author
 			whoToIndex = msg.Author()
 		}
-
+		level.Debug(mc.logger).Log("msg", "reindexing",
+			"group", groupID.ShortSigil(),
+			"whoToIndex", whoToIndex,
+		)
 		err = mc.combinedidx.Box2Reindex(whoToIndex)
 		if err != nil {
 			return err
