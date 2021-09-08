@@ -69,6 +69,13 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 	return nil
 }
 
+func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	if b.idxSinkAnnouncements == nil {
+		b.idxSinkAnnouncements = librarian.NewSinkIndex(b.updateAnnouncement, b.idx)
+	}
+	return b.idx, b.idxSinkAnnouncements
+}
+
 func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
@@ -123,13 +130,6 @@ func (b *BadgerBuilder) OpenContactsIndex() (librarian.SeqSetterIndex, librarian
 		b.idxSinkContacts = librarian.NewSinkIndex(b.updateContacts, b.idx)
 	}
 	return b.idx, b.idxSinkContacts
-}
-
-func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
-	if b.idxSinkAnnouncements == nil {
-		b.idxSinkAnnouncements = librarian.NewSinkIndex(b.updateAnnouncement, b.idx)
-	}
-	return b.idx, b.idxSinkAnnouncements
 }
 
 func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {

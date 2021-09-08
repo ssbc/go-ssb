@@ -493,6 +493,8 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 
 		// setup indexing
+
+		// 1) all metafeed/* messages in bendybutt format
 		justMetafeedMessages := repo.NewFilteredLog(s.ReceiveLog, func(msg refs.Message) bool {
 			content := msg.ContentBytes()
 			// the relevant messages will be in the form of [{content,...}, signature]
@@ -516,17 +518,19 @@ func New(fopts ...Option) (*Sbot, error) {
 			return rightType
 		})
 
+		_, mfSink := gb.OpenMetafeedsIndex()
+		s.serveIndexFrom("metafeed", mfSink, justMetafeedMessages)
+
+		// 2) metafeed/announce on normal format
 		byTypeAnnouncementSeqs, err := s.ByType.Get(librarian.Addr("string:metafeed/announce"))
 		if err != nil {
 			return nil, fmt.Errorf("sbot: failed to open by type 'metafeed/announce' sublog: %w", err)
 		}
+
 		// convert sequences only to their actual messages using mutil.Indirect
 		byTypeAnnouncements := mutil.Indirect(s.ReceiveLog, byTypeAnnouncementSeqs)
 
-		_, mfSink := gb.OpenMetafeedsIndex()
 		_, announcementSink := gb.OpenAnnouncementIndex()
-
-		s.serveIndexFrom("metafeed", mfSink, justMetafeedMessages)
 		s.serveIndexFrom("metafeed announcements", announcementSink, byTypeAnnouncements)
 	}
 

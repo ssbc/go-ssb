@@ -7,8 +7,6 @@ package graph
 import (
 	"fmt"
 
-	"strings"
-
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
@@ -94,8 +92,11 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleOpNewPeer{"bob-main"},
 			PeopleOpFollow{"alice-main", "bob-main"},
 			PeopleOpNewPeerWithAlgo{"bob-mf", refs.RefAlgoFeedBendyButt},
-			PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
 			PeopleOpAnnounceMetafeed{"bob-main", "bob-mf"},
+
+			// Let's test this one in a seperate case to make sure the announcment path is taken
+			// PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
+
 			// question: do we need to add a new op for adding an existing subfeed?
 			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
 
@@ -110,6 +111,7 @@ var metafeedsScenarios = []PeopleTestCase{
 		},
 		/* note: in go-ssb hops are one less than the equivalent in nodejs */
 		asserts: []PeopleAssertMaker{
+			PeopleAssertIsSubfeed("bob-mf", "bob-main", true),
 			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes (about)"),
 			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes (about)"),
 		},
@@ -168,13 +170,6 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 	return nil
 }
 
-func safeSSBURI(input string) string {
-	input = strings.ReplaceAll(input, "+", "-")
-	input = strings.ReplaceAll(input, "/", "_")
-	// TODO: remove kludge
-	return strings.TrimSuffix(input, ".bbfeed-v1")
-}
-
 type PeopleOpAnnounceMetafeed struct {
 	main, mf string
 }
@@ -214,10 +209,12 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	*/
 
 	// construct announcement message according to the JSON template above
-	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
 	var announcement metamngmt.Announce
-	announcement.Type = "metafeed/announce"
 	announcement.MetaFeed = kpMetafeed.ID()
+	// TODO: maybe add a NewAnnounceMessage(feed)
+	announcement.Type = "metafeed/announce"
+	announcement.Tangles = make(refs.Tangles, 1)
+	announcement.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
 
 	// TODO: sign metafeedAnnounceMsg with metafeed keypair
 	_ = kpMain
