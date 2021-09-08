@@ -30,12 +30,6 @@ const (
 	idxRelValueMetafeed
 )
 
-type metafeedAnnounceMsg struct {
-	MsgType  string       `json:"type"`
-	Metafeed refs.FeedRef `json:"metafeed"`
-	Tangles  refs.TanglePoint
-}
-
 func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
@@ -55,7 +49,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 	}
 
 	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
-	var c metafeedAnnounceMsg
+	var c metamngmt.Announce
 	err := json.Unmarshal(abs.ContentBytes(), &c)
 	if err != nil {
 		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
@@ -64,7 +58,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 	}
 
 	addr := storedrefs.Feed(abs.Author())
-	addr += storedrefs.Feed(c.Metafeed)
+	addr += storedrefs.Feed(c.MetaFeed)
 	err = idx.Set(ctx, addr, idxRelValueMetafeed)
 	if err != nil {
 		return fmt.Errorf("db/idx announcements: failed to update index. %+v: %w", c, err)

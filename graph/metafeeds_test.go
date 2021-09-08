@@ -103,15 +103,15 @@ var metafeedsScenarios = []PeopleTestCase{
 			// not own, and make sure that situation is not replicated
 			PeopleOpNewSubFeed{
 				of:    "bob-mf",
-				name:  "bob-indexes: about",
+				name:  "bob-indexes (about)",
 				nonce: "test1",
 				algo:  refs.RefAlgoFeedSSB1,
 			},
 		},
 		/* note: in go-ssb hops are one less than the equivalent in nodejs */
 		asserts: []PeopleAssertMaker{
-			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes: about"),
-			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes: about"),
+			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes (about)"),
+			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes (about)"),
 		},
 	},
 }
@@ -215,11 +215,9 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 
 	// construct announcement message according to the JSON template above
 	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
-	var announcement metafeedAnnounceMsg
-	announcement.MsgType = "metafeed/announce"
-	announcement.Metafeed = kpMetafeed.ID()
-	announcement.Tangles.Root = nil
-	announcement.Tangles.Previous = nil
+	var announcement metamngmt.Announce
+	announcement.Type = "metafeed/announce"
+	announcement.MetaFeed = kpMetafeed.ID()
 
 	// TODO: sign metafeedAnnounceMsg with metafeed keypair
 	_ = kpMain
