@@ -55,9 +55,9 @@ type BadgerBuilder struct {
 
 	idx librarian.SeqSetterIndex
 
-	idxSinkContacts  librarian.SinkIndex
-	idxSinkMetaFeeds librarian.SinkIndex
-	idxSinkAnnouncements  librarian.SinkIndex
+	idxSinkContacts      librarian.SinkIndex
+	idxSinkMetaFeeds     librarian.SinkIndex
+	idxSinkAnnouncements librarian.SinkIndex
 
 	log log.Logger
 
@@ -281,13 +281,47 @@ func (b *BadgerBuilder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 	return fs, err
 }
 
-func (b *BadgerBuilder) Subfeeds(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
+// Metafeed returns the metafeed for a subfeed, or an error if it has none.
+func (b *BadgerBuilder) Metafeed(subfeed refs.FeedRef) (refs.FeedRef, error) {
+	var found refs.FeedRef
+	err := b.kv.View(func(txn *badger.Txn) error {
+		iter := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iter.Close()
+
+		metafeedEntry := append(dbKeyPrefix, storedrefs.Feed(subfeed)...)
+		item, err := txn.Get(metafeedEntry)
+		if err != nil {
+			return err
+		}
+
+		err = item.Value(func(v []byte) error {
+			var sr tfk.Feed
+			err := sr.UnmarshalBinary(v)
+			if err != nil {
+				return fmt.Errorf("metafeed(%s): invalid ref entry in db for feed: %w", subfeed.String(), err)
+			}
+			fr, err := sr.Feed()
+			if err != nil {
+				return err
+			}
+			found = fr
+
+			return nil
+		})
+
+		return err
+	})
+	return found, err
+}
+
+// Subfeeds returns the set of subfeeds for a particular metafeed.
+func (b *BadgerBuilder) Subfeeds(metaFeed refs.FeedRef) (*ssb.StrFeedSet, error) {
 	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iter.Close()
 
-		prefix := append(dbKeyPrefix, storedrefs.Feed(forRef)...)
+		prefix := append(dbKeyPrefix, storedrefs.Feed(metaFeed)...)
 		for iter.Seek(prefix); iter.ValidForPrefix(prefix); iter.Next() {
 			it := iter.Item()
 			k := it.Key()
@@ -298,14 +332,14 @@ func (b *BadgerBuilder) Subfeeds(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 					var sr tfk.Feed
 					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
-						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.String(), err)
+						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", metaFeed.String(), err)
 					}
 					fr, err := sr.Feed()
 					if err != nil {
 						return err
 					}
 					if err := fs.AddRef(fr); err != nil {
-						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.String(), err)
+						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", metaFeed.String(), err)
 					}
 				}
 				return nil
@@ -389,6 +423,37 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 		err := walked.AddRef(followedByWho)
 		if err != nil {
 			return fmt.Errorf("recurseHops(%d): add list entry(%d) failed: %w", depth, i, err)
+		}
+
+		// looking for metafeed of iterated follow
+		if mf, err := b.Metafeed(followedByWho); err == nil {
+
+			err := walked.AddRef(mf)
+			if err != nil {
+				return fmt.Errorf("recurseHops(%d): add metafeed entry(%d) failed: %w", depth, i, err)
+			}
+
+			subfeeds, err := b.Subfeeds(mf)
+			if err != nil {
+				return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for list entry(%d): %w", depth, i, err)
+			}
+
+			subfeedList, err := subfeeds.List()
+			if err != nil {
+				return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list entry(%d): %w", depth, i, err)
+			}
+
+			for j, subfeed := range subfeedList {
+				err = walked.AddRef(subfeed)
+				if err != nil {
+					return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.String(), err)
+				}
+
+				// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
+				if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
+					return err
+				}
+			}
 		}
 
 		subfeeds, err := b.Subfeeds(followedByWho)

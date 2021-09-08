@@ -14,6 +14,7 @@ import (
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
+	"go.mindeco.de/ssb-refs/tfk"
 
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
@@ -41,27 +42,36 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 		return nulled
 	}
 
-	abs, ok := val.(refs.Message)
+	msg, ok := val.(refs.Message)
 	if !ok {
 		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
 		level.Warn(b.log).Log("msg", "contact eval failed", "reason", err)
 		return err
 	}
 
-	// TODO? replace with https://godocs.io/github.com/ssb-ngi-pointer/go-metafeed/metamngmt#Announce
 	var c metamngmt.Announce
-	err := json.Unmarshal(abs.ContentBytes(), &c)
+	err := json.Unmarshal(msg.ContentBytes(), &c)
 	if err != nil {
 		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
 		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)
 		return nil
 	}
 
-	addr := storedrefs.Feed(abs.Author())
-	addr += storedrefs.Feed(c.MetaFeed)
-	err = idx.Set(ctx, addr, idxRelValueMetafeed)
+	// TODO: move to yet-to-be-written UnmarshalJSON on metamngmt.Announce
+	if c.Type != "metafeed/announce" {
+		return nil
+	}
+
+	addr := storedrefs.Feed(msg.Author())
+
+	tfkRef, err := tfk.FeedFromRef(c.MetaFeed)
 	if err != nil {
-		return fmt.Errorf("db/idx announcements: failed to update index. %+v: %w", c, err)
+		return fmt.Errorf("db/idx announcements: failed to turn metafeed value into binary: %w", err)
+	}
+
+	err = idx.Set(ctx, addr, tfkRef)
+	if err != nil {
+		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", c, err)
 	}
 
 	b.cachedGraph = nil

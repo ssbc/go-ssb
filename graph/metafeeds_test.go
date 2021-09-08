@@ -93,9 +93,7 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleOpFollow{"alice-main", "bob-main"},
 			PeopleOpNewPeerWithAlgo{"bob-mf", refs.RefAlgoFeedBendyButt},
 			PeopleOpAnnounceMetafeed{"bob-main", "bob-mf"},
-
-			// Let's test this one in a seperate case to make sure the announcment path is taken
-			// PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
+			PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
 
 			// question: do we need to add a new op for adding an existing subfeed?
 			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
@@ -112,6 +110,7 @@ var metafeedsScenarios = []PeopleTestCase{
 		/* note: in go-ssb hops are one less than the equivalent in nodejs */
 		asserts: []PeopleAssertMaker{
 			PeopleAssertIsSubfeed("bob-mf", "bob-main", true),
+			PeopleAssertIsSubfeed("bob-mf", "bob-indexes (about)", true),
 			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes (about)"),
 			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes (about)"),
 		},
@@ -195,6 +194,7 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
+	// TODO: move this to the mtamngmt godocs
 	/* message structure for the announcement
 		content: {
 		  type: 'metafeed/announce',
@@ -211,8 +211,9 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	// construct announcement message according to the JSON template above
 	var announcement metamngmt.Announce
 	announcement.MetaFeed = kpMetafeed.ID()
-	// TODO: maybe add a NewAnnounceMessage(feed)
+	// TODO: maybe add a metamngmt.NewAnnounceMessage(feed, kpMain)
 	announcement.Type = "metafeed/announce"
+	// TODO: maybe dont even need the tangle here
 	announcement.Tangles = make(refs.Tangles, 1)
 	announcement.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
 
