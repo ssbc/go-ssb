@@ -383,30 +383,38 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 		return nil
 	}
 
-	// find all their subfeeds
-	subfeeds, err := b.Subfeeds(who)
-	if err != nil {
-		return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for %s: %w", depth, who.String(), err)
-	}
-
-	// TODO: add iteration to reduce memory overhead of creating a bunch of slices all the time
-	// ie. feedset.Each(func(f refs.FeedRef) { ... })
-	subfeedList, err := subfeeds.List()
-	if err != nil {
-		return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list for %s: %w", depth, who.String(), err)
-	}
-
-	// add them to the set and recurse their follows
-	for j, subfeed := range subfeedList {
-		err = walked.AddRef(subfeed)
+	// utility function encapsulating logic around recursing subfeeds
+	recurseSubfeeds := func (feedId refs.FeedRef) error {
+		// find all their subfeeds
+		subfeeds, err := b.Subfeeds(feedId)
 		if err != nil {
-			return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, who.String(), err)
+			return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for %s: %w", depth, feedId.String(), err)
 		}
 
-		// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
-		if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
-			return err
+		// TODO: add iteration to reduce memory overhead of creating a bunch of slices all the time
+		// ie. feedset.Each(func(f refs.FeedRef) { ... })
+		subfeedList, err := subfeeds.List()
+		if err != nil {
+			return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list for %s: %w", depth, feedId.String(), err)
 		}
+
+		// add them to the set and recurse their follows
+		for j, subfeed := range subfeedList {
+			err = walked.AddRef(subfeed)
+			if err != nil {
+				return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, feedId.String(), err)
+			}
+
+			// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
+			if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if err := recurseSubfeeds(who); err != nil {
+		return err
 	}
 
 	whosFollows, err := b.Follows(who)
@@ -427,55 +435,19 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 
 		// looking for metafeed of iterated follow
 		if mf, err := b.Metafeed(followedByWho); err == nil {
-
+			// add the retrieved metafeed as one of the visited hops (note: it is at distance 0 from its corresponding main feed)
 			err := walked.AddRef(mf)
 			if err != nil {
 				return fmt.Errorf("recurseHops(%d): add metafeed entry(%d) failed: %w", depth, i, err)
 			}
 
-			subfeeds, err := b.Subfeeds(mf)
-			if err != nil {
-				return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for list entry(%d): %w", depth, i, err)
-			}
-
-			subfeedList, err := subfeeds.List()
-			if err != nil {
-				return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list entry(%d): %w", depth, i, err)
-			}
-
-			for j, subfeed := range subfeedList {
-				err = walked.AddRef(subfeed)
-				if err != nil {
-					return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.String(), err)
-				}
-
-				// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
-				if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
-					return err
-				}
-			}
-		}
-
-		subfeeds, err := b.Subfeeds(followedByWho)
-		if err != nil {
-			return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for list entry(%d): %w", depth, i, err)
-		}
-
-		subfeedList, err := subfeeds.List()
-		if err != nil {
-			return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list entry(%d): %w", depth, i, err)
-		}
-
-		for j, subfeed := range subfeedList {
-			err = walked.AddRef(subfeed)
-			if err != nil {
-				return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.String(), err)
-			}
-
-			// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
-			if err := b.recurseHops(walked, vis, subfeed, depth); err != nil {
+			if err := recurseSubfeeds(mf); err != nil {
 				return err
 			}
+		}
+
+		if err := recurseSubfeeds(followedByWho); err != nil {
+			return err
 		}
 
 		// TODO: use from follows followedByWho

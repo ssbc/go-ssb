@@ -141,21 +141,7 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
-	/* metafeed's corresponding ackowledgement of an announcement in bendybutt format
-	"type" => "metafeed/add/existing",
-	"feedpurpose" => "main",
-	"subfeed" => (BFE-encoded feed ID for the 'main' feed),
-	"metafeed" => (BFE-encoded Bendy Butt feed ID for the meta feed),
-	"tangles" => {
-	  "metafeed" => {
-	    "root" => (BFE nil),
-	    "previous" => (BFE nil)
-	  }
-	}
-	*/
-
-	// create a bendybutt message on root metafeed tying the mf and main feeds together
-	// mfAddExisting <=> "metafeed/add/existing"
+	// create a bendybutt message on the root metafeed, tying the mf and main feeds together, by publishing a message of type "metafeed/add/existing"
 	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
 	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
 
@@ -194,30 +180,11 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
-	// TODO: move this to the mtamngmt godocs
-	/* message structure for the announcement
-		content: {
-		  type: 'metafeed/announce',
-		  metafeed: 'ssb:feed/bendybutt-v1/-oaWWDs8g73EZFUMfW37R_ULtFEjwKN_DczvdYihjbU=',
-		  tangles: {
-		  	metafeed: {
-		  		root: null,
-		  		previous: null
-		  	}
-		  }
-	}
-	*/
+	// construct the announcement message according to spec 
+	// https://github.com/ssb-ngi-pointer/ssb-meta-feeds-spec#existing-ssb-identity
+	announcement := metamngmt.NewAnnounceMessage(kpMetafeed.ID())
 
-	// construct announcement message according to the JSON template above
-	var announcement metamngmt.Announce
-	announcement.MetaFeed = kpMetafeed.ID()
-	// TODO: maybe add a metamngmt.NewAnnounceMessage(feed, kpMain)
-	announcement.Type = "metafeed/announce"
-	// TODO: maybe dont even need the tangle here
-	announcement.Tangles = make(refs.Tangles, 1)
-	announcement.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
-
-	// TODO: sign metafeedAnnounceMsg with metafeed keypair
+	// TODO: sign metafeedAnnounceMsg with metafeed keypair (note: not yet mentioned in spec)
 	_ = kpMain
 
 	_, err = mainFeed.publish.Append(announcement)
