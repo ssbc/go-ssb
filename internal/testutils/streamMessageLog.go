@@ -12,14 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
+
 	refs "go.mindeco.de/ssb-refs"
 )
 
 func StreamLog(t *testing.T, l margaret.Log) {
 	r := require.New(t)
+
 	src, err := l.Query()
 	r.NoError(err)
-	i := 0
+
+	seq := l.Seq()
+	i := int64(0)
+
 	for {
 		v, err := src.Next(context.TODO())
 		if luigi.IsEOS(err) {
@@ -45,4 +50,9 @@ func StreamLog(t *testing.T, l margaret.Log) {
 		i++
 	}
 
+	// margaret is 0-indexed
+	seq += 1
+	if seq != i {
+		t.Errorf("seq differs from iterated count: %d vs %d", seq, i)
+	}
 }

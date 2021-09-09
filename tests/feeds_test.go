@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/sbot"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestFeedFromJS(t *testing.T) {
@@ -144,14 +145,14 @@ pull(
 	ts.wait()
 }
 
-func TestFeedFromGo(t *testing.T) {
+func TestFeedFromGoNotLive(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	s := ts.gobot
 
 	before := `fromKey = testBob
@@ -173,20 +174,23 @@ func TestFeedFromGo(t *testing.T) {
 		})
 	})
 
-	sbot.publish({type: 'contact', contact: fromKey, following: true}, function(err, msg) {
+	// sbot.publish({type: 'test', test: true}, (err, msg)  => {
+	// 	t.error(err, 'test:' + msg.sequence )
+
+	sbot.publish({type: 'contact', contact: fromKey, following: true}, (err, msg)  => {
 		t.error(err, 'follow:' + fromKey)
 
-		sbot.friends.get({src: alice.id, dest: fromKey}, function(err, val) {
+		sbot.friends.get({src: alice.id, dest: fromKey}, (err, val)  => {
 			t.error(err, 'friends.get of new contact')
 			t.equals(val[alice.id], true, 'is following')
 
 			t.comment('shouldnt have bobs feed:' + fromKey)
 			pull(
 				sbot.createUserStream({id:fromKey}),
-				pull.collect(function(err, vals){
+				pull.collect((err, vals) => {
 					t.error(err)
 					t.equal(0, vals.length)
-					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, function(err, msg) {
+					sbot.publish({type: 'about', about: fromKey, name: 'test bob'}, (err, msg)  => {
 						t.error(err, 'about:' + msg.key)
 						setTimeout(run, 1000)
 					})
@@ -195,25 +199,18 @@ func TestFeedFromGo(t *testing.T) {
 
 }) // friends.get
 
-}) // publish`
+}) // publish contact
+
+// }) // publish test
+`
 
 	alice := ts.startJSBot(before, "")
 	s.Replicate(alice)
+
 	var tmsgs = []interface{}{
-		map[string]interface{}{
-			"type":  "about",
-			"about": s.KeyPair.ID().String(),
-			"name":  "test user",
-		},
-		map[string]interface{}{
-			"type": "text",
-			"text": `# hello world!`,
-		},
-		map[string]interface{}{
-			"type":  "about",
-			"about": alice.String(),
-			"name":  "test alice",
-		},
+		refs.NewAboutName(s.KeyPair.ID(), "test bot"),
+		refs.NewPost("# hello world!"),
+		refs.NewAboutName(alice, "test alice"),
 	}
 	for i, msg := range tmsgs {
 		newSeq, err := s.PublishLog.Append(msg)
@@ -223,51 +220,64 @@ func TestFeedFromGo(t *testing.T) {
 
 	<-ts.doneJS
 
-	uf, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(storedrefs.Feed(alice))
+	aliceIdx, err := s.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
+	r.EqualValues(2-1, aliceIdx.Seq(), "expected two messages on alice's feed (0 indexed)")
 
-	seqMsg, err := aliceLog.Get(int64(1))
-	r.NoError(err)
-	msg, err := s.ReceiveLog.Get(seqMsg.(int64))
+	// bmap, err := s.Users.LoadInternalBitmap(storedrefs.Feed(alice))
+	// r.NoError(err)
+	// t.Log(bmap.ToArray())
+
+	aliceMsgs := mutil.Indirect(s.ReceiveLog, aliceIdx)
+
+	msg, err := aliceMsgs.Get(0)
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.EqualValues(storedMsg.Seq(), 2)
+	r.EqualValues(storedMsg.Seq(), 1, "expected first message")
 
 	s.Network.GetConnTracker().CloseAll()
 	ts.wait()
 
+	s.Shutdown()
+	s.Close()
+
 	t.Log("restarting for integrity check")
 	ts.startGoBot()
+
 	s = ts.gobot
 	err = s.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 	r.NoError(err)
 
-	ml, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err = ml.Get(storedrefs.Feed(alice))
-	r.NoError(err)
+	aliceMsgs = mutil.Indirect(s.ReceiveLog, aliceIdx)
 
-	seqMsg, err = aliceLog.Get(aliceLog.Seq())
-	r.NoError(err)
-	msg, err = s.ReceiveLog.Get(seqMsg.(int64))
+	msg, err = aliceMsgs.Get(aliceMsgs.Seq())
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.EqualValues(storedMsg.Seq(), 2)
+	r.EqualValues(2, storedMsg.Seq(), "expected last message")
 
-	bobLog, err := ml.Get(storedrefs.Feed(s.KeyPair.ID()))
+	bobIndex, err := s.Users.Get(storedrefs.Feed(s.KeyPair.ID()))
 	r.NoError(err)
+	bobMsgs := mutil.Indirect(s.ReceiveLog, bobIndex)
 
-	seqMsg, err = bobLog.Get(bobLog.Seq())
+	bmap, err := s.Users.LoadInternalBitmap(storedrefs.Feed(s.KeyPair.ID()))
 	r.NoError(err)
-	msg, err = s.ReceiveLog.Get(seqMsg.(int64))
+	t.Log("bots msgs:", bmap.ToArray())
+
+	t.Log("just bob")
+	testutils.StreamLog(t, bobMsgs)
+
+	t.Log("all")
+	testutils.StreamLog(t, s.ReceiveLog)
+
+	r.EqualValues(3-1, bobMsgs.Seq(), "bob should have 3 message (0 indexed)")
+
+	msg, err = bobMsgs.Get(2)
 	r.NoError(err)
 	storedMsg, ok = msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
-	r.EqualValues(storedMsg.Seq(), 3)
+	r.EqualValues(3, storedMsg.Seq(), "expected msg 3 from bob")
 
 	err = s.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences))
 	r.NoError(err)
