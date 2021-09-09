@@ -102,6 +102,6 @@ func (h handler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 
 	err = req.Return(ctx, kv)
 	if err != nil {
-		log.Printf("get(%s): failed? to return message: %s", o.ID.Ref(), err)
+		log.Printf("get(%s): failed? to return message: %s", o.ID.String(), err)
 	}
 }

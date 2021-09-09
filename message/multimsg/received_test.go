@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret/offset2"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
@@ -53,14 +54,14 @@ func TestReceivedSet(t *testing.T) {
 
 	var lm legacy.LegacyMessage
 	lm.Hash = "sha256"
-	lm.Author = bobsKey.ID().Ref()
+	lm.Author = bobsKey.ID().String()
 	lm.Previous = nil
 	lm.Sequence = 666
 
 	newMsg := &legacy.StoredMessage{
-		Key_:      msgKey,
-		Author_:   bobsKey.ID(),
-		Previous_: lm.Previous,
+		Key_:      storedrefs.SerialzedMessage{msgKey},
+		Author_:   storedrefs.SerialzedFeed{bobsKey.ID()},
+		Previous_: nil,
 		Sequence_: int64(lm.Sequence),
 		Raw_:      []byte(`"fakemsg"`),
 	}

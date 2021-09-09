@@ -86,8 +86,8 @@ func TestStore(t *testing.T) {
 					return fmt.Errorf("expected op %q but got %q", ssb.BlobStoreOpPut, not.Op)
 				}
 
-				if tc.putRefs[iChangeSink] != not.Ref.Ref() {
-					return fmt.Errorf("expected %#v but got %#v", tc.putRefs[iChangeSink], not.Ref.Ref())
+				if tc.putRefs[iChangeSink] != not.Ref.Sigil() {
+					return fmt.Errorf("expected %#v but got %#v", tc.putRefs[iChangeSink], not.Ref.Sigil())
 				}
 			} else if iChangeSink < len(tc.putRefs)+len(tc.delRefs) {
 				if not.Op != ssb.BlobStoreOpRm {
@@ -96,12 +96,12 @@ func TestStore(t *testing.T) {
 
 				i := iChangeSink - len(tc.putRefs)
 
-				if tc.delRefs[i] != not.Ref.Ref() {
-					return fmt.Errorf("expected %#v but got %#v", tc.putRefs[i], not.Ref.Ref())
+				if tc.delRefs[i] != not.Ref.Sigil() {
+					return fmt.Errorf("expected %#v but got %#v", tc.putRefs[i], not.Ref.Sigil())
 				}
 
 			} else {
-				return fmt.Errorf("unexpected notification {Op:%v, Ref:%q}", not.Op, not.Ref.Ref())
+				return fmt.Errorf("unexpected notification {Op:%v, Ref:%q}", not.Op, not.Ref.Sigil())
 			}
 
 			return nil
@@ -127,7 +127,7 @@ func TestStore(t *testing.T) {
 				ref, err := bs.Put(strings.NewReader(tc.blobs[refStr]))
 				r.NoError(err, "err putting blob %q", refStr)
 				r.NotNil(ref, "ref returned by bs.Put is nil")
-				a.Equal(refStr, ref.Ref(), "ref strings don't match: %q != %q", refStr, ref.Ref())
+				a.Equal(refStr, ref.Sigil(), "ref strings don't match: %q != %q", refStr, ref.Sigil())
 				testRefs[refStr] = ref
 
 				sz, err := bs.Size(ref)
@@ -163,10 +163,10 @@ func TestStore(t *testing.T) {
 				ref, ok := v.(refs.BlobRef)
 				r.True(ok, "got something that is not a blobref in list: %v(%T)", v, v)
 
-				_, ok = listExp[ref.Ref()]
+				_, ok = listExp[ref.Sigil()]
 				r.True(ok, "received unexpected ref in list: %s", ref)
 
-				delete(listExp, ref.Ref())
+				delete(listExp, ref.Sigil())
 			}
 
 			r.Equal(0, len(listExp), "not all expected entries in list have been received: %v", listExp)

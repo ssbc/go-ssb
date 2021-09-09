@@ -66,7 +66,7 @@ func TestAskForSomethingWeird(t *testing.T) {
 	ref, err := c.Whoami()
 	r.NoError(err, "failed to call whoami")
 	r.NotNil(ref)
-	a.Equal(srv.KeyPair.ID().Ref(), ref.Ref())
+	a.Equal(srv.KeyPair.ID().String(), ref.String())
 
 	// make sure we can publish
 	var msgs []refs.MessageRef

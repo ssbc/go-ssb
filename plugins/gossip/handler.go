@@ -83,7 +83,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		return
 	}
 
-	info := log.With(g.Info, "remote", remoteRef.ShortRef(), "event", "gossiprx", "live", withLive)
+	info := log.With(g.Info, "remote", remoteRef.ShortSigil(), "event", "gossiprx", "live", withLive)
 
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, storedrefs.Feed(remoteRef))
@@ -188,7 +188,7 @@ func (g *LegacyGossip) HandleCall(
 			return
 		}
 
-		hlog = log.With(hlog, "fr", query.ID.ShortRef(), "remote", remote.ShortRef())
+		hlog = log.With(hlog, "fr", query.ID.ShortSigil(), "remote", remote.ShortSigil())
 		// dbgLog = level.Warn(hlog)
 
 		// skip this check for self/master or in promisc mode (talk to everyone)

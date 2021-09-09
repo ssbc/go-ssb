@@ -90,7 +90,7 @@ func TestWhoami(t *testing.T) {
 
 	out, _ := sbotcli("call", "whoami")
 
-	has := bytes.Contains(out, []byte(srv.KeyPair.ID().Ref()))
+	has := bytes.Contains(out, []byte(srv.KeyPair.ID().String()))
 	a.True(has, "ID not found in output")
 
 	srv.Shutdown()
@@ -140,7 +140,7 @@ func TestPublish(t *testing.T) {
 	theFeed, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte{1}, 32), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	out, _ = sbotcli("publish", "contact", "--following", theFeed.Ref())
+	out, _ = sbotcli("publish", "contact", "--following", theFeed.String())
 
 	has = bytes.Contains(out, []byte(".sha256"))
 	a.True(has, "has a message hash")
@@ -195,7 +195,7 @@ func TestGetPublished(t *testing.T) {
 	testMsgRef, err := refs.ParseMessageRef(actualRef)
 	r.NoError(err)
 
-	out, _ = sbotcli("get", testMsgRef.Ref())
+	out, _ = sbotcli("get", testMsgRef.String())
 
 	var msg map[string]interface{}
 	err = json.Unmarshal(out, &msg)

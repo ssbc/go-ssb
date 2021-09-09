@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -16,7 +17,9 @@ func TestAbstractStored(t *testing.T) {
 	r := require.New(t)
 
 	var m StoredMessage
-	m.Author_ = testMessages[1].Author
+	m.Author_ = storedrefs.SerialzedFeed{
+		FeedRef: testMessages[1].Author,
+	}
 	m.Raw_ = testMessages[1].Input
 
 	var a refs.Message = m
@@ -31,4 +34,5 @@ func TestAbstractStored(t *testing.T) {
 
 	author := a.Author()
 	r.True(m.Author_.Equal(author))
+
 }

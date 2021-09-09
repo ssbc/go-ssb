@@ -117,7 +117,7 @@ func XTestWantManager(t *testing.T) {
 				ref, err := refs.ParseBlobRef(refStr)
 				r.NoError(err, "error parsing ref %q", ref)
 
-				a.Equal(true, wmgr.Wants(ref), "expected want manager to want ref %q, but it doesn't", ref.Ref())
+				a.Equal(true, wmgr.Wants(ref), "expected want manager to want ref %q, but it doesn't", ref.Sigil())
 			}
 
 			var wmsg WantMsg
@@ -143,12 +143,12 @@ func XTestWantManager(t *testing.T) {
 						return nil, fmt.Errorf("expected a string argument, got type %T", args[0])
 					}
 
-					sz, ok := tc.remoteWants[arg.Key.Ref()]
+					sz, ok := tc.remoteWants[arg.Key.Sigil()]
 					if !ok || sz < 0 {
 						return nil, ErrNoSuchBlob
 					}
 
-					data := tc.blobs[arg.Key.Ref()]
+					data := tc.blobs[arg.Key.Sigil()]
 
 					return muxrpc.NewTestSource([]byte(data)), nil
 				},
@@ -171,7 +171,7 @@ func XTestWantManager(t *testing.T) {
 					h.Write([]byte(str))
 					ref, err := refs.NewBlobRefFromBytes(h.Sum(nil), refs.RefAlgoBlobSSB1)
 					r.NoError(err)
-					m[ref.Ref()] = int64(len(str))
+					m[ref.Sigil()] = int64(len(str))
 				}
 
 				return m

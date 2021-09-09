@@ -56,17 +56,17 @@ func runeLength(s string) int {
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
 	enc, err := PrettyPrint(raw, WithBuffer(buf), WithStrictOrderChecking(true))
 	if err != nil {
-		if len(raw) > 15 {
-			raw = raw[:15]
+		if len(raw) > 32 {
+			raw = append(raw[:32], '.', '.', '.')
 		}
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not encode message (%q): %w", raw, err)
 	}
 
-	// destroys it for the network layer but makes it easier to access its values
+	// this unmarshal destroys it for the network layer but makes it easier to access its values
 	var dmsg DeserializedMessage
 	if err := json.Unmarshal(raw, &dmsg); err != nil {
-		if len(raw) > 15 {
-			raw = raw[:15]
+		if len(raw) > 32 {
+			raw = append(raw[:32], '.', '.', '.')
 		}
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
@@ -112,7 +112,7 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	woSig, sig, err := ExtractSignature(enc)
 	if err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
 	if hmacSecret != nil {
@@ -121,13 +121,13 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 	}
 
 	if err := sig.Verify(woSig, dmsg.Author); err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
 	// hash the message - it's sadly the internal string rep of v8 that get's hashed, not the json string
 	v8warp, err := InternalV8Binary(enc)
 	if err != nil {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.Ref(), dmsg.Sequence, err)
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could hash convert message: %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 	h := sha256.New()
 	io.Copy(h, bytes.NewReader(v8warp))

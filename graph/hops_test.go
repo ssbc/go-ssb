@@ -130,7 +130,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 
 			hitMap := make(map[string]bool, len(hopList))
 			for _, h := range hopList {
-				hitMap[h.Ref()] = false
+				hitMap[h.String()] = false
 			}
 			// if n, m := len(hopList), len(tos); n != m {
 			// 	return fmt.Errorf("count mismatch between want(%d) and got(%d)", m, n)
@@ -140,7 +140,7 @@ func PeopleAssertHops(from string, hops int, tos ...string) PeopleAssertMaker {
 				if !ok {
 					return fmt.Errorf("wanted peer not in known-peers list: %s", nick)
 				}
-				bobRef := bob.key.ID().Ref()
+				bobRef := bob.key.ID().String()
 
 				_, ok = hitMap[bobRef]
 				if !ok {

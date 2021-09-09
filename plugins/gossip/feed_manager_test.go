@@ -79,7 +79,7 @@ func createMessages(pub ssb.Publisher, fill librarian.SinkIndex, rootLog margare
 			require.NoError(t, err)
 			errc := asynctesting.ServeLog(context.TODO(), "helper", rootLog, fill, false)
 			require.NoError(t, <-errc, "refresh failed")
-			t.Log("msg:", i, msg.Ref())
+			t.Log("msg:", i, msg.String())
 		}
 	}
 }

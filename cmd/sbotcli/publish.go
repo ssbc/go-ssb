@@ -53,8 +53,8 @@ var publishRawCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "raw", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "raw", "ref", newMsg.String())
+		fmt.Fprintln(os.Stdout, newMsg.String())
 		return nil
 	},
 }
@@ -106,8 +106,8 @@ var publishPostCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "post", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "post", "ref", newMsg.String())
+		fmt.Fprintln(os.Stdout, newMsg.String())
 		return nil
 	},
 }
@@ -133,7 +133,7 @@ var publishVoteCmd = &cli.Command{
 
 		arg := map[string]interface{}{
 			"vote": map[string]interface{}{
-				"link":       mref.Ref(),
+				"link":       mref.String(),
 				"value":      ctx.Int("value"),
 				"expression": ctx.String("expression"),
 			},
@@ -173,8 +173,8 @@ var publishVoteCmd = &cli.Command{
 			return err
 		}
 
-		log.Log("event", "published", "type", "vote", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "vote", "ref", newMsg.String())
+		fmt.Fprintln(os.Stdout, newMsg.String())
 		return nil
 	},
 }
@@ -192,7 +192,7 @@ var publishAboutCmd = &cli.Command{
 			return fmt.Errorf("publish/about: invalid feed ref: %w", err)
 		}
 		arg := map[string]interface{}{
-			"about": aboutRef.Ref(),
+			"about": aboutRef.String(),
 			"type":  "about",
 		}
 		if n := ctx.String("name"); n != "" {
@@ -220,8 +220,8 @@ var publishAboutCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "about", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "about", "ref", newMsg.String())
+		fmt.Fprintln(os.Stdout, newMsg.String())
 		return nil
 	},
 }
@@ -244,7 +244,7 @@ var publishContactCmd = &cli.Command{
 			return fmt.Errorf("publish/contact: can't be both true")
 		}
 		arg := map[string]interface{}{
-			"contact":   cref.Ref(),
+			"contact":   cref.String(),
 			"type":      "contact",
 			"following": ctx.Bool("following"),
 			"blocking":  ctx.Bool("blocking"),
@@ -265,8 +265,8 @@ var publishContactCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		log.Log("event", "published", "type", "contact", "ref", newMsg.Ref())
-		fmt.Fprintln(os.Stdout, newMsg.Ref())
+		log.Log("event", "published", "type", "contact", "ref", newMsg.String())
+		fmt.Fprintln(os.Stdout, newMsg.String())
 		return nil
 	},
 }

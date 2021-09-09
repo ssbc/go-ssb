@@ -14,6 +14,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/message/legacy"
 )
 
@@ -30,9 +31,9 @@ func TestMultiMsgLegacy(t *testing.T) {
 	// craft legacy testmessage
 	testContent := []byte(`{Hello: world}`)
 	var lm legacy.StoredMessage
-	lm.Author_ = kp.ID()
+	lm.Author_ = storedrefs.SerialzedFeed{kp.ID()}
 	lm.Sequence_ = 123
-	lm.Key_ = msgKey
+	lm.Key_ = storedrefs.SerialzedMessage{msgKey}
 	lm.Raw_ = testContent
 
 	var mm MultiMessage

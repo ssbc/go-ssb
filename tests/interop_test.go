@@ -120,7 +120,7 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 
 	sbot, err := sbot.New(sbotOpts...)
 	r.NoError(err, "failed to init test go-sbot")
-	ts.t.Logf("go-sbot: %s", sbot.KeyPair.ID().Ref())
+	ts.t.Logf("go-sbot: %s", sbot.KeyPair.ID().String())
 
 	var done = make(chan struct{})
 	var errc = make(chan error, 1)
@@ -163,7 +163,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 	jsBotCnt++
 	env := []string{
 		"TEST_NAME=" + name,
-		"TEST_BOB=" + ts.gobot.KeyPair.ID().Ref(),
+		"TEST_BOB=" + ts.gobot.KeyPair.ID().String(),
 		"TEST_GOADDR=" + netwrap.GetAddr(ts.gobot.Network.GetListenAddr(), "tcp").String(),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
@@ -197,7 +197,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 
 	jsBotRef, err := refs.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get %s key from JS process")
-	ts.t.Logf("JS %s:%d %s", name, jsBotCnt, jsBotRef.Ref())
+	ts.t.Logf("JS %s:%d %s", name, jsBotCnt, jsBotRef.String())
 	return jsBotRef
 }
 
@@ -219,7 +219,7 @@ func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.
 
 	env := []string{
 		"TEST_NAME=" + name,
-		"TEST_BOB=" + ts.gobot.KeyPair.ID().Ref(),
+		"TEST_BOB=" + ts.gobot.KeyPair.ID().String(),
 		fmt.Sprintf("TEST_PORT=%d", port),
 		"TEST_BEFORE=" + writeFile(ts.t, jsbefore),
 		"TEST_AFTER=" + writeFile(ts.t, jsafter),
@@ -254,7 +254,7 @@ func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.
 
 	srvRef, err := refs.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get srvRef key from JS process")
-	ts.t.Logf("JS %s: %s port: %d", name, srvRef.Ref(), port)
+	ts.t.Logf("JS %s: %s port: %d", name, srvRef.String(), port)
 	return srvRef, port
 }
 

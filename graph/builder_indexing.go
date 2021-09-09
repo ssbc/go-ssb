@@ -111,10 +111,10 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	msgLogger := log.With(b.log,
-		"msg-key", msg.Key().ShortRef(),
+		"msg-key", msg.Key().ShortSigil(),
 
 		// debugging
-		"author", msg.Author().Ref(),
+		"author", msg.Author().String(),
 		"seq", msg.Seq(),
 	)
 
@@ -151,13 +151,13 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 
 		if !addMsg.MetaFeed.Equal(msg.Author()) {
-			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortRef(), "meta author", msg.Author().ShortRef())
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortSigil(), "meta author", msg.Author().ShortSigil())
 			// skip invalid add message
 			return nil
 		}
 		addr += storedrefs.Feed(addMsg.SubFeed)
 
-		level.Info(msgLogger).Log("adding", addMsg.SubFeed.Ref())
+		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
 
 	case "metafeed/tombstone":
@@ -169,13 +169,13 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 
 		if !tMsg.MetaFeed.Equal(msg.Author()) {
-			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", tMsg.MetaFeed.ShortRef(), "meta author", msg.Author().ShortRef())
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", tMsg.MetaFeed.ShortSigil(), "meta author", msg.Author().ShortSigil())
 			// skip invalid add message
 			return nil
 		}
 		addr += storedrefs.Feed(tMsg.SubFeed)
 
-		level.Info(msgLogger).Log("removing", tMsg.SubFeed.Ref())
+		level.Info(msgLogger).Log("removing", tMsg.SubFeed.String())
 		err = idx.Set(ctx, addr, idxRelValueNone)
 
 	default:
@@ -183,7 +183,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().Ref(), err)
+		return fmt.Errorf("failed to update metafeed index with message %s: %w", msg.Key().String(), err)
 	}
 
 	return nil

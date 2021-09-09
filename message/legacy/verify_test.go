@@ -20,7 +20,7 @@ func TestVerify(t *testing.T) {
 	for i := 1; i < n; i++ {
 		hash, _, err := Verify(testMessages[i].Input, nil)
 		r.NoError(err, "verify failed")
-		a.Equal(testMessages[i].Hash, hash.Ref(), "hash mismatch %d", i)
+		a.Equal(testMessages[i].Hash, hash.String(), "hash mismatch %d", i)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestVerifyBugs(t *testing.T) {
 	for i, tc := range tcases {
 		h, dmsg, err := Verify(tc.msg, nil)
 		r.NoError(err, "msg %d failed", i)
-		a.Equal(tc.key, h.Ref())
+		a.Equal(tc.key, h.String())
 		a.Equal(tc.seq, dmsg.Sequence)
 	}
 }

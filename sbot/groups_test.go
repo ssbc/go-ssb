@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package private_test
+package sbot
 
 import (
 	"bytes"
@@ -19,24 +19,16 @@ import (
 	"go.cryptoscope.co/margaret/multilog/roaring"
 	"go.mindeco.de/log"
 	kitlog "go.mindeco.de/log"
-	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-/* TODO: this is an integration test and should be moved to the sbot package
-
-before that, the indexing re-write needs to happen.
-*/
-
-func TestGroupsManualDecrypt(t *testing.T) {
+func TestPrivateGroupsManualDecrypt(t *testing.T) {
 	r := require.New(t)
-	// a := assert.New(t)
 
 	// cleanup previous run
 	testRepo := filepath.Join("testrun", t.Name())
@@ -49,20 +41,20 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	}
 	todoCtx := context.TODO()
 	botgroup, ctx := errgroup.WithContext(todoCtx)
-	bs := botServer{todoCtx, srvLog}
+	bs := newBotServer(todoCtx, srvLog)
 
 	// create one bot
 	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	srh, err := sbot.New(
-		sbot.WithContext(ctx),
-		sbot.WithKeyPair(srhKey),
-		sbot.WithInfo(srvLog),
-		sbot.WithInfo(log.With(srvLog, "peer", "srh")),
-		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
-		sbot.WithListenAddr(":0"),
-		sbot.DisableEBT(true),
+	srh, err := New(
+		WithContext(ctx),
+		WithKeyPair(srhKey),
+		WithInfo(srvLog),
+		WithInfo(log.With(srvLog, "peer", "srh")),
+		WithRepoPath(filepath.Join(testRepo, "srh")),
+		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
@@ -76,7 +68,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
 
-	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
+	t.Log(cloaked.String(), "\nroot:", groupTangleRoot.String())
 
 	suffix := []byte(".box2\"")
 
@@ -92,7 +84,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// publish a message to the group
 	postRef, err := srh.Groups.PublishPostTo(cloaked, "just a small test group!")
 	r.NoError(err, "failed to publish post to group")
-	t.Log("post", postRef.ShortRef())
+	t.Log("post", postRef.ShortSigil())
 
 	// make sure this is an encrypted message
 	msg, err = srh.Get(postRef)
@@ -101,12 +93,12 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
 
 	// create a 2nd bot
-	tal, err := sbot.New(
-		sbot.WithContext(ctx),
-		sbot.WithInfo(log.With(srvLog, "peer", "tal")),
-		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
-		sbot.WithListenAddr(":0"),
-		sbot.DisableEBT(true),
+	tal, err := New(
+		WithContext(ctx),
+		WithInfo(log.With(srvLog, "peer", "tal")),
+		WithRepoPath(filepath.Join(testRepo, "tal")),
+		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
@@ -126,7 +118,7 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	// add bot2 to the new group
 	addMsgRef, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome, tal!")
 	r.NoError(err)
-	t.Log("added:", addMsgRef.ShortRef())
+	t.Log("added:", addMsgRef.ShortSigil())
 
 	// it's an encrypted message
 	msg, err = srh.Get(addMsgRef)
@@ -166,11 +158,10 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(err)
 	content = addMsgCopy.ContentBytes()
 	r.True(bytes.HasSuffix(content, suffix), "%q", content)
-	t.Log(string(content))
 
 	decr, err := tal.Groups.DecryptBox2Message(addMsgCopy)
 	r.NoError(err)
-	t.Log(string(decr))
+	t.Log("decrypted:", string(decr))
 
 	var ga private.GroupAddMember
 	err = json.Unmarshal(decr, &ga)
@@ -182,9 +173,9 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.True(cloaked.Equal(cloaked2), "cloaked ID not equal")
 
 	// post back to group
-	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().Ref()))
+	reply, err := tal.Groups.PublishPostTo(cloaked, fmt.Sprintf("thanks [@sarah](%s)!", srh.KeyPair.ID().String()))
 	r.NoError(err, "tal failed to publish to group")
-	t.Log("reply:", reply.ShortRef())
+	t.Log("reply:", reply.ShortSigil())
 
 	// reconnect to get the reply
 	edp, has := srh.Network.GetEndpointFor(tal.KeyPair.ID())
@@ -230,13 +221,6 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	addr = indexes.Addr("box2:") + storedrefs.Feed(tal.KeyPair.ID())
 	chkCount(tal.Private)(addr, 4)
 
-	/*
-		t.Log("srh")
-		testutils.StreamLog(t, srh.ReceiveLog)
-		t.Log("tal")
-		testutils.StreamLog(t, tal.ReceiveLog)
-	*/
-
 	addr = indexes.Addr("meta:box2")
 	allBoxed, err := tal.Private.LoadInternalBitmap(addr)
 	r.NoError(err)
@@ -253,7 +237,6 @@ func TestGroupsManualDecrypt(t *testing.T) {
 		t.Log("still boxed:", allBoxed.String())
 	}
 
-	time.Sleep(10 * time.Second)
 	tal.Shutdown()
 	srh.Shutdown()
 
@@ -262,36 +245,20 @@ func TestGroupsManualDecrypt(t *testing.T) {
 	r.NoError(botgroup.Wait())
 }
 
-type botServer struct {
-	ctx context.Context
-	log kitlog.Logger
-}
-
-func (bs botServer) Serve(s *sbot.Sbot) func() error {
-	return func() error {
-		err := s.Network.Serve(bs.ctx)
-		if err != nil {
-			if err == context.Canceled {
-				return nil
-			}
-			level.Warn(bs.log).Log("event", "bot serve exited", "err", err)
-		}
-		return err
-	}
-}
-
+// TODO: somehow the Membership/Reindex functionality doesn't kick in.
+// When Raz processes srh's feed, it should see the invite to tal and then index that one as well.
 func XTestGroupsReindex(t *testing.T) {
 	r := require.New(t)
 
-	// indexed?
+	// indexed? asserter
 	chkCount := func(ml *roaring.MultiLog) func(tipe indexes.Addr, cnt int) {
 		return func(tipe indexes.Addr, cnt int) {
 			posts, err := ml.Get(tipe)
 			r.NoError(err)
 
-			// bmap, err := ml.LoadInternalBitmap(tipe)
-			// r.NoError(err)
-			// t.Logf("%q: %s", tipe, bmap.String())
+			bmap, err := ml.LoadInternalBitmap(tipe)
+			r.NoError(err)
+			t.Logf("%q: %v", tipe, bmap.ToArray())
 
 			r.EqualValues(cnt-1, posts.Seq(), "expected more messages in multilog %q", tipe)
 		}
@@ -308,7 +275,7 @@ func XTestGroupsReindex(t *testing.T) {
 	}
 	todoCtx := context.TODO()
 	botgroup, ctx := errgroup.WithContext(todoCtx)
-	bs := botServer{todoCtx, srvLog}
+	bs := newBotServer(todoCtx, srvLog)
 
 	// make the keys deterministic (helps to know who is who in the console output)
 	srhKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("sarah"), 8)), refs.RefAlgoFeedSSB1)
@@ -318,61 +285,61 @@ func XTestGroupsReindex(t *testing.T) {
 	razKey, err := ssb.NewKeyPair(bytes.NewReader(bytes.Repeat([]byte("raziel"), 8)), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	// create the first bot
-	srh, err := sbot.New(
-		sbot.WithContext(ctx),
-		sbot.WithKeyPair(srhKey),
-		sbot.WithInfo(srvLog),
-		sbot.WithInfo(log.With(srvLog, "peer", "srh")),
-		sbot.WithRepoPath(filepath.Join(testRepo, "srh")),
-		sbot.WithListenAddr(":0"),
-		sbot.DisableEBT(true),
+	// create the first bot (who creates the group)
+	srh, err := New(
+		WithContext(ctx),
+		WithKeyPair(srhKey),
+		WithInfo(srvLog),
+		WithInfo(log.With(srvLog, "peer", "srh")),
+		WithRepoPath(filepath.Join(testRepo, "srh")),
+		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(srh))
-	t.Log("srh is:", srh.KeyPair.ID().Ref())
+	t.Log("srh is:", srh.KeyPair.ID().String())
 
 	// just a simple paintext message
 	_, err = srh.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
 	r.NoError(err)
 
-	// create a new group
+	// srh creates a new group
 	cloaked, groupTangleRoot, err := srh.Groups.Create("hello, my group")
 	r.NoError(err)
 	r.NotNil(groupTangleRoot)
+	t.Log("new group:", cloaked.String(), "\nroot:", groupTangleRoot.String())
 
-	t.Log(cloaked.Ref(), "\nroot:", groupTangleRoot.Ref())
-
-	// publish a message to the group
-	for i := 10; i > 0; i-- {
+	// publish a few messages to the group
+	for i := 1; i <= 10; i++ {
 		postRef, err := srh.Groups.PublishPostTo(cloaked, fmt.Sprintf("some test spam %d", i))
 		r.NoError(err)
-		t.Logf("pre-invite spam %d: %s", i, postRef.ShortRef())
+		t.Logf("pre-invite spam %d: %s", i, postRef.ShortSigil())
 	}
 
-	// create a 2nd bot
-	tal, err := sbot.New(
-		sbot.WithContext(ctx),
-		sbot.WithKeyPair(talKey),
-		sbot.WithInfo(log.With(srvLog, "peer", "tal")),
-		sbot.WithRepoPath(filepath.Join(testRepo, "tal")),
-		sbot.WithListenAddr(":0"),
-		sbot.DisableEBT(true),
+	// create a 2nd bot (who joins first)
+	tal, err := New(
+		WithContext(ctx),
+		WithKeyPair(talKey),
+		WithInfo(log.With(srvLog, "peer", "tal")),
+		WithRepoPath(filepath.Join(testRepo, "tal")),
+		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(tal))
-	t.Log("tal is:", tal.KeyPair.ID().Ref())
+	t.Log("tal is:", tal.KeyPair.ID().String())
 
+	// make sure tal can receive srh's invite via box2-dm
 	dmKey, err := tal.Groups.GetOrDeriveKeyFor(srh.KeyPair.ID())
 	r.NoError(err)
 	r.Len(dmKey, 1)
 
-	// now invite tal now that we have some content to reindex BEFORE the invite
+	// now invite tal now that we have some content to reindex BEFORE the invite to raz
 	invref, err := srh.Groups.AddMember(cloaked, tal.KeyPair.ID(), "welcome tal!")
 	r.NoError(err)
-	t.Log("inviteed tal:", invref.ShortRef())
+	t.Log("invited 1 to tal:", invref.Sigil())
 
-	// now replicate a bit
+	// now replicate a the two of them
 	srh.Replicate(tal.KeyPair.ID())
 	tal.Replicate(srh.KeyPair.ID())
 
@@ -381,6 +348,7 @@ func XTestGroupsReindex(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // let them sync
 
+	// check that they both have the messages
 	chkCount(srh.ByType)("string:post", 10)
 	chkCount(tal.ByType)("string:post", 10)
 
@@ -390,7 +358,7 @@ func XTestGroupsReindex(t *testing.T) {
 		txt := fmt.Sprintf("WOHOOO thanks for having me %d", i)
 		postRef, err := tal.Groups.PublishPostTo(cloaked, txt)
 		r.NoError(err)
-		t.Logf("post-invite spam %d: %s", i, postRef.ShortRef())
+		t.Logf("post-invite spam %d: %s", i, postRef.ShortSigil())
 	}
 
 	// we dont have live streaming yet
@@ -402,17 +370,19 @@ func XTestGroupsReindex(t *testing.T) {
 
 	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
 
-	raz, err := sbot.New(
-		sbot.WithContext(ctx),
-		sbot.WithKeyPair(razKey),
-		sbot.WithInfo(log.With(srvLog, "peer", "raz")),
-		sbot.WithRepoPath(filepath.Join(testRepo, "raz")),
-		sbot.WithListenAddr(":0"),
-		sbot.DisableEBT(true),
+	// create the 3rd bot who will fetch srh and tal
+	// they both will have opaque messages until the key is presented to raz via invite2
+	raz, err := New(
+		WithContext(ctx),
+		WithKeyPair(razKey),
+		WithInfo(log.With(srvLog, "peer", "raz")),
+		WithRepoPath(filepath.Join(testRepo, "raz")),
+		WithListenAddr(":0"),
+		DisableEBT(true),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(raz))
-	t.Log("raz is:", raz.KeyPair.ID().Ref())
+	t.Log("raz is:", raz.KeyPair.ID().String())
 
 	_, err = raz.PublishLog.Publish(map[string]interface{}{"type": "test", "text": "hello, world!"})
 	r.NoError(err)
@@ -429,7 +399,7 @@ func XTestGroupsReindex(t *testing.T) {
 
 	invref2, err := srh.Groups.AddMember(cloaked, raz.KeyPair.ID(), "welcome razi!")
 	r.NoError(err)
-	t.Log("invited raz:", invref2.Ref())
+	t.Log("invite 2 to raz:", invref2.Sigil())
 
 	talsLog, err := raz.Users.Get(storedrefs.Feed(tal.KeyPair.ID()))
 	r.NoError(err)
@@ -442,6 +412,7 @@ func XTestGroupsReindex(t *testing.T) {
 		raz.Network.GetConnTracker().CloseAll()
 		time.Sleep(1 * time.Second) // let them sync
 
+		// connect to the two other bots
 		err = raz.Network.Connect(ctx, srh.Network.GetListenAddr())
 		r.NoError(err)
 		err = raz.Network.Connect(ctx, tal.Network.GetListenAddr())
@@ -462,7 +433,9 @@ func XTestGroupsReindex(t *testing.T) {
 	chkCount(srh.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
 	chkCount(raz.Users)(storedrefs.Feed(tal.KeyPair.ID()), 11)
 
+	// finally, assert they all three can read the full group
 	chkCount(srh.ByType)("string:post", 20)
+	chkCount(tal.ByType)("string:post", 20)
 	chkCount(raz.ByType)("string:post", 20)
 
 	// done, cleaning up

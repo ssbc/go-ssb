@@ -106,12 +106,12 @@ func TestReplicate(t *testing.T) {
 		t.Log("blob notification", n)
 
 		if n.Op == ssb.BlobStoreOpPut {
-			if n.Ref.Ref() == ref.Ref() {
+			if n.Ref.Sigil() == ref.Sigil() {
 				t.Log("received correct blob")
 				wait()
 				close(done)
 			} else {
-				t.Error("received unexpected blob:", n.Ref.Ref())
+				t.Error("received unexpected blob:", n.Ref.Sigil())
 			}
 		}
 		return nil

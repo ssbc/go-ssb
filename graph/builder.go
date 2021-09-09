@@ -259,14 +259,14 @@ func (b *BadgerBuilder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 					var sr tfk.Feed
 					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
-						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
+						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.String(), err)
 					}
 					fr, err := sr.Feed()
 					if err != nil {
 						return err
 					}
 					if err := fs.AddRef(fr); err != nil {
-						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
+						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.String(), err)
 					}
 				}
 				return nil
@@ -297,14 +297,14 @@ func (b *BadgerBuilder) Subfeeds(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 					var sr tfk.Feed
 					err := sr.UnmarshalBinary(k[dbKeyPrefixLen+34:])
 					if err != nil {
-						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.Ref(), err)
+						return fmt.Errorf("follows(%s): invalid ref entry in db for feed: %w", forRef.String(), err)
 					}
 					fr, err := sr.Feed()
 					if err != nil {
 						return err
 					}
 					if err := fs.AddRef(fr); err != nil {
-						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.Ref(), err)
+						return fmt.Errorf("follows(%s): couldn't add parsed ref feed: %w", forRef.String(), err)
 					}
 				}
 				return nil
@@ -344,28 +344,28 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 	}
 
 	// skip if we already visited this peer
-	if _, ok := vis[who.Ref()]; ok {
+	if _, ok := vis[who.String()]; ok {
 		return nil
 	}
 
 	// find all their subfeeds
 	subfeeds, err := b.Subfeeds(who)
 	if err != nil {
-		return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for %s: %w", depth, who.Ref(), err)
+		return fmt.Errorf("recurseHops(%d): couldnt estblish subfeeds for %s: %w", depth, who.String(), err)
 	}
 
 	// TODO: add iteration to reduce memory overhead of creating a bunch of slices all the time
 	// ie. feedset.Each(func(f refs.FeedRef) { ... })
 	subfeedList, err := subfeeds.List()
 	if err != nil {
-		return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list for %s: %w", depth, who.Ref(), err)
+		return fmt.Errorf("recurseHops(%d): couldnt list subfeeds for list for %s: %w", depth, who.String(), err)
 	}
 
 	// add them to the set and recurse their follows
 	for j, subfeed := range subfeedList {
 		err = walked.AddRef(subfeed)
 		if err != nil {
-			return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, who.Ref(), err)
+			return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, who.String(), err)
 		}
 
 		// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
@@ -403,7 +403,7 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 		for j, subfeed := range subfeedList {
 			err = walked.AddRef(subfeed)
 			if err != nil {
-				return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.Ref(), err)
+				return fmt.Errorf("recurseHops(%d): add subfeed entry(%d) of %s failed: %w", depth, j, followedByWho.String(), err)
 			}
 
 			// also iterate their follows. same depth because they count as the same identity as the metafeed that linked them
@@ -428,7 +428,7 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 	}
 
 	// mark them as visited
-	vis[who.Ref()] = struct{}{}
+	vis[who.String()] = struct{}{}
 
 	return nil
 }

@@ -114,7 +114,7 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 		return nil, fmt.Errorf("publish: pour failed: %w", err)
 	}
 
-	level.Info(h.info).Log("event", "published message", "refKey", ref.ShortRef())
+	level.Info(h.info).Log("event", "published message", "refKey", ref.ShortSigil())
 
-	return ref.Ref(), nil
+	return ref.String(), nil
 }

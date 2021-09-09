@@ -146,7 +146,7 @@ func WantedFeedsWithSeqs(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (Re
 		}
 
 		if !isStored {
-			feedsWithSeqs[author.Ref()] = ReplicateUpToResponse{
+			feedsWithSeqs[author.String()] = ReplicateUpToResponse{
 				ID:       author,
 				Sequence: 0,
 			}
@@ -158,7 +158,7 @@ func WantedFeedsWithSeqs(feedIndex multilog.MultiLog, wanted []refs.FeedRef) (Re
 			return nil, fmt.Errorf("feedSrc(%d): did not load sublog: %w", i, err)
 		}
 
-		feedsWithSeqs[author.Ref()] = ReplicateUpToResponse{
+		feedsWithSeqs[author.String()] = ReplicateUpToResponse{
 			ID:       author,
 			Sequence: subLog.Seq() + 1,
 		}

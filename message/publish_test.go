@@ -63,7 +63,7 @@ func TestSignMessages(t *testing.T) {
 	var tmsgs = []interface{}{
 		map[string]interface{}{
 			"type":  "about",
-			"about": testAuthor.ID().Ref(),
+			"about": testAuthor.ID().String(),
 			"name":  "test user",
 		},
 		map[string]interface{}{

@@ -122,7 +122,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 		wrappedVal := sw.Value()
 		wrappedMsg, ok := wrappedVal.(refs.Message)
 		r.True(ok, "wrong type: %T", wrappedVal)
-		r.Equal(wrappedMsg.Key().Ref(), ref.Ref())
+		r.Equal(wrappedMsg.Key().String(), ref.String())
 
 		v, err = lsrc.Next(context.TODO())
 		r.Error(err)

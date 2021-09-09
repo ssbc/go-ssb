@@ -72,7 +72,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		r.NoError(err, "failed to call publish")
 		r.NotNil(ref)
 
-		wantRefs = append(wantRefs, ref.Ref())
+		wantRefs = append(wantRefs, ref.String())
 	}
 
 	r.EqualValues(9, srv.ReceiveLog.Seq())
@@ -122,7 +122,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		var v testMsg
 		err = json.Unmarshal(msg.Value.Content, &v)
 		r.NoError(err, "failed JSON unmarshal message:%d", i)
-		// a.Equal(wantRefs[i], msg.Key().Ref())
+		a.Equal(wantRefs[i], msg.Key().String())
 	}
 
 	ok = src.Next(ctx)

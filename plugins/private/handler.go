@@ -89,7 +89,7 @@ func (h handler) handlePublish(ctx context.Context, req *muxrpc.Request) (interf
 		return refs.MessageRef{}, fmt.Errorf("private/publish: pour failed: %w", err)
 	}
 
-	level.Info(h.info).Log("new-private", ref.Ref())
+	level.Info(h.info).Log("new-private", ref.String())
 
 	return ref, nil
 }

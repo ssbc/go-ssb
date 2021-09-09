@@ -68,7 +68,7 @@ var partialStreamCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		id := ir.Ref()
+		id := ir.String()
 		if f := ctx.String("id"); f != "" {
 			id = f
 		}

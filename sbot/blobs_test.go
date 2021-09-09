@@ -211,7 +211,7 @@ func blockUntilBlob(bot *Sbot, want refs.BlobRef) {
 			received <- struct{}{}
 			bot.info.Log("chan", "closed")
 		} else {
-			bot.info.Log("unwanted", nf.Ref.Ref())
+			bot.info.Log("unwanted", nf.Ref.Sigil())
 		}
 		return nil
 	}
@@ -220,7 +220,7 @@ func blockUntilBlob(bot *Sbot, want refs.BlobRef) {
 
 	select {
 	case <-time.After(5 * time.Second):
-		level.Warn(bot.info).Log("blob timeout", want.Ref())
+		level.Warn(bot.info).Log("blob timeout", want.Sigil())
 	case <-received:
 	}
 	done()
@@ -238,7 +238,7 @@ func (s *session) simple(t *testing.T) {
 
 	ref, err := s.bob.BlobStore.Put(bytes.NewReader(randBuf))
 	r.NoError(err)
-	t.Log("added", ref.Ref())
+	t.Log("added", ref.Sigil())
 
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
@@ -259,7 +259,7 @@ func (s *session) wantFirst(t *testing.T) {
 
 	ref, err := s.bob.BlobStore.Put(bytes.NewReader(randBuf))
 	r.NoError(err)
-	t.Log("added", ref.Ref())
+	t.Log("added", ref.Sigil())
 
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
@@ -282,13 +282,13 @@ func (s *session) eachOne(t *testing.T) {
 	rand.Read(randOne)
 	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
 	r.NoError(err)
-	t.Log("added1", refOne.Ref())
+	t.Log("added1", refOne.Sigil())
 
 	randTwo := make([]byte, blobSize)
 	rand.Read(randTwo)
 	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
 	r.NoError(err)
-	t.Log("added2", refTwo.Ref())
+	t.Log("added2", refTwo.Sigil())
 
 	s.redial(t)
 
@@ -315,13 +315,13 @@ func (s *session) eachOneConnet(t *testing.T) {
 	rand.Read(randOne)
 	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
 	r.NoError(err)
-	t.Log("added1", refOne.Ref())
+	t.Log("added1", refOne.Sigil())
 
 	randTwo := make([]byte, blobSize)
 	rand.Read(randTwo)
 	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
 	r.NoError(err)
-	t.Log("added2", refTwo.Ref())
+	t.Log("added2", refTwo.Sigil())
 
 	err = s.alice.WantManager.Want(refOne)
 	r.NoError(err)
@@ -348,13 +348,13 @@ func (s *session) eachOnBothWant(t *testing.T) {
 	rand.Read(randOne)
 	refOne, err := s.bob.BlobStore.Put(bytes.NewReader(randOne))
 	r.NoError(err)
-	t.Log("added1", refOne.Ref())
+	t.Log("added1", refOne.Sigil())
 
 	randTwo := make([]byte, blobSize)
 	rand.Read(randTwo)
 	refTwo, err := s.alice.BlobStore.Put(bytes.NewReader(randTwo))
 	r.NoError(err)
-	t.Log("added2", refTwo.Ref())
+	t.Log("added2", refTwo.Sigil())
 
 	err = s.alice.WantManager.Want(refOne)
 	r.NoError(err)
@@ -549,7 +549,7 @@ func TestBlobsTooBig(t *testing.T) {
 
 	blobUpdate := func(logger log.Logger) broadcasts.BlobStoreFuncEmitter {
 		return broadcasts.BlobStoreFuncEmitter(func(nf ssb.BlobStoreNotification) error {
-			logger.Log("blob", nf.Op.String(), "ref", nf.Ref.Ref(), "size", nf.Size)
+			logger.Log("blob", nf.Op.String(), "ref", nf.Ref.Sigil(), "size", nf.Size)
 			return nil
 		})
 	}
@@ -573,7 +573,7 @@ func TestBlobsTooBig(t *testing.T) {
 	const smallEnough = blobstore.DefaultMaxSize
 	okayRef, err := ali.BlobStore.Put(io.LimitReader(zerof, smallEnough))
 	r.NoError(err)
-	t.Log("added small", okayRef.Ref())
+	t.Log("added small", okayRef.Sigil())
 
 	sz, err := ali.BlobStore.Size(okayRef)
 	r.NoError(err)
@@ -582,7 +582,7 @@ func TestBlobsTooBig(t *testing.T) {
 	const veryLarge = blobstore.DefaultMaxSize + 1
 	largeRef, err := ali.BlobStore.Put(io.LimitReader(zerof, veryLarge))
 	r.NoError(err)
-	t.Log("added too big", largeRef.Ref())
+	t.Log("added too big", largeRef.Sigil())
 
 	sz, err = ali.BlobStore.Size(largeRef)
 	r.NoError(err)

@@ -73,7 +73,7 @@ func main() {
 			"key": %q,
 			"rxSeq": %d,
 			"value":
-		`, msg.Key().Ref(), sw.Seq()))
+		`, msg.Key().String(), sw.Seq()))
 		os.Stdout.Write(msg.ValueContentJSON())
 		os.Stdout.WriteString("}\n")
 		return err

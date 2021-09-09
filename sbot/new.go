@@ -467,10 +467,10 @@ func New(fopts ...Option) (*Sbot, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to get sequence for entry %d: %w", i, err)
 			}
-			selfNf[feed.Ref()] = seq
+			selfNf[feed.String()] = seq
 		}
 
-		selfNf[s.KeyPair.ID().Ref()], err = s.CurrentSequence(s.KeyPair.ID())
+		selfNf[s.KeyPair.ID().String()], err = s.CurrentSequence(s.KeyPair.ID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}
@@ -526,18 +526,6 @@ func New(fopts ...Option) (*Sbot, error) {
 		return s, nil
 	}
 
-	// TODO: make plugabble
-	// var peerPlug *peerinvites.Plugin
-	// if mt, ok := s.mlogIndicies[multilogs.IndexNameFeeds]; ok {
-	// 	peerPlug = peerinvites.New(log.With(s.info, "plugin", "peerInvites"), s, mt, s.ReceiveLog, s.PublishLog)
-	// 	s.public.Register(peerPlug)
-	// 	_, peerServ, err := peerPlug.OpenIndex(r)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "sbot: failed to open about idx")
-	// 	}
-	// 	s.serveIndex(ctx, "contacts", peerServ)
-	// }
-
 	var inviteService *legacyinvites.Service
 
 	// muxrpc handler creation and authoratization decider
@@ -550,15 +538,12 @@ func New(fopts ...Option) (*Sbot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("sbot: expected an address containing an shs-bs addr: %w", err)
 		}
-		if s.KeyPair.ID().Equal(remote) {
+
+		// TODO: we still can't see the feed format type from this
+
+		if s.KeyPair.ID().PubKey().Equal(remote.PubKey()) {
 			return s.master.MakeHandler(conn)
 		}
-
-		// if peerPlug != nil {
-		// 	if err := peerPlug.Authorize(remote); err == nil {
-		// 		return peerPlug.Handler(), nil
-		// 	}
-		// }
 
 		if inviteService != nil {
 			err := inviteService.Authorize(remote)

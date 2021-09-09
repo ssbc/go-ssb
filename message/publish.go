@@ -217,12 +217,12 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 	// prepare persisted message
 	var stored legacy.StoredMessage
 	stored.Timestamp_ = time.Now() // "rx"
-	stored.Author_ = lc.key.ID()
+	stored.Author_ = storedrefs.SerialzedFeed{FeedRef: lc.key.ID()}
 
 	// set metadata
 	var newMsg legacy.LegacyMessage
 	newMsg.Hash = "sha256"
-	newMsg.Author = lc.key.ID().Ref()
+	newMsg.Author = lc.key.ID().String()
 	if seq > 1 {
 		newMsg.Previous = &prev
 	}
@@ -250,9 +250,11 @@ func (lc legacyCreate) Create(val interface{}, prev refs.MessageRef, seq int64) 
 		return nil, fmt.Errorf("failed to verify newly created message: %w", err)
 	}
 
-	stored.Previous_ = newMsg.Previous
+	stored.Key_ = storedrefs.SerialzedMessage{MessageRef: mr}
 	stored.Sequence_ = seq
-	stored.Key_ = mr
+	if prev := newMsg.Previous; prev != nil {
+		stored.Previous_ = &storedrefs.SerialzedMessage{MessageRef: *prev}
+	}
 	stored.Raw_ = signedMessage
 	return &stored, nil
 }

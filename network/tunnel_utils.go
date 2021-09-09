@@ -24,7 +24,7 @@ func (ta tunnelHost) Network() string {
 }
 
 func (ta tunnelHost) String() string {
-	return ta.Network() + ":" + ta.Host.Ref()
+	return ta.Network() + ":" + ta.Host.String()
 }
 
 var _ net.Addr = tunnelHost{}
