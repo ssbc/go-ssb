@@ -106,6 +106,9 @@ func makeBadger(t *testing.T) testStore {
 	_, idxMetafeedsSink := builder.OpenMetafeedsIndex()
 	mfErrc := serveLog(ctx, "badgerMetafeeds", tRootLog, idxMetafeedsSink, true)
 
+	_, announcementSink := builder.OpenAnnouncementIndex()
+	mfAnnounceErrc := serveLog(ctx, "badgerMetafeedAnnounce", tRootLog, announcementSink, true)
+
 	tc.root = tRootLog
 	tc.gbuilder = builder
 	tc.userLogs = uf
@@ -122,7 +125,7 @@ func makeBadger(t *testing.T) testStore {
 		r.NoError(tRootLog.Close())
 		cancel()
 
-		for err := range mergedErrors(ufErrc, cErrc, mfErrc) {
+		for err := range mergedErrors(ufErrc, cErrc, mfErrc, mfAnnounceErrc) {
 			r.NoError(err, "from chan")
 		}
 		t.Log("closed scenary")

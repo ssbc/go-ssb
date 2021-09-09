@@ -10,6 +10,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
+	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -83,6 +84,114 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleAssertHops("alice", 0, "alice-legacy", "some"),
 		},
 	},
+
+	{
+		name: "follow peer with metafeed announcement",
+		ops: []PeopleOp{
+			PeopleOpNewPeer{"alice-main"},
+			PeopleOpNewPeer{"bob-main"},
+			PeopleOpFollow{"alice-main", "bob-main"},
+			PeopleOpNewPeerWithAlgo{"bob-mf", refs.RefAlgoFeedBendyButt},
+			PeopleOpAnnounceMetafeed{"bob-main", "bob-mf"},
+			PeopleOpMetafeedAddExisting{"bob-main", "bob-mf"},
+
+			// question: do we need to add a new op for adding an existing subfeed?
+			// i.e. PeopleOpExistingSubFeed, instead of PeopleOpNewSubFeed
+
+			// open question: we should also have a test that maliciously creates an announcement for a metafeed that they do
+			// not own, and make sure that situation is not replicated
+			PeopleOpNewSubFeed{
+				of:    "bob-mf",
+				name:  "bob-indexes (about)",
+				nonce: "test1",
+				algo:  refs.RefAlgoFeedSSB1,
+			},
+		},
+		/* note: in go-ssb hops are one less than the equivalent in nodejs */
+		asserts: []PeopleAssertMaker{
+			PeopleAssertIsSubfeed("bob-mf", "bob-main", true),
+			PeopleAssertIsSubfeed("bob-mf", "bob-indexes (about)", true),
+			PeopleAssertHops("bob-mf", 0, "bob-main", "bob-indexes (about)"),
+			PeopleAssertHops("alice-main", 0, "bob-main", "bob-mf", "bob-indexes (about)"),
+		},
+	},
+}
+
+type PeopleOpMetafeedAddExisting struct {
+	main, mf string
+}
+
+func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
+	var err error
+	mainFeed, ok := state.peers[op.main]
+	if !ok {
+		return fmt.Errorf("no such main peer: %s", op.main)
+	}
+	mf, ok := state.peers[op.mf]
+	if !ok {
+		return fmt.Errorf("no such mf peer: %s", op.mf)
+	}
+
+	kpMain, ok := mainFeed.key.(ssb.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
+	}
+	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
+	}
+
+	// create a bendybutt message on the root metafeed, tying the mf and main feeds together, by publishing a message of type "metafeed/add/existing"
+	mfAddExisting := metamngmt.NewAddExistingMessage(kpMetafeed.ID(), kpMain.ID(), "main")
+	mfAddExisting.Tangles["metafeed"] = refs.TanglePoint{Root: nil, Previous: nil}
+
+	// sign the bendybutt message with mf.Secret + main.Secret
+	signedAddExistingContent, err := metafeed.SubSignContent(kpMain.Secret(), mfAddExisting)
+	if err != nil {
+		return err
+	}
+	mf.publish.Append(signedAddExistingContent)
+
+	return nil
+}
+
+type PeopleOpAnnounceMetafeed struct {
+	main, mf string
+}
+
+func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
+	var err error
+	mainFeed, ok := state.peers[op.main]
+	if !ok {
+		return fmt.Errorf("no such main peer: %s", op.main)
+	}
+	mf, ok := state.peers[op.mf]
+	if !ok {
+		return fmt.Errorf("no such mf peer: %s", op.mf)
+	}
+
+	kpMain, ok := mainFeed.key.(ssb.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
+	}
+
+	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
+	if !ok {
+		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
+	}
+
+	// construct the announcement message according to spec 
+	// https://github.com/ssb-ngi-pointer/ssb-meta-feeds-spec#existing-ssb-identity
+	announcement := metamngmt.NewAnnounceMessage(kpMetafeed.ID())
+
+	// TODO: sign metafeedAnnounceMsg with metafeed keypair (note: not yet mentioned in spec)
+	_ = kpMain
+
+	_, err = mainFeed.publish.Append(announcement)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type PeopleOpNewSubFeed struct {
@@ -106,9 +215,9 @@ func (op PeopleOpNewSubFeed) Op(state *testState) error {
 		return fmt.Errorf("failed to create keypair: %w", err)
 	}
 
-	addContent := metamngmt.NewAddMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
+	addContent := metamngmt.NewAddDerivedMessage(owningFeed.key.ID(), subKeyPair.Feed, op.nonce, []byte(op.nonce))
 
-	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent, nil)
+	addMsg, err := metafeed.SubSignContent(subKeyPair.PrivateKey, addContent)
 	if err != nil {
 		return err
 	}

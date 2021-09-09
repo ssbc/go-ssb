@@ -6,6 +6,7 @@ package graph
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/zeebo/bencode"
@@ -13,6 +14,7 @@ import (
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
+	"go.mindeco.de/ssb-refs/tfk"
 
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
@@ -28,6 +30,61 @@ const (
 	idxRelValueBlocking
 	idxRelValueMetafeed
 )
+
+func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
+	b.cacheLock.Lock()
+	defer b.cacheLock.Unlock()
+
+	if nulled, ok := val.(error); ok {
+		if margaret.IsErrNulled(nulled) {
+			return nil
+		}
+		return nulled
+	}
+
+	msg, ok := val.(refs.Message)
+	if !ok {
+		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
+		level.Warn(b.log).Log("msg", "contact eval failed", "reason", err)
+		return err
+	}
+
+	var c metamngmt.Announce
+	err := json.Unmarshal(msg.ContentBytes(), &c)
+	if err != nil {
+		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
+		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)
+		return nil
+	}
+
+	// TODO: move to yet-to-be-written UnmarshalJSON on metamngmt.Announce
+	if c.Type != "metafeed/announce" {
+		return nil
+	}
+
+	addr := storedrefs.Feed(msg.Author())
+
+	tfkRef, err := tfk.FeedFromRef(c.MetaFeed)
+	if err != nil {
+		return fmt.Errorf("db/idx announcements: failed to turn metafeed value into binary: %w", err)
+	}
+
+	err = idx.Set(ctx, addr, tfkRef)
+	if err != nil {
+		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", c, err)
+	}
+
+	b.cachedGraph = nil
+	// TODO: patch existing graph instead of invalidating
+	return nil
+}
+
+func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	if b.idxSinkAnnouncements == nil {
+		b.idxSinkAnnouncements = librarian.NewSinkIndex(b.updateAnnouncement, b.idx)
+	}
+	return b.idx, b.idxSinkAnnouncements
+}
 
 func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
@@ -142,9 +199,27 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	addr := storedrefs.Feed(msg.Author())
 
 	switch justTheType.Type {
-	case "metafeed/add":
-		var addMsg metamngmt.Add
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg, b.hmacSecret)
+	case "metafeed/add/existing":
+		var addMsg metamngmt.AddExisting
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg)
+		if err != nil {
+			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
+			return nil
+		}
+
+		if !addMsg.MetaFeed.Equal(msg.Author()) {
+			level.Warn(msgLogger).Log("warning", "content is not about the author of the metafeed", "content feed", addMsg.MetaFeed.ShortSigil(), "meta author", msg.Author().ShortSigil())
+			// skip invalid add message
+			return nil
+		}
+		addr += storedrefs.Feed(addMsg.SubFeed)
+
+		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
+		err = idx.Set(ctx, addr, idxRelValueMetafeed)
+
+	case "metafeed/add/derived":
+		var addMsg metamngmt.AddDerived
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &addMsg)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil
@@ -162,7 +237,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 
 	case "metafeed/tombstone":
 		var tMsg metamngmt.Tombstone
-		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg, b.hmacSecret)
+		err = metafeed.VerifySubSignedContent(msg.ContentBytes(), &tMsg)
 		if err != nil {
 			level.Warn(msgLogger).Log("warning", "sub-signature is invalid", "err", err)
 			return nil
