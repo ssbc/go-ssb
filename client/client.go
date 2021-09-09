@@ -235,11 +235,11 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 type NamesGetResult map[string]map[string]string
 
 func (ngr NamesGetResult) GetCommonName(feed refs.FeedRef) (string, bool) {
-	namesFor, ok := ngr[feed.String()]
+	namesFor, ok := ngr[feed.Sigil()]
 	if !ok {
 		return "", false
 	}
-	selfChosen, ok := namesFor[feed.String()]
+	selfChosen, ok := namesFor[feed.Sigil()]
 	if !ok {
 		for about, mapv := range ngr {
 			_ = about
