@@ -60,7 +60,7 @@ func newMetaFeedService(rxLog margaret.Log, users multilog.MultiLog, keyStore *k
 	}, nil
 }
 
-func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
+func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo, metadata ...map[string]string) (refs.FeedRef, error) {
 	// TODO: validate format support (it's on the ebt multiformat branch)
 
 	mountKeyPair, err := loadMetafeedKeyPairFromStore(s.keys, mount)
@@ -114,6 +114,7 @@ func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, form
 		return refs.FeedRef{}, err
 	}
 
+	return refs.FeedRef{}, fmt.Errorf("TODO: add metadata")
 	addContent := metamngmt.NewAddDerivedMessage(mountKeyPair.Feed, newSubfeedKeyPair.Feed, purpose, nonce)
 
 	addMsg, err := metafeed.SubSignContent(newSubfeedKeyPair.PrivateKey, addContent)

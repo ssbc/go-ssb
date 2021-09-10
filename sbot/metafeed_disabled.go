@@ -16,7 +16,7 @@ type disabledMetaFeeds struct{}
 
 var errMetafeedsDisabled = fmt.Errorf("sbot: metafeeds are disabled")
 
-func (disabledMetaFeeds) CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo) (refs.FeedRef, error) {
+func (disabledMetaFeeds) CreateSubFeed(mount refs.FeedRef, purpose string, format refs.RefAlgo, metadata ...map[string]string) (refs.FeedRef, error) {
 	return refs.FeedRef{}, errMetafeedsDisabled
 }
 

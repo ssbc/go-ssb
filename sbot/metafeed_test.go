@@ -141,7 +141,7 @@ func TestMetafeedSync(t *testing.T) {
 	_, err := io.ReadFull(rand.Reader, hkSecret[:])
 	r.NoError(err)
 
-	ctx, cancel := ShutdownContext(context.Background())
+	ctx, botShutdown := ShutdownContext(context.Background())
 	botgroup, ctx := errgroup.WithContext(ctx)
 
 	logger := testutils.NewRelativeTimeLogger(nil)
@@ -152,6 +152,7 @@ func TestMetafeedSync(t *testing.T) {
 
 	// make the bot
 	multiBot, err := New(
+		WithContext(ctx),
 		WithInfo(log.With(logger, "bot", "creater")),
 		WithRepoPath(filepath.Join(tRepoPath, "mfbot")),
 		WithListenAddr(":0"),
@@ -189,6 +190,7 @@ func TestMetafeedSync(t *testing.T) {
 
 	// now start the receiving bot
 	receiveBot, err := New(
+		WithContext(ctx),
 		WithInfo(log.With(logger, "bot", "receiver")),
 		WithRepoPath(filepath.Join(tRepoPath, "rxbot")),
 		WithListenAddr(":0"),
@@ -254,7 +256,7 @@ func TestMetafeedSync(t *testing.T) {
 	t.Log(v.(refs.Message).Key().String())
 
 	// shutdown
-	cancel()
+	botShutdown()
 	multiBot.Shutdown()
 	r.NoError(multiBot.Close())
 	receiveBot.Shutdown()
@@ -293,7 +295,7 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	idx2, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index-bar", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
-	// check we can list them. 
+	// check we can list them.
 	// first, check that the root mf only has one feed (i.e. idxSubFeed)
 	lst, err := bot.MetaFeeds.ListSubFeeds(bot.KeyPair.ID())
 	r.NoError(err)
@@ -306,7 +308,7 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	r.Len(lst, 2, "more than two indexes on the subfeed")
 
 	// write contains util to make sure that the two indexes exist (not guaranteed to be ordered)
-	has := func (feedlist []ssb.SubfeedListEntry, target refs.FeedRef) bool {
+	has := func(feedlist []ssb.SubfeedListEntry, target refs.FeedRef) bool {
 		var found bool
 		for _, entry := range feedlist {
 			if entry.Feed.Equal(idx1) {
@@ -346,6 +348,27 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	r.NoError(err)
 	r.Len(lst, 1, "more than 1 subfeed on the index")
 
+	// <teardown>
+	bot.Shutdown()
+	r.NoError(bot.Close())
+}
+
+func TestMetafeedIndexes(t *testing.T) {
+	r := require.New(t)
+
+	tRepoPath := filepath.Join("testrun", t.Name())
+	os.RemoveAll(tRepoPath)
+
+	// make the bot
+	logger := log.NewLogfmtLogger(os.Stderr)
+	bot, err := New(
+		WithInfo(logger),
+		WithRepoPath(tRepoPath),
+		DisableNetworkNode(),
+		WithMetaFeedMode(true),
+	)
+	r.NoError(err)
+
 	/* test index feed creation */
 	// initial notes from cryptix:
 	// * have a normal/base feed,
@@ -355,42 +378,34 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 
 	// create a main feed (holds actual messages, regular old ssb feed thinger) on the root metafeed
 	mainFeedRef, err := bot.MetaFeeds.CreateSubFeed(bot.KeyPair.ID(), "main", refs.RefAlgoFeedSSB1)
-	r.NoError(err)
+	r.NoError(err, "main feed create failed")
 
-	// note (cblgh): hmm might be nice with a <sbot>.MetaFeeds.Get(subfeedRef) (subfeed, error) method?
+	// TODO: move this inside indexfeeds.go
 
-	// create two new index feeds (these are distinct from the two test indexes idx1 & idx2)
-	// DO: add metadata when go-metafeed pr https://github.com/ssb-ngi-pointer/go-metafeed/pull/27 lands
-	aboutIndexRef, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index", refs.RefAlgoFeedSSB1)
-	// TODO: add query information? "query" => '{"author":"@main.ed25519","type":"contact"}'
-	// c.f. https://github.com/ssb-ngi-pointer/ssb-secure-partial-replication-spec#indexes
-	r.NoError(err)
+	// // create a subfeed, which is a metafeed, on the "root" metafeed
+	// // purposes:indexes example because that's what's used in the spec
+	// // https://github.com/ssb-ngi-pointer/ssb-secure-partial-replication-spec#indexes
+	// idxSubfeed, err := bot.MetaFeeds.CreateSubFeed(bot.KeyPair.ID(), "indexes", refs.RefAlgoFeedBendyButt)
+	// r.NoError(err)
 
-	contactIndexRef, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index", refs.RefAlgoFeedSSB1)
-	// TODO: add query information? "query" => '{"author":"@main.ed25519","type":"contact"}'
-	r.NoError(err)
+	// // create two new index feeds (these are distinct from the two test indexes idx1 & idx2)
+	// // DO: add metadata when go-metafeed pr https://github.com/ssb-ngi-pointer/go-metafeed/pull/27 lands
+	// aboutIndexRef, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index", refs.RefAlgoFeedSSB1)
+	// // TODO: add query information? "query" => '{"author":"@main.ed25519","type":"contact"}'
+	// // c.f. https://github.com/ssb-ngi-pointer/ssb-secure-partial-replication-spec#indexes
+	// r.NoError(err, "about index feed create failed")
 
-	// get the actual feeds, for operating on rather soon
-	aboutIndex, err := bot.Users.Get(storedrefs.Feed(aboutIndexRef))
-	r.NoError(err)
-
-	contactIndex, err := bot.Users.Get(storedrefs.Feed(contactIndexRef))
-	r.NoError(err)
-
-	// note (cblgh): probably sub-optimal with interface{}, but i couldn't get any other
-	// message type assertion to work
+	// contactIndexRef, err := bot.MetaFeeds.CreateSubFeed(idxSubfeed, "index", refs.RefAlgoFeedSSB1)
+	// // TODO: add query information? "query" => '{"author":"@main.ed25519","type":"contact"}'
+	// r.NoError(err, "contact index feed create failed")
 
 	// register an index for about messages
-	bot.IndexFeeds.Register(aboutIndexRef, func (message interface{}) bool {
-		_, isAbout := message.(refs.About)
-		return isAbout
-	})
+	err = bot.IndexFeeds.RegisterOnType(mainFeedRef, "about")
+	r.NoError(err)
 
 	// register an index for contact (follow) messages
-	bot.IndexFeeds.Register(contactIndexRef, func (message interface{}) bool {
-		_, isContact := message.(refs.Contact)
-		return isContact
-	})
+	err = bot.IndexFeeds.RegisterOnType(mainFeedRef, "contact")
+	r.NoError(err)
 
 	// util func
 	var checkSeq = func(feed margaret.Log, want int) refs.Message {
@@ -403,12 +418,19 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 		rxSeq, err := feed.Get(int64(want))
 		r.NoError(err)
 
-		// mv??
+		// mv ==  "m"essage "v"alue (because of the empty interface assert)
 		mv, err := bot.ReceiveLog.Get(rxSeq.(int64))
 		r.NoError(err)
 
 		return mv.(refs.Message)
 	}
+
+	// get the actual feeds, for operating on rather soon
+	aboutIndex, err := bot.Users.Get(storedrefs.Feed(aboutIndexRef))
+	r.NoError(err)
+
+	contactIndex, err := bot.Users.Get(storedrefs.Feed(contactIndexRef))
+	r.NoError(err)
 
 	// assert that the about index is empty
 	checkSeq(aboutIndex, int(margaret.SeqEmpty))
@@ -419,11 +441,14 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewAboutName(mainFeedRef, "goophy"))
 	r.NoError(err)
 
-
 	// the about index should now have one entry
 	checkSeq(aboutIndex, 1)
-	// assert that the contact index still has no entries 
+
+	// assert that the contact index still has no entries
 	checkSeq(contactIndex, int(margaret.SeqEmpty))
+
+	// TODO: publish some contacts
+	// TODO: check they are referenced in the index
 
 	// <teardown>
 	bot.Shutdown()

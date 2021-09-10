@@ -489,7 +489,7 @@ func New(fopts ...Option) (*Sbot, error) {
 				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
 			}
 
-			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"))
+			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"), s.MetaFeeds)
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize index feed manager: %w", err)
 			}
