@@ -30,26 +30,30 @@ type MetaFeeds interface {
 	// Publish works like normal `Sbot.Publish()` but takes an additional feed reference,
 	// which specifies the subfeed on which the content should be published.
 	Publish(as refs.FeedRef, content interface{}) (refs.Message, error)
+
+	RegisterIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error
+
+	GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error)
 }
 
 type SubfeedListEntry struct {
-	Feed    refs.FeedRef
-	Purpose string
+	Feed refs.FeedRef
+	Seq  int64
 }
 
 func (entry SubfeedListEntry) String() string {
-	return fmt.Sprintf("%s (%s)", entry.Feed.ShortSigil(), entry.Purpose)
+	return fmt.Sprintf("%s (%d)", entry.Feed.ShortSigil(), entry.Seq)
 }
 
 // IndexFeedManager allows setting up index feeds
 type IndexFeedManager interface {
-	// RegisterOnType registers index feed creation on an input feed using the passed msgType to filter messages.
-	// input is the feed where messages are read from.
-	// output is the index feed where the index messages are published to.
-	RegisterOnType(input refs.FeedRef, msgType string) error
+	// Register registers an index feed for messages of msgType on a corresponding feed contentFeed.
+	// contentFeed the feed where messages are read from
+	// output is the index feed where the index messages are published to
+	Register(indexFeed, contentFeed refs.FeedRef, msgType string) error
+	Deregister(refs.FeedRef) (bool, error)
 
-	Process(refs.Message) error
+	Process(refs.Message) (refs.FeedRef, interface{}, error)
 
 	// TODO List() []refs.FeedRef
-	// TODO Stop(refs.FeedRef)
 }

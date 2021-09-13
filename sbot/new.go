@@ -481,20 +481,17 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.MetaFeeds = disabledMetaFeeds{}
 	if s.enableMetafeeds {
-
 		// a user might want to be able to read/replicate metafeeds without using bendybutt themselves
 		if s.KeyPair.ID().Algo() == refs.RefAlgoFeedBendyButt {
-			s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
-			}
-
-			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"), s.MetaFeeds)
+			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"))
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize index feed manager: %w", err)
 			}
 
-			s.PublishLog = newWrappedPublisher(s.PublishLog, s.ReceiveLog, s.IndexFeeds)
+			s.MetaFeeds, err = newMetaFeedService(s.ReceiveLog, s.IndexFeeds, s.Users, keysStore, s.KeyPair, s.signHMACsecret)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize metafeed service: %w", err)
+			}
 		}
 
 		// setup indexing

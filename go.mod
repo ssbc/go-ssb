@@ -43,7 +43,7 @@ require (
 	go.mindeco.de/ssb-gabbygrove v0.2.1-0.20210907140645-35a659043bdd
 	go.mindeco.de/ssb-multiserver v0.1.4-0.20210907140404-6f323e45e9f9
 	go.mindeco.de/ssb-refs v0.4.2-0.20210908123826-f7ca13c14896
-	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/text v0.3.6

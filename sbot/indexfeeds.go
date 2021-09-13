@@ -7,131 +7,158 @@ package sbot
 import (
 	"encoding/json"
 	"fmt"
+	"errors"
+	"os"
+	"io/fs"
+	"path/filepath"
 
-	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func newIndexFeedManager(storagePath string, mf ssb.MetaFeeds) (ssb.IndexFeedManager, error) {
-	m := indexFeedManager{}
+func newIndexFeedManager(storagePath string) (ssb.IndexFeedManager, error) {
+	m := indexFeedManager{indexes: make(map[string]refs.FeedRef), storagePath: storagePath}
+	// load previous registered indexes (if any)
+	m.load()
 
-	// TODO: load previous registerd indexes (see metafeed publishAs to see how to create a publisher)
-	// TODO: add tests for that (register, stop bot, start bot, check is registerd)
-
+	// TODO: add tests for that (register, stop bot, start bot, check is registered)
 	return m, nil
 }
 
 type indexFeedManager struct {
-	// registerd indexes
-	// map key could be 'input:msgtype'
-	indexes map[string]ssb.Publisher
+	// registered indexes
+	indexes   map[string]refs.FeedRef
+	storagePath string
 }
 
-func (i indexFeedManager) RegisterOnType(input refs.FeedRef, msgType string) error {
-	// TODO: check is already registerd
-
-	// if not, create new subfeed with metadata
-	// persist configuration (input feed, msgType and output feed)
-
-	return fmt.Errorf("TODO: RegisterOnType")
+func constructIndexKey(author refs.FeedRef, msgType string) string {
+	return fmt.Sprintf("%s%s", author, msgType)
 }
 
-// Process looks through all the registerd indexes and publishes messages accordingly
-func (i indexFeedManager) Process(m refs.Message) error {
+// Method Register keeps track of index feeds so that whenever we publish a new message we also correspondingly publish
+// an index message into the registered index feed.
+func (manager indexFeedManager) Register(indexFeed, contentFeed refs.FeedRef, msgType string) error {
+	// check if the index for this author+type tuple has already been registered
+	indexId := constructIndexKey(contentFeed, msgType)
+	// an index feed for {contentFeed, msgType} was already registered
+	if _, exists := manager.indexes[indexId]; exists {
+		return nil
+	}
 
+	manager.indexes[indexId] = indexFeed
+	err := manager.store()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Strategy: persist (as file on disk) which indexes have been created, storing contentFeed+indexFeed+type;
+// * contentFeed: the author's pubkey,
+// * indexFeed: index feed you publish to, as identified by its SSB1 feedref
+// * type: e.g. contact, about
+//
+// Currently, this is stored all in one file
+func (manager indexFeedManager) store() error {
+	data, err := json.MarshalIndent(manager.indexes, "", "  ")
+	if err != nil {
+		return fmt.Errorf("indexFeedManager marshal failed (%w)", err)
+	}
+
+	// TODO (2021-09-21): use better permissions
+	err = os.MkdirAll(manager.storagePath, 0777)
+	if err != nil {
+		return fmt.Errorf("indexFeedManager mkdir failed (%w)", err)
+	}
+
+	indexpath := filepath.Join(manager.storagePath, "indexes.json")
+	err = os.WriteFile(indexpath, data, 0777)
+	if err != nil {
+		return fmt.Errorf("indexFeedManager write indexes file failed (%w)", err)
+	}
+	return nil
+}
+
+func (manager *indexFeedManager) load() error {
+	indexpath := filepath.Join(manager.storagePath, "indexes.json")
+	// indexes have not yet been persisted to disk
+	_, err := os.Stat(indexpath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	data, err := os.ReadFile(indexpath)
+	if err != nil {
+		return fmt.Errorf("indexFeedManager read indexes file failed (%w)", err)
+	}
+
+	err = json.Unmarshal(data, &manager.indexes)
+	if err != nil {
+		return fmt.Errorf("indexFeedManager unmarshal failed (%w)", err)
+	}
+	return nil
+}
+
+// Method Deregister removes a previously tracked index feed. 
+// Returns true if feed was found && removed (false if not found)
+func (manager indexFeedManager) Deregister(indexFeed refs.FeedRef) (bool, error) {
+	var soughtKey string
+	for key, feed := range manager.indexes {
+		// found the index
+		if feed.Equal(indexFeed) {
+			soughtKey = key
+			break
+		}
+	}
+	if soughtKey != "" {
+		delete(manager.indexes, soughtKey)
+		err := manager.store()
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+// Process looks through all the registered indexes and publishes messages accordingly
+func (manager indexFeedManager) Process(m refs.Message) (refs.FeedRef, interface{}, error) {
+	// creates index messages after actual messages have been published
 	var typed struct {
 		Type string
 	}
 	err := json.Unmarshal(m.ContentBytes(), &typed)
 	if err != nil {
-		return nil
+		return refs.FeedRef{}, nil, err
 	}
 
 	if typed.Type == "" {
-		return nil
+		return refs.FeedRef{}, nil, nil
 	}
 
-	idxKey := m.Author().String() + typed.Type
-	publish, has := i.indexes[idxKey]
+	// lookup correct index
+	idxKey := constructIndexKey(m.Author(), typed.Type)
+	pubkey, has := manager.indexes[idxKey] // use pubkey to later get publisher
 	if !has {
-		return nil
+		return refs.FeedRef{}, nil, nil
 	}
 
 	// TODO: make sure this is the right format
+	type indexed struct {
+		Sequence int64  `json:"sequence"`
+		Key      string `json:"key"`
+	}
 	type indexMsg struct {
-		Type    string `json:"type"`
-		Indexed struct {
-			Sequence int `json:"sequence"`
-			Key      int `json:"key"`
-		}
+		Type    string  `json:"type"`
+		Indexed indexed `json:"indexed"`
 	}
 	content := indexMsg{
 		Type: "indexed",
-
-		// Indexed: {
-		// 	Sequence: msg.Seq(),
-		// 	Hash:     msg.Key(),
-		// },
-	}
-	_, err = publish.Publish(content)
-	if err != nil {
-		return fmt.Errorf("failed to publish index message")
-	}
-	return nil
-}
-
-type idxfeedPublisher struct {
-	ssb.Publisher
-
-	receiveLog margaret.Log
-
-	idx ssb.IndexFeedManager
-}
-
-func newWrappedPublisher(p ssb.Publisher, rxlog margaret.Log, i ssb.IndexFeedManager) ssb.Publisher {
-	return idxfeedPublisher{
-		Publisher: p,
-
-		idx:        i,
-		receiveLog: rxlog,
-	}
-}
-
-// Append appends a new entry to the log
-func (p idxfeedPublisher) Append(content interface{}) (int64, error) {
-	seq, err := p.Publisher.Append(content)
-	if err != nil {
-		return margaret.SeqErrored, err
+		Indexed: indexed{
+			m.Seq(),
+			m.Key().String(),
+		},
 	}
 
-	val, err := p.receiveLog.Get(seq)
-	if err != nil {
-		return margaret.SeqErrored, fmt.Errorf("publish: failed to get new stored message: %w", err)
-	}
-
-	newMsg, ok := val.(refs.Message)
-	if !ok {
-		return margaret.SeqErrored, fmt.Errorf("publish: unsupported keyer %T", val)
-	}
-
-	if err := p.idx.Process(newMsg); err != nil {
-		return margaret.SeqErrored, err
-	}
-
-	return seq, nil
-}
-
-// Publish is a utility wrapper around append which returns the new message reference key
-func (p idxfeedPublisher) Publish(content interface{}) (refs.Message, error) {
-	newMsg, err := p.Publisher.Publish(content)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := p.idx.Process(newMsg); err != nil {
-		return nil, err
-	}
-
-	return newMsg, nil
+	return pubkey, content, nil
 }

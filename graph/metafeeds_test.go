@@ -208,18 +208,13 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 		return fmt.Errorf("no such mf peer: %s", op.mf)
 	}
 
-	kpMain, ok := mainFeed.key.(ssb.KeyPair)
-	if !ok {
-		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
-	}
-
 	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
 	if !ok {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
 	// construct the announcement message according to spec
-	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), kpMain.ID())
+	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), mainFeed.key.ID())
 	signedAnnouncement, err := announcement.Sign(kpMetafeed.PrivateKey, nil)
 	if err != nil {
 		return err

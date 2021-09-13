@@ -31,3 +31,11 @@ func (disabledMetaFeeds) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEntr
 func (disabledMetaFeeds) Publish(as refs.FeedRef, content interface{}) (refs.Message, error) {
 	return nil, errMetafeedsDisabled
 }
+
+func (disabledMetaFeeds) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error) {
+	return refs.FeedRef{}, errMetafeedsDisabled
+}
+
+func (disabledMetaFeeds) RegisterIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error {
+	return errMetafeedsDisabled
+}
