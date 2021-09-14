@@ -38,6 +38,15 @@ var (
 	emptyDMsg   = DeserializedMessage{}
 )
 
+type DeserializedMessage struct {
+	Previous  *refs.MessageRef `json:"previous"`
+	Author    refs.FeedRef     `json:"author"`
+	Sequence  int64            `json:"sequence"`
+	Timestamp float64          `json:"timestamp"`
+	Hash      string           `json:"hash"`
+	Content   json.RawMessage  `json:"content"`
+}
+
 // Verify takes an slice of bytes (like json.RawMessage) and uses EncodePreserveOrder to pretty print it.
 // It then uses ExtractSignature and verifies the found signature against the author field of the message.
 // If hmacSecret is non nil, it uses that as the Key for NACL crypto_auth() and verifies the signature against the hash of the message.
