@@ -7,7 +7,6 @@ package legacy
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
@@ -55,7 +54,6 @@ func (ma MetafeedAnnounce) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (
 	signedMsg.Signature = EncodeSignature(sig)
 
 	return json.Marshal(signedMsg)
-	// return jsonAndPreserve(signedMsg)
 }
 
 type SignedMetafeedAnnouncment struct {
@@ -64,29 +62,29 @@ type SignedMetafeedAnnouncment struct {
 	Signature Signature `json:"signature"`
 }
 
-func VerifyMetafeedAnnounce(data []byte, hmacSecret *[32]byte) bool {
+func VerifyMetafeedAnnounce(data []byte, subfeedAuthor refs.FeedRef, hmacSecret *[32]byte) (MetafeedAnnounce, bool) {
 	var sma SignedMetafeedAnnouncment
 	err := json.Unmarshal(data, &sma)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unmarshal failed: ", err)
-		return false
+		return MetafeedAnnounce{}, false
 	}
 
 	if sma.Type != metafeedAnnounceType {
-		fmt.Fprintln(os.Stderr, "wrong type", sma.Type)
-		return false
+		return MetafeedAnnounce{}, false
+	}
+
+	if !sma.Subfeed.Equal(subfeedAuthor) {
+		return MetafeedAnnounce{}, false
 	}
 
 	pp, err := jsonAndPreserve(sma)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "prettyprint failed: ", err)
-		return false
+		return MetafeedAnnounce{}, false
 	}
 
 	rest, sig, err := ExtractSignature(pp)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "extract failed: ", err)
-		return false
+		return MetafeedAnnounce{}, false
 	}
 
 	if hmacSecret != nil {
@@ -96,9 +94,8 @@ func VerifyMetafeedAnnounce(data []byte, hmacSecret *[32]byte) bool {
 
 	err = sig.Verify(rest, sma.Metafeed)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "verify failed: ", err)
-		return false
+		return MetafeedAnnounce{}, false
 	}
 
-	return true
+	return sma.MetafeedAnnounce, true
 }

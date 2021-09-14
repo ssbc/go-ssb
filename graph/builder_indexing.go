@@ -6,7 +6,6 @@ package graph
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/zeebo/bencode"
@@ -19,6 +18,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/message/legacy"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -45,26 +45,18 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 	msg, ok := val.(refs.Message)
 	if !ok {
 		err := fmt.Errorf("graph/idx: invalid msg value %T", val)
-		level.Warn(b.log).Log("msg", "contact eval failed", "reason", err)
+		level.Warn(b.log).Log("msg", "announcement eval failed", "reason", err)
 		return err
 	}
 
-	var c metamngmt.Announce
-	err := json.Unmarshal(msg.ContentBytes(), &c)
-	if err != nil {
-		// just ignore invalid messages, nothing to do with them (unless you are debugging something)
-		//level.Warn(b.log).Log("msg", "skipped contact message", "reason", err)
-		return nil
-	}
-
-	// TODO: move to yet-to-be-written UnmarshalJSON on metamngmt.Announce
-	if c.Type != "metafeed/announce" {
-		return nil
+	announceMsg, ok := legacy.VerifyMetafeedAnnounce(msg.ContentBytes(), msg.Author(), nil) // TODO: hmac support
+	if !ok {
+		return nil // skip invalid messages
 	}
 
 	addr := storedrefs.Feed(msg.Author())
 
-	tfkRef, err := tfk.FeedFromRef(c.MetaFeed)
+	tfkRef, err := tfk.FeedFromRef(announceMsg.Metafeed)
 	if err != nil {
 		return fmt.Errorf("db/idx announcements: failed to turn metafeed value into binary: %w", err)
 	}

@@ -35,7 +35,7 @@ func TestSignMetafeedAnnouncment(t *testing.T) {
 	signedMsg, err := ma.Sign(theMeta.Secret(), &hmacSecret)
 	r.NoError(err)
 
-	ok := legacy.VerifyMetafeedAnnounce(signedMsg, &hmacSecret)
+	_, ok := legacy.VerifyMetafeedAnnounce(signedMsg, theUpgradingOne.ID(), &hmacSecret)
 	r.True(ok, "verify failed")
 }
 
