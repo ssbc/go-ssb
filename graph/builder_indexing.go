@@ -63,7 +63,7 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 
 	err = idx.Set(ctx, addr, tfkRef)
 	if err != nil {
-		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", c, err)
+		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", announceMsg, err)
 	}
 
 	b.cachedGraph = nil

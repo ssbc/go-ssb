@@ -13,6 +13,8 @@ import (
 	"golang.org/x/crypto/nacl/auth"
 )
 
+// MetafeedAnnounce is the type needed to do upgrades from existing classic feeds to the metafeed world.
+// https://github.com/ssb-ngi-pointer/ssb-meta-feeds-spec#existing-ssb-identity
 type MetafeedAnnounce struct {
 	Type     string       `json:"type"`
 	Subfeed  refs.FeedRef `json:"subfeed"`
@@ -23,6 +25,7 @@ type MetafeedAnnounce struct {
 
 const metafeedAnnounceType = "metafeed/announce"
 
+// Creates a fresh MetafeedAnnounce value with all the fields initialzed properly (especially Type and Tangles)
 func NewMetafeedAnnounce(theMeta, theUpgrading refs.FeedRef) MetafeedAnnounce {
 	var ma MetafeedAnnounce
 	ma.Type = metafeedAnnounceType
@@ -36,7 +39,6 @@ func NewMetafeedAnnounce(theMeta, theUpgrading refs.FeedRef) MetafeedAnnounce {
 }
 
 func (ma MetafeedAnnounce) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (json.RawMessage, error) {
-	// flatten interface{} content value
 	pp, err := jsonAndPreserve(ma)
 	if err != nil {
 		return nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
@@ -49,21 +51,23 @@ func (ma MetafeedAnnounce) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (
 
 	sig := ed25519.Sign(priv, pp)
 
-	var signedMsg SignedMetafeedAnnouncment
+	var signedMsg signedMetafeedAnnouncment
 	signedMsg.MetafeedAnnounce = ma
 	signedMsg.Signature = EncodeSignature(sig)
 
 	return json.Marshal(signedMsg)
 }
 
-type SignedMetafeedAnnouncment struct {
+// signedMetafeedAnnouncment wrapps a MetafeedAnnounce with a Signature
+type signedMetafeedAnnouncment struct {
 	MetafeedAnnounce
 
 	Signature Signature `json:"signature"`
 }
 
+// VerifyMetafeedAnnounce takes a raw json body and asserts the validity of the signature and that it is for the right feed.
 func VerifyMetafeedAnnounce(data []byte, subfeedAuthor refs.FeedRef, hmacSecret *[32]byte) (MetafeedAnnounce, bool) {
-	var sma SignedMetafeedAnnouncment
+	var sma signedMetafeedAnnouncment
 	err := json.Unmarshal(data, &sma)
 	if err != nil {
 		return MetafeedAnnounce{}, false
