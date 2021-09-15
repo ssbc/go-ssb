@@ -20,19 +20,6 @@ import (
 	"golang.org/x/crypto/nacl/auth"
 )
 
-// ExtractSignature expects a pretty printed message and uses a regexp to strip it from the msg for signature verification
-func ExtractSignature(b []byte) ([]byte, Signature, error) {
-	// BUG(cryptix): this expects signature on the root of the object.
-	// some functions (like createHistoryStream with keys:true) nest the message on level deeper and this fails
-	matches := signatureRegexp.FindSubmatch(b)
-	if n := len(matches); n != 2 {
-		return nil, "", fmt.Errorf("message Encode: expected signature in formatted bytes. Only %d matches", n)
-	}
-	sig := Signature(matches[1])
-	out := signatureRegexp.ReplaceAll(b, []byte{})
-	return out, sig, nil
-}
-
 var (
 	emptyMsgRef = refs.MessageRef{}
 	emptyDMsg   = DeserializedMessage{}

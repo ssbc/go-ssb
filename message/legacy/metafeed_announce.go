@@ -54,7 +54,7 @@ func (ma MetafeedAnnounce) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (
 	// attach the signature
 	var signedMsg signedMetafeedAnnouncment
 	signedMsg.MetafeedAnnounce = ma
-	signedMsg.Signature = EncodeSignature(sig)
+	signedMsg.Signature = sig
 
 	return json.Marshal(signedMsg)
 }
@@ -93,14 +93,14 @@ func VerifyMetafeedAnnounce(data []byte, subfeedAuthor refs.FeedRef, hmacSecret 
 	}
 
 	// to check the signature we need it to split it into message and signature
-	msg, sig, err := ExtractSignature(v8indented)
+	msg, _, err := ExtractSignature(v8indented)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
 
 	msg = maybeHMAC(msg, hmacSecret)
 
-	err = sig.Verify(msg, signedAnnouncement.Metafeed)
+	err = signedAnnouncement.Signature.Verify(msg, signedAnnouncement.Metafeed)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
