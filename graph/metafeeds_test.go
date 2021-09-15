@@ -182,13 +182,13 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 	}
 
 	// construct the announcement message according to spec
-	ma := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), kpMain.ID())
-	signedMa, err := ma.Sign(kpMetafeed.PrivateKey, nil)
+	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), kpMain.ID())
+	signedAnnouncement, err := announcement.Sign(kpMetafeed.PrivateKey, nil)
 	if err != nil {
 		return err
 	}
 
-	_, err = mainFeed.publish.Append(signedMa)
+	_, err = mainFeed.publish.Append(signedAnnouncement)
 	if err != nil {
 		return err
 	}

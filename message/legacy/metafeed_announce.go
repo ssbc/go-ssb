@@ -10,7 +10,6 @@ import (
 
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
-	"golang.org/x/crypto/nacl/auth"
 )
 
 // MetafeedAnnounce is the type needed to do upgrades from existing classic feeds to the metafeed world.
@@ -38,19 +37,21 @@ func NewMetafeedAnnounce(theMeta, theUpgrading refs.FeedRef) MetafeedAnnounce {
 	return ma
 }
 
+// Sign takes a privarte key to create a signature on the receivers annoucement and returns the signed JSON message, ready to be published on a feed.
+// it also takes an optional HMAC secret, if the network is using that signature mode.
 func (ma MetafeedAnnounce) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (json.RawMessage, error) {
-	pp, err := jsonAndPreserve(ma)
+	// for compliance with JS, we need to indent and encode the message like V8 JSON.stringify would
+	announcementV8Format, err := jsonAndPreserve(ma)
 	if err != nil {
 		return nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
 	}
 
-	if hmacSecret != nil {
-		mac := auth.Sum(pp, hmacSecret)
-		pp = mac[:]
-	}
+	announcementV8Format = maybeHMAC(announcementV8Format, hmacSecret)
 
-	sig := ed25519.Sign(priv, pp)
+	// compute the signature
+	sig := ed25519.Sign(priv, announcementV8Format)
 
+	// attach the signature
 	var signedMsg signedMetafeedAnnouncment
 	signedMsg.MetafeedAnnounce = ma
 	signedMsg.Signature = EncodeSignature(sig)
@@ -67,39 +68,43 @@ type signedMetafeedAnnouncment struct {
 
 // VerifyMetafeedAnnounce takes a raw json body and asserts the validity of the signature and that it is for the right feed.
 func VerifyMetafeedAnnounce(data []byte, subfeedAuthor refs.FeedRef, hmacSecret *[32]byte) (MetafeedAnnounce, bool) {
-	var sma signedMetafeedAnnouncment
-	err := json.Unmarshal(data, &sma)
+	// json decode for validty of the fields and easily access the values
+	var signedAnnouncement signedMetafeedAnnouncment
+	err := json.Unmarshal(data, &signedAnnouncement)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
 
-	if sma.Type != metafeedAnnounceType {
+	// make sure it has the right type value
+	if signedAnnouncement.Type != metafeedAnnounceType {
 		return MetafeedAnnounce{}, false
 	}
 
-	if !sma.Subfeed.Equal(subfeedAuthor) {
+	// make sure the subfeed in the message is for the right author
+	// to protect against replays on other feeds
+	if !signedAnnouncement.Subfeed.Equal(subfeedAuthor) {
 		return MetafeedAnnounce{}, false
 	}
 
-	pp, err := jsonAndPreserve(sma)
+	// turn the data as is into JSON.stringify()-like form
+	v8indented, err := PrettyPrint(data)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
 
-	rest, sig, err := ExtractSignature(pp)
+	// to check the signature we need it to split it into message and signature
+	msg, sig, err := ExtractSignature(v8indented)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
 
-	if hmacSecret != nil {
-		mac := auth.Sum(rest, hmacSecret)
-		rest = mac[:]
-	}
+	msg = maybeHMAC(msg, hmacSecret)
 
-	err = sig.Verify(rest, sma.Metafeed)
+	err = sig.Verify(msg, signedAnnouncement.Metafeed)
 	if err != nil {
 		return MetafeedAnnounce{}, false
 	}
 
-	return sma.MetafeedAnnounce, true
+	// return just the announcment part
+	return signedAnnouncement.MetafeedAnnounce, true
 }

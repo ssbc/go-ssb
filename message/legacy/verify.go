@@ -80,18 +80,21 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: could not json.Unmarshal message (%q): %w", raw, err)
 	}
 
+	// sha == scuttlebutt happend anyway
 	if dmsg.Hash != "sha256" {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: wrong hash value (scuttlebutt happend anyway)")
 	}
 
+	// check length
 	if n := len(dmsg.Content); n < 1 {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", n)
 	} else if runeLength(string(dmsg.Content)) > 8192 {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", n)
 	}
 
+	// some type consistency checks
 	switch dmsg.Content[0] {
-	case '{':
+	case '{': // if it's a JSON object
 		var typedContent struct {
 			Type string
 		}
@@ -100,17 +103,19 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 			return emptyMsgRef, emptyDMsg, err
 		}
 
+		// needs to have a type:string between 3 and 52 characters long (don't ask me why)
 		if tlen := len(typedContent.Type); tlen < 3 || tlen > 52 {
 			return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt v1 requires a type field: %q", typedContent.Type)
 		}
 
-	case '"':
+	case '"': // if it's a JSON string
 		var justString string
 		err = json.Unmarshal(dmsg.Content, &justString)
 		if err != nil {
 			return emptyMsgRef, emptyDMsg, err
 		}
 
+		// only allow known suffixes
 		if !strings.HasSuffix(justString, ".box") && !strings.HasSuffix(justString, ".box2") {
 			return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt v1 private messages need to have the right suffix")
 		}
@@ -119,17 +124,15 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: unexpected content: %q", dmsg.Content[0])
 	}
 
-	woSig, sig, err := ExtractSignature(enc)
+	// to check the signature we need it to split it into message and signature
+	msg, sig, err := ExtractSignature(enc)
 	if err != nil {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): could not extract signature: %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
-	if hmacSecret != nil {
-		mac := auth.Sum(woSig, hmacSecret)
-		woSig = mac[:]
-	}
+	msg = maybeHMAC(msg, hmacSecret)
 
-	if err := sig.Verify(woSig, dmsg.Author); err != nil {
+	if err := sig.Verify(msg, dmsg.Author); err != nil {
 		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify(%s:%d): %w", dmsg.Author.String(), dmsg.Sequence, err)
 	}
 
@@ -143,4 +146,16 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	mr, err := refs.NewMessageRefFromBytes(h.Sum(nil), refs.RefAlgoMessageSSB1)
 	return mr, dmsg, err
+}
+
+// if HMAC mode is enabled for the network, we hash the message using nacl.Auth
+// otherwise do nothing and just return the message as is
+func maybeHMAC(message []byte, hmacSecret *[32]byte) []byte {
+	if hmacSecret == nil {
+		return message
+	}
+
+	// we are signing the keyed hash of the message instead
+	mac := auth.Sum(message, hmacSecret)
+	return mac[:]
 }

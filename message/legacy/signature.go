@@ -15,7 +15,6 @@ import (
 
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/ed25519"
-	"golang.org/x/crypto/nacl/auth"
 )
 
 type Signature string
@@ -97,10 +96,7 @@ func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (re
 		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
 	}
 
-	if hmacSecret != nil {
-		mac := auth.Sum(pp, hmacSecret)
-		pp = mac[:]
-	}
+	pp = maybeHMAC(pp, hmacSecret)
 
 	sig := ed25519.Sign(priv, pp)
 
