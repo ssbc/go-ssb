@@ -11,6 +11,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"go.cryptoscope.co/ssb"
+	"go.cryptoscope.co/ssb/message/legacy"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -180,14 +181,14 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
-	// construct the announcement message according to spec 
-	// https://github.com/ssb-ngi-pointer/ssb-meta-feeds-spec#existing-ssb-identity
-	announcement := metamngmt.NewAnnounceMessage(kpMetafeed.ID())
+	// construct the announcement message according to spec
+	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), kpMain.ID())
+	signedAnnouncement, err := announcement.Sign(kpMetafeed.PrivateKey, nil)
+	if err != nil {
+		return err
+	}
 
-	// TODO: sign metafeedAnnounceMsg with metafeed keypair (note: not yet mentioned in spec)
-	_ = kpMain
-
-	_, err = mainFeed.publish.Append(announcement)
+	_, err = mainFeed.publish.Append(signedAnnouncement)
 	if err != nil {
 		return err
 	}

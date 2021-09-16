@@ -33,7 +33,6 @@ func TestSignatureVerify(t *testing.T) {
 
 		msgWOsig, sig, err := ExtractSignature(enc)
 		r.NoError(err, "extractSig failed")
-		a.Equal(SigAlgoEd25519, sig.Algo())
 		a.Equal(testMessages[i].NoSig, msgWOsig)
 
 		err = sig.Verify(msgWOsig, testMessages[i].Author)

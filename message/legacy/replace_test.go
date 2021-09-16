@@ -17,13 +17,14 @@ import (
 
 func TestExtractSignature(t *testing.T) {
 	r := require.New(t)
-	var input = []byte(`{"foo":"test","signature":"testSign"}`)
+	var input = []byte(`{"foo":"test","signature":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==.sig.ed25519"}`)
 	enc, err := PrettyPrint(input)
 	r.NoError(err, "encode failed")
 
 	_, sign, err := ExtractSignature(enc)
 	r.NoError(err, "extract sig failed")
 	r.NotNil(sign)
+	r.True(bytes.Equal(sign, bytes.Repeat([]byte{0}, 64)))
 }
 
 func TestStripSignature(t *testing.T) {
