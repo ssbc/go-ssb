@@ -19,7 +19,7 @@ import (
 // it then unpacks them as gabygrove, reencodes the transfer object to bytes
 // and passes those as muxrpc codec.Body to the wrapped sink
 func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
-	return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+	return luigi.FuncSink(func(_ context.Context, v interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {
 				return nil
@@ -54,13 +54,14 @@ func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 			return fmt.Errorf("gabbyStream: failed to marshal transfer object: %w", err)
 		}
 
+		w.SetEncoding(muxrpc.TypeBinary)
 		_, err = w.Write(trdata)
 		return err
 	})
 }
 
 func NewBendyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
-	return luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
+	return luigi.FuncSink(func(_ context.Context, v interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {
 				return nil
@@ -95,6 +96,7 @@ func NewBendyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 			return fmt.Errorf("gabbyStream: failed to marshal transfer object: %w", err)
 		}
 
+		w.SetEncoding(muxrpc.TypeBinary)
 		_, err = w.Write(mfData)
 		return err
 	})

@@ -8,8 +8,9 @@ import (
 	"context"
 	"sync"
 
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	refs "go.mindeco.de/ssb-refs"
 )
 
 // MultiSink takes each message poured into it, and passes it on to all
@@ -24,7 +25,7 @@ type MultiSink struct {
 	sinks mapOfSinks
 }
 
-type mapOfSinks map[*muxrpc.ByteSink]sinkContext
+type mapOfSinks map[*luigi.Sink]sinkContext
 
 type sinkContext struct {
 	ctx   context.Context
@@ -47,7 +48,7 @@ func (f *MultiSink) Seq() int64 {
 // Register adds a sink to propagate messages to upto the 'until'th sequence.
 func (f *MultiSink) Register(
 	ctx context.Context,
-	sink *muxrpc.ByteSink,
+	sink *luigi.Sink,
 	until int64,
 ) {
 	f.mu.Lock()
@@ -59,7 +60,7 @@ func (f *MultiSink) Register(
 }
 
 func (f *MultiSink) Unregister(
-	sink *muxrpc.ByteSink,
+	sink *luigi.Sink,
 ) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -78,7 +79,7 @@ func (f *MultiSink) Close() error {
 	return nil
 }
 
-func (f *MultiSink) Send(msg []byte) {
+func (f *MultiSink) Send(msg refs.Message) {
 	if f.isClosed {
 		return
 	}
@@ -88,7 +89,7 @@ func (f *MultiSink) Send(msg []byte) {
 	defer f.mu.Unlock()
 
 	for s, ctx := range f.sinks {
-		_, err := s.Write(msg)
+		err := (*s).Pour(context.TODO(), msg)
 		if err != nil || ctx.until <= f.seq {
 			delete(f.sinks, s)
 		}

@@ -90,7 +90,7 @@ func (m *FeedManager) pour(ctx context.Context, val interface{}, err error) erro
 	if !ok {
 		return nil
 	}
-	sink.Send(msg.ValueContentJSON())
+	sink.Send(msg)
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (m *FeedManager) serveLiveFeeds() {
 
 func (m *FeedManager) addLiveFeed(
 	ctx context.Context,
-	sink *muxrpc.ByteSink,
+	sink luigi.Sink,
 	ssbID string,
 	seq, limit int64,
 ) error {
@@ -138,7 +138,7 @@ func (m *FeedManager) addLiveFeed(
 		until = math.MaxInt64
 	}
 
-	liveFeed.Register(ctx, sink, until)
+	liveFeed.Register(ctx, &sink, until)
 
 	m.liveFeeds[ssbID] = liveFeed
 	// TODO: Remove multiSink from map when complete
@@ -194,13 +194,42 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	latest := int64(userLog.Seq())
+	level.Error(feedLogger).Log("event", "sending",
+		"latest", latest,
+		"requested", arg.Seq,
+		"limit", arg.Limit,
+		"live", arg.Live,
+	)
+
+	var luigiSink luigi.Sink
+	switch arg.ID.Algo() {
+	case refs.RefAlgoFeedSSB1:
+		luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
+
+	case refs.RefAlgoFeedGabby:
+		if arg.AsJSON {
+			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
+		} else {
+			luigiSink = luigiutils.NewGabbyStreamSink(sink)
+		}
+
+	case refs.RefAlgoFeedBendyButt:
+		if arg.AsJSON {
+			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
+		} else {
+			luigiSink = luigiutils.NewBendyStreamSink(sink)
+		}
+
+	default:
+		return fmt.Errorf("unsupported feed format")
+	}
 
 	if arg.Seq != 0 {
 		arg.Seq--             // our idx is 0 ed
 		if arg.Seq > latest { // more than we got
 			if arg.Live {
 				return m.addLiveFeed(
-					ctx, sink,
+					ctx, luigiSink,
 					arg.ID.String(),
 					latest,
 					liveLimit(arg, latest),
@@ -242,31 +271,6 @@ func (m *FeedManager) CreateStreamHistory(
 		return fmt.Errorf("invalid user log query: %w", err)
 	}
 
-	var luigiSink luigi.Sink
-	switch arg.ID.Algo() {
-	case refs.RefAlgoFeedSSB1:
-		luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
-
-	case refs.RefAlgoFeedGabby:
-		switch {
-		case arg.AsJSON:
-			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
-		default:
-			luigiSink = luigiutils.NewGabbyStreamSink(sink)
-		}
-
-	case refs.RefAlgoFeedBendyButt:
-		switch {
-		case arg.AsJSON:
-			luigiSink = transform.NewKeyValueWrapper(sink, arg.Keys)
-		default:
-			luigiSink = luigiutils.NewBendyStreamSink(sink)
-		}
-
-	default:
-		return fmt.Errorf("unsupported feed format")
-	}
-
 	sent := 0
 	err = luigi.Pump(ctx, luigiutils.NewSinkCounter(&sent, luigiSink), src)
 
@@ -290,7 +294,7 @@ func (m *FeedManager) CreateStreamHistory(
 	// TODO: make tests with leaving and joining peers while messages are published
 	if arg.Live {
 		return m.addLiveFeed(
-			ctx, sink,
+			ctx, luigiSink,
 			arg.ID.String(),
 			latest,
 			liveLimit(arg, latest),
