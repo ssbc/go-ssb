@@ -8,8 +8,10 @@ const { readFileSync } = require('fs')
 const { loadOrCreateSync } = require('ssb-keys')
 const theStack = require('secret-stack')
 const ssbCaps = require('ssb-caps')
+const bendyButt = require('ssb-ebt/formats/bendy-butt')
 
 // eval deps
+const { where, author, and, type, live, toPullStream } = require('ssb-db2/operators')
 const pull = require('pull-stream')
 const parallel = require('run-parallel')
 
@@ -20,11 +22,13 @@ let testAppkey = Buffer.from(ssbCaps.shs, 'base64')
 if (testSHSappKey !== false) {
   testAppkey = testSHSappKey
 }
+const stackOpts = { caps: { shs: testAppkey } }
 
-const { where, author, and, type, live, toPullStream } = require('ssb-db2/operators')
-const bendyButt = require('ssb-ebt/formats/bendy-butt')
+if (testHMACkey !== false) {
+  stackOpts.caps.sign = testHMACkey
+}
 
-const createSbot = theStack({ caps: { shs: testAppkey } })
+const createSbot = theStack(stackOpts)
   .use(require('ssb-db2'))
   .use(require('ssb-db2/compat/ebt'))
   .use(require('ssb-ebt'))
@@ -39,20 +43,21 @@ const scriptAfter = readFileSync(process.env.TEST_AFTER).toString()
 
 tape.createStream().pipe(process.stderr)
 tape(testName, function (t) {
-  // t.timeoutAfter(30000) // doesn't exit the process
-  //   const tapeTimeout = setTimeout(() => {
-  //     t.comment("test timeout")
-  //     process.exit(1)
-  //   }, 50000)
+  t.timeoutAfter(30000) // doesn't exit the process
+  const tapeTimeout = setTimeout(() => {
+    t.comment("test timeout")
+    process.exit(1)
+  }, 50000)
 
   function exit () { // call this when you're done
-    sbot.close()
-    t.comment('closed jsbot')
-    // clearTimeout(tapeTimeout)
-    t.end()
+    clearTimeout(tapeTimeout)
+    sbot.close(() => {
+      t.comment('closed jsbot')
+      t.end()
+    })
   }
 
-  const tempRepo = Path.join('testrun', testName)
+  const tempRepo = Path.join('..', 'testrun', testName)
   const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const sbot = createSbot({
     port: testPort,
@@ -65,9 +70,8 @@ tape(testName, function (t) {
   const alice = sbot.id
 
   // setup bendybutt format for ebt
-  sbot.ebt.request(alice, true)
-
   sbot.ebt.registerFormat(bendyButt)
+  sbot.ebt.request(alice, true)
   sbot.ebt.request(testBob, true)
 
   t.comment('sbot spawned, running before')

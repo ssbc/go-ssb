@@ -20,8 +20,13 @@ let testAppkey = Buffer.from(ssbCaps.shs, 'base64')
 if (testSHSappKey !== false) {
   testAppkey = testSHSappKey
 }
+const stackOpts = { caps: { shs: testAppkey } }
 
-const createSbot = theStack({caps: {shs: testAppkey } })
+if (testHMACkey !== false) {
+  stackOpts.caps.sign = testHMACkey
+}
+
+const createSbot = theStack(stackOpts)
   .use(require('ssb-db'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
@@ -45,17 +50,16 @@ tape(testName, function (t) {
 //     t.comment("test timeout")
 //     process.exit(1)
 //   }, 50000)
-  
-  
 
   function exit() { // call this when you're done
-    sbot.close()
-    t.comment('closed jsbot')
-    // clearTimeout(tapeTimeout)
-    t.end()
+    sbot.close(() => {
+      t.comment('closed jsbot: ' + testName)
+      // clearTimeout(tapeTimeout)
+      t.end()
+    })
   }
 
-  const tempRepo = Path.join('testrun', testName)
+  const tempRepo = Path.join('..', 'testrun', testName)
   const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const sbot = createSbot({
     port: testPort,

@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb/internal/mutil"
@@ -32,13 +34,16 @@ func TestEBTWithFormat(t *testing.T) {
 
 	r := require.New(t)
 
-	// ts := newRandomSession(t)
 	ts := newSession(t, nil, nil)
 
 	ts.startGoBot(
 		sbot.WithMetaFeedMode(true),
 		sbot.DisableEBT(false),
 		sbot.WithPromisc(true),
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			dumpPath := filepath.Join(ts.repo, "muxdump")
+			return debug.WrapDump(dumpPath, conn)
+		}),
 	)
 	sbot := ts.gobot
 
@@ -55,7 +60,25 @@ func TestEBTWithFormat(t *testing.T) {
 		pull.drain((msg) => {
 			console.warn("JS received: " + msg.value.author + ":" + msg.value.sequence)
 			if (msg.value.sequence === 2) {
-				t.comment('got messages from Go!')
+
+				const subfeedSrc = sbot.db.query(
+					where(author(msg.value.content.subfeed)),
+					live(true),
+					toPullStream()
+				)
+				pull(
+					subfeedSrc,
+					pull.drain((msg) => {
+						console.warn("JS received SUbfeed: " + msg.value.author + ":" + msg.value.sequence)
+						if (msg.value.sequence === 10) {
+							t.comment('Got all the messages. Shutting down in 10s')
+							setTimeout(exit, 1000)
+						}
+					}, console.warn)
+				)
+
+				t.comment('fetching go subfeed:'+msg.value.content.subfeed)
+				sbot.ebt.request(msg.value.content.subfeed, true)
 			}
 		}, (err) => {
 			console.warn('stream closed? ' + err)
@@ -108,34 +131,20 @@ func TestEBTWithFormat(t *testing.T) {
 			})
 		})
 	})
-
-
-	let connNo = 0
-	sbot.on('rpc:connect', (rpc) => {
-		if (connNo == 1) {
-			t.comment('2nd connection. Shutting down in 10s')
-			setTimeout(exit, 10000)
-		}
-
-		rpc.on('closed', () => {
-			connNo++
-			t.comment("disconnected: " + rpc.id)
-		})
-	})
 `, ``)
 
-	ex1, err := sbot.MetaFeeds.CreateSubFeed("example", refs.RefAlgoFeedSSB1)
+	exGabby, err := sbot.MetaFeeds.CreateSubFeed("example-gabby", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
-	ex2, err := sbot.MetaFeeds.CreateSubFeed("example2", refs.RefAlgoFeedGabby)
+	exClassic, err := sbot.MetaFeeds.CreateSubFeed("example-classic", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	for i := 0; i < 10; i++ {
-		sbot.MetaFeeds.Publish(ex1, refs.NewPost(strconv.Itoa(i)))
-		sbot.MetaFeeds.Publish(ex2, refs.NewPost(strconv.Itoa(i)))
+		sbot.MetaFeeds.Publish(exGabby, refs.NewPost(strconv.Itoa(i)))
+		sbot.MetaFeeds.Publish(exClassic, refs.NewPost(strconv.Itoa(i)))
 	}
 
-	sbot.MetaFeeds.Publish(ex1, refs.NewContactFollow(alice))
+	sbot.MetaFeeds.Publish(exClassic, refs.NewContactFollow(alice))
 	sbot.Replicate(alice)
 
 	wrappedAddr := netwrap.WrapAddr(&net.TCPAddr{

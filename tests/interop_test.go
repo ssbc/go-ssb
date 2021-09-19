@@ -17,13 +17,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/ssb"
 	"go.mindeco.de/log"
+	"go.mindeco.de/log/level"
 	refs "go.mindeco.de/ssb-refs"
 
 	"go.cryptoscope.co/ssb/internal/testutils"
@@ -38,6 +41,7 @@ func init() {
 	}
 }
 
+// helper tool to create JS test scripts
 func writeFile(t *testing.T, data string) string {
 	r := require.New(t)
 	f, err := ioutil.TempFile("testrun/"+t.Name(), "*.js")
@@ -46,7 +50,7 @@ func writeFile(t *testing.T, data string) string {
 	r.NoError(err)
 	err = f.Close()
 	r.NoError(err)
-	return f.Name()
+	return "../" + f.Name()
 }
 
 type testSession struct {
@@ -81,7 +85,10 @@ func newRandomSession(t *testing.T) *testSession {
 // if hmac is nil, the object string is signed instead
 func newSession(t *testing.T, appKey, hmacKey []byte) *testSession {
 	repo := filepath.Join("testrun", t.Name())
-	os.RemoveAll(repo)
+	err := os.RemoveAll(repo)
+	if err != nil {
+		t.Log("removeAll failed:", err)
+	}
 
 	return &testSession{
 		info:    testutils.NewRelativeTimeLogger(nil),
@@ -98,10 +105,11 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 	ctx := context.Background()
 
 	// prepend defaults
+	goRepo := filepath.Join(ts.repo, "gobot")
 	sbotOpts = append([]sbot.Option{
 		sbot.WithInfo(ts.info),
 		sbot.WithListenAddr("localhost:0"),
-		sbot.WithRepoPath(ts.repo),
+		sbot.WithRepoPath(goRepo),
 		sbot.WithContext(ctx),
 	}, sbotOpts...)
 
@@ -112,9 +120,17 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 		sbotOpts = append(sbotOpts, sbot.WithHMACSigning(ts.keyHMAC))
 	}
 
+	connI := 0
 	sbotOpts = append(sbotOpts,
 		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			return debug.WrapDump(filepath.Join("testrun", ts.t.Name(), "muxdump"), conn)
+			dumpPath := filepath.Join(ts.repo, "muxdump-"+strconv.Itoa(connI))
+			connI++
+			who, err := ssb.GetFeedRefFromAddr(conn.RemoteAddr())
+			if err != nil {
+				return nil, err
+			}
+			level.Info(ts.info).Log("muxdump", dumpPath, "who", who.ShortSigil())
+			return debug.WrapDump(dumpPath, conn)
 		}),
 	)
 
@@ -153,14 +169,16 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 	r := require.New(ts.t)
 	cmd := exec.Command("node", "./sbot_client.js")
 	cmd.Stderr = os.Stderr
+	cmd.Dir = "./js-db1"
 
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
 	if name == "" {
-		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+		name = filepath.Join(ts.t.Name(), fmt.Sprintf("js-db1-%d", jsBotCnt))
 	}
 	jsBotCnt++
+
 	env := []string{
 		"TEST_NAME=" + name,
 		"TEST_BOB=" + ts.gobot.KeyPair.ID().String(),
@@ -202,24 +220,25 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 }
 
 func (ts *testSession) startJSBotAsServer(name, jsbefore, jsafter string) (refs.FeedRef, int) {
-	return ts.startJSBotAsServerWithFile(name, "./sbot_serv.js", jsbefore, jsafter)
+	return ts.startJSBotAsServerWithFile(name, "./js-db1", jsbefore, jsafter)
 }
 
 func (ts *testSession) startJSBotAsServerDB2(name, jsbefore, jsafter string) (refs.FeedRef, int) {
-	return ts.startJSBotAsServerWithFile(name, "./sbot_serv_db2.js", jsbefore, jsafter)
+	return ts.startJSBotAsServerWithFile(name, "./js-db2", jsbefore, jsafter)
 }
 
-func (ts *testSession) startJSBotAsServerWithFile(name, jsscipt, jsbefore, jsafter string) (refs.FeedRef, int) {
+func (ts *testSession) startJSBotAsServerWithFile(name, jsfolder, jsbefore, jsafter string) (refs.FeedRef, int) {
 	ts.t.Log("starting srv", name)
 	r := require.New(ts.t)
-	cmd := exec.Command("node", jsscipt)
+	cmd := exec.Command("node", "./sbot_serv.js")
 	cmd.Stderr = os.Stderr
+	cmd.Dir = jsfolder
 
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
 
 	if name == "" {
-		name = fmt.Sprint(ts.t.Name(), jsBotCnt)
+		name = filepath.Join(ts.t.Name(), fmt.Sprintf("%s-%d", jsfolder, jsBotCnt))
 	}
 	jsBotCnt++
 
