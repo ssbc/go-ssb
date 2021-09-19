@@ -20,6 +20,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// Members represents a set/map of all the members in a group
 type Members map[string]bool
 
 // MembershipStore isn't strictly a multilog but putting it in package private gave cyclic import
@@ -51,6 +52,7 @@ func NewMembershipIndex(logger log.Logger, db *badger.DB, self refs.FeedRef, unb
 	return &store, snk
 }
 
+// Close closes the index
 func (mc MembershipStore) Close() error {
 	return mc.idx.Close()
 }
@@ -115,7 +117,7 @@ func (mc MembershipStore) updateFn(ctx context.Context, seq int64, val interface
 	case Members:
 		currentMembers = tv
 	case librarian.UnsetValue:
-		currentMembers = make(Members, 0)
+		currentMembers = make(Members)
 	default:
 		return fmt.Errorf("not a Member: %T", statev)
 	}

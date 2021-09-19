@@ -32,15 +32,17 @@ func makeSinkIndex(dbPath string, mlog multilog.MultiLog, fn multilog.Func) (lib
 	return multilog.NewSink(idxStateFile, mlog, fn), nil
 }
 
+// PrefixMultiLog is the default namespace of multilogs
 const PrefixMultiLog = "sublogs"
 
+// OpenBadgerDB opens a badgerd database with some default options
 func OpenBadgerDB(path string) (*badger.DB, error) {
 	opts := badgerOpts(path)
 	return badger.Open(opts)
 }
 
+// OpenStandaloneMultiLog opens a dedicated badger instance, to use mount a multilog on
 func OpenStandaloneMultiLog(r Interface, name string, f multilog.Func) (multilog.MultiLog, librarian.SinkIndex, error) {
-
 	dbPath := r.GetPath(PrefixMultiLog, name, "badger")
 	mlog, err := multibadger.NewStandalone(dbPath)
 	if err != nil {
@@ -55,6 +57,7 @@ func OpenStandaloneMultiLog(r Interface, name string, f multilog.Func) (multilog
 	return mlog, snk, nil
 }
 
+// OpenFileSystemMultiLog opens a flat-file variant of the multilog index system.
 func OpenFileSystemMultiLog(r Interface, name string, f multilog.Func) (*roaring.MultiLog, librarian.SinkIndex, error) {
 	dbPath := r.GetPath(PrefixMultiLog, name, "fs-bitmaps")
 	err := os.MkdirAll(dbPath, 0700)

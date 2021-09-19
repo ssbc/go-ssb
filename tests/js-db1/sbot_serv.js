@@ -30,11 +30,10 @@ const createSbot = theStack(stackOpts)
   .use(require('ssb-db'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
+  .use(require('ssb-ebt'))
   .use(require('ssb-private1'))
   .use(require('ssb-friends'))
   .use(require('ssb-blobs'))
-  .use(require('ssb-identities'))
-  .use(require('ssb-ebt'))
 
 const testName = process.env['TEST_NAME']
 const testBob = process.env['TEST_BOB']

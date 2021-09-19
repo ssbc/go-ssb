@@ -66,10 +66,10 @@ func newMetaFeedService(rxLog margaret.Log, indexManager ssb.IndexFeedManager, u
 }
 
 // Get a message (type `metafeed/add/derived`) from a root metafeed at the specified sequence
-func (s metaFeedsService) getMsgAtSeq(mfId refs.FeedRef, seq int64) (metamngmt.AddDerived, error) {
+func (s metaFeedsService) getMsgAtSeq(mfID refs.FeedRef, seq int64) (metamngmt.AddDerived, error) {
 	var empty metamngmt.AddDerived
 
-	msgSeqs, err := s.users.Get(storedrefs.Feed(mfId))
+	msgSeqs, err := s.users.Get(storedrefs.Feed(mfID))
 	if err != nil {
 		return empty, err
 	}
@@ -96,8 +96,8 @@ func (s metaFeedsService) getMsgAtSeq(mfId refs.FeedRef, seq int64) (metamngmt.A
 
 // The purpose of method RegisterIndex is to enable indexing of messages created by a given feed, of the given type. To do
 // that, we have to get (or create!) an index feed on which to publish the index messages.
-func (s metaFeedsService) RegisterIndex(mfId, contentFeed refs.FeedRef, msgType string) error {
-	newIndex, err := s.GetOrCreateIndex(mfId, contentFeed, "index", msgType)
+func (s metaFeedsService) RegisterIndex(mfID, contentFeed refs.FeedRef, msgType string) error {
+	newIndex, err := s.GetOrCreateIndex(mfID, contentFeed, "index", msgType)
 	if err != nil {
 		return fmt.Errorf("failed to get/create index (%w)", err)
 	}
@@ -294,13 +294,13 @@ func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, form
 		if err != nil {
 			return refs.FeedRef{}, fmt.Errorf("CreateSubFeed: failed to parse passed in author metadata (%w)", err)
 		}
-		queryJson, err := json.Marshal(ssb.MetadataQuery{Author: author, Type: metadata["type"]})
+		queryJSON, err := json.Marshal(ssb.MetadataQuery{Author: author, Type: metadata["type"]})
 		if err != nil {
 			return refs.FeedRef{}, err
 		}
 
 		err = addContent.InsertMetadata(map[string]string{
-			"query": string(queryJson), "querylang": metadata["querylang"],
+			"query": string(queryJSON), "querylang": metadata["querylang"],
 		})
 		if err != nil {
 			return refs.FeedRef{}, err

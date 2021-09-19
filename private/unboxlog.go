@@ -81,7 +81,7 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 		wrappedVal := tv.Value()
 		seq, ok := wrappedVal.(int64)
 		if !ok {
-			fmt.Errorf("expected sequence type: %T", wrappedVal)
+			return nil, fmt.Errorf("expected sequence type: %T", wrappedVal)
 		}
 		rootSeq = seq
 	default:

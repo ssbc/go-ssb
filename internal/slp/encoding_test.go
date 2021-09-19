@@ -30,7 +30,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "single-binary",
-			in:   [][]byte{[]byte{0, 8, 16, 32}},
+			in:   [][]byte{{0, 8, 16, 32}},
 			out:  []byte{4, 0, 0, 8, 16, 32},
 		},
 		{
@@ -40,7 +40,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "pair-binary",
-			in:   [][]byte{[]byte{0, 8, 16, 32}, []byte{4, 12, 20, 36}},
+			in:   [][]byte{{0, 8, 16, 32}, {4, 12, 20, 36}},
 			out:  []byte{4, 0, 0, 8, 16, 32, 4, 0, 4, 12, 20, 36},
 		},
 	}

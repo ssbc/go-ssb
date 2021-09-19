@@ -189,6 +189,7 @@ func ew(header string) func(msg string, err ...error) error {
 }
 
 const sentinelName = ".metafeeds-upgraded"
+
 // Creates an empty file, signaling that the migration has run successfully. go-sbot will look for this file to
 // determine if it is to start up in metafeedsEnabled mode or not—and this tool looks for the file before continuing to
 // run the migration (should the sentinel not exist yet).
@@ -298,9 +299,7 @@ func ingestKeypair(mfID refs.FeedRef, keypair ssb.KeyPair, ssbdir string) error 
 		return e("failed to open badger", err)
 	}
 	idxKeys := libbadger.NewIndexWithKeyPrefix(indexstore, keys.Recipients{}, []byte("group-and-signing"))
-	keystore := &keys.Store{
-		Index: idxKeys,
-	}
+	keystore := keys.NewStore(idxKeys)
 
 	// add the classic key to the root metafeed's keystore
 	pubkeyRef := keypair.ID()

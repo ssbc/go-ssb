@@ -45,13 +45,13 @@ func constructIndexKey(author refs.FeedRef, msgType string) string {
 // an index message into the registered index feed.
 func (manager indexFeedManager) Register(indexFeed, contentFeed refs.FeedRef, msgType string) error {
 	// check if the index for this author+type tuple has already been registered
-	indexId := constructIndexKey(contentFeed, msgType)
+	indexID := constructIndexKey(contentFeed, msgType)
 	// an index feed for {contentFeed, msgType} was already registered
-	if _, exists := manager.indexes[indexId]; exists {
+	if _, exists := manager.indexes[indexID]; exists {
 		return nil
 	}
 
-	manager.indexes[indexId] = indexFeed
+	manager.indexes[indexID] = indexFeed
 	err := manager.store()
 	if err != nil {
 		return err

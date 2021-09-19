@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: MIT
 
+//go:build ignore
+// +build ignore
+
+// TODO: refactor to refs.Message
+
 package luigiutils
 
 import (
@@ -10,12 +15,13 @@ import (
 	"io"
 	"testing"
 
+	"go.cryptoscope.co/luigi"
 	"go.cryptoscope.co/muxrpc/v2"
 
 	"github.com/stretchr/testify/require"
 )
 
-type sinkWrapper func(io.Writer) *muxrpc.ByteSink
+type sinkWrapper func(io.Writer) luigi.Sink
 
 func MutliSinkWithWrappedSink(fn sinkWrapper) func(t *testing.T) {
 	return func(t *testing.T) {

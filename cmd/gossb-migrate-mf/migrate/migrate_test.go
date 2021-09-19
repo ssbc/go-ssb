@@ -141,11 +141,11 @@ func populateTestLog(t *testing.T, bot *sbot.Sbot) {
 	var err error
 	r := require.New(t)
 	mainRef := bot.KeyPair.ID()
-	fakeRef1, err := refs.NewLegacyFeedRefFromBytes(generateFakePublicKey(1))
+	fakeRef1, err := refs.NewFeedRefFromBytes(generateFakePublicKey(1), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	fakeRef2, err := refs.NewLegacyFeedRefFromBytes(generateFakePublicKey(2))
+	fakeRef2, err := refs.NewFeedRefFromBytes(generateFakePublicKey(2), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	fakeRef3, err := refs.NewLegacyFeedRefFromBytes(generateFakePublicKey(3))
+	fakeRef3, err := refs.NewFeedRefFromBytes(generateFakePublicKey(3), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	entries := []interface{}{
 		refs.NewPost("hello from my main testing feed"),

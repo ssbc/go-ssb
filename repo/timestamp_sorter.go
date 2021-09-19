@@ -31,6 +31,7 @@ type SortedSequence struct {
 // SortedSeqSlice a slice of SortedSequences that can be sorted
 type SortedSeqSlice []SortedSequence
 
+// Len implements the sort inteface
 func (ts SortedSeqSlice) Len() int { return len(ts) }
 
 // Swap swaps the elements with indexes i and j.
@@ -186,42 +187,8 @@ func (sr SequenceResolver) prepare(by SortDomain) ([]int64, int64, error) {
 	return domain, max, nil
 }
 
-func (sr SequenceResolver) SortAndFilterBitmap(seqs *bmap.Bitmap, by SortDomain, ok ResolverFilter, desc bool) (SortedSeqSlice, error) {
-	domain, max, err := sr.prepare(by)
-	if err != nil {
-		return nil, err
-	}
-
-	var result SortedSeqSlice
-
-	it := seqs.NewIterator()
-
-	// pick and filter
-	for it.HasNext() {
-		s := int64(it.Next())
-
-		if s < 0 || s > max {
-			return nil, fmt.Errorf("seq resolver: out of bounds (%d - %d)", s, max)
-		}
-
-		sortme := SortedSequence{Seq: s}
-
-		sortme.By = domain[s]
-
-		if ok(sortme.By) {
-			result = append(result, sortme)
-		}
-	}
-
-	if desc {
-		sort.Sort(SortedDescending{result})
-	} else {
-		sort.Sort(SortedAscending{result})
-	}
-
-	return result, nil
-}
-
+// SortAndFilterAll goes through all values and passes the value in the SortDomain to the ResolverFilter, which decides a value should be copied and then sorted.
+// desc controls ascending (false) or descending (true) order of values.
 func (sr SequenceResolver) SortAndFilterAll(by SortDomain, ok ResolverFilter, desc bool) (SortedSeqSlice, error) {
 	domain, _, err := sr.prepare(by)
 	if err != nil {
@@ -267,6 +234,44 @@ func (sr SequenceResolver) SortAndFilter(seqs []int64, by SortDomain, ok Resolve
 		if s < 0 || s > max {
 			return nil, fmt.Errorf("seq resolver: out of bounds (%d - %d)", s, max)
 		}
+
+		sortme.By = domain[s]
+
+		if ok(sortme.By) {
+			result = append(result, sortme)
+		}
+	}
+
+	if desc {
+		sort.Sort(SortedDescending{result})
+	} else {
+		sort.Sort(SortedAscending{result})
+	}
+
+	return result, nil
+}
+
+// SortAndFilterBitmap is similar to SortAndFilter but it takes a bitmap instead of an array of values to go through.
+// desc controls ascending (false) or descending (true) order of values.
+func (sr SequenceResolver) SortAndFilterBitmap(seqs *bmap.Bitmap, by SortDomain, ok ResolverFilter, desc bool) (SortedSeqSlice, error) {
+	domain, max, err := sr.prepare(by)
+	if err != nil {
+		return nil, err
+	}
+
+	var result SortedSeqSlice
+
+	it := seqs.NewIterator()
+
+	// pick and filter
+	for it.HasNext() {
+		s := int64(it.Next())
+
+		if s < 0 || s > max {
+			return nil, fmt.Errorf("seq resolver: out of bounds (%d - %d)", s, max)
+		}
+
+		sortme := SortedSequence{Seq: s}
 
 		sortme.By = domain[s]
 

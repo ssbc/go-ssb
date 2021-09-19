@@ -16,16 +16,20 @@ import (
 	libbadger "go.cryptoscope.co/margaret/indexes/badger"
 )
 
+// PrefixIndex is the default namespace for simple/key-value based indexes
 const PrefixIndex = "indexes"
 
+// OpenIndex returns an initialzed simple/key-value based indexes, using the passed badger database for storage.
 func OpenIndex(db *badger.DB, name string, f func(librarian.SeqSetterIndex) librarian.SinkIndex) (librarian.Index, librarian.SinkIndex, error) {
 	seqSetter := libbadger.NewIndexWithKeyPrefix(db, 0, []byte("index"+name))
 	return seqSetter, f(seqSetter), nil
 }
 
-type LibrarianIndexCreater func(*badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex)
+// KeyValueIndexCreater creates a new key-value based index
+type KeyValueIndexCreater func(*badger.DB) (librarian.SeqSetterIndex, librarian.SinkIndex)
 
-func OpenBadgerIndex(r Interface, name string, f LibrarianIndexCreater) (*badger.DB, librarian.SeqSetterIndex, librarian.SinkIndex, error) {
+// OpenBadgerIndex creates a new badger database to back a new key-value style index
+func OpenBadgerIndex(r Interface, name string, f KeyValueIndexCreater) (*badger.DB, librarian.SeqSetterIndex, librarian.SinkIndex, error) {
 	pth := r.GetPath(PrefixIndex, name, "db")
 	err := os.MkdirAll(pth, 0700)
 	if err != nil {

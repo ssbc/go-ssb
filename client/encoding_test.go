@@ -118,6 +118,7 @@ func TestEncodeHistStreamAsJSON(t *testing.T) {
 		err = src.Reader(func(r io.Reader) error {
 			return json.NewDecoder(r).Decode(&msg)
 		})
+		r.NoError(err, "failed to read body")
 
 		var v testMsg
 		err = json.Unmarshal(msg.Value.Content, &v)

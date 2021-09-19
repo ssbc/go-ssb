@@ -12,7 +12,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
+// Get returns a message by it's reference
+func (s *Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 	getIdx, ok := s.simpleIndex["get"]
 	if !ok {
 		return nil, fmt.Errorf("sbot: get index disabled")
@@ -52,6 +53,7 @@ func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 	return msg, nil
 }
 
+// CurrentSequence returns the current local/stored sequence numbner of a feed
 func (s *Sbot) CurrentSequence(feed refs.FeedRef) (ssb.Note, error) {
 	l, err := s.Users.Get(storedrefs.Feed(feed))
 	if err != nil {

@@ -17,11 +17,13 @@ import (
 
 type strFeedMap map[librarian.Addr]struct{}
 
+// StrFeedSet is a set of feeds which can be used concurrently
 type StrFeedSet struct {
 	mu  *sync.Mutex
 	set strFeedMap
 }
 
+// NewFeedSet returns a set of a certain size
 func NewFeedSet(size int) *StrFeedSet {
 	return &StrFeedSet{
 		mu:  new(sync.Mutex),
@@ -29,6 +31,7 @@ func NewFeedSet(size int) *StrFeedSet {
 	}
 }
 
+// AddRef adds a feed to the set
 func (fs *StrFeedSet) AddRef(ref refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -37,6 +40,7 @@ func (fs *StrFeedSet) AddRef(ref refs.FeedRef) error {
 	return nil
 }
 
+// Delete removes a feed from the set
 func (fs *StrFeedSet) Delete(ref refs.FeedRef) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -44,12 +48,14 @@ func (fs *StrFeedSet) Delete(ref refs.FeedRef) error {
 	return nil
 }
 
+// Count returns the number of feeds in the set
 func (fs *StrFeedSet) Count() int {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	return len(fs.set)
 }
 
+// List returns the feeds in the set as a slice of refrences
 func (fs StrFeedSet) List() ([]refs.FeedRef, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -73,6 +79,7 @@ func (fs StrFeedSet) List() ([]refs.FeedRef, error) {
 	return lst, nil
 }
 
+// Has checks if the passed feed is in the set
 func (fs StrFeedSet) Has(ref refs.FeedRef) bool {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()

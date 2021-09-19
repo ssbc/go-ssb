@@ -15,6 +15,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// DefaultKeyPair returns the keypair from the repo or creates one, if it doesn't exist yet.
 func DefaultKeyPair(r Interface, algo refs.RefAlgo) (ssb.KeyPair, error) {
 	secPath := r.GetPath("secret")
 	keyPair, err := ssb.LoadKeyPair(secPath)
@@ -34,10 +35,12 @@ func DefaultKeyPair(r Interface, algo refs.RefAlgo) (ssb.KeyPair, error) {
 	return keyPair, nil
 }
 
+// NewKeyPair creates a new keypair and stores it in the repo
 func NewKeyPair(r Interface, name string, algo refs.RefAlgo) (ssb.KeyPair, error) {
 	return newKeyPair(r, name, algo, nil)
 }
 
+// NewKeyPairFromSeed works like NewKeyPair but also takes an seed instead of fresh randomness.
 func NewKeyPairFromSeed(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (ssb.KeyPair, error) {
 	return newKeyPair(r, name, algo, seed)
 }
@@ -75,6 +78,7 @@ func newKeyPair(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (ss
 	return keyPair, nil
 }
 
+// LoadKeyPair loads a keypair by name
 func LoadKeyPair(r Interface, name string) (ssb.KeyPair, error) {
 	secPath := r.GetPath("secrets", name)
 	keyPair, err := ssb.LoadKeyPair(secPath)
@@ -84,6 +88,7 @@ func LoadKeyPair(r Interface, name string) (ssb.KeyPair, error) {
 	return keyPair, nil
 }
 
+// AllKeyPairs loads all saved keypairs with their names
 func AllKeyPairs(r Interface) (map[string]ssb.KeyPair, error) {
 	kps := make(map[string]ssb.KeyPair)
 	err := filepath.Walk(r.GetPath("secrets"), func(path string, info os.FileInfo, err error) error {

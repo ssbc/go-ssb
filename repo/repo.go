@@ -28,6 +28,7 @@ func (r repo) GetPath(rel ...string) string {
 	return filepath.Join(append([]string{r.basePath}, rel...)...)
 }
 
+// OpenBlobStore opens a new blob store using the passed repo for a location
 func OpenBlobStore(r Interface) (ssb.BlobStore, error) {
 	bs, err := blobstore.New(r.GetPath("blobs"))
 	if err != nil {

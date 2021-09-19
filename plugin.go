@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/muxrpc/v2"
 )
 
+// Plugin represents a muxrpc handler plugin in go-ssb
 type Plugin interface {
 	// Name returns the name and version of the plugin.
 	// format: name-1.0.2
@@ -23,6 +24,7 @@ type Plugin interface {
 	Handler() muxrpc.Handler
 }
 
+// PluginManager allows for handler registration and creating handlers from network connections
 type PluginManager interface {
 	Register(Plugin)
 	MakeHandler(conn net.Conn) (muxrpc.Handler, error)
@@ -33,6 +35,7 @@ type pluginManager struct {
 	plugins map[string]Plugin
 }
 
+// NewPluginManager returns a new PluginManager
 func NewPluginManager() PluginManager {
 	return &pluginManager{
 		plugins: make(map[string]Plugin),

@@ -24,7 +24,6 @@ import (
 )
 
 func TestSubsetQuerySerializing(t *testing.T) {
-
 	testRef, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte{1}, 32), refs.RefAlgoFeedSSB1)
 	if err != nil {
 		t.Fatal(err)

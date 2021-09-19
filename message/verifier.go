@@ -30,10 +30,12 @@ func NewVerificationRouter(rxlog margaret.Log, feeds multilog.MultiLog, hmacSec 
 	}, nil
 }
 
+// MargaretSaver implements Save() for a margaret.Log
 type MargaretSaver struct {
 	margaret.Log
 }
 
+// Save implements the Saver interface
 func (ms MargaretSaver) Save(msg refs.Message) error {
 	_, err := ms.Log.Append(msg)
 	return err
@@ -82,6 +84,7 @@ func (vs *VerificationRouter) GetSink(ref refs.FeedRef, complete bool) (Sequence
 	return snk, nil
 }
 
+// CloseSink removes the verification sink for that feed from the router
 func (vs *VerificationRouter) CloseSink(ref refs.FeedRef) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()

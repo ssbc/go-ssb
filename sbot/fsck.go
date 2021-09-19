@@ -41,6 +41,7 @@ const (
 	// FSCKModeVerify
 )
 
+// ErrConsistencyProblems are returned if there are inconsistenceis found in the receive log
 type ErrConsistencyProblems struct {
 	Errors    []ssb.ErrWrongSequence
 	Sequences *roaring.Bitmap
@@ -64,8 +65,10 @@ type fsckOpt struct {
 	progressFn FSCKUpdateFunc
 }
 
+// FSCKOption can be used to tune the check procedure
 type FSCKOption func(*fsckOpt) error
 
+// FSCKWithFeedIndex supplies a multilog index
 func FSCKWithFeedIndex(idx multilog.MultiLog) FSCKOption {
 	return func(o *fsckOpt) error {
 		o.feedsIdx = idx
@@ -73,6 +76,7 @@ func FSCKWithFeedIndex(idx multilog.MultiLog) FSCKOption {
 	}
 }
 
+// FSCKWithMode changes the FSCKMode
 func FSCKWithMode(m FSCKMode) FSCKOption {
 	return func(o *fsckOpt) error {
 		if m != FSCKModeLength && m != FSCKModeSequences {
@@ -84,6 +88,7 @@ func FSCKWithMode(m FSCKMode) FSCKOption {
 	}
 }
 
+// FSCKWithProgress sets the FSCKUpdateFunc that should be called for tracking the progress
 func FSCKWithProgress(fn FSCKUpdateFunc) FSCKOption {
 	return func(o *fsckOpt) error {
 		if fn == nil {

@@ -161,17 +161,17 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	var args []string
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
-		return nil, fmt.Errorf("ctrl.connect call: invalid arguments: %w", err)
+		return nil, fmt.Errorf("conn.connect call: invalid arguments: %w", err)
 	}
 	if len(args) != 1 {
 		h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
-		return nil, errors.New("usage: ctrl.connect host:port:key")
+		return nil, errors.New("usage: conn.connect host:port:key")
 	}
 	dest := args[0]
 
 	msaddr, err := multiserver.ParseNetAddress([]byte(dest))
 	if err != nil {
-		return nil, fmt.Errorf("ctrl.connect call: failed to parse input %q: %w", dest, err)
+		return nil, fmt.Errorf("conn.connect call: failed to parse input %q: %w", dest, err)
 	}
 
 	wrappedAddr := netwrap.WrapAddr(&msaddr.Addr, secretstream.Addr{PubKey: msaddr.Ref.PubKey()})
@@ -188,17 +188,17 @@ func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interfa
 	var args []string
 	err := json.Unmarshal(req.RawArgs, &args)
 	if err != nil {
-		return nil, fmt.Errorf("ctrl.dialViaRoom: invalid arguments: %w", err)
+		return nil, fmt.Errorf("conn.dialViaRoom: invalid arguments: %w", err)
 	}
 	if len(args) != 1 {
 		h.info.Log("error", "usage", "args", req.Args, "method", req.Method)
-		return nil, errors.New("usage: ctrl.dialViaRoom tunnel:@roomID.ed25519:@target.ed25519~target")
+		return nil, errors.New("usage: conn.dialViaRoom tunnel:@roomID.ed25519:@target.ed25519~target")
 	}
 	dest := args[0]
 
 	tunAddr, err := multiserver.ParseTunnelAddress(dest)
 	if err != nil {
-		return nil, fmt.Errorf("ctrl.dialViaRoom: failed to parse input %q: %w", dest, err)
+		return nil, fmt.Errorf("conn.dialViaRoom: failed to parse input %q: %w", dest, err)
 	}
 
 	err = h.node.DialViaRoom(tunAddr.Intermediary, tunAddr.Target)

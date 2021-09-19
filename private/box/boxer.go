@@ -19,6 +19,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/extra25519"
 )
 
+// ErrPrivateMessageDecryptFailed is returned when decryption didn't succeed
 var ErrPrivateMessageDecryptFailed = fmt.Errorf("decode pm: decryption failed")
 
 const (
@@ -26,6 +27,8 @@ const (
 	rcptSboxSize = 32 + 1 + secretbox.Overhead // secretbox secret + rcptCount + overhead
 )
 
+// NewBoxer returns a boxer using the passed reader as it's source for randomness.
+// This should be nil (which defaults to crypto/read.Reader) unless in testing.
 func NewBoxer(r io.Reader) *Boxer {
 	if r == nil {
 		r = rand.Reader
@@ -33,10 +36,13 @@ func NewBoxer(r io.Reader) *Boxer {
 	return &Boxer{rand: r}
 }
 
+// Boxer has methods to unbox(decrypt) and box(encrypt) messages.
+// The exact scheme is detailed in https://ssbc.github.io/scuttlebutt-protocol-guide/#private-messages.
 type Boxer struct {
 	rand io.Reader
 }
 
+// Encrypt takes a message in cleartext and a list of recipients and returns an encrypted message together with the boxed keys for the recipients.
 func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...refs.FeedRef) ([]byte, error) {
 	n := len(rcpts)
 	if n <= 0 || n > maxRecps {
@@ -91,6 +97,7 @@ func (bxr *Boxer) Encrypt(clearMsg []byte, rcpts ...refs.FeedRef) ([]byte, error
 	return cipheredMsg.Bytes(), nil
 }
 
+// Decrypt tries to decrypt the passed message with the passed recipient key.
 func (bxr *Boxer) Decrypt(recpt ssb.KeyPair, rawMsg []byte) ([]byte, error) {
 	if len(rawMsg) < 122 {
 		return nil, fmt.Errorf("decode pm: sorry message seems short?")

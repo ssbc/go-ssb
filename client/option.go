@@ -12,8 +12,11 @@ import (
 	"go.mindeco.de/log"
 )
 
+// Option allows to tune certain aspects of a client
 type Option func(*Client) error
 
+// WithContext sets a specific context (for cancellation and timeouts).
+// Otherwise context.Background() is used.
 func WithContext(ctx context.Context) Option {
 	return func(c *Client) error {
 		c.rootCtx = ctx
@@ -21,6 +24,8 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
+// WithLogger sets a different logger.
+// By default the level.Info filter is applied.
 func WithLogger(l log.Logger) Option {
 	return func(c *Client) error {
 		c.logger = l
@@ -28,6 +33,7 @@ func WithLogger(l log.Logger) Option {
 	}
 }
 
+// WithSHSAppKey changes the netcap/application key for secret-handshake
 func WithSHSAppKey(appKey string) Option {
 	return func(c *Client) error {
 		var err error

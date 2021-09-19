@@ -19,6 +19,7 @@ import (
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
+// Some constants for box2
 const (
 	KeySize = 256 / 8
 
@@ -30,21 +31,13 @@ var (
 	zeroKey [KeySize]byte
 )
 
-type Message struct {
-	Raw []byte
-
-	HeaderBox   []byte
-	AfterHeader []byte
-
-	OffBody  int
-	RawSlots []byte
-	BodyBox  []byte
-}
-
+// NewBoxer returns a boxer using the passed reader as it's source for randomness.
+// This should be nil (which defaults to crypto/read.Reader) unless in testing.
 func NewBoxer(rand io.Reader) *Boxer {
 	return &Boxer{rand: rand}
 }
 
+// Boxer has methods to unbox(decrypt) and box(encrypt) messages.
 type Boxer struct {
 	rand io.Reader
 }
@@ -108,7 +101,7 @@ func (bxr *Boxer) Encrypt(plain []byte, author refs.FeedRef, prev refs.MessageRe
 		slotKey   [KeySize]byte
 
 		// header length + len(rceps) * slot length
-		bodyOff uint16 = 32 + uint16(len(recpts))*32
+		bodyOff = 32 + uint16(len(recpts))*32
 
 		// header plaintext
 		headerPlain [16]byte
@@ -193,6 +186,7 @@ func deriveMessageKey(author refs.FeedRef, prev refs.MessageRef, candidates []ke
 	return slotKeys, info, nil
 }
 
+// GetReadKey is a utility function to just extract the readKey for a message
 func (bxr *Boxer) GetReadKey(ctxt []byte, author refs.FeedRef, prev refs.MessageRef, candidates []keys.Recipient) ([]byte, error) {
 	_, readKey, _, err := bxr.getReadKey(ctxt, author, prev, candidates)
 	if err != nil {
@@ -286,16 +280,20 @@ func (bxr *Boxer) Decrypt(ctxt []byte, author refs.FeedRef, prev refs.MessageRef
 	return plain, nil
 }
 
-// utils
-// func (mgr *Manager)
+var (
+	box2Suffix = []byte(".box2\"")
 
-var box2Suffix = []byte(".box2\"")
+	// ErrNotBox2 is returned if a message has the wrong suffix
+	ErrNotBox2 = fmt.Errorf("box2: message does not have .box2 suffix")
+)
 
+// GetCiphertextFromMessage checks if the message is in box2 format and if it is, decodes the base64 data,
+// returning the boxed/encrypted ciphertext as raw bytes.
 func GetCiphertextFromMessage(m refs.Message) ([]byte, error) {
 	content := m.ContentBytes()
 
 	if !bytes.HasSuffix(content, box2Suffix) {
-		return nil, fmt.Errorf("message does not have .box2 suffix")
+		return nil, ErrNotBox2
 	}
 
 	n := base64.StdEncoding.DecodedLen(len(content))

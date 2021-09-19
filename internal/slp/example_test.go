@@ -14,7 +14,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/slp"
 )
 
-func ExampleEncodeStruct() {
+func ExampleEncode() {
 
 	d := hex.Dumper(os.Stdout)
 	buf := new(bytes.Buffer)

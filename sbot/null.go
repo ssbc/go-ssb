@@ -79,7 +79,7 @@ func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	return nil
 }
 
-// Drop indicies deletes the following folders of the indexes.
+// DropIndicies deletes the following folders of the indexes.
 // TODO: check that sbot isn't running?
 func DropIndicies(r repo.Interface) error {
 
@@ -87,7 +87,6 @@ func DropIndicies(r repo.Interface) error {
 	var mlogs = []string{
 		multilogs.IndexNameFeeds,
 		// multilogs.IndexNameTypes,
-		multilogs.IndexNamePrivates,
 	}
 	for _, i := range mlogs {
 		dbPath := r.GetPath(repo.PrefixMultiLog, i)
@@ -113,6 +112,8 @@ func DropIndicies(r repo.Interface) error {
 	return nil
 }
 
+// RebuildIndicies creates a default bot that just goes through default (re)indexing.
+// This can potentially take quite while.
 func RebuildIndicies(path string) error {
 	fi, err := os.Stat(path)
 	if err != nil {

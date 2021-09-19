@@ -37,32 +37,12 @@ type MetaFeeds interface {
 	GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error)
 }
 
+// SubfeedListEntry is returned by MetaFeeds.ListSubFeeds
 type SubfeedListEntry struct {
 	Feed refs.FeedRef
-	Seq  int64
-}
 
-type MetadataQuery struct {
-	Private bool         `json:"private"`
-	Author  refs.FeedRef `json:"author"`
-	Type    string       `json:"type"`
-}
-
-type IndexedMessage struct {
-	Type    string `json:"type"`
-	Indexed struct {
-		Sequence int64           `json:"sequence"`
-		Key      refs.MessageRef `json:"key"`
-	} `json:"indexed"`
-}
-
-type IndexListEntry struct {
-	Metadata MetadataQuery // the metadata (author of the indexed messages, the message types indexed by this index)
-	Index    refs.FeedRef  // the id of the index
-}
-
-func (entry SubfeedListEntry) String() string {
-	return fmt.Sprintf("%s (%d)", entry.Feed.ShortSigil(), entry.Seq)
+	// Seq specifies the sequence numbner on the corresponding metafeed where the subeed was announced
+	Seq int64
 }
 
 // IndexFeedManager allows setting up index feeds
@@ -77,4 +57,30 @@ type IndexFeedManager interface {
 
 	List() ([]IndexListEntry, error)
 	ListByType(msgtype string) ([]IndexListEntry, error)
+}
+
+// MetadataQuery is the metadata that get's added to the creation of an indexfeed
+type MetadataQuery struct {
+	Private bool         `json:"private"`
+	Author  refs.FeedRef `json:"author"`
+	Type    string       `json:"type"`
+}
+
+// IndexedMessage represents the message type that is published on a indexfeed
+type IndexedMessage struct {
+	Type    string `json:"type"`
+	Indexed struct {
+		Sequence int64           `json:"sequence"`
+		Key      refs.MessageRef `json:"key"`
+	} `json:"indexed"`
+}
+
+// IndexListEntry is returned by IndexFeedManager.List()
+type IndexListEntry struct {
+	Metadata MetadataQuery // the metadata (author of the indexed messages, the message types indexed by this index)
+	Index    refs.FeedRef  // the id of the index
+}
+
+func (entry SubfeedListEntry) String() string {
+	return fmt.Sprintf("%s (%d)", entry.Feed.ShortSigil(), entry.Seq)
 }

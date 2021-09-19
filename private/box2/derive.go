@@ -33,6 +33,7 @@ import (
 		  +-> (TODO: Ratcheting, ...)
 */
 
+// DeriveTo uses hkdf with some key and info data to derive a key for encryption.
 func DeriveTo(out, key []byte, infos ...[]byte) error {
 	if n := len(out); n != 32 {
 		return fmt.Errorf("box2: expected 32b as output argument, got %d", n)

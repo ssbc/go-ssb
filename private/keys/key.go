@@ -6,23 +6,25 @@ package keys
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/crypto/hkdf"
 )
 
+// Info is generic information to be held by the key store
 type Info []byte
 
+// Len returns the length of the info, in bytes when encoded with SLP.
 func (info Info) Len() int {
 	return 2 + len(info)
 }
 
+// Infos is a slice of multiple info items
 type Infos []Info
 
+// Len sums up the Len()s of all the infos in the slice
 func (is Infos) Len() int {
 	var l int
 
@@ -33,7 +35,14 @@ func (is Infos) Len() int {
 	return l
 }
 
-func (is Infos) Encode(out []byte) int {
+// TODO: i'm having a feeling this is some SLP pre-cursor code that could be updated by using internal/slp
+
+// Encode writes the slice of infos as one contigous slice of memory
+func (is Infos) Encode(out []byte) (int, error) {
+	if is.Len() < len(out) {
+		return -1, fmt.Errorf("keys: infos/Encode output too small")
+	}
+
 	var used int
 
 	for _, info := range is {
@@ -42,20 +51,25 @@ func (is Infos) Encode(out []byte) int {
 		used += copy(out[used:], info)
 	}
 
-	return used
+	return used, nil
 }
 
-// should be either or but differently typed enums are hard in go :-/
+// Metadata stores optional metadata for a key
 type Metadata struct {
 	GroupRoot *refs.MessageRef
 	ForFeed   *refs.FeedRef
+
+	// should be either or but differently typed enums/unions are hard in go :-/
 }
 
-// Recipient combines key data with a scheme
+// Recipient combines key data with a scheme and some metadata.
 type Recipient struct {
+
+	// Key is the actual signature or encryption key.
 	Key Key
 
-	Scheme KeyScheme // (shared secret, diffie, etc)
+	// Scheme tells us what it should be used for (shared secret, diffie, etc.)
+	Scheme KeyScheme
 
 	Metadata Metadata
 }
@@ -77,13 +91,15 @@ func (k Key) Derive(buf []byte, infos Infos, outLen int) (Key, error) {
 	_, out, buf := alloc(buf, outLen)
 
 	// encode info and slice out the written bytes
-	l := infos.Encode(buf)
+	l, err := infos.Encode(buf)
+	if err != nil {
+		return nil, err
+	}
 	_, infoBs, buf := alloc(buf, l)
 
 	// initialize and perform key derivation
 	r := hkdf.New(sha256.New, []byte(k), nil, infoBs)
-	_, err := r.Read(out)
-	if err != nil {
+	if _, err = r.Read(out); err != nil {
 		return nil, fmt.Errorf("error deriving key: %w", err)
 	}
 
@@ -101,22 +117,4 @@ type Keys []Key
 func alloc(bs []byte, n int) (old, allocd, new []byte) {
 	old, allocd, new = bs, bs[:n], bs[n:]
 	return
-}
-
-type Base64String Key
-
-func (s *Base64String) UnmarshalJSON(data []byte) error {
-	var strdata string
-	err := json.Unmarshal(data, &strdata)
-	if err != nil {
-		return fmt.Errorf("Base64String: json decode of string failed: %w", err)
-	}
-	decoded := make([]byte, len(strdata)) // will be shorter
-	n, err := base64.StdEncoding.Decode(decoded, []byte(strdata))
-	if err != nil {
-		return fmt.Errorf("invalid base64 string: %w", err)
-	}
-
-	*s = decoded[:n]
-	return nil
 }

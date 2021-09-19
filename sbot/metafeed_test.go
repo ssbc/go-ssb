@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
@@ -29,7 +31,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestMigrateFromMetaFeed(t *testing.T) {
+func TestMigrateFromMetafeed(t *testing.T) {
 	// create a repo with a ssb v1 keypair
 
 	// create a bunch of messages with types contact and post
@@ -44,6 +46,7 @@ func TestMigrateFromMetaFeed(t *testing.T) {
 }
 
 func TestMetafeedManagment(t *testing.T) {
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	tRepoPath := filepath.Join("testrun", t.Name())
@@ -138,6 +141,12 @@ func TestMetafeedManagment(t *testing.T) {
 }
 
 func TestMetafeedSync(t *testing.T) {
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
+
+	// defer leakcheck.Check(t)
 	r := require.New(t)
 
 	// use hmac key
@@ -163,7 +172,11 @@ func TestMetafeedSync(t *testing.T) {
 		WithHMACSigning(hkSecret[:]),
 		WithWebsocketAddress("localhost:12345"),
 		WithMetaFeedMode(true),
-		DisableEBT(true), // TODO: have different formats in ebt
+		DisableEBT(false), // TODO: have different formats in ebt
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			dumpPath := filepath.Join(tRepoPath, "muxdump")
+			return debug.WrapDump(dumpPath, conn)
+		}),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(multiBot))
@@ -204,15 +217,18 @@ func TestMetafeedSync(t *testing.T) {
 		WithKeyPair(rxBotKeypair),
 		WithMetaFeedMode(true),
 
-		DisableEBT(true), // TODO: have different formats in ebt
+		DisableEBT(false), // TODO: have different formats in ebt
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(receiveBot))
 
 	// replicate between the two
-	_, err = multiBot.MetaFeeds.Publish(subfeedClassic, refs.NewContactFollow(receiveBot.KeyPair.ID()))
+	classicFollowsRx := refs.NewContactFollow(receiveBot.KeyPair.ID())
+	_, err = multiBot.MetaFeeds.Publish(subfeedClassic, classicFollowsRx)
 	r.NoError(err)
-	_, err = receiveBot.PublishLog.Publish(refs.NewContactFollow(multiBot.KeyPair.ID()))
+
+	rxFollowsMulti := refs.NewContactFollow(multiBot.KeyPair.ID())
+	_, err = receiveBot.PublishLog.Publish(rxFollowsMulti)
 	r.NoError(err)
 
 	time.Sleep(4 * time.Second) // graph update delay
@@ -286,10 +302,10 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	)
 	r.NoError(err)
 	// </boilerplate>
-	mfId := bot.KeyPair.ID()
+	mfID := bot.KeyPair.ID()
 
 	// create an `indexes` subfeed, which is a metafeed, on the "root" metafeed
-	indexesFeed, err := bot.MetaFeeds.CreateSubFeed(mfId, "indexes", refs.RefAlgoFeedBendyButt)
+	indexesFeed, err := bot.MetaFeeds.CreateSubFeed(mfID, "indexes", refs.RefAlgoFeedBendyButt)
 	r.NoError(err)
 
 	// now create two index feeds on the just created subfeed for indexes
@@ -301,7 +317,7 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 
 	/* first up: let's check that we can list them */
 	// check that the root mf only has one feed (i.e. idxSubFeed)
-	lst, err := bot.MetaFeeds.ListSubFeeds(mfId)
+	lst, err := bot.MetaFeeds.ListSubFeeds(mfID)
 	r.NoError(err)
 	r.Len(lst, 1, "the root mf has more than one subfeed")
 	r.True(lst[0].Feed.Equal(indexesFeed))
@@ -332,11 +348,11 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 	r.NoError(err)
 
 	// try to tombstone on the wrong mount
-	err = bot.MetaFeeds.TombstoneSubFeed(mfId, idx1)
+	err = bot.MetaFeeds.TombstoneSubFeed(mfID, idx1)
 	r.Error(err)
 
 	// listings stay the same
-	lst, err = bot.MetaFeeds.ListSubFeeds(mfId)
+	lst, err = bot.MetaFeeds.ListSubFeeds(mfID)
 	r.NoError(err)
 	r.Len(lst, 1, "the root mf has more than one subfeed after faulty tombstone")
 
@@ -427,34 +443,33 @@ func TestMetafeedIndexes(t *testing.T) {
 
 	var getFeed = createGetFeed(bot)
 
-
-	mfId := bot.KeyPair.ID()
+	mfID := bot.KeyPair.ID()
 
 	// listing on an empty meta feed should work
 	_, err = bot.MetaFeeds.ListSubFeeds(mfID)
 	r.NoError(err)
 
 	// create a main feed (holds actual messages, regular old ssb feed thinger) on the root metafeed
-	mainFeedRef, err := bot.MetaFeeds.CreateSubFeed(mfId, "main", refs.RefAlgoFeedSSB1)
+	mainFeedRef, err := bot.MetaFeeds.CreateSubFeed(mfID, "main", refs.RefAlgoFeedSSB1)
 	r.NoError(err, "main feed create failed")
 
 	// register an index for about messages
-	err = bot.MetaFeeds.RegisterIndex(mfId, mainFeedRef, "about")
+	err = bot.MetaFeeds.RegisterIndex(mfID, mainFeedRef, "about")
 	r.NoError(err)
 
 	// register an index for contact (follow) messages
-	err = bot.MetaFeeds.RegisterIndex(mfId, mainFeedRef, "contact")
+	err = bot.MetaFeeds.RegisterIndex(mfID, mainFeedRef, "contact")
 	r.NoError(err)
 
 	// get the actual index feeds so we can assert on them
-	aboutIndexId, err := bot.MetaFeeds.GetOrCreateIndex(mfId, mainFeedRef, "index", "about")
+	aboutIndexID, err := bot.MetaFeeds.GetOrCreateIndex(mfID, mainFeedRef, "index", "about")
 	r.NoError(err)
-	aboutIndex := getFeed(aboutIndexId)
+	aboutIndex := getFeed(aboutIndexID)
 	checkSeq(aboutIndex, int(margaret.SeqEmpty))
 
-	contactIndexId, err := bot.MetaFeeds.GetOrCreateIndex(mfId, mainFeedRef, "index", "contact")
+	contactIndexID, err := bot.MetaFeeds.GetOrCreateIndex(mfID, mainFeedRef, "index", "contact")
 	r.NoError(err)
-	contactIndex := getFeed(contactIndexId)
+	contactIndex := getFeed(contactIndexID)
 	checkSeq(contactIndex, int(margaret.SeqEmpty))
 
 	/* publish an about to the main feed */
@@ -490,7 +505,7 @@ func TestMetafeedIndexes(t *testing.T) {
 	r.Len(indexlist, 2, "expected number of registered indexes to be 2")
 
 	/* tombstone the about index, and verify that the index is not being updated */
-	err = bot.MetaFeeds.TombstoneIndex(mfId, mainFeedRef, "about")
+	err = bot.MetaFeeds.TombstoneIndex(mfID, mainFeedRef, "about")
 	r.NoError(err)
 	// publish another about to the main feed
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewAboutName(mainFeedRef, "name that will not be named"))
@@ -531,13 +546,13 @@ func TestMetafeedIndexes(t *testing.T) {
 	getMsg := fetchMessageBySeq(bot2)
 
 	// re-get the contact index feed so we can assert on it
-	contactIndexIdReloaded, err := bot2.MetaFeeds.GetOrCreateIndex(mfId, mainFeedRef, "index", "contact")
+	contactIndexIDReloaded, err := bot2.MetaFeeds.GetOrCreateIndex(mfID, mainFeedRef, "index", "contact")
 	r.NoError(err, "failed to get index feed of restarted bot")
 
-	r.Equal(contactIndexId.String(), contactIndexIdReloaded.String(), "the two contact indexes should have the same id, but don't")
+	r.Equal(contactIndexID.String(), contactIndexIDReloaded.String(), "the two contact indexes should have the same id, but don't")
 
 	// contact index should start with one message
-	contactIndex = getFeed(contactIndexId)
+	contactIndex = getFeed(contactIndexID)
 
 	// contact index should now have two messages
 	contactIdxMsg := getMsg(contactIndex, 0)
