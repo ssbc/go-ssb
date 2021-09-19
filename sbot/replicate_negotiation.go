@@ -51,7 +51,6 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	remote, err := ssb.GetFeedRefFromAddr(remoteAddr)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	var (
@@ -92,8 +91,6 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	if !muxrpc.HasMethod(e, replicateFormat) {
 		return
 	}
-
-	level.Debug(rn.logger).Log("event", "triggering ebt.replicateFormat", "r", remote.ShortSigil())
 
 	// start one session per format, if they support that
 	formats := []refs.RefAlgo{

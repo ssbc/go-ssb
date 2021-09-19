@@ -257,27 +257,44 @@ func (mgr *Manager) DecryptBox2(ctxt []byte, author refs.FeedRef, prev refs.Mess
 	return plain, err
 }
 
-var ErrNotBoxed = fmt.Errorf("private: not a boxed message")
+var (
+	// ErrNotBoxed is returned if a message is neither box1 nor box2
+	ErrNotBoxed = fmt.Errorf("private: not a boxed message")
 
+	// ErrNotBox1 if a message is not in the box1 format
+	ErrNotBox1 = fmt.Errorf("private: not a box1 message")
+)
+
+// DecryptMessage tries to decrypt the passed message with the available keys.
 func (mgr *Manager) DecryptMessage(m refs.Message) ([]byte, error) {
-
-	if ctxt, err := mgr.DecryptBox2Message(m); err == nil {
+	ctxt, err := mgr.DecryptBox2Message(m)
+	if err == nil {
 		return ctxt, nil
 	}
 
-	if ctxt, err := mgr.DecryptBox1Message(m); err == nil {
+	if err != ErrNotBox1 {
+		return nil, err
+	}
+
+	ctxt, err = mgr.DecryptBox1Message(m)
+	if err == nil {
 		return ctxt, nil
 	}
 
-	return nil, ErrNotBoxed
+	if err == box2.ErrNotBox2 {
+		return nil, ErrNotBoxed
+	}
+
+	return nil, err
 }
 
+// DecryptBox1Message tries to unbox the message using the box1 scheme
 func (mgr *Manager) DecryptBox1Message(m refs.Message) ([]byte, error) {
 	ciphtext := m.ContentBytes()
 
 	box1Suffix := []byte(".box\"")
 	if !bytes.HasSuffix(ciphtext, box1Suffix) {
-		return nil, fmt.Errorf("private: not a box1 message")
+		return nil, ErrNotBox1
 	}
 
 	b64data := bytes.TrimSuffix(ciphtext[1:], []byte(".box\""))
@@ -290,6 +307,7 @@ func (mgr *Manager) DecryptBox1Message(m refs.Message) ([]byte, error) {
 	return mgr.DecryptBox1(boxedData[:n])
 }
 
+// DecryptBox2Message tries to unbox the message using the box2 scheme
 func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
 	ctxt, err := box2.GetCiphertextFromMessage(m)
 	if err != nil {
@@ -299,6 +317,7 @@ func (mgr *Manager) DecryptBox2Message(m refs.Message) ([]byte, error) {
 	return mgr.DecryptBox2(ctxt, m.Author(), *m.Previous())
 }
 
+// WrappedUnboxingSink unboxes a message if it can otherwise it is returned as is
 func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 	return mfr.SinkMap(snk, func(_ context.Context, v interface{}) (interface{}, error) {
 		msg, ok := v.(refs.Message)
@@ -309,6 +328,7 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 		cleartxt, err := mgr.DecryptMessage(msg)
 		if err != nil {
 			if err == ErrNotBoxed {
+				// TODO: add meta.private:false
 				return v, nil
 			}
 			return nil, fmt.Errorf("unboxing failed: %w", err)

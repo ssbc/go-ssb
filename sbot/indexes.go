@@ -23,6 +23,7 @@ import (
 	"go.mindeco.de/log/level"
 )
 
+// MountPlugin mounts a muxrpc handler plugin onto a new bot
 func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 	return func(s *Sbot) error {
 		if wrl, ok := plug.(plugins2.NeedsRootLog); ok {
@@ -36,15 +37,15 @@ func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 			}
 		}
 
-		if slm, ok := plug.(repo.SimpleIndexMaker); ok {
-			err := MountSimpleIndex(plug.Name(), slm.MakeSimpleIndex)(s)
+		if slm, ok := plug.(repo.KeyValueIndexMaker); ok {
+			err := MountSimpleIndex(plug.Name(), slm.MakeKeyValueIndex)(s)
 			if err != nil {
 				return fmt.Errorf("sbot/mount plug failed to make simple index: %w", err)
 			}
 		}
 
 		if mlm, ok := plug.(repo.MultiLogMaker); ok {
-			err := MountMultiLog(plug.Name(), mlm.MakeMultiLog)(s)
+			err := MountMultiLog(plug.Name(), mlm.MakeMultiLogIndex)(s)
 			if err != nil {
 				return fmt.Errorf("sbot/mount plug failed to make multilog: %w", err)
 			}
@@ -63,7 +64,8 @@ func MountPlugin(plug ssb.Plugin, mode plugins2.AuthMode) Option {
 	}
 }
 
-func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
+// MountMultiLog mounts a multilog index onto the bot
+func MountMultiLog(name string, fn repo.MakeMultiLogIndex) Option {
 	return func(s *Sbot) error {
 		mlog, updateSink, err := fn(s.indexStore)
 		if err != nil {
@@ -77,7 +79,23 @@ func MountMultiLog(name string, fn repo.MakeMultiLog) Option {
 	}
 }
 
-func MountSimpleIndex(name string, fn repo.MakeSimpleIndex) Option {
+// GetIndexNamesMultiLog returns all the names of registerd multilogs
+func (s *Sbot) GetIndexNamesMultiLog() []string {
+	var mlogs []string
+	for name := range s.mlogIndicies {
+		mlogs = append(mlogs, name)
+	}
+	return mlogs
+}
+
+// GetMultiLog returns the named multilog index that was mounted via MountMultiLog()
+func (s *Sbot) GetMultiLog(name string) (multilog.MultiLog, bool) {
+	ml, has := s.mlogIndicies[name]
+	return ml, has
+}
+
+// MountSimpleIndex mounts a simple key-value store index onto the bot
+func MountSimpleIndex(name string, fn repo.MakeKeyValueIndex) Option {
 	return func(s *Sbot) error {
 		idx, updateSink, err := fn(s.indexStore)
 		if err != nil {
@@ -90,16 +108,7 @@ func MountSimpleIndex(name string, fn repo.MakeSimpleIndex) Option {
 	}
 }
 
-func (s *Sbot) GetSimpleIndex(name string) (librarian.Index, bool) {
-	si, has := s.simpleIndex[name]
-	return si, has
-}
-
-func (s *Sbot) GetMultiLog(name string) (multilog.MultiLog, bool) {
-	ml, has := s.mlogIndicies[name]
-	return ml, has
-}
-
+// GetIndexNamesSimple returns all the names of registerd simple indexes
 func (s *Sbot) GetIndexNamesSimple() []string {
 	var simple []string
 	for name := range s.simpleIndex {
@@ -108,12 +117,10 @@ func (s *Sbot) GetIndexNamesSimple() []string {
 	return simple
 }
 
-func (s *Sbot) GetIndexNamesMultiLog() []string {
-	var mlogs []string
-	for name := range s.mlogIndicies {
-		mlogs = append(mlogs, name)
-	}
-	return mlogs
+// GetSimpleIndex returns the named k-v index that was mounted via MountSimpleIndex()
+func (s *Sbot) GetSimpleIndex(name string) (librarian.Index, bool) {
+	si, has := s.simpleIndex[name]
+	return si, has
 }
 
 var _ ssb.Indexer = (*Sbot)(nil)
@@ -240,21 +247,23 @@ func (p *progressSink) Err() error {
 	return p.erred
 }
 
-func (ps *progressSink) Pour(ctx context.Context, v interface{}) error {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-	if ps.erred != nil {
-		return ps.erred
+func (p *progressSink) Pour(ctx context.Context, v interface{}) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.erred != nil {
+		return p.erred
 	}
 
-	err := ps.backing.Pour(ctx, v)
+	err := p.backing.Pour(ctx, v)
 	if err != nil {
-		ps.erred = err
+		p.erred = err
 		return err
 	}
 
-	ps.n++
+	p.n++
 	return nil
 }
 
-func (ps progressSink) Close() error { return nil }
+func (p *progressSink) Close() error { return nil }
+
+// func (p *progressSink) Close() error { return p.backing.Close() }

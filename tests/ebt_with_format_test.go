@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2021 The Go-SSB Authors
+//
+// SPDX-License-Identifier: CC0-1.0
+
 package tests
 
 import (
@@ -5,13 +9,11 @@ import (
 	"encoding/json"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/v2/debug"
 	"go.cryptoscope.co/netwrap"
 	"go.cryptoscope.co/secretstream"
 	"go.cryptoscope.co/ssb/internal/mutil"
@@ -35,15 +37,13 @@ func TestEBTWithFormat(t *testing.T) {
 	r := require.New(t)
 
 	ts := newSession(t, nil, nil)
+	// TODO: fix hmac support in metafeeds to enable this
+	// ts:= newRandomSession(t)
 
 	ts.startGoBot(
 		sbot.WithMetaFeedMode(true),
 		sbot.DisableEBT(false),
-		sbot.WithPromisc(true),
-		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			dumpPath := filepath.Join(ts.repo, "muxdump")
-			return debug.WrapDump(dumpPath, conn)
-		}),
+		sbot.WithPromisc(true), // ??
 	)
 	sbot := ts.gobot
 
@@ -58,9 +58,11 @@ func TestEBTWithFormat(t *testing.T) {
 	pull(
 		source,
 		pull.drain((msg) => {
-			console.warn("JS received: " + msg.value.author + ":" + msg.value.sequence)
+			t.comment("metafeed msg: " + msg.value.author + ":" + msg.value.sequence)
 			if (msg.value.sequence === 2) {
 
+				// the subfeed was announced
+				// now stream its messages
 				const subfeedSrc = sbot.db.query(
 					where(author(msg.value.content.subfeed)),
 					live(true),
@@ -69,10 +71,10 @@ func TestEBTWithFormat(t *testing.T) {
 				pull(
 					subfeedSrc,
 					pull.drain((msg) => {
-						console.warn("JS received SUbfeed: " + msg.value.author + ":" + msg.value.sequence)
-						if (msg.value.sequence === 10) {
-							t.comment('Got all the messages. Shutting down in 10s')
-							setTimeout(exit, 1000)
+						t.comment("subfeed msg: " + msg.value.author + ":" + msg.value.sequence)
+						if (msg.value.sequence === 5) {
+							t.comment('Got all the messages. Shutting down in 5s')
+							setTimeout(exit, 5000)
 						}
 					}, console.warn)
 				)
@@ -104,8 +106,7 @@ func TestEBTWithFormat(t *testing.T) {
 			sbot.ebt.request(subfeed.keys.id, true)
 
 			sbot.db.publishAs(subfeed.keys, { type: 'test', yes: true }, console.warn)
-			
-			// TODO: metafeed/announce?!
+
 			sbot.db.publish({
 				type: 'subfeeds',
 				meta: metafeed.keys.id,
@@ -133,15 +134,17 @@ func TestEBTWithFormat(t *testing.T) {
 	})
 `, ``)
 
-	exGabby, err := sbot.MetaFeeds.CreateSubFeed("example-gabby", refs.RefAlgoFeedGabby)
+	exGabby, err := sbot.MetaFeeds.CreateSubFeed(sbot.KeyPair.ID(), "example-gabby", refs.RefAlgoFeedGabby)
 	r.NoError(err)
 
-	exClassic, err := sbot.MetaFeeds.CreateSubFeed("example-classic", refs.RefAlgoFeedSSB1)
+	exClassic, err := sbot.MetaFeeds.CreateSubFeed(sbot.KeyPair.ID(), "example-classic", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	for i := 0; i < 10; i++ {
-		sbot.MetaFeeds.Publish(exGabby, refs.NewPost(strconv.Itoa(i)))
-		sbot.MetaFeeds.Publish(exClassic, refs.NewPost(strconv.Itoa(i)))
+	for i := 0; i <= 5; i++ {
+		_, err = sbot.MetaFeeds.Publish(exGabby, refs.NewPost(strconv.Itoa(i)))
+		r.NoError(err)
+		_, err = sbot.MetaFeeds.Publish(exClassic, refs.NewPost(strconv.Itoa(i)))
+		r.NoError(err)
 	}
 
 	sbot.MetaFeeds.Publish(exClassic, refs.NewContactFollow(alice))

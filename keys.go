@@ -22,11 +22,13 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// KeyPair is the interface a keypair has to implement to work with go-ssb
 type KeyPair interface {
 	ID() refs.FeedRef
 	Secret() ed25519.PrivateKey
 }
 
+// EdKeyPair returns a secret-handshake keypair (utility function)
 func EdKeyPair(kp KeyPair) secrethandshake.EdKeyPair {
 	return secrethandshake.EdKeyPair{
 		Public: kp.ID().PubKey(),
@@ -34,15 +36,18 @@ func EdKeyPair(kp KeyPair) secrethandshake.EdKeyPair {
 	}
 }
 
+// LegacyKeyPair is a "classic" ed25519 ssb-v1 keypair
 type LegacyKeyPair struct {
 	Feed refs.FeedRef
 	Pair secrethandshake.EdKeyPair
 }
 
+// ID implements ssb.KeyPair
 func (lkp LegacyKeyPair) ID() refs.FeedRef {
 	return lkp.Feed
 }
 
+// Secret implements ssb.KeyPair
 func (lkp LegacyKeyPair) Secret() ed25519.PrivateKey {
 	return lkp.Pair.Secret
 }

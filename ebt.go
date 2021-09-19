@@ -141,7 +141,10 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 }
 
 // String serializes the frontier into a list of feed references and their length
-func (nf NetworkFrontier) String() string {
+func (nf *NetworkFrontier) String() string {
+	nf.Mutex.Lock()
+	defer nf.Mutex.Unlock()
+
 	var sb strings.Builder
 	sb.WriteString("## Network Frontier:\n")
 	for feed, seq := range nf.Frontier {

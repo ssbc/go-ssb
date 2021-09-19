@@ -7,7 +7,6 @@ package legacy
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
@@ -42,11 +41,11 @@ func TestStripSignature(t *testing.T) {
 	if n := len(matches); n != 2 {
 		t.Fatalf("expected 2 results, got %d", n)
 	}
-	if s := matches[1]; bytes.Compare(s, wantSig) != 0 {
+	if s := matches[1]; !bytes.Equal(s, wantSig) {
 		t.Errorf("unexpected submatch: %s", s)
 	}
 	out := signatureRegexp.ReplaceAll(input, []byte{})
-	if bytes.Compare(out, want) != 0 {
+	if !bytes.Equal(out, want) {
 		t.Errorf("got unexpected replace:\n%s", out)
 	}
 }
@@ -58,19 +57,20 @@ func TestUnicodeFind(t *testing.T) {
 	assert.Equal(t, want, out)
 }
 
-func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {
-	cmd := exec.Command("node", "-e", fmt.Sprintf(`console.log(new Buffer("%s", "%s"))`, input, encoding))
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatal(err)
-	}
+// see below
+// func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {
+// 	cmd := exec.Command("node", "-e", fmt.Sprintf(`console.log(new Buffer("%s", "%s"))`, input, encoding))
+// 	out, err := cmd.CombinedOutput()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	out = bytes.TrimPrefix(out, []byte("<Buffer "))
-	out = bytes.TrimSuffix(out, []byte(">\n"))
-	out = bytes.Replace(out, []byte(" "), []byte{}, -1)
-	t.Logf(" %s:\t%s", encoding, string(out))
-	return out
-}
+// 	out = bytes.TrimPrefix(out, []byte("<Buffer "))
+// 	out = bytes.TrimSuffix(out, []byte(">\n"))
+// 	out = bytes.Replace(out, []byte(" "), []byte{}, -1)
+// 	t.Logf(" %s:\t%s", encoding, string(out))
+// 	return out
+// }
 
 func TestInternalV8String(t *testing.T) {
 	r := require.New(t)

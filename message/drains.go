@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: MIT
 
-// Package message contains abstract verification and publish helpers.
 package message
 
 import (
@@ -21,20 +20,20 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// SequencedVerificationSink verifies messages and can tell the current sequence number of a feed
 type SequencedVerificationSink interface {
 	margaret.Seqer
 
 	Verify([]byte) error
 }
 
+// SaveMessager saves a message to some storage medium (like an offset file)
 type SaveMessager interface {
 	Save(refs.Message) error
 }
 
 // NewVerifySink returns a sink that does message verification and appends corret messages to the passed log.
 // it has to be used on a feed by feed bases, the feed format is decided by the passed feed reference.
-// TODO: start and abs could be the same parameter
-// TODO: needs configuration for hmac and what not..
 // => maybe construct those from a (global) ref register where all the suffixes live with their corresponding network configuration?
 func NewVerifySink(who refs.FeedRef, latest refs.Message, saver SaveMessager, hmacKey *[32]byte) (SequencedVerificationSink, error) {
 	drain := &generalVerifyDrain{
@@ -81,14 +80,14 @@ func (lv legacyVerify) Verify(rmsg []byte) (refs.Message, error) {
 		return nil, err
 	}
 	sm := &legacy.StoredMessage{
-		Key_:       storedrefs.SerialzedMessage{ref},
-		Author_:    storedrefs.SerialzedFeed{dmsg.Author},
+		Key_:       storedrefs.SerialzedMessage{MessageRef: ref},
+		Author_:    storedrefs.SerialzedFeed{FeedRef: dmsg.Author},
 		Sequence_:  int64(dmsg.Sequence),
 		Timestamp_: time.Now(),
 		Raw_:       rmsg,
 	}
 	if prev := dmsg.Previous; prev != nil {
-		sm.Previous_ = &storedrefs.SerialzedMessage{*prev}
+		sm.Previous_ = &storedrefs.SerialzedMessage{MessageRef: *prev}
 	}
 	return sm, nil
 }

@@ -33,8 +33,10 @@ type FilteredLog struct {
 	filter FilterFunc
 }
 
+// Seq implements the margaret.Log interface
 func (fl FilteredLog) Seq() int64 { return fl.backing.Seq() }
 
+// Changes implements the margaret.Log interface
 func (fl FilteredLog) Changes() luigi.Observable { return fl.backing.Changes() }
 
 // Get retrieves the message object by traversing the authors sublog to the root log
@@ -56,6 +58,7 @@ func (fl FilteredLog) Get(s int64) (interface{}, error) {
 	}
 }
 
+// Query implements the margaret.Log interface
 func (fl FilteredLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 	src, err := fl.backing.Query(qry...)
 	if err != nil {
@@ -84,6 +87,7 @@ func (fl FilteredLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 	return filterdSrc, nil
 }
 
+// Append implements the margaret.Log interface
 func (fl FilteredLog) Append(val interface{}) (int64, error) {
 	return -2, fmt.Errorf("FitleredLog is read-only")
 }

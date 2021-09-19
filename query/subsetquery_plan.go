@@ -16,10 +16,12 @@ import (
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 )
 
+// SubsetPlaner can do query planing for the GetSubset method
 type SubsetPlaner struct {
 	authors, bytype *roaring.MultiLog
 }
 
+// NewSubsetPlaner returns a new subset query planer, with two backing multilogs
 func NewSubsetPlaner(authors, bytype *roaring.MultiLog) *SubsetPlaner {
 	return &SubsetPlaner{
 		authors: authors,

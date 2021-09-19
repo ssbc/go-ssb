@@ -49,20 +49,20 @@ func (mgr *Manager) Create(name string) (refs.MessageRef, refs.MessageRef, error
 
 	jsonContent, err := json.Marshal(gi)
 	if err != nil {
-		return emptyMsgRef, emptyMsgRef, err
+		return emptyMsgRef, emptyMsgRef, fmt.Errorf("failed to create group/init message: %w", err)
 	}
 
 	// encrypt the group/init message
 	publicRoot, err := mgr.encryptAndPublish(jsonContent, keys.Recipients{groupKey})
 	if err != nil {
-		return emptyMsgRef, emptyMsgRef, err
+		return emptyMsgRef, emptyMsgRef, fmt.Errorf("failed to encrypt group/init message: %w", err)
 	}
 
 	groupKey.Metadata.GroupRoot = &publicRoot
 
 	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(groupKey)
 	if err != nil {
-		return emptyMsgRef, emptyMsgRef, err
+		return emptyMsgRef, emptyMsgRef, fmt.Errorf("failed to derive key for new group: %w", err)
 	}
 
 	return cloakedID, publicRoot, nil
@@ -127,9 +127,14 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, err
 	}
 
-	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
+	if k.Metadata.GroupRoot == nil {
+		return emptyMsgRef, fmt.Errorf("failed to encode new group root as tfk reference: %w", err)
+	}
+	groupRoot := *k.Metadata.GroupRoot
+
+	rootAsTFK, err := tfk.Encode(groupRoot)
 	if err != nil {
-		return emptyMsgRef, err
+		return emptyMsgRef, fmt.Errorf("failed to encode new group root as tfk reference: %w", err)
 	}
 
 	var cloakedID = make([]byte, 32)
@@ -140,23 +145,23 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 
 	err = mgr.keymgr.AddKey(sortAndConcat(mgr.author.ID().PubKey(), mgr.author.ID().PubKey()), k)
 	if err != nil {
-		return emptyMsgRef, err
+		return emptyMsgRef, fmt.Errorf("failed to add 1:1 key to the store: %w", err)
 	}
 
 	cloakedRef, err := refs.NewMessageRefFromBytes(cloakedID, refs.RefAlgoCloakedGroup)
 	if err != nil {
-		return emptyMsgRef, err
+		return emptyMsgRef, fmt.Errorf("failed to create reference for new group: %w", err)
 	}
 
 	// store group key as tfk from floakedRef
 	cloakedTfk, err := tfk.Encode(cloakedRef)
 	if err != nil {
-		return emptyMsgRef, err
+		return emptyMsgRef, fmt.Errorf("failed to encode reference for new group: %w", err)
 	}
 
 	err = mgr.keymgr.AddKey(cloakedTfk, k)
 	if err != nil {
-		return emptyMsgRef, err
+		return emptyMsgRef, fmt.Errorf("failed to add cloaked reference to the store: %w", err)
 	}
 
 	return cloakedRef, nil

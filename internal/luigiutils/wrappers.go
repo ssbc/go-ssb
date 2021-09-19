@@ -103,14 +103,16 @@ func NewBendyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 }
 
 // NewSinkCounter returns a new Sink which increases the given counter when poured to.
-// warning: also counts errored pour calls on the wrapped sink
 func NewSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 	return func(ctx context.Context, v interface{}, err error) error {
 		if err != nil {
 			return err
 		}
 
-		*counter++
-		return sink.Pour(ctx, v)
+		err = sink.Pour(ctx, v)
+		if err == nil {
+			*counter++
+		}
+		return err
 	}
 }

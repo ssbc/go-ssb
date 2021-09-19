@@ -82,6 +82,7 @@ func (s *Sbot) NullContent(fr refs.FeedRef, seq uint) error {
 	return nil
 }
 
+// FolderNameDelete is the namespace/location the drop-content index uses
 const FolderNameDelete = "drop-content-requests"
 
 type dropContentTrigger struct {
@@ -100,22 +101,22 @@ type triggerEvent struct {
 	dcr    ssb.DropContentRequest
 }
 
-func (cdr *dropContentTrigger) consume() {
-	evtLog := kitlog.With(cdr.logger, "event", "null content trigger")
-	for evt := range cdr.check {
+func (dct *dropContentTrigger) consume() {
+	evtLog := kitlog.With(dct.logger, "event", "null content trigger")
+	for evt := range dct.check {
 
-		feed, err := cdr.feeds.Get(storedrefs.Feed(evt.author))
+		feed, err := dct.feeds.Get(storedrefs.Feed(evt.author))
 		if err != nil {
 			level.Warn(evtLog).Log("msg", "no such feed?", "err", err)
 			continue
 		}
 
-		if !evt.dcr.Valid(mutil.Indirect(cdr.root, feed)) {
+		if !evt.dcr.Valid(mutil.Indirect(dct.root, feed)) {
 			level.Warn(evtLog).Log("msg", "invalid request")
 			continue
 		}
 
-		err = cdr.nuller.NullContent(evt.author, evt.dcr.Sequence)
+		err = dct.nuller.NullContent(evt.author, evt.dcr.Sequence)
 		if err != nil {
 			level.Error(evtLog).Log("err", err)
 			continue
@@ -125,18 +126,18 @@ func (cdr *dropContentTrigger) consume() {
 	}
 }
 
-func (dcr *dropContentTrigger) MakeSimpleIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex, error) {
+func (dct *dropContentTrigger) MakeSimpleIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex, error) {
 
 	// TODO: currently the locking of margaret/offset doesn't allow us to get previous messages while being in an index update
 	// this is realized as an luigi.Broadcast and the current bases of the index update mechanism
-	dcr.check = make(chan *triggerEvent, 10)
+	dct.check = make(chan *triggerEvent, 10)
 
-	idx, snk, err := repo.OpenIndex(db, FolderNameDelete, dcr.idxupdate)
+	idx, snk, err := repo.OpenIndex(db, FolderNameDelete, dct.idxupdate)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting dcr trigger index: %w", err)
 	}
-	go dcr.consume()
-	ws := &wrappedIndexSink{SinkIndex: snk, ch: dcr.check}
+	go dct.consume()
+	ws := &wrappedIndexSink{SinkIndex: snk, ch: dct.check}
 	return idx, ws, nil
 }
 
@@ -151,7 +152,7 @@ func (snk *wrappedIndexSink) Close() error {
 	return snk.SinkIndex.Close()
 }
 
-func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {
+func (dct *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian.SinkIndex {
 	return librarian.NewSinkIndex(func(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 		if nulled, ok := val.(error); ok {
 			if margaret.IsErrNulled(nulled) {
@@ -173,7 +174,7 @@ func (dcr *dropContentTrigger) idxupdate(idx librarian.SeqSetterIndex) librarian
 		var typed ssb.DropContentRequest
 		err := json.Unmarshal(msg.ContentBytes(), &typed)
 		if err == nil && typed.Type == ssb.DropContentRequestType {
-			dcr.check <- &triggerEvent{
+			dct.check <- &triggerEvent{
 				author: author,
 				dcr:    typed,
 			}

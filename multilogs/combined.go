@@ -33,6 +33,12 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// location for storing these indexes
+const (
+	IndexNamePrivates = "privates"
+	IndexNameFeeds    = "userFeeds"
+)
+
 // NewCombinedIndex creates one big index which updates the multilogs users, byType, private and tangles.
 // Compared to the "old" fatbot approach of just having 4 independant indexes,
 // this one updates all 4 of them, resulting in less read-overhead
@@ -82,6 +88,8 @@ func NewCombinedIndex(
 
 var _ indexes.SinkIndex = (*CombinedIndex)(nil)
 
+// CombinedIndex holds a bunch of common indexes in one, to reduce processing overhead and enable cooperation between them.
+// To index private message we need to decrypt them first, for instance. This overhead would otherwise be generated at each individual index that needs to do that.
 type CombinedIndex struct {
 	self  refs.FeedRef
 	boxer *private.Manager
@@ -336,6 +344,7 @@ func (idx *CombinedIndex) update(rxSeq int64, msg refs.Message) error {
 	return nil
 }
 
+// Close closes the backing file for this index
 func (idx *CombinedIndex) Close() error {
 	return idx.file.Close()
 }
@@ -466,7 +475,7 @@ func getBoxedContent(msg refs.Message) ([]byte, []byte, error) {
 			boxedData := make([]byte, base64.StdEncoding.DecodedLen(len(input)-7))
 			n, err := base64.StdEncoding.Decode(boxedData, b64data)
 			if err != nil {
-				err = fmt.Errorf("combined/private: invalid b64 encoding: %w", err)
+				// err = fmt.Errorf("combined/private: invalid b64 encoding: %w", err)
 				//level.Debug(pr.logger).Log("msg", "unboxLog b64 decode failed", "err", err)
 				return nil, nil, errSkipBox1
 			}

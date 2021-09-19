@@ -10,13 +10,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/luigi"
+	"go.cryptoscope.co/muxrpc/v2/debug"
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/blobstore"
@@ -55,7 +59,6 @@ func TestBlobToJS(t *testing.T) {
 	ts.wait()
 
 	// TODO: check wantManager for this connection is stopped when the jsbot exited
-
 }
 
 func TestBlobFromJS(t *testing.T) {
@@ -126,6 +129,9 @@ func TestBlobFromJS(t *testing.T) {
 
 }
 
+// Test sympathic blob replication with a go bot in the middle
+// alice (js) creates a blob, posts about it
+// go fetches the message and leaks it via a test script to claire (js2) who blobs.want()'s it then
 func TestBlobWithHop(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
@@ -133,11 +139,19 @@ func TestBlobWithHop(t *testing.T) {
 	ts := newSession(t, nil, nil)
 	// ts := newRandomSession(t)
 
+	connI := 0
 	ts.startGoBot(
 		sbot.DisableEBT(true),
+
+		sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			dumpPath := filepath.Join(ts.repo, "muxdump-"+strconv.Itoa(connI))
+			connI++
+			return debug.WrapDump(dumpPath, conn)
+		}),
 	)
 	bob := ts.gobot
 
+	// the JS bot leaks the blob via a message
 	alice := ts.startJSBot(`
 	pull(
 		pull.once(Buffer.from("whopwhopwhop")),
@@ -153,24 +167,23 @@ func TestBlobWithHop(t *testing.T) {
 				}, (err, msg) => {
 					t.error(err)
 					t.comment('leaked blob addr in:'+msg.key)
-					run()
+					setTimeout(run, 4000)
 				})
 			})
 		})
-	  )
-	
+	)
 	// be done when the other party is done
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))
 `, ``)
+	_, err := bob.PublishLog.Publish(refs.NewContactFollow(alice))
+	r.NoError(err)
 	bob.Replicate(alice)
+	ts.info.Log("published", "follow")
 
+	// copy the done channel for this js instance for later
 	aliceDone := ts.doneJS
 
-	uf, ok := bob.GetMultiLog("userFeeds")
-	r.True(ok)
-	aliceLog, err := uf.Get(storedrefs.Feed(alice))
-	r.NoError(err)
-
+	// construct a waiter for the first message
 	gotMessage := make(chan struct{})
 	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		seq, has := v.(int64)
@@ -182,19 +195,28 @@ func TestBlobWithHop(t *testing.T) {
 		}
 		return err
 	})
+	// register for the new message on alice's feed
+	aliceLog, err := bob.Users.Get(storedrefs.Feed(alice))
+	r.NoError(err)
 	done := aliceLog.Changes().Register(updateSink)
 
-	<-gotMessage
-	done()
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatal("bob did not get message from alice")
 
-	var wantBlob *refs.BlobRef
+	case <-gotMessage:
+		done()
+		t.Log("received message from alice")
+	}
 
+	// now that bob has it, open the first message on alices feed
 	msg, err := mutil.Indirect(bob.ReceiveLog, aliceLog).Get(int64(0))
 	r.NoError(err)
 	storedMsg, ok := msg.(refs.Message)
 	r.True(ok, "wrong type of message: %T", msg)
 	r.EqualValues(1, storedMsg.Seq())
 
+	/// decode it
 	type testWrap struct {
 		Author  refs.FeedRef
 		Content struct {
@@ -205,14 +227,12 @@ func TestBlobWithHop(t *testing.T) {
 	var m testWrap
 	err = json.Unmarshal(storedMsg.ValueContentJSON(), &m)
 	r.NoError(err)
-	r.True(alice.Equal(m.Author), "wrong author")
-	r.Equal("test", m.Content.Type)
+	r.True(alice.Equal(m.Author), "wrong author", m.Author.ShortSigil())
+	r.Equal("test", m.Content.Type, "unexpected type")
 	r.NotNil(m.Content.Blob)
 
-	wantBlob = m.Content.Blob
-
-	// bob.WantManager.Want(wantBlob)
-
+	// leak the reference of alices blob to claire
+	wantBlob := m.Content.Blob.Sigil()
 	before := fmt.Sprintf(`wantHash = %q // blob we want from alice
 
 pull(
@@ -228,7 +248,7 @@ sbot.blobs.want(wantHash, (err, has) => {
 })
 
 run()
-`, wantBlob.Sigil())
+`, wantBlob)
 
 	claire := ts.startJSBot(before, "")
 

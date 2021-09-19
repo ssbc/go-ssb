@@ -23,6 +23,7 @@ type EndpointStat struct {
 	Endpoint muxrpc.Endpoint
 }
 
+// Network exposes all the functions to establish and list networking connections
 type Network interface {
 	Connect(ctx context.Context, addr net.Addr) error
 	Serve(context.Context, ...muxrpc.HandlerWrapper) error

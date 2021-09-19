@@ -85,7 +85,7 @@ func TestReplicateUpTo(t *testing.T) {
 				Hello string
 			}{"test", true, n, kp.ID().String()})
 			r.NoError(err)
-			t.Log(ref.String())
+			t.Log(ref.Key().String())
 		}
 	}
 

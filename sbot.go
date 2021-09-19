@@ -10,30 +10,36 @@ import (
 	"go.cryptoscope.co/margaret"
 	librarian "go.cryptoscope.co/margaret/indexes"
 	"go.cryptoscope.co/margaret/multilog"
+
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
+// Publisher embedds a margaret.Log but also exposes a utility that returns the newly created message.
 type Publisher interface {
 	margaret.Log
 
-	// Publish is a utility wrapper around append which returns the new message reference key
+	// Publish is a utility wrapper around append which returns the new message
 	Publish(content interface{}) (refs.Message, error)
 }
 
+// Getter returns a message by its reference
 type Getter interface {
 	Get(refs.MessageRef) (refs.Message, error)
 }
 
+// MultiLogGetter returns a registerd margaret/multilog index by its name
 type MultiLogGetter interface {
 	GetMultiLog(name string) (multilog.MultiLog, bool)
 }
 
+// SimpleIndexGetter returns a registerd margaret/index by its name
 type SimpleIndexGetter interface {
 	GetSimpleIndex(name string) (librarian.Index, bool)
 }
 
+// Indexer combines a bunch of indexing capabilities of a scuttlebot
 type Indexer interface {
 	MultiLogGetter
 	SimpleIndexGetter
@@ -68,10 +74,13 @@ type Statuser interface {
 	Status() (Status, error)
 }
 
+// PeerStatus contains the address of a connected peer and since when it is connected
 type PeerStatus struct {
 	Addr  string
 	Since string
 }
+
+// Status contains a bunch of information about a bot
 type Status struct {
 	PID      int // process id of the bot
 	Peers    []PeerStatus
@@ -80,33 +89,34 @@ type Status struct {
 	Indicies IndexStates
 }
 
+// IndexStates is a slice of index states (for easier sort implementations)
 type IndexStates []IndexState
 
+// IndexState informas about the state of a specific index
 type IndexState struct {
 	Name  string
 	State string
 }
 
+// ContentNuller if a feed is in a supporting format, it's content can be deleted (or nulled).
 type ContentNuller interface {
 	NullContent(feed refs.FeedRef, seq uint) error
 }
 
-// this is one message of replicate.upto
+// ErrUnuspportedFormat is returned if a feed format doesn't support nulling content
+var ErrUnuspportedFormat = fmt.Errorf("ssb: unsupported format")
+
+// ReplicateUpToResponse is one message of a replicate.upto response.
 // also handy to talk about the (latest) state of a single feed
 type ReplicateUpToResponse struct {
 	ID       refs.FeedRef `json:"id"`
 	Sequence int64        `json:"sequence"`
 }
 
-var _ margaret.Seqer = ReplicateUpToResponse{}
-
-func (upto ReplicateUpToResponse) Seq() int64 {
-	return upto.Sequence
-}
-
+// ReplicateUpToResponseSet 's map key is the stringified author
 type ReplicateUpToResponseSet map[string]ReplicateUpToResponse
 
-// FeedsWithSeqs returns a source that emits one ReplicateUpToResponse per stored feed in feedIndex
+// FeedsWithSeqs returns a source that emits a map with one ReplicateUpToResponse per stored feed in feedIndex.
 // TODO: make cancelable and with no RAM overhead when only partially used (iterate on demand)
 func FeedsWithSeqs(feedIndex multilog.MultiLog) (ReplicateUpToResponseSet, error) {
 	storedFeeds, err := feedIndex.List()

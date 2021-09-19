@@ -194,13 +194,8 @@ func (m *FeedManager) CreateStreamHistory(
 	}
 
 	latest := int64(userLog.Seq())
-	level.Error(feedLogger).Log("event", "sending",
-		"latest", latest,
-		"requested", arg.Seq,
-		"limit", arg.Limit,
-		"live", arg.Live,
-	)
 
+	// determine the wanted wrapping (keys:bool) and encoding (json, (which) binary)
 	var luigiSink luigi.Sink
 	switch arg.ID.Algo() {
 	case refs.RefAlgoFeedSSB1:
@@ -283,6 +278,7 @@ func (m *FeedManager) CreateStreamHistory(
 		}
 	}
 
+	// handle the pump error
 	if errors.Is(err, context.Canceled) || muxrpc.IsSinkClosed(err) || errors.Is(err, io.EOF) {
 		sink.Close()
 		return nil

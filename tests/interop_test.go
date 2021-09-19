@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	mrand "math/rand"
 	"net"
@@ -160,7 +161,9 @@ func (ts *testSession) startGoBot(sbotOpts ...sbot.Option) {
 var jsBotCnt = 0
 
 func (ts *testSession) startJSBot(jsbefore, jsafter string) refs.FeedRef {
-	return ts.startJSBotWithName("", jsbefore, jsafter)
+	name := filepath.Join(ts.t.Name(), fmt.Sprintf("js-db1-%d", jsBotCnt))
+	jsBotCnt++
+	return ts.startJSBotWithName(name, jsbefore, jsafter)
 }
 
 // returns the jsbots pubkey
@@ -173,11 +176,6 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 
 	outrc, err := cmd.StdoutPipe()
 	r.NoError(err)
-
-	if name == "" {
-		name = filepath.Join(ts.t.Name(), fmt.Sprintf("js-db1-%d", jsBotCnt))
-	}
-	jsBotCnt++
 
 	env := []string{
 		"TEST_NAME=" + name,
@@ -210,12 +208,18 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 	ts.doneJS = done // TODO: multiple
 	ts.backgroundErrs = append(ts.backgroundErrs, errc)
 
-	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
+	pubScanner := bufio.NewScanner(io.TeeReader(outrc, os.Stderr))
 	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be %s pubkey/id", name)
-
 	jsBotRef, err := refs.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get %s key from JS process")
-	ts.t.Logf("JS %s:%d %s", name, jsBotCnt, jsBotRef.String())
+	ts.t.Logf("JS %s %s", name, jsBotRef.String())
+	go func() {
+		for pubScanner.Scan() {
+			// keep copying out stdio
+			_ = pubScanner.Text()
+		}
+	}()
+
 	return jsBotRef
 }
 
@@ -276,12 +280,19 @@ func (ts *testSession) startJSBotAsServerWithFile(name, jsfolder, jsbefore, jsaf
 	ts.doneJS = done // TODO: multiple
 	ts.backgroundErrs = append(ts.backgroundErrs, errc)
 
-	pubScanner := bufio.NewScanner(outrc) // TODO muxrpc comms?
+	pubScanner := bufio.NewScanner(io.TeeReader(outrc, os.Stderr)) // TODO muxrpc comms?
 	r.True(pubScanner.Scan(), "multiple lines of output from js - expected #1 to be %s pubkey/id", name)
 
 	srvRef, err := refs.ParseFeedRef(pubScanner.Text())
 	r.NoError(err, "failed to get srvRef key from JS process")
 	ts.t.Logf("JS %s: %s port: %d", name, srvRef.String(), port)
+
+	go func() {
+		for pubScanner.Scan() {
+			// keep copying out stdio
+			_ = pubScanner.Text()
+		}
+	}()
 	return srvRef, port
 }
 
@@ -289,14 +300,15 @@ func (ts *testSession) wait() {
 	closeErrc := make(chan error)
 
 	go func() {
-		tick := time.NewTicker(30 * time.Second) // would be nice to get -test.timeout for this
 		select {
 		case <-ts.doneJS:
 
 		case <-ts.doneGo:
 
-		case <-tick.C:
+		// would be nice to get -test.timeout for this
+		case <-time.After(30 * time.Second):
 			ts.t.Log("timeout")
+			// TODO: kill js bot
 		}
 
 		require.NoError(ts.t, ts.gobot.FSCK(sbot.FSCKWithMode(sbot.FSCKModeSequences)))

@@ -82,6 +82,11 @@ func TestIndexFixtures(t *testing.T) {
 		return
 	}
 
+	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
+		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
+		// TODO: expose index flushing
+	}
+
 	f, err := os.Open("v2-sloop-authors.json")
 	r.NoError(err)
 	var feedsSloop tFeedSet
@@ -187,6 +192,7 @@ func benchSequential(i int) func(b *testing.B) {
 		r.NoError(err)
 
 		src, err := testLog.Query(margaret.Limit(i))
+		r.NoError(err)
 
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {

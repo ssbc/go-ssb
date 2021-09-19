@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package keys implements an abstract storage system for handling keys of different schemes, like signature and encryption key pairs.
+// Its main focus are encryption keys for private-groups and one-to-one direct messages,
+// as well as various signature keys for sub/index feeds when using metafeeds.
 package keys
 
 import (
@@ -9,21 +12,26 @@ import (
 	"context"
 	"fmt"
 
-	librarian "go.cryptoscope.co/margaret/indexes"
+	"go.cryptoscope.co/margaret/indexes"
+
 	refs "go.mindeco.de/ssb-refs"
 	"go.mindeco.de/ssb-refs/tfk"
 )
 
-// Q: what's the relation of ID and key?
-// A: id is anything we want to use to store and find a key,
-// like the id in a database or key in a k:v store.
-
+// Store is the storage layer for signature and encryption key-pairs
 type Store struct {
-	Index librarian.SetterIndex
+	backend indexes.SetterIndex
+}
+
+// NewStore returns a new store using the passed margaret index as its storage backend
+func NewStore(b indexes.SetterIndex) *Store {
+	return &Store{backend: b}
 }
 
 var todoCtx = context.TODO()
 
+// AddKey adds an additional key to the passed ID.
+// This is used for example by all the keys for private-groups that can be read which are all stored with the same ID.
 func (mgr *Store) AddKey(id ID, r Recipient) error {
 	if !r.Scheme.Valid() {
 		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: r.Scheme}
@@ -51,9 +59,10 @@ func (mgr *Store) AddKey(id ID, r Recipient) error {
 	// add new key to existing ones
 	recps = append(recps, r)
 
-	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBytes), recps)
+	return mgr.backend.Set(todoCtx, indexes.Addr(idxkBytes), recps)
 }
 
+// SetKey overwrites the recipients for the passed ID and sets a new one
 func (mgr *Store) SetKey(id ID, r Recipient) error {
 	if !r.Scheme.Valid() {
 		return Error{Code: ErrorCodeInvalidKeyScheme, Scheme: r.Scheme}
@@ -69,9 +78,10 @@ func (mgr *Store) SetKey(id ID, r Recipient) error {
 		return err
 	}
 
-	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), Recipients{r})
+	return mgr.backend.Set(todoCtx, indexes.Addr(idxkBs), Recipients{r})
 }
 
+// RmKeys deletes all keys for the passed  scheme and ID
 func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 	idxk := &idxKey{
 		ks: ks,
@@ -83,9 +93,10 @@ func (mgr *Store) RmKeys(ks KeyScheme, id ID) error {
 		return err
 	}
 
-	return mgr.Index.Delete(todoCtx, librarian.Addr(idxkBs))
+	return mgr.backend.Delete(todoCtx, indexes.Addr(idxkBs))
 }
 
+// RmKey removes a single recipient from the passed scheme and id combo
 func (mgr *Store) RmKey(ks KeyScheme, id ID, rmKey Recipient) error {
 	// load current value
 	recps, err := mgr.GetKeys(ks, id)
@@ -94,7 +105,7 @@ func (mgr *Store) RmKey(ks KeyScheme, id ID, rmKey Recipient) error {
 	}
 
 	// look for rmKey
-	var idx int = -1
+	var idx = -1
 	for i, r := range recps {
 		if bytes.Equal(r.Key, rmKey.Key) {
 			idx = i
@@ -119,9 +130,10 @@ func (mgr *Store) RmKey(ks KeyScheme, id ID, rmKey Recipient) error {
 		return err
 	}
 
-	return mgr.Index.Set(todoCtx, librarian.Addr(idxkBs), recps)
+	return mgr.backend.Set(todoCtx, indexes.Addr(idxkBs), recps)
 }
 
+// GetKeysForMessage loads keys that might be needed to decrypt the passed message
 func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipients, error) {
 	idBytes, err := tfk.Encode(msg)
 	if err != nil {
@@ -130,6 +142,7 @@ func (mgr *Store) GetKeysForMessage(ks KeyScheme, msg refs.MessageRef) (Recipien
 	return mgr.getKeys(ks, ID(idBytes))
 }
 
+// GetKeys returns the list of keys held for the passed scheme and ID
 func (mgr *Store) GetKeys(ks KeyScheme, id ID) (Recipients, error) {
 	return mgr.getKeys(ks, id)
 }
@@ -149,7 +162,7 @@ func (mgr *Store) getKeys(ks KeyScheme, id ID) (Recipients, error) {
 		return nil, fmt.Errorf("key store: failed to marshal index key: %w", err)
 	}
 
-	data, err := mgr.Index.Get(todoCtx, librarian.Addr(idxkBs))
+	data, err := mgr.backend.Get(todoCtx, indexes.Addr(idxkBs))
 	if err != nil {
 		return nil, fmt.Errorf("key store: failed to get data from index: %w", err)
 	}
@@ -162,7 +175,7 @@ func (mgr *Store) getKeys(ks KeyScheme, id ID) (Recipients, error) {
 	switch tv := ksIface.(type) {
 	case Recipients:
 		return tv, nil
-	case librarian.UnsetValue:
+	case indexes.UnsetValue:
 		return nil, Error{
 			Code:   ErrorCodeNoSuchKey,
 			Scheme: ks,
@@ -171,5 +184,4 @@ func (mgr *Store) getKeys(ks KeyScheme, id ID) (Recipients, error) {
 	default:
 		return nil, fmt.Errorf("keys store: expected type %T, got %T", Recipients{}, ksIface)
 	}
-
 }

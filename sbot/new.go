@@ -336,9 +336,8 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// groups2
 	idxKeys := libbadger.NewIndexWithKeyPrefix(s.indexStore, keys.Recipients{}, []byte("group-and-signing"))
-	keysStore := &keys.Store{
-		Index: idxKeys,
-	}
+	keysStore := keys.NewStore(idxKeys)
+
 	s.closers.AddCloser(idxKeys)
 
 	s.Groups = private.NewManager(s.KeyPair, s.PublishLog, keysStore, s.ReceiveLog, s, s.Tangles)

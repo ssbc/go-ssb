@@ -5,14 +5,18 @@
 package keys
 
 import (
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// KeyScheme defines a set of supported key schemes/topics for store and retreival
 type KeyScheme string
 
+// Valid returns true if the scheme is supported
 func (ks KeyScheme) Valid() bool {
 	return ks == SchemeLargeSymmetricGroup ||
 		ks == SchemeDiffieStyleConvertedED25519 ||
@@ -20,6 +24,7 @@ func (ks KeyScheme) Valid() bool {
 		ks == SchemeMetafeedSubkey
 }
 
+// The set of supported schemes
 const (
 	SchemeLargeSymmetricGroup         KeyScheme = "envelope-large-symmetric-group"
 	SchemeDiffieStyleConvertedED25519 KeyScheme = "envelope-id-based-dm-converted-ed25519"
@@ -27,8 +32,11 @@ const (
 	SchemeMetafeedSubkey              KeyScheme = "metafeed-subkey"
 )
 
+// ID represents the value that is used to store a specific key-pair.
+// In an SQL system this would be the _primary key_ of a table, In a NoSQL this would be the _key_ of a _key-value_ system.
 type ID []byte
 
+// IDFromFeed turns a feed ref into a storage ID.
 func IDFromFeed(r refs.FeedRef) ID {
 	// might be cleaner but needs changes elsewhere (that should probably use this func)
 	// idBytes, err := tfk.Encode(r)
@@ -38,6 +46,8 @@ func IDFromFeed(r refs.FeedRef) ID {
 	idBytes := r.PubKey()
 	return ID(idBytes)
 }
+
+// TODO: i'm having a feeling this is some SLP pre-cursor code that could be updated by using internal/slp
 
 type idxKey struct {
 	ks KeyScheme
@@ -118,4 +128,29 @@ func (idxk *idxKey) Write(data []byte) (int64, error) {
 func (idxk *idxKey) UnmarshalBinary(data []byte) error {
 	_, err := idxk.Write(data)
 	return err
+}
+
+// utility
+
+// Base64String turns base64 JSON strings into bytes
+type Base64String Key
+
+// UnmarshalJSON first expects the string and then decodes it as base64
+func (s *Base64String) UnmarshalJSON(data []byte) error {
+	var strdata string
+	err := json.Unmarshal(data, &strdata)
+	if err != nil {
+		return fmt.Errorf("Base64String: json decode of string failed: %w", err)
+	}
+
+	maxLen := base64.StdEncoding.DecodedLen(len(strdata))
+	decoded := make([]byte, maxLen)
+
+	n, err := base64.StdEncoding.Decode(decoded, []byte(strdata))
+	if err != nil {
+		return fmt.Errorf("invalid base64 string: %w", err)
+	}
+	*s = decoded[:n]
+
+	return nil
 }

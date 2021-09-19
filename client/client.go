@@ -28,6 +28,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// Client exposes the underlying muxrpc endpoint(client) together with some high-level utility functions for common tasks
 type Client struct {
 	muxrpc.Endpoint
 	rootCtx       context.Context
@@ -55,7 +56,7 @@ func newClientWithOptions(opts []Option) (*Client, error) {
 	}
 
 	if c.rootCtx == nil {
-		c.rootCtx = context.TODO()
+		c.rootCtx = context.Background()
 	}
 	c.rootCtx, c.rootCtxCancel = context.WithCancel(c.rootCtx)
 
@@ -70,6 +71,7 @@ func newClientWithOptions(opts []Option) (*Client, error) {
 	return &c, nil
 }
 
+/* TODO: add some tests to check isServer is working as expected
 func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	c, err := newClientWithOptions(opts)
 	if err != nil {
@@ -79,7 +81,10 @@ func FromEndpoint(edp muxrpc.Endpoint, opts ...Option) (*Client, error) {
 	c.Endpoint = edp
 	return c, nil
 }
+*/
 
+// NewTCP dials the remote via TCP/IP and returns a Client if the handshake succeeds.
+// The remote's public-key needs to be added to the remote via the netwrap package and secretstream.Addr.
 func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 	c, err := newClientWithOptions(opts)
 	if err != nil {
@@ -138,6 +143,7 @@ func NewTCP(own ssb.KeyPair, remote net.Addr, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
+// NewUnix creates a Client using a local unix socket file.
 func NewUnix(path string, opts ...Option) (*Client, error) {
 	c, err := newClientWithOptions(opts)
 	if err != nil {
@@ -176,13 +182,15 @@ func NewUnix(path string, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
+// Close closes the client and terminates all running requests.
 func (c Client) Close() error {
-	c.Endpoint.Terminate()
 	c.rootCtxCancel()
+	c.Endpoint.Terminate()
 	c.closer.Close()
 	return nil
 }
 
+// Whoami returns the feed of the bot
 func (c Client) Whoami() (refs.FeedRef, error) {
 	var resp message.WhoamiReply
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"whoami"})
@@ -192,6 +200,7 @@ func (c Client) Whoami() (refs.FeedRef, error) {
 	return resp.ID, nil
 }
 
+// ReplicateUpTo returns a source where each element is a feed with it's length
 func (c Client) ReplicateUpTo() (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"replicate", "upto"})
 	if err != nil {
@@ -200,6 +209,7 @@ func (c Client) ReplicateUpTo() (*muxrpc.ByteSource, error) {
 	return src, nil
 }
 
+// BlobsWant tells the remote to add a blob to its wantlist
 func (c Client) BlobsWant(ref refs.BlobRef) error {
 	var v interface{}
 	err := c.Async(c.rootCtx, &v, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Sigil())
@@ -210,6 +220,7 @@ func (c Client) BlobsWant(ref refs.BlobRef) error {
 	return nil
 }
 
+// BlobsHas checks if a blob is stored or not
 func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 	var has bool
 	err := c.Async(c.rootCtx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "want"}, ref.Sigil())
@@ -221,6 +232,7 @@ func (c Client) BlobsHas(ref refs.BlobRef) (bool, error) {
 
 }
 
+// BlobsGet returns a reader for the data referenced by the blob
 func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	args := blobstore.GetWithSize{Key: ref, Max: blobstore.DefaultMaxSize}
 	v, err := c.Source(c.rootCtx, 0, muxrpc.Method{"blobs", "get"}, args)
@@ -232,29 +244,34 @@ func (c Client) BlobsGet(ref refs.BlobRef) (io.Reader, error) {
 	return muxrpc.NewSourceReader(v), nil
 }
 
+// NamesGetResult holds all the naming information available.
+// It's a too stage map because it also contains names for feeds by other people.
 type NamesGetResult map[string]map[string]string
 
+// GetCommonName filters the map for name for that feed.
+// Currently, if there is no self given name for a feed,
+// this doesn't check if the the prescribed name is given by a friend or fow (TODO).
 func (ngr NamesGetResult) GetCommonName(feed refs.FeedRef) (string, bool) {
 	namesFor, ok := ngr[feed.Sigil()]
 	if !ok {
 		return "", false
 	}
-	selfChosen, ok := namesFor[feed.Sigil()]
-	if !ok {
-		for about, mapv := range ngr {
-			_ = about
-			for from, prescribed := range mapv {
-				return prescribed, true
-				// TODO: check that from is a friend
-				_ = from
-				break
-			}
-		}
-	}
-	return selfChosen, true
 
+	selfChosen, ok := namesFor[feed.Sigil()]
+	if ok {
+		return selfChosen, true
+	}
+
+	// pick the first at random
+	for _, prescribed := range namesFor {
+		return prescribed, true
+		// TODO: check that from is a friend or not blocked
+	}
+
+	return "", false
 }
 
+// NamesGet returns all the names for feeds
 func (c Client) NamesGet() (NamesGetResult, error) {
 	var res NamesGetResult
 	err := c.Async(c.rootCtx, &res, muxrpc.TypeJSON, muxrpc.Method{"names", "get"})
@@ -265,6 +282,7 @@ func (c Client) NamesGet() (NamesGetResult, error) {
 	return res, nil
 }
 
+// NamesSignifier mirrors ssb-names, returns the name for a feed
 func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	var name string
 	err := c.Async(c.rootCtx, &name, muxrpc.TypeString, muxrpc.Method{"names", "getSignifier"}, ref.String())
@@ -275,6 +293,7 @@ func (c Client) NamesSignifier(ref refs.FeedRef) (string, error) {
 	return name, nil
 }
 
+// NamesImageFor mirrors ssb-names, returns the avatar image for a feed
 func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	var blobRef string
 	err := c.Async(c.rootCtx, &blobRef, muxrpc.TypeString, muxrpc.Method{"names", "getImageFor"}, ref.String())
@@ -285,6 +304,7 @@ func (c Client) NamesImageFor(ref refs.FeedRef) (refs.BlobRef, error) {
 	return refs.ParseBlobRef(blobRef)
 }
 
+// Publish publishes a new message, the passed value is the content.
 func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 	var resp string
 	err := c.Async(c.rootCtx, &resp, muxrpc.TypeString, muxrpc.Method{"publish"}, v)
@@ -298,19 +318,24 @@ func (c Client) Publish(v interface{}) (refs.MessageRef, error) {
 	return msgRef, nil
 }
 
+// PrivatePublish publishes an encrypted message to the recipients.
 func (c Client) PrivatePublish(v interface{}, recps ...refs.FeedRef) (refs.MessageRef, error) {
+	if len(recps) == 0 {
+		return refs.MessageRef{}, fmt.Errorf("ssbClient: no recipients for new private message")
+	}
 	var recpRefs = make([]string, len(recps))
 	for i, ref := range recps {
 		recpRefs[i] = ref.String()
 	}
-	var resp refs.MessageRef
-	err := c.Async(c.rootCtx, &resp, muxrpc.TypeJSON, muxrpc.Method{"private", "publish"}, v, recpRefs)
+	var resp string
+	err := c.Async(c.rootCtx, &resp, muxrpc.TypeString, muxrpc.Method{"private", "publish"}, v, recpRefs)
 	if err != nil {
 		return refs.MessageRef{}, fmt.Errorf("ssbClient: private.publish call failed: %w", err)
 	}
-	return resp, nil
+	return refs.ParseMessageRef(resp)
 }
 
+// PrivateRead returns a stream of private messages that can be read.
 func (c Client) PrivateRead() (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"private", "read"})
 	if err != nil {
@@ -319,6 +344,7 @@ func (c Client) PrivateRead() (*muxrpc.ByteSource, error) {
 	return src, nil
 }
 
+// CreateLogStream returns a source of all the messages in the bot.
 func (c Client) CreateLogStream(o message.CreateLogArgs) (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"createLogStream"}, o)
 	if err != nil {
@@ -327,6 +353,7 @@ func (c Client) CreateLogStream(o message.CreateLogArgs) (*muxrpc.ByteSource, er
 	return src, nil
 }
 
+// CreateHistoryStream filters all the messages by author (ID in the argguments struct).
 func (c Client) CreateHistoryStream(o message.CreateHistArgs) (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"createHistoryStream"}, o)
 	if err != nil {
@@ -335,6 +362,7 @@ func (c Client) CreateHistoryStream(o message.CreateHistArgs) (*muxrpc.ByteSourc
 	return src, nil
 }
 
+// MessagesByType filters all the messages by type
 func (c Client) MessagesByType(o message.MessagesByTypeArgs) (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"messagesByType"}, o)
 	if err != nil {
@@ -343,6 +371,7 @@ func (c Client) MessagesByType(o message.MessagesByTypeArgs) (*muxrpc.ByteSource
 	return src, nil
 }
 
+// TanglesThread returns the root message and replies to it
 func (c Client) TanglesThread(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "thread"}, o)
 	if err != nil {

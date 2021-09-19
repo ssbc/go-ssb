@@ -39,7 +39,7 @@ var (
 
 	// a running tally of how many times makeNamedTestBot() was called
 	// is also used to alternate between feed formats per bot
-	botCnt byte = 0
+	botCnt byte
 ) //
 
 func init() {
@@ -472,6 +472,9 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Errorf("botB%02d: timeout on %d", bI, wantSeq)
 				timeouts++
+				if timeouts > 10 {
+					t.Fatal("too many timeouts")
+				}
 			case msg := <-bChan:
 				a.EqualValues(wantSeq, msg.Seq(), "botB%02d: wrong seq", bI)
 				// t.Log("delay:", time.Since(published))

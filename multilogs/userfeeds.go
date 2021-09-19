@@ -14,8 +14,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-const IndexNameFeeds = "userFeeds"
-
+// UserFeedsUpdate is a very simple indexing function for a multilog index.
+// For each processed message it looksup the author and adds the message to the sublog of that author.
 func UserFeedsUpdate(ctx context.Context, seq int64, value interface{}, mlog multilog.MultiLog) error {
 	if nulled, ok := value.(error); ok {
 		if margaret.IsErrNulled(nulled) {

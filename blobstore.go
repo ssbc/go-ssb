@@ -49,16 +49,20 @@ type BlobStore interface {
 	BlobStoreBroadcaster
 }
 
+// BlobStoreEmitter emits events of the blobstore
 type BlobStoreEmitter interface {
 	EmitBlob(BlobStoreNotification) error
 	io.Closer
 }
 
+// BlobStoreBroadcaster allows for registration to changes
 type BlobStoreBroadcaster interface {
 	Register(sink BlobStoreEmitter) CancelFunc
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
+
+// WantManager manages fetching blobs that are not stored yet
 type WantManager interface {
 	io.Closer
 
@@ -73,17 +77,23 @@ type WantManager interface {
 	AllWants() []BlobWant
 }
 
+// CancelFunc is ised to unsubscribe from updates
 type CancelFunc func()
 
+// BlobWantsEmitter emits events of the want manager
 type BlobWantsEmitter interface {
 	EmitWant(BlobWant) error
 	io.Closer
 }
 
+// BlobWantsBroadcaster allows for registration to changes from the want system
 type BlobWantsBroadcaster interface {
 	Register(sink BlobWantsEmitter) CancelFunc
 }
 
+// BlobWant represents a want for some blob, send by some peer.
+// It can inform about avalibily (via a positive distance, which represents the size of the blob)
+// or that a peer wants a blob (< then -1 for sympathy from other peers)
 type BlobWant struct {
 	Ref refs.BlobRef
 

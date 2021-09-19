@@ -22,16 +22,7 @@ import (
 )
 
 func TestManager(t *testing.T) {
-	ks := &keys.Store{
-		Index: newMemIndex(keys.Recipients{}),
-	}
-
-	type testcase struct {
-		name   string
-		msg    []byte
-		sender *refs.FeedRef
-		rcpts  []refs.Ref
-	}
+	ks := keys.NewStore(newMemIndex(keys.Recipients{}))
 
 	var (
 		alice = newIdentity(t, "Alice", ks)

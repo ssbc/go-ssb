@@ -23,7 +23,6 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/multilogs"
 	"go.cryptoscope.co/ssb/private"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
@@ -103,10 +102,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 		r.False(more)
 
 		// try with seqwrapped query
-		pl, ok := srv.GetMultiLog(multilogs.IndexNamePrivates)
-		r.True(ok)
-
-		userPrivs, err := pl.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.ID()))
+		userPrivs, err := srv.Private.Get(librarian.Addr("box1:") + storedrefs.Feed(srv.KeyPair.ID()))
 		r.NoError(err)
 
 		unboxlog := private.NewUnboxerLog(srv.ReceiveLog, userPrivs, srv.KeyPair)
@@ -124,7 +120,7 @@ func testPublishPerAlgo(algo refs.RefAlgo) func(t *testing.T) {
 		r.True(ok, "wrong type: %T", wrappedVal)
 		r.Equal(wrappedMsg.Key().String(), ref.String())
 
-		v, err = lsrc.Next(context.TODO())
+		_, err = lsrc.Next(context.TODO())
 		r.Error(err)
 		r.True(errors.Is(err, luigi.EOS{}))
 

@@ -23,13 +23,6 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-// TODO: remove
-func (h *Replicate) check(err error) {
-	if err != nil && !muxrpc.IsSinkClosed(err) {
-		level.Error(h.info).Log("error", err)
-	}
-}
-
 // Loop executes the ebt logic loop, reading from the peer and sending state and messages as requests
 func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.ByteSource, remoteAddr net.Addr, format refs.RefAlgo) error {
 	session := h.Sessions.Started(remoteAddr)
@@ -47,7 +40,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		level.Debug(peerLogger).Log("event", "loop exited")
 		err := h.stateMatrix.SaveAndClose(peer)
 		if err != nil {
-			level.Warn(h.info).Log("event", "failed to save state matrix for peer", "err", err)
+			level.Warn(peerLogger).Log("event", "failed to save state matrix for peer", "err", err)
 		}
 	}()
 
@@ -55,10 +48,15 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		return err
 	}
 
-	var buf = &bytes.Buffer{}
-	for rx.Next(ctx) { // read/write loop for messages
+	buf := new(bytes.Buffer)
 
+	// read/write loop for messages
+	for rx.Next(ctx) {
+
+		// always reset (we might 'continue' this loop)
 		buf.Reset()
+
+		// read the muxrpc frame into the buffer
 		err := rx.Reader(func(r io.Reader) error {
 			_, err := buf.ReadFrom(r)
 			return err
@@ -73,7 +71,9 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		frontierUpdate.Format = format
 
 		err = json.Unmarshal(body, &frontierUpdate)
-		if err != nil { // assume it's a message
+
+		// assume it's a message if it fails to decode into a frontier
+		if err != nil {
 
 			// redundant pass of finding out the author
 			// would be rad to get this from the pretty-printed version
@@ -87,7 +87,8 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 
 				err := json.Unmarshal(body, &msgWithAuthor)
 				if err != nil {
-					h.check(fmt.Errorf("unable to establish author for format %s: %w", format, err))
+					err = fmt.Errorf("unable to establish author for format %s: %w", format, err)
+					level.Error(h.info).Log("error", err)
 					continue
 				}
 				author = msgWithAuthor.Author
@@ -96,7 +97,8 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 				var msg metafeed.Message
 				err = msg.UnmarshalBencode(body)
 				if err != nil {
-					h.check(fmt.Errorf("unable to establish author for format %s: %w", format, err))
+					err = fmt.Errorf("unable to establish author for format %s: %w", format, err)
+					level.Error(h.info).Log("error", err)
 					continue
 				}
 
@@ -106,7 +108,8 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 				var msg gabbygrove.Transfer
 				err = msg.UnmarshalCBOR(body)
 				if err != nil {
-					h.check(fmt.Errorf("unable to establish author for format %s: %w", format, err))
+					err = fmt.Errorf("unable to establish author for format %s: %w", format, err)
+					level.Error(h.info).Log("error", err)
 					continue
 				}
 
@@ -118,14 +121,14 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 
 			vsnk, err := h.verify.GetSink(author, true)
 			if err != nil {
-				h.check(err)
+				level.Error(h.info).Log("error", err)
 				continue
 			}
 
 			err = vsnk.Verify(body)
 			if err != nil {
 				// TODO: mark feed as bad
-				h.check(err)
+				level.Error(h.info).Log("error", err)
 			}
 
 			continue

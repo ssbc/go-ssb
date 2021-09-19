@@ -21,8 +21,10 @@ type DropContentRequest struct {
 	Hash     refs.MessageRef `json:"hash"`
 }
 
+// DropContentRequestType the type string for a gabby-grove delete request
 const DropContentRequestType = "drop-content-request"
 
+// NewDropContentRequest returns a new rquest, intialized to the sequence and hash of a message.
 func NewDropContentRequest(seq uint, h refs.MessageRef) *DropContentRequest {
 	return &DropContentRequest{
 		Type:     DropContentRequestType,
@@ -31,6 +33,7 @@ func NewDropContentRequest(seq uint, h refs.MessageRef) *DropContentRequest {
 	}
 }
 
+// Valid checks if the request is valid for the feed of a user
 func (dcr DropContentRequest) Valid(log margaret.Log) bool {
 	if dcr.Sequence < 1 {
 		return false
@@ -62,6 +65,7 @@ func (dcr DropContentRequest) Valid(log margaret.Log) bool {
 	if err := json.Unmarshal(msg.ContentBytes(), &msgType); err != nil {
 		return false
 	}
+
 	if msgType.Type == DropContentRequestType {
 		return false
 	}

@@ -17,6 +17,7 @@ import (
 	multiserver "go.mindeco.de/ssb-multiserver"
 )
 
+// Status returns the current status of information about the bot
 func (sbot *Sbot) Status() (ssb.Status, error) {
 	s := ssb.Status{
 		PID:   os.Getpid(),
@@ -72,8 +73,8 @@ type byName ssb.IndexStates
 
 func (bn byName) Len() int { return len(bn) }
 
-func (bct byName) Less(i int, j int) bool {
-	return bct[i].Name < bct[j].Name
+func (bn byName) Less(i int, j int) bool {
+	return bn[i].Name < bn[j].Name
 }
 
-func (bct byName) Swap(i int, j int) { bct[i], bct[j] = bct[j], bct[i] }
+func (bn byName) Swap(i int, j int) { bn[i], bn[j] = bn[j], bn[i] }

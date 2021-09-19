@@ -43,6 +43,7 @@ func (sbot *Sbot) Replicate(r refs.FeedRef) {
 	sbot.Replicator.Replicate(r)
 }
 
+// DontReplicate stops replicating the passed feed
 func (sbot *Sbot) DontReplicate(r refs.FeedRef) {
 	slog, err := sbot.Users.Get(storedrefs.Feed(r))
 	if err != nil {
@@ -66,17 +67,17 @@ type graphReplicator struct {
 	current *lister
 }
 
-func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
+func (sbot *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	var r graphReplicator
-	r.bot = s
+	r.bot = sbot
 	r.current = newLister()
 
-	replicateEvt := log.With(s.info, "event", "update-replicate")
-	update := r.makeUpdater(replicateEvt, s.KeyPair.ID(), int(s.hopCount))
+	replicateEvt := log.With(sbot.info, "event", "update-replicate")
+	update := r.makeUpdater(replicateEvt, sbot.KeyPair.ID(), int(sbot.hopCount))
 
 	// update for new messages but only once they didnt change in a while
 	// meaning, not while sync is busy with new incoming messages
-	go debounce(s.rootCtx, 3*time.Second, s.ReceiveLog.Changes(), update)
+	go debounce(sbot.rootCtx, 3*time.Second, sbot.ReceiveLog.Changes(), update)
 
 	return &r, nil
 }
@@ -110,7 +111,6 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 			}
 
 			if !wants {
-				level.Warn(log).Log("updating EBT state for", newFeed.ShortSigil())
 				currNote.Receive = true
 				currNote.Replicate = true
 				ebtUpdates = append(ebtUpdates, statematrix.ObservedFeed{Feed: newFeed, Note: currNote})
@@ -166,7 +166,6 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 				}
 
 				if wants {
-					level.Error(log).Log("msg", "updating EBT state for blocked", "blocked", bf.ShortSigil())
 					currNote.Receive = false
 					currNote.Replicate = false
 					ebtUpdates = append(ebtUpdates, statematrix.ObservedFeed{Feed: bf, Note: currNote})
@@ -174,7 +173,6 @@ func (r *graphReplicator) makeUpdater(log log.Logger, self refs.FeedRef, hopCoun
 			}
 		}
 
-		level.Info(log).Log("msg", "updating EBT state", "count", len(ebtUpdates))
 		err = r.bot.ebtState.Fill(self, ebtUpdates)
 		if err != nil {
 			level.Error(log).Log("msg", "want list ebt update failed", "err", err)

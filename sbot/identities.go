@@ -12,6 +12,9 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+// PublishAs allows ssb-identties like behavior, publishing to multiple feeds via a nickname.
+// use repo.NewKeyPair to create named keypairs
+// TODO: to be refactored with multifeeds somehow
 func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.Message, error) {
 	r := repo.New(sbot.repoPath)
 

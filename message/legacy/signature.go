@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"regexp"
 
 	refs "go.mindeco.de/ssb-refs"
@@ -32,7 +31,6 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 
 	sig, err := NewSignatureFromBase64(matches[1])
 	if err != nil {
-		fmt.Printf("\t\tbase64? %s\n", matches[1])
 		return nil, nil, fmt.Errorf("ssb/ExtractSignature: invalid base64 data: %w", err)
 	}
 	return msg, sig, nil
@@ -48,17 +46,24 @@ func NewSignatureFromBase64(input []byte) (Signature, error) {
 	b64 := bytes.TrimSuffix(input, signatureSuffix)
 
 	// check we have at least 64 bytes of signature data
-	gotLen := base64.StdEncoding.DecodedLen(len(b64))
+	dataLen := len(b64)
+	gotLen := base64.StdEncoding.DecodedLen(dataLen)
 	if gotLen < ed25519.SignatureSize {
 		return nil, fmt.Errorf("ssb/signature: expected more signature data but only got %d", gotLen)
 	}
 
 	// allocate space for the signature and copy data into it
-	decoded := make([]byte, ed25519.SignatureSize)
-	_, err := base64.StdEncoding.Decode(decoded, b64)
+	decoded := make([]byte, gotLen)
+	n, err := base64.StdEncoding.Decode(decoded, b64)
 	if err != nil {
 		return nil, fmt.Errorf("ssb/signature: invalid base64 data: %w", err)
 	}
+
+	if n > ed25519.SignatureSize {
+		return nil, fmt.Errorf("ssb/signature: too much signature data (%d)", n)
+	}
+
+	decoded = decoded[:ed25519.SignatureSize]
 
 	return Signature(decoded), err
 }
@@ -107,14 +112,18 @@ func (s Signature) MarshalJSON() ([]byte, error) {
 func (s Signature) Verify(content []byte, r refs.FeedRef) error {
 	algo := r.Algo()
 	if algo != refs.RefAlgoFeedSSB1 && algo != refs.RefAlgoFeedBendyButt {
-		return fmt.Errorf("invalid feed algorithm")
+		return errors.New("invalid feed algorithm")
 	}
 
-	if ed25519.Verify(r.PubKey(), content, s) {
-		return nil
+	if n := len(s); n != ed25519.SignatureSize {
+		return fmt.Errorf("invalid signature size (%d bytes)", n)
 	}
 
-	return fmt.Errorf("invalid signature")
+	if !ed25519.Verify(r.PubKey(), content, s) {
+		return errors.New("invalid signature")
+	}
+
+	return nil
 }
 
 type LegacyMessage struct {
@@ -136,7 +145,7 @@ func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (re
 	// flatten interface{} content value
 	pp, err := jsonAndPreserve(msg)
 	if err != nil {
-		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
+		return emptyMsgRef, nil, fmt.Errorf("legacySign: error during sign prepare: %w", err)
 	}
 
 	pp = maybeHMAC(pp, hmacSecret)
@@ -150,19 +159,28 @@ func (msg LegacyMessage) Sign(priv ed25519.PrivateKey, hmacSecret *[32]byte) (re
 	// encode again, now with the signature to get the hash of the message
 	ppWithSig, err := jsonAndPreserve(signedMsg)
 	if err != nil {
-		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: error re-encoding signed message: %w", err)
+		return emptyMsgRef, nil, fmt.Errorf("legacySign: error re-encoding signed message: %w", err)
 	}
 
 	v8warp, err := InternalV8Binary(ppWithSig)
 	if err != nil {
-		return refs.MessageRef{}, nil, fmt.Errorf("legacySign: could not v8 escape message: %w", err)
+		return emptyMsgRef, nil, fmt.Errorf("legacySign: could not v8 escape message: %w", err)
 	}
 
 	h := sha256.New()
-	io.Copy(h, bytes.NewReader(v8warp))
+	h.Write(v8warp)
 
 	mr, err := refs.NewMessageRefFromBytes(h.Sum(nil), refs.RefAlgoMessageSSB1)
-	return mr, ppWithSig, err
+	if err != nil {
+		return emptyMsgRef, nil, fmt.Errorf("legacySign: failed to construct new message hash: %w", err)
+	}
+
+	condensed, err := json.Marshal(signedMsg)
+	if err != nil {
+		return emptyMsgRef, nil, fmt.Errorf("legacySign: failed to marshal space-less message: %w", err)
+	}
+
+	return mr, condensed, nil
 }
 
 func jsonAndPreserve(msg interface{}) ([]byte, error) {

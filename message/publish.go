@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: MIT
 
+// Package message exposes abstract capabilities for message creation and verification.
+// The "classic"/"crappy" current JSON format is implemented in message/legacy.
+// Specifics of other formats are handled by dedicated packages (like go-metafeed and gabbygrove),
+// however they need to be added to the create functions and verify drains but ideally these are just slim wrappers.
 package message
 
 import (
@@ -52,16 +56,16 @@ func (pl *publishLog) Publish(content interface{}) (refs.Message, error) {
 	return kv, nil
 }
 
-func (pl publishLog) Changes() luigi.Observable {
+func (pl *publishLog) Changes() luigi.Observable {
 	return pl.byAuthor.Changes()
 }
 
-func (pl publishLog) Seq() int64 {
+func (pl *publishLog) Seq() int64 {
 	return pl.byAuthor.Seq()
 }
 
 // Get retreives the message object by traversing the authors sublog to the root log
-func (pl publishLog) Get(s int64) (interface{}, error) {
+func (pl *publishLog) Get(s int64) (interface{}, error) {
 	idxv, err := pl.byAuthor.Get(s)
 	if err != nil {
 		return nil, fmt.Errorf("publish get: failed to retreive sequence for the root log: %w", err)
@@ -74,7 +78,7 @@ func (pl publishLog) Get(s int64) (interface{}, error) {
 	return msgv, nil
 }
 
-func (pl publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
+func (pl *publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 	return mutil.Indirect(pl.receiveLog, pl.byAuthor).Query(qry...)
 }
 
@@ -165,8 +169,10 @@ func OpenPublishLog(receiveLog margaret.Log, authorLogs multilog.MultiLog, kp ss
 	return pl, nil
 }
 
+// PublishOption allows to tune a publisher in certain ways
 type PublishOption func(*publishLog) error
 
+// SetHMACKey controls the HMAC key that is used for signature creation
 func SetHMACKey(hmackey *[32]byte) PublishOption {
 	return func(pl *publishLog) error {
 		if hmackey == nil {
@@ -187,6 +193,7 @@ func SetHMACKey(hmackey *[32]byte) PublishOption {
 	}
 }
 
+// UseNowTimestamps controls wether timestamps should be set or not.
 func UseNowTimestamps(yes bool) PublishOption {
 	return func(pl *publishLog) error {
 		switch cv := pl.create.(type) {

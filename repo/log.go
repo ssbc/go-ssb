@@ -11,6 +11,7 @@ import (
 	"go.cryptoscope.co/ssb/message/multimsg"
 )
 
+// OpenLog returns a offset2 margaret.Log but wrapping it to be multimsg compatible
 func OpenLog(r Interface, path ...string) (multimsg.AlterableLog, error) {
 	// prefix path with "logs" if path is not empty, otherwise use "log"
 	path = append([]string{"log"}, path...)
