@@ -36,12 +36,15 @@ jobs:
     - name: Build smoke test
       run: go build -v ./cmd/go-sbot
 
-    - name: install node ssb-stack
+    - name: install nodejs ssb stack dependencies
       run: |
         pushd message/legacy
         npm ci
         popd
-        pushd tests
+        pushd tests/js-db1
+        npm ci
+        popd
+        pushd tests/js-db2
         npm ci
         popd
 

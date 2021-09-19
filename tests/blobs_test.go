@@ -24,6 +24,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/leakcheck"
 	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -129,9 +130,12 @@ func TestBlobWithHop(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 
-	ts := newRandomSession(t)
+	ts := newSession(t, nil, nil)
+	// ts := newRandomSession(t)
 
-	ts.startGoBot()
+	ts.startGoBot(
+		sbot.DisableEBT(true),
+	)
 	bob := ts.gobot
 
 	alice := ts.startJSBot(`

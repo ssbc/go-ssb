@@ -23,16 +23,12 @@ const createSbot = theStack({caps: {shs: testAppkey } })
   .use(require('ssb-db'))
   .use(require('ssb-backlinks'))
   .use(require('ssb-query'))
-  .use(require('ssb-private1'))
-  .use(require('ssb-tribes'))
+  // .use(require('ssb-private'))
   .use(require('ssb-gossip'))
   .use(require('ssb-replicate'))
   .use(require('ssb-friends'))
   .use(require('ssb-blobs'))
   .use(require('./ggdemo'))
-  .use(require('ssb-device-address'))
-  .use(require('ssb-identities'))
-  .use(require('ssb-invite'))
   .use(require('ssb-ebt'))
 
 const testName = process.env.TEST_NAME
@@ -69,14 +65,15 @@ tape(testName, function (t) {
   }
 
   function exit() { // call this when you're done
-    sbot.close()
-    t.comment('closed sbot')
-    clearTimeout(tapeTimeout)
-    t.end()
-    process.exit(0)
+    sbot.close(() => {
+      t.comment('closed jsbot: ' + testName)
+      clearTimeout(tapeTimeout)
+      t.end()
+      // process.exit(0)
+    })
   }
 
-  const tempRepo = Path.join('testrun', testName)
+  const tempRepo = Path.join('..', 'testrun', testName)
   const keys = loadOrCreateSync(Path.join(tempRepo, 'secret'))
   const opts = {
     allowPrivate: true,
