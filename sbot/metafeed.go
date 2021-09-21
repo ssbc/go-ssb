@@ -38,10 +38,10 @@ func WithMetaFeedMode(enable bool) Option {
 }
 
 type metaFeedsService struct {
-	rxLog margaret.Log
+	rxLog        margaret.Log
 	indexManager ssb.IndexFeedManager
-	users multilog.MultiLog
-	keys  *keys.Store
+	users        multilog.MultiLog
+	keys         *keys.Store
 
 	hmacSecret *[32]byte
 }
@@ -56,10 +56,10 @@ func newMetaFeedService(rxLog margaret.Log, indexManager ssb.IndexFeedManager, u
 	}
 
 	return &metaFeedsService{
-		rxLog: rxLog,
+		rxLog:        rxLog,
 		indexManager: indexManager,
-		users: users,
-		hmacSecret: hmacSecret,
+		users:        users,
+		hmacSecret:   hmacSecret,
 
 		keys: keyStore,
 	}, nil
@@ -101,8 +101,8 @@ func (s metaFeedsService) getMsgAtSeq(mfId refs.FeedRef, seq int64) (metamngmt.A
 }
 
 // The purpose of method RegisterIndex is to enable indexing of messages created by a given feed, of the given type. To do
-// that, we have to get (or create!) an index feed on which to publish the index messages. 
-func (s metaFeedsService) RegisterIndex (mfId, contentFeed refs.FeedRef, msgType string) error {
+// that, we have to get (or create!) an index feed on which to publish the index messages.
+func (s metaFeedsService) RegisterIndex(mfId, contentFeed refs.FeedRef, msgType string) error {
 	newIndex, err := s.GetOrCreateIndex(mfId, contentFeed, "index", msgType)
 	if err != nil {
 		return err
@@ -124,8 +124,6 @@ func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purp
 
 	// query existing subfeeds to see if our desired subfeed already exists
 	// (using contentFeed + msgType) before creating a new one
-	// TODO (2021-09-20): check if feed has been tombstoned? is there a reasonably easy way of checking that,
-	// for a given feedid?
 	for _, subfeed := range potentialMatches {
 		msg, err := s.getMsgAtSeq(mount, subfeed.Seq)
 		if err != nil {
@@ -144,14 +142,14 @@ func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purp
 		// unpack the info from a string of json into something we can use
 		var queryInfo struct {
 			Author refs.FeedRef `json:"author"`
-			Type   string `json:"type"`
+			Type   string       `json:"type"`
 		}
 		err = json.Unmarshal([]byte(query), &queryInfo)
 		if err != nil {
 			return refs.FeedRef{}, fmt.Errorf("GetOrCreateIndex had an error when unmarshaling query info (%w)", err)
 		}
 
-		// the index feed has already been created, return the matching subfeed 
+		// the index feed has already been created, return the matching subfeed
 		if queryInfo.Author.Equal(contentFeed) && queryInfo.Type == msgType {
 			return subfeed.Feed, nil
 		}
@@ -271,7 +269,7 @@ func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, form
 		Scheme: keys.SchemeMetafeedSubkey,
 
 		Metadata: keys.Metadata{
-			ForFeed: newSubfeedKeyPair.Feed,
+			ForFeed: &newSubfeedKeyPair.Feed,
 		},
 	})
 	if err != nil {
@@ -370,8 +368,6 @@ func (s metaFeedsService) TombstoneSubFeed(mount, subfeed refs.FeedRef) error {
 }
 
 func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEntry, error) {
-	// TODO (2021-09-16): make SubfeedListEntry also return a metadata key, if it exists
-	// rationale: we need the tuple {author, indexType} for the index writing functionality
 	subfeedListID := keys.IDFromFeed(mount)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListID)
 	if err != nil {

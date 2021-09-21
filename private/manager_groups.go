@@ -58,7 +58,7 @@ func (mgr *Manager) Create(name string) (refs.MessageRef, refs.MessageRef, error
 		return emptyMsgRef, emptyMsgRef, err
 	}
 
-	groupKey.Metadata.GroupRoot = publicRoot
+	groupKey.Metadata.GroupRoot = &publicRoot
 
 	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(groupKey)
 	if err != nil {
@@ -81,7 +81,7 @@ func (mgr *Manager) Join(groupKey []byte, root refs.MessageRef) (refs.MessageRef
 	}
 	copy(r.Key, groupKey)
 
-	r.Metadata.GroupRoot = root
+	r.Metadata.GroupRoot = &root
 
 	cloakedID, err := mgr.deriveCloakedAndStoreNewKey(r)
 	if err != nil {
@@ -97,8 +97,12 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, fmt.Errorf("deriveCloaked: nil recipient key")
 	}
 
+	if k.Metadata.GroupRoot == nil {
+		return emptyMsgRef, fmt.Errorf("deriveCloaked: missing group root")
+	}
+
 	// TODO: might find a way without this 2nd roundtrip of getting the message.
-	initMsg, err := mgr.receiveByRef.Get(k.Metadata.GroupRoot)
+	initMsg, err := mgr.receiveByRef.Get(*k.Metadata.GroupRoot)
 	if err != nil {
 		return emptyMsgRef, err
 	}
@@ -202,7 +206,10 @@ func (mgr *Manager) AddMember(groupID refs.MessageRef, r refs.FeedRef, welcome s
 	ga.Text = welcome
 
 	ga.GroupKey = keys.Base64String(gskey[0].Key)
-	groupRoot := gskey[0].Metadata.GroupRoot
+	if gskey[0].Metadata.GroupRoot == nil {
+		return refs.MessageRef{}, fmt.Errorf("missing group root")
+	}
+	groupRoot := *gskey[0].Metadata.GroupRoot
 	ga.Root = groupRoot
 
 	ga.Recps = []string{groupID.String(), r.String()}
@@ -242,7 +249,10 @@ func (mgr *Manager) PublishTo(groupID refs.MessageRef, content []byte) (refs.Mes
 	}
 
 	var groupState = map[string]refs.TanglePoint{}
-	groupState["group"] = mgr.getTangleState(r.Metadata.GroupRoot, "group")
+	if r.Metadata.GroupRoot == nil {
+		return refs.MessageRef{}, fmt.Errorf("missing group root")
+	}
+	groupState["group"] = mgr.getTangleState(*r.Metadata.GroupRoot, "group")
 	decodedContent["tangles"] = groupState
 
 	updatedContent, err := json.Marshal(decodedContent)
@@ -276,7 +286,11 @@ func (mgr *Manager) PublishPostTo(groupID refs.MessageRef, text string) (refs.Me
 	p.Recps = refs.MessageRefs{groupID}
 	p.Tangles = make(refs.Tangles)
 
-	p.Tangles["group"] = mgr.getTangleState(r.Metadata.GroupRoot, "group")
+	if r.Metadata.GroupRoot == nil {
+		return refs.MessageRef{}, fmt.Errorf("missing group root")
+	}
+
+	p.Tangles["group"] = mgr.getTangleState(*r.Metadata.GroupRoot, "group")
 
 	content, err := json.Marshal(p)
 	if err != nil {

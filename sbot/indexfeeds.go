@@ -6,10 +6,10 @@ package sbot
 
 import (
 	"encoding/json"
-	"fmt"
 	"errors"
-	"os"
+	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 
 	"go.cryptoscope.co/ssb"
@@ -21,13 +21,12 @@ func newIndexFeedManager(storagePath string) (ssb.IndexFeedManager, error) {
 	// load previous registered indexes (if any)
 	m.load()
 
-	// TODO: add tests for that (register, stop bot, start bot, check is registered)
 	return m, nil
 }
 
 type indexFeedManager struct {
 	// registered indexes
-	indexes   map[string]refs.FeedRef
+	indexes     map[string]refs.FeedRef
 	storagePath string
 }
 
@@ -65,14 +64,13 @@ func (manager indexFeedManager) store() error {
 		return fmt.Errorf("indexFeedManager marshal failed (%w)", err)
 	}
 
-	// TODO (2021-09-21): use better permissions
-	err = os.MkdirAll(manager.storagePath, 0777)
+	err = os.MkdirAll(manager.storagePath, 0700)
 	if err != nil {
 		return fmt.Errorf("indexFeedManager mkdir failed (%w)", err)
 	}
 
 	indexpath := filepath.Join(manager.storagePath, "indexes.json")
-	err = os.WriteFile(indexpath, data, 0777)
+	err = os.WriteFile(indexpath, data, 0700)
 	if err != nil {
 		return fmt.Errorf("indexFeedManager write indexes file failed (%w)", err)
 	}
@@ -99,7 +97,7 @@ func (manager *indexFeedManager) load() error {
 	return nil
 }
 
-// Method Deregister removes a previously tracked index feed. 
+// Method Deregister removes a previously tracked index feed.
 // Returns true if feed was found && removed (false if not found)
 func (manager indexFeedManager) Deregister(indexFeed refs.FeedRef) (bool, error) {
 	var soughtKey string
@@ -143,22 +141,23 @@ func (manager indexFeedManager) Process(m refs.Message) (refs.FeedRef, interface
 		return refs.FeedRef{}, nil, nil
 	}
 
-	// TODO: make sure this is the right format
-	type indexed struct {
-		Sequence int64  `json:"sequence"`
-		Key      string `json:"key"`
-	}
-	type indexMsg struct {
-		Type    string  `json:"type"`
-		Indexed indexed `json:"indexed"`
-	}
 	content := indexMsg{
 		Type: "indexed",
 		Indexed: indexed{
 			m.Seq(),
-			m.Key().String(),
+			m.Key(),
 		},
 	}
 
 	return pubkey, content, nil
+}
+
+// TODO: make sure this is the right format
+type indexed struct {
+	Sequence int64           `json:"sequence"`
+	Key      refs.MessageRef `json:"key"`
+}
+type indexMsg struct {
+	Type    string  `json:"type"`
+	Indexed indexed `json:"indexed"`
 }

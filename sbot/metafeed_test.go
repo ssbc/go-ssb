@@ -7,6 +7,7 @@ package sbot
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,9 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/repo"
+	"go.cryptoscope.co/ssb/internal/mutil"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
 	"go.cryptoscope.co/ssb/internal/testutils"
+	"go.cryptoscope.co/ssb/repo"
 	"go.mindeco.de/log"
 	refs "go.mindeco.de/ssb-refs"
 	"golang.org/x/sync/errgroup"
@@ -374,37 +376,55 @@ func TestMetafeedIndexes(t *testing.T) {
 	r.NoError(err)
 	// </boilerplate>
 
-	/* test index feed creation */
-	// the test plan:
-	// * have a main feed (ssb1)
-	// * create indexes
-	// * publish messages on the main
-	// * check that the published msgs corresponding index messages exist
+	// takes a log and a sequence number, massages the sequence number into the format used by the log provider & asserts
+	// that the log is at the queried sequence number
+	var createCheckSeq = func(bot *Sbot) func(feed margaret.Log, want int) refs.Message {
+		return func(feed margaret.Log, want int) refs.Message {
+			if want == -1 {
+				return nil
+			}
 
-	// util funcs
-	var checkSeq = func(feed margaret.Log, want int) refs.Message {
-		if want == -1 {
-			return nil
+			want = want - 1
+			r.EqualValues(want, feed.Seq())
+
+			rxSeq, err := feed.Get(int64(want))
+			r.NoError(err)
+
+			// mv == message value (because of the empty interface assert)
+			mv, err := bot.ReceiveLog.Get(rxSeq.(int64))
+			r.NoError(err)
+
+			return mv.(refs.Message)
 		}
+	}
+	// util funcs
+	var checkSeq = createCheckSeq(bot)
 
-		want = want - 1
-		r.EqualValues(want, feed.Seq())
-
-		rxSeq, err := feed.Get(int64(want))
-		r.NoError(err)
-
-		// mv == message value (because of the empty interface assert)
-		mv, err := bot.ReceiveLog.Get(rxSeq.(int64))
-		r.NoError(err)
-
-		return mv.(refs.Message)
+	// get a feed from a running sbot using only the id && assert that it worked
+	var createGetFeed = func(bot *Sbot) func(feedId refs.FeedRef) margaret.Log {
+		return func(feedId refs.FeedRef) margaret.Log {
+			feed, err := bot.Users.Get(storedrefs.Feed(feedId))
+			r.NoError(err)
+			return feed
+		}
 	}
 
-	var getFeed = func (feedId refs.FeedRef) (margaret.Log) {
-		feed, err := bot.Users.Get(storedrefs.Feed(feedId))
-		r.NoError(err)
-		return feed
+	var fetchMessageBySeq = func(bot *Sbot) func(log margaret.Log, seq int64) refs.Message {
+		return func(idx margaret.Log, seq int64) refs.Message {
+
+			msgLog := mutil.Indirect(bot.ReceiveLog, idx)
+
+			v, err := msgLog.Get(seq)
+			r.NoError(err)
+
+			// unbox and make sure it's the right format
+			msg, ok := v.(refs.Message)
+			r.True(ok, "%T is not a message", v)
+			return msg
+		}
 	}
+
+	var getFeed = createGetFeed(bot)
 
 	mfId := bot.KeyPair.ID()
 	// create a main feed (holds actual messages, regular old ssb feed thinger) on the root metafeed
@@ -466,28 +486,59 @@ func TestMetafeedIndexes(t *testing.T) {
 	// about index should still have have two messages?
 	checkSeq(aboutIndex, 2)
 
-	// <teardown>
+	// <teardown, first bot>
 	bot.Shutdown()
 	bot.Close()
-}
+	// </teardown>
 
-// to test the restarting of the sbot, do the teardown and then the setup again and issue some asserts basically
-func TestMetafeedIndexesReboot(t *testing.T) {
-	// <boilerplate>
-	r := require.New(t)
-
-	// use same repo as previous test
-	tRepoPath := "testrun/TestMetafeedIndexes"
-
-	// make the bot
-	logger := log.NewLogfmtLogger(os.Stderr)
-	bot, err := New(
+	/* remake the bot */
+	bot2, err := New(
 		WithInfo(logger),
 		WithRepoPath(tRepoPath),
 		DisableNetworkNode(),
 		WithMetaFeedMode(true),
 	)
 	r.NoError(err)
-	// </boilerplate>
-	fmt.Println("restarted bot id", bot.KeyPair.ID())
+	t.Log("restarted bot id", bot2.KeyPair.ID())
+
+	// init new helper functions operating on bot2
+
+	getFeed = createGetFeed(bot2)
+	getMsg := fetchMessageBySeq(bot2)
+
+	// re-get the contact index feed so we can assert on it
+	contactIndexIdReloaded, err := bot2.MetaFeeds.GetOrCreateIndex(mfId, mainFeedRef, "index", "contact")
+	r.NoError(err, "failed to get index feed of restarted bot")
+
+	r.Equal(contactIndexId.String(), contactIndexIdReloaded.String(), "two contact indexs are not equal")
+
+	// contact index should start with one message
+	contactIndex = getFeed(contactIndexId)
+
+	// contact index should now have two messages
+	contactIdxMsg := getMsg(contactIndex, 0)
+	var idxmsg indexMsg
+	err = json.Unmarshal(contactIdxMsg.ContentBytes(), &idxmsg)
+	r.NoError(err)
+	r.Equal("indexed", idxmsg.Type)
+	r.EqualValues(2, idxmsg.Indexed.Sequence)
+
+	// /* publish another contact message to the main feed */
+	rando, err = ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+	lastContact, err := bot2.MetaFeeds.Publish(mainFeedRef, refs.NewContactFollow(rando.ID()))
+	r.NoError(err)
+
+	// load the final message
+	lastContactIdxMsg := getMsg(contactIndex, 1)
+	err = json.Unmarshal(lastContactIdxMsg.ContentBytes(), &idxmsg)
+	r.NoError(err)
+	r.Equal("indexed", idxmsg.Type)
+	r.EqualValues(4, idxmsg.Indexed.Sequence)
+	r.Equal(lastContact.Key().String(), idxmsg.Indexed.Key.String())
+
+	// <teardown>
+	bot2.Shutdown()
+	bot2.Close()
+	// </teardown>
 }

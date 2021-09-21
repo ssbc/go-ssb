@@ -136,7 +136,7 @@ func (mgr *Manager) GetOrDeriveKeyFor(other refs.FeedRef) (keys.Recipients, erro
 			Scheme: scheme,
 			Key:    messageShared,
 			Metadata: keys.Metadata{
-				ForFeed: other,
+				ForFeed: &other,
 			},
 		}
 
