@@ -18,7 +18,7 @@ import (
 // NewGabbyStreamSink expects the values passing through to be of type multimsg.MultiMessage
 // it then unpacks them as gabygrove, reencodes the transfer object to bytes
 // and passes those as muxrpc codec.Body to the wrapped sink
-func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
+func NewGabbyStreamSink(w muxrpc.ByteSinker) luigi.Sink {
 	return luigi.FuncSink(func(_ context.Context, v interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {
@@ -26,22 +26,10 @@ func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 			}
 			return err
 		}
-		var mm *multimsg.MultiMessage
-		switch tv := v.(type) {
-		case *multimsg.MultiMessage:
-			mm = tv
-		case multimsg.MultiMessage:
-			mm = &tv
-		case margaret.SeqWrapper:
-			boxedV := tv.Value()
-			theMsg, ok := boxedV.(multimsg.MultiMessage)
-			if !ok {
-				return fmt.Errorf("gabbyStream: expected MultiMessage in sequence wrapper - got %T", boxedV)
-			}
-			mm = &theMsg
 
-		default:
-			return fmt.Errorf("gabbyStream: expected MultiMessage - got %T", v)
+		mm, err := getMultiMessage(v)
+		if err != nil {
+			return err
 		}
 
 		tr, ok := mm.AsGabby()
@@ -60,7 +48,7 @@ func NewGabbyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 	})
 }
 
-func NewBendyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
+func NewBendyStreamSink(w muxrpc.ByteSinker) luigi.Sink {
 	return luigi.FuncSink(func(_ context.Context, v interface{}, err error) error {
 		if err != nil {
 			if luigi.IsEOS(err) {
@@ -68,22 +56,10 @@ func NewBendyStreamSink(w *muxrpc.ByteSink) luigi.Sink {
 			}
 			return err
 		}
-		var mm *multimsg.MultiMessage
-		switch tv := v.(type) {
-		case *multimsg.MultiMessage:
-			mm = tv
-		case multimsg.MultiMessage:
-			mm = &tv
-		case margaret.SeqWrapper:
-			boxedV := tv.Value()
-			theMsg, ok := boxedV.(multimsg.MultiMessage)
-			if !ok {
-				return fmt.Errorf("gabbyStream: expected MultiMessage in sequence wrapper - got %T", boxedV)
-			}
-			mm = &theMsg
 
-		default:
-			return fmt.Errorf("gabbyStream: expected MultiMessage - got %T", v)
+		mm, err := getMultiMessage(v)
+		if err != nil {
+			return err
 		}
 
 		mf, ok := mm.AsMetaFeed()
@@ -115,4 +91,25 @@ func NewSinkCounter(counter *int, sink luigi.Sink) luigi.FuncSink {
 		}
 		return err
 	}
+}
+
+func getMultiMessage(val interface{}) (*multimsg.MultiMessage, error) {
+	var mm *multimsg.MultiMessage
+	switch tv := val.(type) {
+	case *multimsg.MultiMessage:
+		mm = tv
+	case multimsg.MultiMessage:
+		mm = &tv
+	case margaret.SeqWrapper:
+		wrappedVal := tv.Value()
+		theMsg, ok := wrappedVal.(multimsg.MultiMessage)
+		if !ok {
+			return nil, fmt.Errorf("luigiUtils: expected MultiMessage in sequence wrapper - got %T", wrappedVal)
+		}
+		mm = &theMsg
+
+	default:
+		return nil, fmt.Errorf("luigiUtils: expected MultiMessage - got %T", val)
+	}
+	return mm, nil
 }

@@ -21,7 +21,7 @@ import (
 
 // NewKeyValueWrapper turns a value into a key-value message.
 // If keyWrap is true, it sends the JSON of the ssb.KeyValueRaw value on the passed ByteSink.
-func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
+func NewKeyValueWrapper(mw muxrpc.ByteSinker, keyWrap bool) luigi.Sink {
 
 	noNulled := mfr.FilterFunc(func(ctx context.Context, v interface{}) (bool, error) {
 		switch tv := v.(type) {

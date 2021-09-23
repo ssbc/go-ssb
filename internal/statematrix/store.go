@@ -39,7 +39,7 @@ type StateMatrix struct {
 }
 
 // map[peer reference]frontier
-type currentFrontiers map[string]ssb.NetworkFrontier
+type currentFrontiers map[string]*ssb.NetworkFrontier
 
 func New(base string, self refs.FeedRef) (*StateMatrix, error) {
 
@@ -62,7 +62,7 @@ func New(base string, self refs.FeedRef) (*StateMatrix, error) {
 }
 
 // Inspect returns the current frontier for the passed peer
-func (sm *StateMatrix) Inspect(peer refs.FeedRef) (ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Inspect(peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return sm.loadFrontier(peer)
@@ -79,7 +79,7 @@ func (sm *StateMatrix) StateFileName(peer refs.FeedRef) (string, error) {
 	return peerFileName, nil
 }
 
-func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
 	curr, has := sm.open[peer.String()]
 	if has {
 		return curr, nil
@@ -87,13 +87,13 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, err
 
 	peerFileName, err := sm.StateFileName(peer)
 	if err != nil {
-		return ssb.NetworkFrontier{}, err
+		return nil, err
 	}
 
 	peerFile, err := os.Open(peerFileName)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return ssb.NetworkFrontier{}, err
+			return nil, err
 		}
 
 		// new file, nothing to see here
@@ -106,7 +106,7 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (ssb.NetworkFrontier, err
 	curr = ssb.NewNetworkFrontier()
 	err = json.NewDecoder(peerFile).Decode(&curr)
 	if err != nil {
-		return ssb.NetworkFrontier{}, fmt.Errorf("state json decode failed: %w", err)
+		return nil, fmt.Errorf("state json decode failed: %w", err)
 	}
 	sm.open[peer.String()] = curr
 	return curr, nil
@@ -268,20 +268,51 @@ func (sm *StateMatrix) WantsFeed(peer, feed refs.FeedRef) (ssb.Note, bool, error
 	return n, n.Receive, nil
 }
 
+func (sm *StateMatrix) WantsFeedWithSeq(peer, feed refs.FeedRef, seq int64) (bool, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	nf, err := sm.loadFrontier(peer)
+	if err != nil {
+		return false, err
+	}
+
+	// does not take look because it's called in the EBT loop
+
+	n, has := nf.Frontier[feed.String()]
+	if !has {
+		return false, nil
+	}
+
+	if !n.Receive {
+		return false, nil
+	}
+
+	// do they want the next message?
+	wants := n.Seq < seq+1
+	return wants, nil
+}
+
 // Changed returns which feeds have newer messages since last update
-func (sm *StateMatrix) Changed(self, peer refs.FeedRef) (ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Changed(self, peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	selfNf, err := sm.loadFrontier(self)
 	if err != nil {
-		return ssb.NetworkFrontier{}, err
+		return nil, err
 	}
+
+	selfNf.Lock()
+	defer selfNf.Unlock()
 
 	peerNf, err := sm.loadFrontier(peer)
 	if err != nil {
-		return ssb.NetworkFrontier{}, err
+		return nil, err
 	}
+
+	peerNf.Lock()
+	defer peerNf.Unlock()
 
 	// calculate the subset of what self wants and peer wants to hear about
 	relevant := ssb.NewNetworkFrontier()
@@ -317,22 +348,60 @@ type ObservedFeed struct {
 
 // Update gets the current state from who, overwrites the notes in current with the new ones from the passed update
 // and returns the complet updated frontier.
-func (sm *StateMatrix) Update(who refs.FeedRef, update ssb.NetworkFrontier) (ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Update(who refs.FeedRef, update *ssb.NetworkFrontier) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	current, err := sm.loadFrontier(who)
 	if err != nil {
-		return ssb.NetworkFrontier{}, err
+		return nil, err
 	}
-
+	current.Lock()
 	// overwrite the entries in current with the updated ones
 	for feed, note := range update.Frontier {
 		current.Frontier[feed] = note
 	}
-
 	sm.open[who.String()] = current
+	current.Unlock()
 	return current, nil
+}
+
+type FeedWithLength struct {
+	refs.FeedRef
+
+	Sequence int64
+}
+
+// UpdateSequences
+func (sm *StateMatrix) UpdateSequences(who refs.FeedRef, feeds []FeedWithLength) error {
+	if len(feeds) == 0 { // noop
+		return nil
+	}
+
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	nf, err := sm.loadFrontier(who)
+	if err != nil {
+		return err
+	}
+
+	nf.Lock()
+	for _, updatedFeed := range feeds {
+		mapKey := updatedFeed.String()
+
+		currNote, hasNote := nf.Frontier[mapKey]
+		if !hasNote {
+			continue
+		}
+		currNote.Seq = updatedFeed.Sequence
+
+		nf.Frontier[mapKey] = currNote
+	}
+	sm.open[who.String()] = nf
+	nf.Unlock()
+
+	return nil
 }
 
 // Fill might be deprecated. It just updates the current frontier state
@@ -349,6 +418,7 @@ func (sm *StateMatrix) Fill(who refs.FeedRef, feeds []ObservedFeed) error {
 		return err
 	}
 
+	nf.Lock()
 	for _, updatedFeed := range feeds {
 		if updatedFeed.Replicate {
 			nf.Frontier[updatedFeed.Feed.String()] = updatedFeed.Note
@@ -357,8 +427,9 @@ func (sm *StateMatrix) Fill(who refs.FeedRef, feeds []ObservedFeed) error {
 			delete(nf.Frontier, updatedFeed.Feed.String())
 		}
 	}
-
 	sm.open[who.String()] = nf
+	nf.Unlock()
+
 	return nil
 }
 

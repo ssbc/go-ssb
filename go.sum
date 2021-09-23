@@ -398,8 +398,8 @@ go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8 h1:83xMhOCA4LJdbvdS
 go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8/go.mod h1:vJZOaxKWLWTC5oRWBOGVVW9X+o6nikLZSYUF9bvPd2w=
 go.cryptoscope.co/margaret v0.4.0 h1:tQhIwhvO4R1sVq+usv7VTLINJZ8A2EZECyAYFHeewNQ=
 go.cryptoscope.co/margaret v0.4.0/go.mod h1:iTn7xcBu0ggNLuaXlbttgPNQkgwuamU/i+1wxHC5eLc=
-go.cryptoscope.co/muxrpc/v2 v2.0.11 h1:TvehZevqcxkiqOVNkFCChC0j4QGwAln9INIMpd4v25U=
-go.cryptoscope.co/muxrpc/v2 v2.0.11/go.mod h1:og3Wr0CWnJBVp3aiRa9MmmTUQh901wWNjI96+o3NZag=
+go.cryptoscope.co/muxrpc/v2 v2.0.12 h1:LA0pUimVNajsth2PSJ5VfO1GeF9/I0nzrRaBOaqf6J8=
+go.cryptoscope.co/muxrpc/v2 v2.0.12/go.mod h1:og3Wr0CWnJBVp3aiRa9MmmTUQh901wWNjI96+o3NZag=
 go.cryptoscope.co/netwrap v0.1.0/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
 go.cryptoscope.co/netwrap v0.1.1 h1:JLzzGKEvrUrkKzu3iM0DhpHmt+L/gYqmpcf1lJMUyFs=
 go.cryptoscope.co/netwrap v0.1.1/go.mod h1:7zcYswCa4CT+ct54e9uH9+IIbYYETEMHKDNpzl8Ukew=
@@ -419,6 +419,8 @@ go.mindeco.de/ssb-refs v0.4.2-0.20210825091929-c3c28bcc0596/go.mod h1:Ysyvb0aGeR
 go.mindeco.de/ssb-refs v0.4.2-0.20210907140047-ad70b6f7072f/go.mod h1:Ysyvb0aGeR721Nvu5V7mCJtkQP1fwf0qEBLA4FXHXXk=
 go.mindeco.de/ssb-refs v0.4.2-0.20210908123826-f7ca13c14896 h1:i31MTHc/yDEnRMTZB4SxPdUxp1QsVPaSfBGhPu34y2Y=
 go.mindeco.de/ssb-refs v0.4.2-0.20210908123826-f7ca13c14896/go.mod h1:Ysyvb0aGeR721Nvu5V7mCJtkQP1fwf0qEBLA4FXHXXk=
+go.mindeco.de/ssb-refs v0.5.0 h1:rkKPe5KhzEJfqLh5+gcDyGHne9Ii7RSTR0yp93P8Dps=
+go.mindeco.de/ssb-refs v0.5.0/go.mod h1:mFDgDEZ9C+qKzhImx7UZIja8c4a2tCN1wQ/hzrTkc+o=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=

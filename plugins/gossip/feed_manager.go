@@ -182,7 +182,7 @@ func liveLimit(
 // CreateStreamHistory serves the sink a CreateStreamHistory request to the sink.
 func (m *FeedManager) CreateStreamHistory(
 	ctx context.Context,
-	sink *muxrpc.ByteSink,
+	sink muxrpc.ByteSinker,
 	arg message.CreateHistArgs,
 ) error {
 	feedLogger := log.With(m.logger, "fr", arg.ID.ShortSigil())
