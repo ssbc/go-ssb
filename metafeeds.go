@@ -41,6 +41,25 @@ type SubfeedListEntry struct {
 	Seq  int64
 }
 
+type MetadataQuery struct {
+	Private bool         `json:"private"`
+	Author  refs.FeedRef `json:"author"`
+	Type    string       `json:"type"`
+}
+
+type IndexedMessage struct {
+	Type    string `json:"type"`
+	Indexed struct {
+		Sequence int64           `json:"sequence"`
+		Key      refs.MessageRef `json:"key"`
+	} `json:"indexed"`
+}
+
+type IndexListEntry struct {
+	Metadata MetadataQuery // the metadata (author of the indexed messages, the message types indexed by this index)
+	Index    refs.FeedRef  // the id of the index
+}
+
 func (entry SubfeedListEntry) String() string {
 	return fmt.Sprintf("%s (%d)", entry.Feed.ShortSigil(), entry.Seq)
 }
@@ -53,7 +72,8 @@ type IndexFeedManager interface {
 	Register(indexFeed, contentFeed refs.FeedRef, msgType string) error
 	Deregister(refs.FeedRef) (bool, error)
 
-	Process(refs.Message) (refs.FeedRef, interface{}, error)
+	Process(refs.Message) (refs.FeedRef, IndexedMessage, error)
 
-	// TODO List() []refs.FeedRef
+	List() ([]IndexListEntry, error)
+	ListByType(msgtype string) ([]IndexListEntry, error)
 }

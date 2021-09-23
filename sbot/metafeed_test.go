@@ -477,6 +477,11 @@ func TestMetafeedIndexes(t *testing.T) {
 	// contact index still only have one message
 	checkSeq(contactIndex, 1)
 
+	// list the index feeds
+	indexlist, err := bot.IndexFeeds.List()
+	r.NoError(err)
+	r.Len(indexlist, 2, "expected number of registered indexes to be 2")
+
 	/* tombstone the about index, and verify that the index is not being updated */
 	err = bot.MetaFeeds.TombstoneSubFeed(mfId, aboutIndexId)
 	r.NoError(err)
@@ -485,6 +490,18 @@ func TestMetafeedIndexes(t *testing.T) {
 	r.NoError(err)
 	// about index should still have have two messages?
 	checkSeq(aboutIndex, 2)
+	// number of registered indexes should only be 1 after tombstoning
+	indexlist, err = bot.IndexFeeds.List()
+	r.NoError(err)
+	r.Len(indexlist, 1, "expected number of registered indexes to be 1")
+
+	/* perform some index listing operations */
+	indexlist, err = bot.IndexFeeds.ListByType("vote")
+	r.NoError(err)
+	r.Len(indexlist, 0, "expected no indexes of type vote")
+	indexlist, err = bot.IndexFeeds.ListByType("contact")
+	r.NoError(err)
+	r.Len(indexlist, 1, "expected number of registered indexes of type contact to be 1")
 
 	// <teardown, first bot>
 	bot.Shutdown()
@@ -510,20 +527,20 @@ func TestMetafeedIndexes(t *testing.T) {
 	contactIndexIdReloaded, err := bot2.MetaFeeds.GetOrCreateIndex(mfId, mainFeedRef, "index", "contact")
 	r.NoError(err, "failed to get index feed of restarted bot")
 
-	r.Equal(contactIndexId.String(), contactIndexIdReloaded.String(), "two contact indexs are not equal")
+	r.Equal(contactIndexId.String(), contactIndexIdReloaded.String(), "the two contact indexes should have the same id, but don't")
 
 	// contact index should start with one message
 	contactIndex = getFeed(contactIndexId)
 
 	// contact index should now have two messages
 	contactIdxMsg := getMsg(contactIndex, 0)
-	var idxmsg indexMsg
+	var idxmsg ssb.IndexedMessage
 	err = json.Unmarshal(contactIdxMsg.ContentBytes(), &idxmsg)
 	r.NoError(err)
 	r.Equal("indexed", idxmsg.Type)
 	r.EqualValues(2, idxmsg.Indexed.Sequence)
 
-	// /* publish another contact message to the main feed */
+	/* publish another contact message to the main feed */
 	rando, err = ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 	lastContact, err := bot2.MetaFeeds.Publish(mainFeedRef, refs.NewContactFollow(rando.ID()))

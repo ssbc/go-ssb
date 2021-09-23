@@ -65,12 +65,6 @@ func newMetaFeedService(rxLog margaret.Log, indexManager ssb.IndexFeedManager, u
 	}, nil
 }
 
-type metadataQuery struct {
-	Private bool   `json:"private"`
-	Author  string `json:"author"`
-	Type    string `json:"type"`
-}
-
 // Get a message (type `metafeed/add/derived`) from a root metafeed at the specified sequence
 func (s metaFeedsService) getMsgAtSeq(mfId refs.FeedRef, seq int64) (metamngmt.AddDerived, error) {
 	var empty metamngmt.AddDerived
@@ -140,10 +134,7 @@ func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purp
 		}
 
 		// unpack the info from a string of json into something we can use
-		var queryInfo struct {
-			Author refs.FeedRef `json:"author"`
-			Type   string       `json:"type"`
-		}
+		var queryInfo ssb.MetadataQuery
 		err = json.Unmarshal([]byte(query), &queryInfo)
 		if err != nil {
 			return refs.FeedRef{}, fmt.Errorf("GetOrCreateIndex had an error when unmarshaling query info (%w)", err)
@@ -226,11 +217,17 @@ func (s metaFeedsService) CreateSubFeed(mount refs.FeedRef, purpose string, form
 			return refs.FeedRef{}, fmt.Errorf("CreateSubFeed: expected metadata to have key `author`")
 		}
 
+		// convert author-as-string to author-as-refs.FeedRef
+		author, err := refs.ParseFeedRef(metadata["author"])
 		// create a `query` object with the expected ssb-ql-0 format
-		queryJson, err := json.Marshal(metadataQuery{Author: metadata["author"], Type: metadata["type"]})
+		if err != nil {
+			return refs.FeedRef{}, fmt.Errorf("CreateSubFeed: failed to parse passed in author metadata (%w)", err)
+		}
+		queryJson, err := json.Marshal(ssb.MetadataQuery{Author: author, Type: metadata["type"]})
 		if err != nil {
 			return refs.FeedRef{}, err
 		}
+
 		err = addContent.InsertMetadata(map[string]string{
 			"query": string(queryJson), "querylang": metadata["querylang"],
 		})
@@ -433,7 +430,8 @@ func (s metaFeedsService) Publish(as refs.FeedRef, content interface{}) (refs.Me
 
 	indexFeedRef, indexMsg, err := s.indexManager.Process(msg)
 	// there was no index feed related to this message or feed author
-	if indexFeedRef.Equal(refs.FeedRef{}) && indexMsg == nil && err == nil {
+	var empty ssb.IndexedMessage
+	if indexFeedRef.Equal(refs.FeedRef{}) && indexMsg == empty && err == nil {
 		return msg, nil
 	}
 	// index processing had an error

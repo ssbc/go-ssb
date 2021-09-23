@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go.cryptoscope.co/ssb"
 	refs "go.mindeco.de/ssb-refs"
@@ -18,8 +19,12 @@ import (
 
 func newIndexFeedManager(storagePath string) (ssb.IndexFeedManager, error) {
 	m := indexFeedManager{indexes: make(map[string]refs.FeedRef), storagePath: storagePath}
+
 	// load previous registered indexes (if any)
-	m.load()
+	err := m.load()
+	if err != nil {
+		return indexFeedManager{}, fmt.Errorf("indexfeedmanager: failed to load stored indexes (%w)", err)
+	}
 
 	return m, nil
 }
@@ -30,8 +35,10 @@ type indexFeedManager struct {
 	storagePath string
 }
 
+const indexSeparator = ":::"
+
 func constructIndexKey(author refs.FeedRef, msgType string) string {
-	return fmt.Sprintf("%s%s", author, msgType)
+	return author.String() + indexSeparator + msgType
 }
 
 // Method Register keeps track of index feeds so that whenever we publish a new message we also correspondingly publish
@@ -61,7 +68,7 @@ func (manager indexFeedManager) Register(indexFeed, contentFeed refs.FeedRef, ms
 func (manager indexFeedManager) store() error {
 	data, err := json.MarshalIndent(manager.indexes, "", "  ")
 	if err != nil {
-		return fmt.Errorf("indexFeedManager marshal failed (%w)", err)
+		return fmt.Errorf("indexFeedManager marshaling indexes state failed (%w)", err)
 	}
 
 	err = os.MkdirAll(manager.storagePath, 0700)
@@ -120,44 +127,64 @@ func (manager indexFeedManager) Deregister(indexFeed refs.FeedRef) (bool, error)
 }
 
 // Process looks through all the registered indexes and publishes messages accordingly
-func (manager indexFeedManager) Process(m refs.Message) (refs.FeedRef, interface{}, error) {
+func (manager indexFeedManager) Process(m refs.Message) (refs.FeedRef, ssb.IndexedMessage, error) {
 	// creates index messages after actual messages have been published
 	var typed struct {
 		Type string
 	}
 	err := json.Unmarshal(m.ContentBytes(), &typed)
 	if err != nil {
-		return refs.FeedRef{}, nil, err
+		return refs.FeedRef{}, ssb.IndexedMessage{}, err
 	}
 
+	// do nothing (reasons for no type is usually encrypted messages)
 	if typed.Type == "" {
-		return refs.FeedRef{}, nil, nil
+		return refs.FeedRef{}, ssb.IndexedMessage{}, nil
 	}
 
 	// lookup correct index
 	idxKey := constructIndexKey(m.Author(), typed.Type)
 	pubkey, has := manager.indexes[idxKey] // use pubkey to later get publisher
 	if !has {
-		return refs.FeedRef{}, nil, nil
+		return refs.FeedRef{}, ssb.IndexedMessage{}, nil
 	}
 
-	content := indexMsg{
-		Type: "indexed",
-		Indexed: indexed{
-			m.Seq(),
-			m.Key(),
-		},
-	}
+	content := ssb.IndexedMessage{Type: "indexed"}
+	content.Indexed.Sequence = m.Seq()
+	content.Indexed.Key = m.Key()
 
 	return pubkey, content, nil
 }
 
-// TODO: make sure this is the right format
-type indexed struct {
-	Sequence int64           `json:"sequence"`
-	Key      refs.MessageRef `json:"key"`
+func (manager indexFeedManager) List() ([]ssb.IndexListEntry, error) {
+	return manager.ListByType("")
 }
-type indexMsg struct {
-	Type    string  `json:"type"`
-	Indexed indexed `json:"indexed"`
+
+func (manager indexFeedManager) ListByType(msgType string) ([]ssb.IndexListEntry, error) {
+	indexlist := make([]ssb.IndexListEntry, len(manager.indexes))
+	var i int
+	for key, indexfeed := range manager.indexes {
+		parts := strings.Split(key, indexSeparator)
+		if len(parts) != 2 {
+			return []ssb.IndexListEntry{}, fmt.Errorf("ListByType: index key was supposed to be len 2, but wasn't")
+		}
+		authorString := parts[0]
+		foundType := parts[1]
+
+		// if msgType specified, and the current index wasn't indexing the sought msgType then skip to next one
+		if msgType != "" && foundType != msgType {
+			continue
+		}
+
+		author, err := refs.ParseFeedRef(authorString)
+		if err != nil {
+			return nil, fmt.Errorf("ListByType: failed to parse feed ref %s (%w)", parts[0], err)
+		}
+		indexlist[i].Metadata = ssb.MetadataQuery{Author: author, Type: foundType}
+		indexlist[i].Index = indexfeed
+
+		i++
+	}
+	// return the slice of indexlist that's actually used (if filtering by a type, it's likely that i < len(manager.indexes))
+	return indexlist[:i], nil
 }
