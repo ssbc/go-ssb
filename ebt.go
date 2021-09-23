@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -68,14 +69,18 @@ func (s *Note) UnmarshalJSON(input []byte) error {
 
 // NetworkFrontier can be filtered by feed format by setting Format before unmarshaling JSON into it.
 type NetworkFrontier struct {
+	// TODO: it's a hack to expose the lock directly.
+	// it would be much better to hide the lock and the map and expose the map via functions
+	sync.Mutex
+
 	Frontier NetworkFrontierMap
 
 	Format refs.RefAlgo
 }
 
 // NewNetworkFrontier returns a new, initialized map
-func NewNetworkFrontier() NetworkFrontier {
-	return NetworkFrontier{
+func NewNetworkFrontier() *NetworkFrontier {
+	return &NetworkFrontier{
 		Frontier: make(NetworkFrontierMap),
 	}
 }
@@ -86,7 +91,10 @@ type NetworkFrontierMap map[string]Note
 
 // MarshalJSON turns the frontier into a JSON object where the field is feed ref and the value is a serialzed note integer.
 // It also filters out any feed that is not in the set Format of the frontier.
-func (nf NetworkFrontier) MarshalJSON() ([]byte, error) {
+func (nf *NetworkFrontier) MarshalJSON() ([]byte, error) {
+	nf.Mutex.Lock()
+	defer nf.Mutex.Unlock()
+
 	var filtered = make(NetworkFrontierMap, len(nf.Frontier))
 
 	for fstr, s := range nf.Frontier {
@@ -109,6 +117,9 @@ func (nf NetworkFrontier) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON expects a JSON object where each field is a feed reference and the value is a EBT Note value.
 // If no format is set/expected for the frontier it filters using classic refs.RefAlgoFeedSSB1.
 func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
+	nf.Mutex.Lock()
+	defer nf.Mutex.Unlock()
+
 	if nf.Format == "" {
 		nf.Format = refs.RefAlgoFeedSSB1
 	}

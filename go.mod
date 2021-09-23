@@ -35,14 +35,14 @@ require (
 	github.com/zeebo/bencode v1.0.0
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
 	go.cryptoscope.co/margaret v0.4.0
-	go.cryptoscope.co/muxrpc/v2 v2.0.11
+	go.cryptoscope.co/muxrpc/v2 v2.0.12
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
 	go.cryptoscope.co/secretstream v1.2.9
 	go.mindeco.de v1.12.0
 	go.mindeco.de/ssb-gabbygrove v0.2.1-0.20210907140645-35a659043bdd
 	go.mindeco.de/ssb-multiserver v0.1.4-0.20210907140404-6f323e45e9f9
-	go.mindeco.de/ssb-refs v0.4.2-0.20210908123826-f7ca13c14896
+	go.mindeco.de/ssb-refs v0.5.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/exp v0.0.0-20190411193353-0480eff6dd7c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
