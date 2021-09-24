@@ -41,25 +41,62 @@ var metafeedsScenarios = []PeopleTestCase{
 	},
 
 	{
+		name: "metafeeds inside metafeeds",
+		ops: []PeopleOp{
+			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
+
+			PeopleOpNewSubFeed{
+				of:    "alice",
+				name:  "alice-indexes",
+				nonce: "test1",
+				algo:  refs.RefAlgoFeedBendyButt,
+			},
+
+			PeopleOpNewSubFeed{
+				of:    "alice-indexes",
+				name:  "alice-foo",
+				nonce: "idx1",
+				algo:  refs.RefAlgoFeedGabby,
+			},
+			PeopleOpNewSubFeed{
+				of:    "alice-indexes",
+				name:  "alice-bar",
+				nonce: "idx2",
+				algo:  refs.RefAlgoFeedSSB1,
+			},
+		},
+		asserts: []PeopleAssertMaker{
+			PeopleAssertIsSubfeed("alice", "alice-indexes", true),
+
+			PeopleAssertIsSubfeed("alice-indexes", "alice-foo", true),
+			PeopleAssertIsSubfeed("alice-indexes", "alice-bar", true),
+
+			PeopleAssertHops("alice", 0, "alice-indexes", "alice-foo", "alice-bar"),
+		},
+	},
+
+	{
 		name: "metafeeds of a friend",
 		ops: []PeopleOp{
 			PeopleOpNewPeer{"alice"},
 			PeopleOpNewPeerWithAlgo{"bob", refs.RefAlgoFeedBendyButt},
 
-			// alice and bob are friends
-			PeopleOpFollow{"alice", "bob"},
-			PeopleOpFollow{"bob", "alice"},
-
 			// bobs subfeeds
 			PeopleOpNewSubFeed{of: "bob",
 				name:  "bob-legacy",
 				nonce: "test1",
-				algo:  refs.RefAlgoFeedSSB1},
+				algo:  refs.RefAlgoFeedSSB1,
+			},
 
 			PeopleOpNewSubFeed{of: "bob",
 				name:  "bob-gabby",
 				nonce: "test2",
-				algo:  refs.RefAlgoFeedGabby},
+				algo:  refs.RefAlgoFeedGabby,
+			},
+
+			// alice and bob are friends
+			PeopleOpFollow{"alice", "bob"},
+			PeopleOpFollow{"bob-legacy", "alice"},
 		},
 		asserts: []PeopleAssertMaker{
 			PeopleAssertHops("alice", 0, "bob", "bob-legacy", "bob-gabby"),
@@ -67,7 +104,7 @@ var metafeedsScenarios = []PeopleTestCase{
 	},
 
 	{
-		name: "metafeed follows someone",
+		name: "metafeeds follow someone",
 		ops: []PeopleOp{
 			PeopleOpNewPeerWithAlgo{"alice", refs.RefAlgoFeedBendyButt},
 			PeopleOpNewPeer{"some"},
@@ -171,18 +208,13 @@ func (op PeopleOpAnnounceMetafeed) Op(state *testState) error {
 		return fmt.Errorf("no such mf peer: %s", op.mf)
 	}
 
-	kpMain, ok := mainFeed.key.(ssb.KeyPair)
-	if !ok {
-		return fmt.Errorf("wrong keypair type for main: %T", mainFeed.key)
-	}
-
 	kpMetafeed, ok := mf.key.(metakeys.KeyPair)
 	if !ok {
 		return fmt.Errorf("wrong keypair type for mf: %T", mf.key)
 	}
 
 	// construct the announcement message according to spec
-	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), kpMain.ID())
+	announcement := legacy.NewMetafeedAnnounce(kpMetafeed.ID(), mainFeed.key.ID())
 	signedAnnouncement, err := announcement.Sign(kpMetafeed.PrivateKey, nil)
 	if err != nil {
 		return err

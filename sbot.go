@@ -19,7 +19,7 @@ type Publisher interface {
 	margaret.Log
 
 	// Publish is a utility wrapper around append which returns the new message reference key
-	Publish(content interface{}) (refs.MessageRef, error)
+	Publish(content interface{}) (refs.Message, error)
 }
 
 type Getter interface {

@@ -109,12 +109,12 @@ func (h *handler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interfa
 		}
 	}
 
-	ref, err := h.publish.Publish(content)
+	msg, err := h.publish.Publish(content)
 	if err != nil {
 		return nil, fmt.Errorf("publish: pour failed: %w", err)
 	}
 
-	level.Info(h.info).Log("event", "published message", "refKey", ref.ShortSigil())
+	level.Info(h.info).Log("event", "published message", "refKey", msg.Key().ShortSigil())
 
-	return ref.String(), nil
+	return msg.Key().String(), nil
 }

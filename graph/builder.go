@@ -384,7 +384,7 @@ func (b *BadgerBuilder) recurseHops(walked *ssb.StrFeedSet, vis map[string]struc
 	}
 
 	// utility function encapsulating logic around recursing subfeeds
-	recurseSubfeeds := func (feedId refs.FeedRef) error {
+	recurseSubfeeds := func(feedId refs.FeedRef) error {
 		// find all their subfeeds
 		subfeeds, err := b.Subfeeds(feedId)
 		if err != nil {

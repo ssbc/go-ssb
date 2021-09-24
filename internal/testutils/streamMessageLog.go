@@ -32,7 +32,7 @@ func StreamLog(t *testing.T, l margaret.Log) {
 		}
 
 		mm, ok := v.(refs.Message)
-		r.True(ok, "%T", v)
+		r.True(ok, "expected %T to be a refs.Message (wrong log type? missing indirection to receive log?)", v)
 
 		t.Logf("log seq: %d - %s:%d (%s)",
 			i,

@@ -341,9 +341,9 @@ func XTestFeedsLiveNetworkDiamond(t *testing.T) {
 
 			if fQ == 1 {
 				botI.Replicate(botJ.KeyPair.ID())
-				fmsg, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.ID()))
+				msg, err := botI.PublishLog.Publish(refs.NewContactFollow(botJ.KeyPair.ID()))
 				r.NoError(err)
-				t.Log(i, "followed", j, fmsg.ShortSigil())
+				t.Log(i, "followed", j, msg.Key().ShortSigil())
 				followMsgs++
 			}
 		}

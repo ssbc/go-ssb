@@ -160,6 +160,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	msgLogger := log.With(b.log,
+		"event", "metafeed update",
 		"msg-key", msg.Key().ShortSigil(),
 
 		// debugging
@@ -224,7 +225,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 		addr += storedrefs.Feed(addMsg.SubFeed)
 
-		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
+		level.Info(msgLogger).Log("adding", addMsg.SubFeed.ShortSigil())
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
 
 	case "metafeed/tombstone":
@@ -242,7 +243,7 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		}
 		addr += storedrefs.Feed(tMsg.SubFeed)
 
-		level.Info(msgLogger).Log("removing", tMsg.SubFeed.String())
+		level.Info(msgLogger).Log("removing", tMsg.SubFeed.ShortSigil())
 		err = idx.Set(ctx, addr, idxRelValueNone)
 
 	default:
