@@ -22,6 +22,7 @@ import (
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/invite"
+	"go.cryptoscope.co/ssb/sbot"
 )
 
 // first js creates an invite
@@ -39,7 +40,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 	// TODO: configure ssbClient to use the right shs-cap
 	// ts := newRandomSession(t)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	bob := ts.gobot
 
 	wrappedAddr := bob.Network.GetListenAddr()
@@ -88,7 +89,7 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 				t.error(err)
 
 				var fs = require('fs')
-				fs.writeFile('legacy_invite.txt', invite, (err) => {
+				fs.writeFile('../legacy_invite.txt', invite, (err) => {
 					t.error(err)
 
 					t.comment('ssb-js: invite saved!');
@@ -173,7 +174,7 @@ func TestLegacyInviteJSAccept(t *testing.T) {
 	// ts := newRandomSession(t)
 	ts := newSession(t, nil, nil)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	bob := ts.gobot
 
 	wrappedAddr := bob.Network.GetListenAddr()

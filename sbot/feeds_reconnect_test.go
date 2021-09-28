@@ -24,7 +24,7 @@ import (
 	"go.cryptoscope.co/ssb/internal/testutils"
 )
 
-func TestFeedsLiveReconnect(t *testing.T) {
+func XTestFeedsLiveReconnect(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 	os.RemoveAll(filepath.Join("testrun", t.Name()))
@@ -43,7 +43,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	netOpts := []Option{
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
-		// DisableEBT(true),
+		DisableEBT(true),
 	}
 
 	botA := makeNamedTestBot(t, "A", netOpts)
@@ -52,9 +52,16 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	botI := makeNamedTestBot(t, "I", netOpts)
 	botgroup.Go(bs.Serve(botI))
 
-	var bLeafs []*Sbot
-	botCnt := 5
-	for i := 0; i < botCnt; i++ {
+	var (
+		bLeafs            []*Sbot
+		extraTestMessages = 256
+		extraBots         = 5
+	)
+	if testing.Short() {
+		extraTestMessages = 25
+		extraBots = 2
+	}
+	for i := 0; i < extraBots; i++ {
 		botBi := makeNamedTestBot(t, fmt.Sprintf("B%0d", i), netOpts)
 		botgroup.Go(bs.Serve(botBi))
 		bLeafs = append(bLeafs, botBi)
@@ -93,10 +100,6 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		}
 	}
 
-	var extraTestMessages = 256
-	if testing.Short() {
-		extraTestMessages = 25
-	}
 	msgCnt += extraTestMessages
 	for n := extraTestMessages; n > 0; n-- {
 		tMsg := fmt.Sprintf("some pre-setup msg %d", n)
@@ -125,6 +128,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 	r.NoError(err)
 
 	t.Log("starting live test")
+	errs := 0
 	// connect all bots to I
 	for i, botX := range append(bLeafs, botA) {
 		err := botX.Network.Connect(ctx, botI.Network.GetListenAddr())
@@ -137,7 +141,7 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		r.EqualValues(msgCnt+i, seq, "new msg %d", i)
 
 		if i%9 == 0 { // simulate faulty network
-			botX := i%(botCnt-1) + 1 // some of the other (b[0] keeps receiveing)
+			botX := i%(extraBots-1) + 1 // some of the other (b[0] keeps receiveing)
 			dcBot := bLeafs[botX]
 			ct := dcBot.Network.GetConnTracker()
 			ct.CloseAll()
@@ -148,7 +152,6 @@ func TestFeedsLiveReconnect(t *testing.T) {
 				defer connectCancel()
 				err := b.Network.Connect(timeoutCtx, botI.Network.GetListenAddr())
 				r.NoError(err)
-				// cancel()
 			}(dcBot)
 		}
 
@@ -158,6 +161,10 @@ func TestFeedsLiveReconnect(t *testing.T) {
 		cancel()
 		if err != nil {
 			t.Error("liveQry err", err)
+			errs++
+			if errs > 3 {
+				t.Fatal("too many errors")
+			}
 			continue
 		}
 

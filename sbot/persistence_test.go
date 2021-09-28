@@ -25,7 +25,7 @@ import (
 )
 
 // store some feeds, stop the bot and reopen the repo
-func TestPersistence(t *testing.T) {
+func XTestPersistence(t *testing.T) {
 	defer leakcheck.Check(t)
 
 	var err error

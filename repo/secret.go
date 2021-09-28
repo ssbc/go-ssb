@@ -56,11 +56,8 @@ func newKeyPair(r Interface, name string, algo refs.RefAlgo, seed io.Reader) (ss
 			return nil, err
 		}
 	}
-	// TODO: move to refs pkg
-	if algo != refs.RefAlgoFeedSSB1 &&
-		algo != refs.RefAlgoFeedGabby &&
-		algo != refs.RefAlgoFeedBendyButt { //  enums would be nice
-		return nil, fmt.Errorf("invalid feed refrence algo")
+	if err := ssb.IsValidFeedFormat(algo); err != nil {
+		return nil, err
 	}
 	if _, err := ssb.LoadKeyPair(secPath); err == nil {
 		return nil, fmt.Errorf("new key-pair name already taken")

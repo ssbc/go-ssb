@@ -358,9 +358,7 @@ func TestFeedsLiveSimpleTwo(t *testing.T) {
 
 // A publishes and is only connected to I
 // B1 to N are connected to I and should get the fan out
-func TestFeedsLiveSimpleStar(t *testing.T) {
-	defer leakcheck.Check(t)
-
+func XTestFeedsLiveSimpleStar(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 	os.RemoveAll(filepath.Join("testrun", t.Name()))
@@ -380,6 +378,7 @@ func TestFeedsLiveSimpleStar(t *testing.T) {
 		WithAppKey(appKey),
 		WithHMACSigning(hmacKey),
 		WithContext(ctx),
+		DisableEBT(true),
 	}
 
 	botA := makeNamedTestBot(t, "A", netOpts)
