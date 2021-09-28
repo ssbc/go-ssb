@@ -311,7 +311,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	ts := newRandomSession(t)
 	// ts := newSession(t, nil, nil)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	s := ts.gobot
 
 	zerof, err := os.Open("/dev/zero")
@@ -348,10 +348,7 @@ func TestBlobTooBigWantedByGo(t *testing.T) {
 	sbot.on('rpc:connect', rpc => rpc.on('closed', exit))`, ``)
 	s.Replicate(jsBot)
 
-	uf, ok := s.GetMultiLog("userFeeds")
-	r.True(ok)
-
-	jsFeedSeqs, err := uf.Get(storedrefs.Feed(jsBot))
+	jsFeedSeqs, err := s.Users.Get(storedrefs.Feed(jsBot))
 	r.NoError(err)
 	jsFeed := mutil.Indirect(s.ReceiveLog, jsFeedSeqs)
 	tries := 10

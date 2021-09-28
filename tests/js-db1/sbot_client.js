@@ -30,6 +30,7 @@ const createSbot = theStack({caps: {shs: testAppkey } })
   .use(require('ssb-blobs'))
   .use(require('./ggdemo'))
   .use(require('ssb-ebt'))
+  .use(require('ssb-invite'))
 
 const testName = process.env.TEST_NAME
 const testBob = process.env.TEST_BOB

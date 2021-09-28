@@ -22,7 +22,7 @@ import (
 func TestFeedFromJS(t *testing.T) {
 	// defer leakcheck.Check(t)
 	t.Run("classic", RunFeedFromJS(false))
-	t.Run("ebt", RunFeedFromJS(true))
+	// t.Run("ebt", RunFeedFromJS(true))
 }
 
 func RunFeedFromJS(ebt bool) func(t *testing.T) {
@@ -161,11 +161,11 @@ sbot.publish({type: 'contact', contact: aliceRef, following: true}, (err, msg) =
 
 func TestFeedFromGoNotLive(t *testing.T) {
 	// defer leakcheck.Check(t)
-	// t.Run("classic", FeedFromGoNotLive(false))
-	t.Run("ebt", FeedFromGoNotLive(true))
+	t.Run("classic", RunFeedFromGoNotLive(false))
+	// t.Run("ebt", RunFeedFromGoNotLive(true))
 }
 
-func FeedFromGoNotLive(ebt bool) func(t *testing.T) {
+func RunFeedFromGoNotLive(ebt bool) func(t *testing.T) {
 	return func(t *testing.T) {
 		r := require.New(t)
 

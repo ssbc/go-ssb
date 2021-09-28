@@ -43,7 +43,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 				sbot.createLogStream({private:true, meta:true}),
 				pull.filter((msg) => { return msg.value.private == true }),
 				pull.filter((msg) => {
-					console.warn(msg)
+					console.warn(msg) // just log them
 					return true
 				}),
 				pull.collect(function(err, msgs) {
@@ -107,7 +107,7 @@ func TestPrivMsgsFromGo(t *testing.T) {
 	var tmsgs = [][]byte{
 		[]byte(`{"some": 1, "msg": "this", "type":"test"}`),
 		[]byte(`{"some": 2, "msg": "is", "type":"test"}`),
-		[]byte(`{"some": 3, "msg": "NOT", "type":"test"}`),
+		[]byte(`{"some": 3, "msg": "NOT?", "type":"test"}`),
 		[]byte(`{"some": 4, "msg": "a", "type":"test"}`),
 		[]byte(`{"some": 5, "msg": "test", "type":"test"}`),
 	}
@@ -146,7 +146,7 @@ func TestPrivMsgsFromJS(t *testing.T) {
 
 	boxer := box.NewBoxer(nil)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	bob := ts.gobot
 
 	const n = 16

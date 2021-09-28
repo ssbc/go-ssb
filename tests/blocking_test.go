@@ -6,11 +6,13 @@ package tests
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"go.cryptoscope.co/ssb/repo"
+	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -19,22 +21,23 @@ import (
 // alice<>bob and bob<>claire are friends
 // but alice starts blocking claire
 // clair should not get new messages from alice's feed anymore
-func TestBlocking(t *testing.T) {
+func XTestBlocking(t *testing.T) {
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
 
 	ts := newRandomSession(t)
 
-	kpAlice, err := repo.NewKeyPair(repo.New(ts.repo), "alice", refs.RefAlgoFeedSSB1)
+	gobotRepo := repo.New(filepath.Join(ts.repo, "gobot"))
+	kpAlice, err := repo.NewKeyPair(gobotRepo, "alice", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	ts.startGoBot()
+	ts.startGoBot(sbot.DisableEBT(true))
 	bob := ts.gobot
 
 	_, err = bob.PublishAs("alice", refs.NewContactFollow(bob.KeyPair.ID()))
 	r.NoError(err)
-	aliceHelloWorld, err := bob.PublishAs("alice", refs.Post{Type: "post", Text: "hello, world!"})
+	aliceHelloWorld, err := bob.PublishAs("alice", refs.NewPost("hello, world!"))
 	r.NoError(err)
 
 	claire := ts.startJSBotWithName("TestBlocking/claire", fmt.Sprintf(`
