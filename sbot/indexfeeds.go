@@ -128,12 +128,26 @@ func (manager indexFeedManager) Deregister(indexFeed refs.FeedRef) (bool, error)
 
 // Process looks through all the registered indexes and publishes messages accordingly
 func (manager indexFeedManager) Process(m refs.Message) (refs.FeedRef, ssb.IndexedMessage, error) {
+	// we only index (and therefor process, and unmarshal) classic messages
+	algo := m.Key().Algo()
+	if algo != refs.RefAlgoMessageSSB1 {
+		return refs.FeedRef{}, ssb.IndexedMessage{}, nil
+	}
+
 	// creates index messages after actual messages have been published
 	var typed struct {
 		Type string
 	}
+
+	// (2021-10-07) revisit decoding of private messages more elegantly
 	err := json.Unmarshal(m.ContentBytes(), &typed)
 	if err != nil {
+		var contentIsString string
+		// try to unmarshal a private message, if it works then we just skip this message
+		stringerr := json.Unmarshal(m.ContentBytes(), &contentIsString)
+		if stringerr == nil {
+			return refs.FeedRef{}, ssb.IndexedMessage{}, nil
+		}
 		return refs.FeedRef{}, ssb.IndexedMessage{}, err
 	}
 
