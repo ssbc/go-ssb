@@ -120,9 +120,13 @@ func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, erro
 		return empty, fmt.Errorf("failed to list subfeeds for root mf (%w)", err)
 	}
 	for _, entry := range subfeedList {
+		// sequence at 0 indicates a sentinel value (the first message always has sequence number 1)
+		if entry.Seq == 0 {
+			continue
+		}
 		metafeedDerivedMsg, err := s.getMsgAtSeq(mfId, entry.Seq)
 		if err != nil {
-			return empty, fmt.Errorf("failed to get AddDerivedMsg at seq %d in metafeed %s", entry.Seq, mfId.ShortSigil())
+			return empty, fmt.Errorf("failed to get AddDerivedMsg at seq %d in metafeed %s (%w)", entry.Seq, mfId.ShortSigil(), err)
 		}
 		if metafeedDerivedMsg.FeedPurpose == "indexes" {
 			indexesFeeds = append(indexesFeeds, metafeedDerivedMsg.SubFeed)
