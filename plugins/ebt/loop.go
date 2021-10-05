@@ -18,7 +18,6 @@ import (
 
 	"github.com/ssb-ngi-pointer/go-metafeed"
 	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
 	gabbygrove "go.mindeco.de/ssb-gabbygrove"
 	refs "go.mindeco.de/ssb-refs"
@@ -142,7 +141,18 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 			return err
 		}
 
-		filtered := filterRelevantNotes(wants, format, session.Unubscribe)
+		if format == "indexed" {
+			fmt.Println("indexed wants:", wants)
+		}
+
+		filterFormat := format
+		// if format == "indexed" {
+		// 	filterFormat = refs.RefAlgoFeedSSB1
+		// }
+		filtered := filterRelevantNotes(wants, filterFormat, session.Unubscribe)
+		if format == "indexed" {
+			fmt.Println("filtered index feeds:", filtered)
+		}
 
 		// TODO: partition wants across the open connections
 		// one peer might be closer to a feed
@@ -163,6 +173,14 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 
 			// wrap the network output into a sink that tracks each write on the state matrix
 			wrapped := newStateTrackingSink(h.stateMatrix, tx, peer, feed, their.Seq)
+
+			if format == "indexed" {
+				wrapped, err = h.indexedWrapper(wrapped, feed)
+				if err != nil {
+					cancel()
+					return err
+				}
+			}
 
 			err = h.livefeeds.CreateStreamHistory(ctx, wrapped, arg)
 			if err != nil {
@@ -212,79 +230,6 @@ func (h *Replicate) sendState(tx *muxrpc.ByteSink, remote refs.FeedRef, format r
 	return nil
 }
 
-func newStateTrackingSink(stateMatrix *statematrix.StateMatrix, snk muxrpc.ByteSinker, peer, author refs.FeedRef, seq int64) muxrpc.ByteSinker {
-	return &stateTrackingSink{
-		stateMatrix: stateMatrix,
-
-		network: snk,
-		peer:    peer,
-
-		author:   author,
-		sequence: seq,
-	}
-}
-
-type stateTrackingSink struct {
-	// peer with which peer we are communicating
-	peer refs.FeedRef
-
-	// the sinker that sends to the network
-	network muxrpc.ByteSinker
-
-	// which feed author we are tracking
-	author refs.FeedRef
-
-	// the current sequence
-	sequence int64
-
-	stateMatrix *statematrix.StateMatrix
-}
-
-// Write  updates the state matrix after sending to the network successfully
-// it also checks if the peer still wants a message before sending it.
-// This is a workaround to actually tracking and canceling live subscriptions for feeds.
-func (sink *stateTrackingSink) Write(p []byte) (int, error) {
-	wants, err := sink.stateMatrix.WantsFeedWithSeq(sink.peer, sink.author, sink.sequence)
-	if err != nil {
-		return -1, err
-	}
-
-	if !wants { // does not want? treat the write as a noop
-		return 0, nil
-	}
-
-	// actually send the message
-	n, err := sink.network.Write(p)
-	if err != nil {
-		return -1, err
-	}
-
-	// increase our sequence of them
-	sink.sequence++
-
-	// update our perscived state
-	err = sink.stateMatrix.UpdateSequences(sink.peer, []statematrix.FeedWithLength{
-		{FeedRef: sink.author, Sequence: sink.sequence},
-	})
-	if err != nil {
-		return -1, fmt.Errorf("stateTrackingSink: failed to update the matrix (%w)", err)
-	}
-
-	return n, nil
-}
-
-func (st stateTrackingSink) Close() error {
-	return st.network.Close()
-}
-
-func (st stateTrackingSink) CloseWithError(err error) error {
-	return st.network.CloseWithError(err)
-}
-
-func (st stateTrackingSink) SetEncoding(re muxrpc.RequestEncoding) {
-	st.network.SetEncoding(re)
-}
-
 type filteredNotes map[refs.FeedRef]ssb.Note
 
 // creates a new map with relevant feeds to remove the lock on the input quickly
@@ -323,5 +268,4 @@ func filterRelevantNotes(all *ssb.NetworkFrontier, format refs.RefAlgo, unsubscr
 	}
 
 	return filtered
-
 }

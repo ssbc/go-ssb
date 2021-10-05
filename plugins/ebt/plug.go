@@ -28,7 +28,7 @@ type Plugin struct {
 func NewPlug(
 	i log.Logger,
 	self refs.FeedRef,
-	rootLog margaret.Log,
+	rxLog margaret.Log,
 	uf multilog.MultiLog,
 	fm *gossip.FeedManager,
 	sm *statematrix.StateMatrix,
@@ -36,10 +36,10 @@ func NewPlug(
 ) *Plugin {
 
 	r := &Replicate{
-		info:      i,
-		self:      self,
-		rootLog:   rootLog,
-		userFeeds: uf,
+		info:       i,
+		self:       self,
+		receiveLog: rxLog,
+		userFeeds:  uf,
 
 		livefeeds: fm,
 

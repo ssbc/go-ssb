@@ -8,7 +8,8 @@ const { readFileSync } = require('fs')
 const { loadOrCreateSync } = require('ssb-keys')
 const theStack = require('secret-stack')
 const ssbCaps = require('ssb-caps')
-const bendyButt = require('ssb-ebt/formats/bendy-butt')
+const ebtBendyButt = require('ssb-ebt/formats/bendy-butt')
+const ebtIndexed = require('ssb-ebt/formats/indexed')
 
 // eval deps
 const { where, author, and, type, live, toPullStream } = require('ssb-db2/operators')
@@ -33,6 +34,7 @@ const createSbot = theStack(stackOpts)
   .use(require('ssb-db2/compat/ebt'))
   .use(require('ssb-ebt'))
   .use(require('ssb-meta-feeds'))
+  .use(require('ssb-index-feed-writer'))
 
 const testName = process.env.TEST_NAME
 const testBob = process.env.TEST_BOB
@@ -42,14 +44,15 @@ const scriptBefore = readFileSync(process.env.TEST_BEFORE).toString()
 const scriptAfter = readFileSync(process.env.TEST_AFTER).toString()
 
 tape.createStream().pipe(process.stderr)
-tape(testName, function (t) {
-  t.timeoutAfter(30000) // doesn't exit the process
+tape(testName, (t) => {
+  // t.timeoutAfter(30000) // doesn't exit the process
   const tapeTimeout = setTimeout(() => {
     t.comment("test timeout")
     process.exit(1)
   }, 50000)
 
-  function exit () { // call this when you're done
+  // call this from the eval block when you're done
+  function exit () {
     clearTimeout(tapeTimeout)
     sbot.close(() => {
       t.comment('closed jsbot')
@@ -70,7 +73,9 @@ tape(testName, function (t) {
   const alice = sbot.id
 
   // setup bendybutt format for ebt
-  sbot.ebt.registerFormat(bendyButt)
+  sbot.ebt.registerFormat(ebtBendyButt)
+  sbot.ebt.registerFormat(ebtIndexed)
+
   sbot.ebt.request(alice, true)
   sbot.ebt.request(testBob, true)
 
@@ -78,6 +83,7 @@ tape(testName, function (t) {
 
   eval(scriptBefore)
 
+  // call this from the eval block once the sbot is prepared
   function ready () {
     console.log(alice)
   }
