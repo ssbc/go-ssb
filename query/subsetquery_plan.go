@@ -32,8 +32,8 @@ func (sp *SubsetPlaner) QuerySubsetBitmap(qry SubsetOperation) (*sroar.Bitmap, e
 	return combineBitmaps(sp, qry)
 }
 
-// QuerySubsetMessageRefs evaluates the passed SubsetOperation and returns a slice of message references
-func (sp *SubsetPlaner) QuerySubsetMessageRefs(rxLog margaret.Log, qry SubsetOperation) ([]refs.MessageRef, error) {
+// QuerySubsetMessages evaluates the passed SubsetOperation and returns a slice of messages
+func (sp *SubsetPlaner) QuerySubsetMessages(rxLog margaret.Log, qry SubsetOperation) ([]refs.Message, error) {
 	resulting, err := combineBitmaps(sp, qry)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (sp *SubsetPlaner) QuerySubsetMessageRefs(rxLog margaret.Log, qry SubsetOpe
 	// iterate over the combined set of bitmaps
 	it := resulting.NewIterator()
 
-	var msgs []refs.MessageRef
+	var msgs []refs.Message
 
 	for it.HasNext() {
 
@@ -61,7 +61,7 @@ func (sp *SubsetPlaner) QuerySubsetMessageRefs(rxLog margaret.Log, qry SubsetOpe
 			return nil, fmt.Errorf("invalid msg type %T", msgv)
 		}
 
-		msgs = append(msgs, msg.Key())
+		msgs = append(msgs, msg)
 	}
 
 	return msgs, nil
