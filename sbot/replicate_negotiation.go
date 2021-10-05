@@ -96,6 +96,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	formats := []refs.RefAlgo{
 		refs.RefAlgoFeedBendyButt,
 		refs.RefAlgoFeedGabby,
+		"indexed",
 	}
 
 	for _, format := range formats {

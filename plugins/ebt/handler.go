@@ -26,9 +26,9 @@ import (
 type Replicate struct {
 	info log.Logger
 
-	self      refs.FeedRef
-	rootLog   margaret.Log
-	userFeeds multilog.MultiLog
+	self       refs.FeedRef
+	receiveLog margaret.Log
+	userFeeds  multilog.MultiLog
 
 	livefeeds *gossip.FeedManager
 

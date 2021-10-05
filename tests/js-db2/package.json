@@ -15,11 +15,12 @@
     "ssb-bendy-butt": "^0.12.3",
     "ssb-blobs": "^1.2.3",
     "ssb-config": "^3.4.5",
-    "ssb-db2": "^2.4.0",
+    "ssb-db2": "^2.6.0",
     "ssb-device-address": "^1.1.6",
     "ssb-ebt": "github:ssbc/ssb-ebt#partial-replication-changes",
+    "ssb-index-feed-writer": "^0.6.0",
     "ssb-keys": "^8.1.0",
-    "ssb-meta-feeds": "^0.22.1",
+    "ssb-meta-feeds": "^0.24.0",
     "ssb-uri2": "^1.5.2",
     "tape": "^5.2.2"
   }
