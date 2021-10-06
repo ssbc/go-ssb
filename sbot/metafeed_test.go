@@ -375,6 +375,7 @@ func TestMetafeedIndexes(t *testing.T) {
 	)
 	r.NoError(err)
 	// </boilerplate>
+	t.Log("mf id", bot.KeyPair.ID())
 
 	// takes a log and a sequence number, massages the sequence number into the format used by the log provider & asserts
 	// that the log is at the queried sequence number
@@ -426,7 +427,13 @@ func TestMetafeedIndexes(t *testing.T) {
 
 	var getFeed = createGetFeed(bot)
 
+
 	mfId := bot.KeyPair.ID()
+
+	// listing on an empty meta feed should work
+	l, err := bot.MetaFeeds.ListSubFeeds(mfId)
+	r.NoError(err)
+
 	// create a main feed (holds actual messages, regular old ssb feed thinger) on the root metafeed
 	mainFeedRef, err := bot.MetaFeeds.CreateSubFeed(mfId, "main", refs.RefAlgoFeedSSB1)
 	r.NoError(err, "main feed create failed")
@@ -483,7 +490,7 @@ func TestMetafeedIndexes(t *testing.T) {
 	r.Len(indexlist, 2, "expected number of registered indexes to be 2")
 
 	/* tombstone the about index, and verify that the index is not being updated */
-	err = bot.MetaFeeds.TombstoneSubFeed(mfId, aboutIndexId)
+	err = bot.MetaFeeds.TombstoneIndex(mfId, mainFeedRef, "about")
 	r.NoError(err)
 	// publish another about to the main feed
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewAboutName(mainFeedRef, "name that will not be named"))

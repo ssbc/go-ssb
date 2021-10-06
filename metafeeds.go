@@ -32,6 +32,7 @@ type MetaFeeds interface {
 	Publish(as refs.FeedRef, content interface{}) (refs.Message, error)
 
 	RegisterIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error
+	TombstoneIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error
 
 	GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error)
 }
