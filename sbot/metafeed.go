@@ -99,7 +99,7 @@ func (s metaFeedsService) getMsgAtSeq(mfId refs.FeedRef, seq int64) (metamngmt.A
 func (s metaFeedsService) RegisterIndex(mfId, contentFeed refs.FeedRef, msgType string) error {
 	newIndex, err := s.GetOrCreateIndex(mfId, contentFeed, "index", msgType)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get/create index (%w)", err)
 	}
 
 	err = s.indexManager.Register(newIndex, contentFeed, msgType)
@@ -109,19 +109,86 @@ func (s metaFeedsService) RegisterIndex(mfId, contentFeed refs.FeedRef, msgType 
 	return nil
 }
 
-// Get or create an index feed for a particular message type and author (`contentFeed`) on a metafeed `mount`
-func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error) {
-	potentialMatches, err := s.ListSubFeeds(mount)
+func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, error) {
+	var err error
+	var indexesFeedRef, empty refs.FeedRef
+	var indexesFeeds []refs.FeedRef
+
+	// list the various subfeeds under the root metafeed mfId
+	subfeedList, err := s.ListSubFeeds(mfId)
 	if err != nil {
-		return refs.FeedRef{}, err
+		return empty, fmt.Errorf("failed to list subfeeds for root mf (%w)", err)
+	}
+	for _, entry := range subfeedList {
+		metafeedDerivedMsg, err := s.getMsgAtSeq(mfId, entry.Seq)
+		if err != nil {
+			return empty, fmt.Errorf("failed to get AddDerivedMsg at seq %d in metafeed %s", entry.Seq, mfId.ShortSigil())
+		}
+		if metafeedDerivedMsg.FeedPurpose == "indexes" {
+			indexesFeeds = append(indexesFeeds, metafeedDerivedMsg.SubFeed)
+		}
+	}
+
+	// we need to create the indexes feed
+	if len(indexesFeeds) == 0 {
+		indexesFeedRef, err = s.CreateSubFeed(mfId, "indexes", refs.RefAlgoFeedBendyButt)
+		if err != nil {
+			return empty, fmt.Errorf("failed to create `indexes` feed (%w)", err)
+		}
+	} else { // we have one or more indexes feeds
+		// we only have one, that's easy :')
+		if len(indexesFeeds) == 1 {
+			indexesFeedRef = indexesFeeds[0]
+		} else {
+			// we have multiple indexes feeds hmm..
+			return empty, fmt.Errorf("there were multiple indexes feeds (feedpurpose: `indexes`)")
+		}
+	}
+	return indexesFeedRef, nil
+}
+
+func (s metaFeedsService) TombstoneIndex(mfId, contentFeed refs.FeedRef, msgType string) error {
+	index, err := s.GetOrCreateIndex(mfId, contentFeed, "index", msgType)
+	if err != nil {
+		return fmt.Errorf("index for feed %s of type %s mounted on %s not found (%w)", contentFeed, msgType, mfId, err)
+	}
+	_, err = s.indexManager.Deregister(index)
+	if err != nil {
+		return fmt.Errorf("tombstone index: failed to deregister index (%w)", err)
+	}
+	indexesFeed, err := s.getIndexesFeed(mfId)
+	if err != nil {
+		return fmt.Errorf("tombstone index: failed to get `indexes` subfeed (%w)", err)
+	}
+	err = s.TombstoneSubFeed(indexesFeed, index)
+	if err != nil {
+		return fmt.Errorf("tombstone index: failed to tombstone index using TombstoneSubfed (%w)", err)
+	}
+	return nil
+}
+
+// Get or create an index feed for a particular message type and author contentFeed on a root metafeed mfId
+func (s metaFeedsService) GetOrCreateIndex(mfId, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error) {
+	var empty refs.FeedRef
+
+	// get the indexes feed, i.e. the feed listing indexes with a purpose "indexes"
+	indexesFeedRef, err := s.getIndexesFeed(mfId)
+	if err != nil {
+		return empty, fmt.Errorf("failed to get `indexes` feed (%w)", err)
+	}
+
+	// look for any index, indexed by the `indexes` subfeed, that match the function signature's parameters
+	potentialMatches, err := s.ListSubFeeds(indexesFeedRef)
+	if err != nil {
+		return empty, fmt.Errorf("failed to list subfeeds under `indexes` (%w)", err)
 	}
 
 	// query existing subfeeds to see if our desired subfeed already exists
 	// (using contentFeed + msgType) before creating a new one
 	for _, subfeed := range potentialMatches {
-		msg, err := s.getMsgAtSeq(mount, subfeed.Seq)
+		msg, err := s.getMsgAtSeq(indexesFeedRef, subfeed.Seq)
 		if err != nil {
-			return refs.FeedRef{}, fmt.Errorf("GetOrCreateIndex had an error when iterating over potential subfeed matches (%w)", err)
+			return empty, fmt.Errorf("GetOrCreateIndex had an error when iterating over potential subfeed matches (%w)", err)
 		}
 
 		// TODO (2021-09-20): loop back to go-metafeed & double check the implementation of GetMetadata (we are seemingly
@@ -137,7 +204,7 @@ func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purp
 		var queryInfo ssb.MetadataQuery
 		err = json.Unmarshal([]byte(query), &queryInfo)
 		if err != nil {
-			return refs.FeedRef{}, fmt.Errorf("GetOrCreateIndex had an error when unmarshaling query info (%w)", err)
+			return empty, fmt.Errorf("GetOrCreateIndex had an error when unmarshaling query info (%w)", err)
 		}
 
 		// the index feed has already been created, return the matching subfeed
@@ -153,7 +220,7 @@ func (s metaFeedsService) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purp
 		"type":      msgType,
 	}
 
-	newFeed, err := s.CreateSubFeed(mount, purpose, refs.RefAlgoFeedSSB1, metadata)
+	newFeed, err := s.CreateSubFeed(indexesFeedRef, purpose, refs.RefAlgoFeedSSB1, metadata)
 	if err != nil {
 		return refs.FeedRef{}, err
 	}
@@ -368,12 +435,16 @@ func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEnt
 	subfeedListID := keys.IDFromFeed(mount)
 	feeds, err := s.keys.GetKeys(keys.SchemeMetafeedSubkey, subfeedListID)
 	if err != nil {
-		return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
+		if keys.IsNoSuchKey(err) {
+			// this occurs when we try to list subfeeds for target metafeed which does not yet contain any subfeeds
+			return []ssb.SubfeedListEntry{}, nil
+		} else {
+			return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
+		}
 	}
 
 	lst := make([]ssb.SubfeedListEntry, len(feeds))
 	for i, feed := range feeds {
-
 		tfkAndSeqno := slp.Decode(feed.Key)
 
 		if n := len(tfkAndSeqno); n != 2 {

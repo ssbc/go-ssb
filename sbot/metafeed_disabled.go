@@ -39,3 +39,6 @@ func (disabledMetaFeeds) GetOrCreateIndex(mount, contentFeed refs.FeedRef, purpo
 func (disabledMetaFeeds) RegisterIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error {
 	return errMetafeedsDisabled
 }
+func (disabledMetaFeeds) TombstoneIndex(mountingMetafeed, contentFeed refs.FeedRef, msgType string) error {
+	return errMetafeedsDisabled
+}
