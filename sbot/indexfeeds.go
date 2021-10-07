@@ -202,3 +202,18 @@ func (manager indexFeedManager) ListByType(msgType string) ([]ssb.IndexListEntry
 	// return the slice of indexlist that's actually used (if filtering by a type, it's likely that i < len(manager.indexes))
 	return indexlist[:i], nil
 }
+
+func (manager indexFeedManager) GetMetadata(f refs.FeedRef) (ssb.MetadataQuery, error) {
+	lst, err := manager.ListByType("")
+	if err != nil {
+		return ssb.MetadataQuery{}, err
+	}
+
+	for _, i := range lst {
+		if i.Index.Equal(f) {
+			return i.Metadata, nil
+		}
+	}
+
+	return ssb.MetadataQuery{}, fmt.Errorf("GetMetadata: feed not found: %s", f.String())
+}
