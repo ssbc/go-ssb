@@ -170,7 +170,7 @@ func (ts *testSession) startJSBot(jsbefore, jsafter string) refs.FeedRef {
 func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.FeedRef {
 	ts.t.Log("starting client", name)
 	r := require.New(ts.t)
-	cmd := exec.Command("node", "./sbot_client.js")
+	cmd := exec.Command("node", "./sbot_client.js", "--", name)
 	cmd.Stderr = os.Stderr
 	cmd.Dir = "./js-db1"
 
@@ -202,7 +202,7 @@ func (ts *testSession) startJSBotWithName(name, jsbefore, jsafter string) refs.F
 			errc <- fmt.Errorf("cmd wait failed: %w", err)
 		}
 		close(done)
-		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
+		fmt.Fprintf(os.Stderr, "\nJS Sbot process %s returned\n", name)
 		close(errc)
 	}()
 	ts.doneJS = done // TODO: multiple
@@ -234,7 +234,7 @@ func (ts *testSession) startJSBotAsServerDB2(name, jsbefore, jsafter string) (re
 func (ts *testSession) startJSBotAsServerWithFile(name, jsfolder, jsbefore, jsafter string) (refs.FeedRef, int) {
 	ts.t.Log("starting srv", name)
 	r := require.New(ts.t)
-	cmd := exec.Command("node", "./sbot_serv.js")
+	cmd := exec.Command("node", "./sbot_serv.js", "--", name)
 	cmd.Stderr = os.Stderr
 	cmd.Dir = jsfolder
 
@@ -274,7 +274,7 @@ func (ts *testSession) startJSBotAsServerWithFile(name, jsfolder, jsbefore, jsaf
 			errc <- fmt.Errorf("cmd wait failed: %w", err)
 		}
 		close(done)
-		fmt.Fprintf(os.Stderr, "\nJS Sbot process returned\n")
+		fmt.Fprintf(os.Stderr, "\nJS Sbot process %s returned\n", name)
 		close(errc)
 	}()
 	ts.doneJS = done // TODO: multiple

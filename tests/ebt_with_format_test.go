@@ -141,14 +141,14 @@ func TestEBTWithFormatBendy(t *testing.T) {
 
 	exClassic, err := sbot.MetaFeeds.CreateSubFeed(sbot.KeyPair.ID(), "example-classic", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
-	// exGabby, err := sbot.MetaFeeds.CreateSubFeed(sbot.KeyPair.ID(), "example-gabby", refs.RefAlgoFeedGabby)
-	// r.NoError(err)
+	exGabby, err := sbot.MetaFeeds.CreateSubFeed(sbot.KeyPair.ID(), "example-gabby", refs.RefAlgoFeedGabby)
+	r.NoError(err)
 
 	for i := 0; i <= 5; i++ {
 		_, err = sbot.MetaFeeds.Publish(exClassic, refs.NewPost(strconv.Itoa(i)))
 		r.NoError(err)
-		// _, err = sbot.MetaFeeds.Publish(exGabby, refs.NewPost(strconv.Itoa(i)))
-		// r.NoError(err)
+		_, err = sbot.MetaFeeds.Publish(exGabby, refs.NewPost(strconv.Itoa(i)))
+		r.NoError(err)
 	}
 
 	sbot.MetaFeeds.Publish(exClassic, refs.NewContactFollow(alice))
@@ -271,6 +271,10 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 				mkMsg({type:"dog", big: true}),
 				mkMsg({type:"dog", big: false}),
 			]
+
+			for (let i = 100;i>0;i--) {
+				msgs.push(mkMsg({type:"spam", "i": i}))
+			}
 			
 			parallel(msgs, (err) => {
 				t.error(err)
@@ -289,11 +293,7 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 			live(true),
 			toPullStream()
 		),
-		pull.drain((msg) => {
-			t.comment(JSON.stringify(msg.value))
-			t.comment("got done message, shutting down in 3s")
-			setTimeout(exit, 3000)
-		})
+		pull.drain(exit)
 	)
 	`, ``)
 
@@ -306,27 +306,27 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	alicesFeed, err := sbot.Users.Get(storedrefs.Feed(alice))
 	r.NoError(err)
 
-	last := time.Now()
 	done := alicesFeed.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			if err != nil {
-				t.Log("changes err:", err)
+				if luigi.IsEOS(err) {
+					return nil
+				}
+
 				return err
 			}
 
 			seq, ok := v.(int64)
 			if !ok {
-				t.Logf("wrong seq type: %T", v)
+				t.Errorf("wrong seq type: %T", v)
 				return nil
 			}
 
 			if seq == -1 {
 				return nil
 			}
-			t.Logf("new message by author: %d (took %v)", seq, time.Since(last))
-			last = time.Now()
 
-			if seq == 5 {
+			if seq == 100 {
 				close(gotMsg)
 			}
 
@@ -363,7 +363,6 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	msgs, err := sp.QuerySubsetMessages(sbot.ReceiveLog, qry)
 	r.NoError(err)
 	r.GreaterOrEqual(len(msgs), 1, "expected at least one message")
-	t.Log(msgs[0].Key().String())
 
 	var testMsg struct {
 		Type     string
@@ -389,21 +388,21 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	done = alicesIndexFeed.Changes().Register(
 		luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 			if err != nil {
-				t.Log("changes err:", err)
+				if luigi.IsEOS(err) {
+					return nil
+				}
 				return err
 			}
 
 			seq, ok := v.(int64)
 			if !ok {
-				t.Logf("wrong seq type: %T", v)
+				t.Errorf("wrong seq type: %T", v)
 				return nil
 			}
 
 			if seq == -1 {
 				return nil
 			}
-			t.Logf("new message by index feed: %d (took %v)", seq, time.Since(last))
-			last = time.Now()
 
 			if seq == 1 {
 				close(gotMsg)
@@ -426,6 +425,19 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	}
 	done()
 
+	// signal alice that they can shut down
+	_, err = sbot.PublishLog.Publish(map[string]interface{}{
+		"type": "done",
+		"done": true,
+	})
+	r.NoError(err)
+
+	select {
+	case <-time.After(15 * time.Second):
+		t.Fatal("timeout waiting for alice to stop")
+	case <-ts.doneJS:
+	}
+
 	// make sure we got those indexfeed messages
 	qry2 := query.NewSubsetAndCombination(
 		query.NewSubsetOpByAuthor(testMsg.Indexed),
@@ -440,30 +452,24 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	var idxMsg1, idxMsg2 ssb.IndexedMessage
 	err = json.Unmarshal(indexedMsgs[0].ContentBytes(), &idxMsg1)
 	r.NoError(err)
-	r.EqualValues(5, idxMsg1.Indexed.Sequence)
-
-	idxedMsg1, err := sbot.Get(idxMsg1.Indexed.Key)
-	r.NoError(err)
-	r.EqualValues(5, idxedMsg1.Seq())
-	r.True(idxedMsg1.Key().Equal(idxMsg1.Indexed.Key))
-
 	err = json.Unmarshal(indexedMsgs[1].ContentBytes(), &idxMsg2)
 	r.NoError(err)
-	r.EqualValues(6, idxMsg2.Indexed.Sequence)
 
-	idxedMsg2, err := sbot.Get(idxMsg2.Indexed.Key)
+	// check idxMsg1
+	referencedMsg1, err := sbot.Get(idxMsg1.Indexed.Key)
 	r.NoError(err)
-	r.EqualValues(6, idxedMsg2.Seq())
-	r.True(idxedMsg2.Key().Equal(idxMsg2.Indexed.Key))
+	r.EqualValues(idxMsg1.Indexed.Sequence, referencedMsg1.Seq())
+	r.True(referencedMsg1.Key().Equal(idxMsg1.Indexed.Key))
 
-	// signal alice that they can shut down
-	sbot.PublishLog.Publish(map[string]interface{}{
-		"type": "done",
-		"done": true,
-	})
+	// check idxMsg2
+	referencedMsg2, err := sbot.Get(idxMsg2.Indexed.Key)
+	r.NoError(err)
+	r.EqualValues(idxMsg2.Indexed.Sequence, referencedMsg2.Seq())
+	r.True(referencedMsg2.Key().Equal(idxMsg2.Indexed.Key))
 
 	// start a 2nd JS bot (claire) which fetches that index feed from the go bot
 	clairesScript := fmt.Sprintf(`
+	const alicesMainFeed = %q
 	const aliceMetafeed = %q
 	const alicesDogIndex = %q
 	
@@ -476,7 +482,7 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 			toPullStream()
 		),
 		pull.drain((msg) => {
-			t.comment(JSON.stringify(msg.value))
+			t.comment("meta message: "+JSON.stringify(msg.value))
 			if (msg.value.sequence == 1) {
 				t.comment('requesting alices index feed: ' + alicesDogIndex)
 				sbot.ebt.request(alicesDogIndex, true, 'indexed')
@@ -484,22 +490,32 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 		})
 	)
 
+	// look for alices dog messages
+	let dogs = 0
 	pull(
 		sbot.db.query(
-			where(author(alicesDogIndex)),
+			where(author(alicesMainFeed)),
 			live(true),
 			toPullStream()
 		),
 		pull.drain((msg) => {
-			t.comment(JSON.stringify(msg.value))
-			if (msg.value.sequence == 2) {
-				exit()
+			if (msg.value.content.type == "dog") {
+				dogs++
 			}
+			if (dogs == 2) {
+				exit() // TODO: maybe check that we only got two messages from alice?
+			}
+			t.comment(dogs+"!!!! mainfeed message:"+JSON.stringify(msg.value.content))
 		})
 	)
+
+	// signal readyness
 	sbot.db.publish({type:"ready", ready:true}, ready)
-	
-	`, testMsg.Metafeed.String(), testMsg.Indexed.String())
+	`,
+		alice,
+		testMsg.Metafeed.String(),
+		testMsg.Indexed.String(),
+	)
 
 	claire, clairePort := ts.startJSBotAsServerDB2("claire", clairesScript, "")
 
@@ -517,6 +533,6 @@ func TestEBTWithFormatIndexed(t *testing.T) {
 	r.NoError(err, "connect #3 failed")
 
 	time.Sleep(5 * time.Second)
-	t.Log("closing bots")
+	t.Log("waiting for bots to close")
 	ts.wait()
 }

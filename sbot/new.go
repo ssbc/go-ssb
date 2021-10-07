@@ -443,7 +443,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	}
 
 	// load our network frontier
-	ownFrontier, err := s.ebtState.Inspect(s.KeyPair.ID())
+	ownFrontier, err := s.ebtState.Inspect(s.KeyPair.ID(), s.KeyPair.ID().Algo())
 	if err != nil {
 		return nil, err
 	}
@@ -696,6 +696,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			s.KeyPair.ID(),
 			s.ReceiveLog,
 			s.Users,
+			s.GraphBuilder.(*graph.BadgerBuilder),
 			fm,
 			sm,
 			s.verifyRouter,

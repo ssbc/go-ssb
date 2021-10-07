@@ -31,8 +31,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 	if err != nil {
 		return err
 	}
-
-	peerLogger := log.With(h.info, "r", peer.ShortSigil(), "format", format)
+	peerLogger := log.With(h.info, "peer", peer.ShortSigil(), "format", format)
 
 	defer func() {
 		h.Sessions.Ended(remoteAddr)
@@ -70,7 +69,6 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 
 		var frontierUpdate ssb.NetworkFrontier
 		frontierUpdate.Format = format
-		// if format == "indexed" {
 
 		err = json.Unmarshal(body, &frontierUpdate)
 
@@ -147,9 +145,6 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 			filterFormat = refs.RefAlgoFeedSSB1
 		}
 		filtered := filterRelevantNotes(wants, filterFormat, session.Unubscribe)
-		if format == "indexed" {
-			fmt.Println("filtered index feeds:", filtered)
-		}
 
 		// TODO: partition wants across the open connections
 		// one peer might be closer to a feed
@@ -164,22 +159,29 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 			arg.Limit = -1
 			arg.Live = true
 
+			var sender muxrpc.ByteSinker = tx
+
+			// in indexed mode we need to tune the sender such that it merges the indexed with the referenced message
+			if format == "indexed" {
+				authorForIndex, err := h.findAuthorForIndexfeed(ctx, feed)
+				if err != nil {
+					level.Warn(peerLogger).Log("event", "no author for index feed", "err", err)
+				} else {
+					sender, err = h.indexedWrapper(sender, authorForIndex)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			// wrap the network output into a sink that tracks each write on the state matrix
+			trackingSink := newStateTrackingSink(h.stateMatrix, sender, peer, feed, their.Seq)
+
 			// TODO: it might not scale to do this with contexts (each one has a goroutine)
 			// in that case we need to rework the internal/luigiutils MultiSink so that we can unsubscribe on it directly
 			ctx, cancel := context.WithCancel(ctx)
 
-			// wrap the network output into a sink that tracks each write on the state matrix
-			wrapped := newStateTrackingSink(h.stateMatrix, tx, peer, feed, their.Seq)
-
-			if format == "indexed" {
-				wrapped, err = h.indexedWrapper(wrapped, feed)
-				if err != nil {
-					cancel()
-					return err
-				}
-			}
-
-			err = h.livefeeds.CreateStreamHistory(ctx, wrapped, arg)
+			err = h.livefeeds.CreateStreamHistory(ctx, trackingSink, arg)
 			if err != nil {
 				cancel()
 				return err
@@ -189,80 +191,4 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 	}
 
 	return rx.Err()
-}
-
-func (h *Replicate) loadState(remote refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
-	currState, err := h.stateMatrix.Changed(h.self, remote, format)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get changed frontier: %w", err)
-	}
-
-	selfRef := h.self.String()
-
-	// don't receive your own feed
-	if myNote, has := currState.Frontier[selfRef]; has {
-		myNote.Receive = false
-		currState.Frontier[selfRef] = myNote
-	}
-
-	return currState, nil
-}
-
-func (h *Replicate) sendState(tx *muxrpc.ByteSink, remote refs.FeedRef, format refs.RefAlgo) error {
-	currState, err := h.loadState(remote, format)
-	if err != nil {
-		return err
-	}
-
-	currState.Format = format
-
-	tx.SetEncoding(muxrpc.TypeJSON)
-	// w := io.MultiWriter(tx, os.Stderr)
-	w := tx
-	err = json.NewEncoder(w).Encode(currState)
-	if err != nil {
-		return fmt.Errorf("failed to send currState: %d: %w", len(currState.Frontier), err)
-	}
-
-	return nil
-}
-
-type filteredNotes map[refs.FeedRef]ssb.Note
-
-// creates a new map with relevant feeds to remove the lock on the input quickly
-func filterRelevantNotes(all *ssb.NetworkFrontier, format refs.RefAlgo, unsubscribe func(refs.FeedRef)) filteredNotes {
-	filtered := make(filteredNotes)
-
-	// take the map now for a swift copy of the map
-	// then we don't have to hold it while doing the (slow) i/o
-	all.Lock()
-	defer all.Unlock()
-
-	for feedStr, their := range all.Frontier {
-		// these were already validated by the .UnmarshalJSON() method
-		// but we need the refs.Feed for the createHistArgs
-		feed, err := refs.ParseFeedRef(feedStr)
-		if err != nil {
-			panic(err)
-		}
-
-		// skip feeds not in the desired format for this sessions
-		if feed.Algo() != format {
-			continue
-		}
-
-		if !their.Replicate {
-			unsubscribe(feed)
-			continue
-		}
-
-		if !their.Receive {
-			unsubscribe(feed)
-			continue
-		}
-
-		filtered[feed] = their
-	}
-
-	return filtered
 }

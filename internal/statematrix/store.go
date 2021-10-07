@@ -288,6 +288,7 @@ func (sm *StateMatrix) WantsFeed(peer, feed refs.FeedRef) (ssb.Note, bool, error
 	return n, n.Receive, nil
 }
 
+// WantsFeedWithSeq decidecs if peer wants message feed:seq by looking at the local frontier staet for that peer
 func (sm *StateMatrix) WantsFeedWithSeq(peer, feed refs.FeedRef, seq int64) (bool, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -297,11 +298,11 @@ func (sm *StateMatrix) WantsFeedWithSeq(peer, feed refs.FeedRef, seq int64) (boo
 		return false, err
 	}
 
-	// does not take look because it's called in the EBT loop
-
+	// does not take lock on nf because it's called in the EBT loop
 	n, has := nf.Frontier[feed.String()]
 	if !has {
-		return false, nil
+		// assuming they might stil want it (otherwise they should send a vclock to tell us to stop)
+		return true, nil
 	}
 
 	if !n.Receive {

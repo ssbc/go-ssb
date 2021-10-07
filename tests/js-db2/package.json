@@ -20,7 +20,7 @@
     "ssb-ebt": "github:ssbc/ssb-ebt#partial-replication-changes",
     "ssb-index-feed-writer": "^0.6.0",
     "ssb-keys": "^8.1.0",
-    "ssb-meta-feeds": "^0.24.0",
+    "ssb-meta-feeds": "^0.25.0",
     "ssb-uri2": "^1.5.2",
     "tape": "^5.2.2"
   }

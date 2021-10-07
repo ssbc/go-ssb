@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"go.cryptoscope.co/margaret"
 	"go.cryptoscope.co/margaret/multilog"
@@ -24,6 +25,8 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
+type idx2authorCacheMap map[refs.FeedRef]refs.FeedRef
+
 type Replicate struct {
 	info log.Logger
 
@@ -31,7 +34,11 @@ type Replicate struct {
 	receiveLog margaret.Log
 	userFeeds  multilog.MultiLog
 
+	// for metafeed lookups
 	graph *graph.BadgerBuilder
+
+	idx2authCacheMu sync.Mutex
+	idx2authCache   idx2authorCacheMap
 
 	livefeeds *gossip.FeedManager
 
