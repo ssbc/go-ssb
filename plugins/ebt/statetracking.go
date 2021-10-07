@@ -5,12 +5,90 @@
 package ebt
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"go.cryptoscope.co/muxrpc/v2"
+	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	refs "go.mindeco.de/ssb-refs"
 )
+
+func (h *Replicate) loadState(remote refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
+	currState, err := h.stateMatrix.Changed(h.self, remote, format)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changed frontier: %w", err)
+	}
+
+	selfRef := h.self.String()
+
+	// don't receive your own feed
+	if myNote, has := currState.Frontier[selfRef]; has {
+		myNote.Receive = false
+		currState.Frontier[selfRef] = myNote
+	}
+
+	return currState, nil
+}
+
+func (h *Replicate) sendState(tx *muxrpc.ByteSink, remote refs.FeedRef, format refs.RefAlgo) error {
+	currState, err := h.loadState(remote, format)
+	if err != nil {
+		return err
+	}
+
+	currState.Format = format
+
+	tx.SetEncoding(muxrpc.TypeJSON)
+	// w := io.MultiWriter(tx, os.Stderr)
+	w := tx
+	err = json.NewEncoder(w).Encode(currState)
+	if err != nil {
+		return fmt.Errorf("failed to send currState: %d: %w", len(currState.Frontier), err)
+	}
+
+	return nil
+}
+
+type filteredNotes map[refs.FeedRef]ssb.Note
+
+// creates a new map with relevant feeds to remove the lock on the input quickly
+func filterRelevantNotes(all *ssb.NetworkFrontier, format refs.RefAlgo, unsubscribe func(refs.FeedRef)) filteredNotes {
+	filtered := make(filteredNotes)
+
+	// take the map now for a swift copy of the map
+	// then we don't have to hold it while doing the (slow) i/o
+	all.Lock()
+	defer all.Unlock()
+
+	for feedStr, their := range all.Frontier {
+		// these were already validated by the .UnmarshalJSON() method
+		// but we need the refs.Feed for the createHistArgs
+		feed, err := refs.ParseFeedRef(feedStr)
+		if err != nil {
+			panic(err)
+		}
+
+		// skip feeds not in the desired format for this sessions
+		if feed.Algo() != format {
+			continue
+		}
+
+		if !their.Replicate {
+			unsubscribe(feed)
+			continue
+		}
+
+		if !their.Receive {
+			unsubscribe(feed)
+			continue
+		}
+
+		filtered[feed] = their
+	}
+
+	return filtered
+}
 
 // newStateTrackingSink wraps a sink, for sending messages of a single author to a peer.
 // it keeps track of each sent message using the passed stateMatrix and skips messages if they were already sent.
@@ -75,5 +153,3 @@ func (sink *stateTrackingSink) Write(p []byte) (int, error) {
 
 	return n, nil
 }
-
-// these just call throuugh to the wrapped sink

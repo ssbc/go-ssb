@@ -13,6 +13,7 @@ import (
 	"go.cryptoscope.co/muxrpc/v2/typemux"
 	"go.mindeco.de/log"
 
+	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -30,6 +31,7 @@ func NewPlug(
 	self refs.FeedRef,
 	rxLog margaret.Log,
 	uf multilog.MultiLog,
+	gb *graph.BadgerBuilder,
 	fm *gossip.FeedManager,
 	sm *statematrix.StateMatrix,
 	v *message.VerificationRouter,
@@ -40,6 +42,9 @@ func NewPlug(
 		self:       self,
 		receiveLog: rxLog,
 		userFeeds:  uf,
+
+		graph:         gb,
+		idx2authCache: make(idx2authorCacheMap),
 
 		livefeeds: fm,
 
