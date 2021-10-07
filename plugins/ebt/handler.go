@@ -17,6 +17,7 @@ import (
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
+	"go.cryptoscope.co/ssb/graph"
 	"go.cryptoscope.co/ssb/internal/statematrix"
 	"go.cryptoscope.co/ssb/message"
 	"go.cryptoscope.co/ssb/plugins/gossip"
@@ -29,6 +30,8 @@ type Replicate struct {
 	self       refs.FeedRef
 	receiveLog margaret.Log
 	userFeeds  multilog.MultiLog
+
+	graph *graph.BadgerBuilder
 
 	livefeeds *gossip.FeedManager
 
@@ -99,7 +102,18 @@ func (h *Replicate) Clock(ctx context.Context, req *muxrpc.Request) (interface{}
 		return nil, err
 	}
 
-	nf, err := h.loadState(peer)
+	var format refs.RefAlgo
+	var args []struct {
+		Format refs.RefAlgo
+	}
+	err = json.Unmarshal(req.RawArgs, &args)
+	if err != nil || len(args) < 1 {
+		format = refs.RefAlgoFeedSSB1
+	} else {
+		format = args[0].Format
+	}
+
+	nf, err := h.loadState(peer, format)
 	if err != nil {
 		return nil, err
 	}

@@ -120,9 +120,6 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 	nf.Mutex.Lock()
 	defer nf.Mutex.Unlock()
 
-	if nf.Format == "" {
-		nf.Format = refs.RefAlgoFeedSSB1
-	}
 
 	// first we decode into this dummy map to ignore invalid feed references
 	var dummy map[string]Note
@@ -134,15 +131,12 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 	var newMap = make(NetworkFrontierMap, len(dummy))
 	for fstr, s := range dummy {
 		// validate
-		feed, err := refs.ParseFeedRef(fstr)
+		_, err := refs.ParseFeedRef(fstr)
 		if err != nil {
 			// just skip invalid feeds
 			continue
 		}
 
-		if feed.Algo() != nf.Format {
-			continue
-		}
 
 		newMap[fstr] = s
 	}
