@@ -122,6 +122,9 @@ func makeBadger(t *testing.T) testStore {
 
 		r.NoError(badgerDB.Close())
 
+		if t.Failed() {
+			testutils.StreamLog(t, tRootLog)
+		}
 		r.NoError(tRootLog.Close())
 		cancel()
 

@@ -54,16 +54,8 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 		return nil // skip invalid messages
 	}
 
-	addr := storedrefs.Feed(msg.Author())
-
-	tfkRef, err := tfk.FeedFromRef(announceMsg.Metafeed)
-	if err != nil {
-		return fmt.Errorf("db/idx announcements: failed to turn metafeed value into binary: %w", err)
-	}
-
-	err = idx.Set(ctx, addr, tfkRef)
-	if err != nil {
-		return fmt.Errorf("db/idx announcements: failed to update index %+v: %w", announceMsg, err)
+	if err := setMetafeedBacklink(ctx, idx, msg.Author(), announceMsg.Metafeed); err != nil {
+		return fmt.Errorf("db/idx metafeeds: failed to update metafeed backlink %+v: %w", msg.Key().String(), err)
 	}
 
 	b.cachedGraph = nil
@@ -160,12 +152,11 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	msgLogger := log.With(b.log,
-		"event", "metafeed update",
 		"msg-key", msg.Key().ShortSigil(),
 
 		// debugging
-		"author", msg.Author().String(),
-		"seq", msg.Seq(),
+		// "author", msg.Author().ShortSigil(),
+		// "seq", msg.Seq(),
 	)
 
 	var bencoded []bencode.RawMessage
@@ -187,8 +178,6 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 		return nil
 	}
 
-	level.Debug(msgLogger).Log("processing-rxseq", seq)
-
 	addr := storedrefs.Feed(msg.Author())
 
 	switch justTheType.Type {
@@ -205,10 +194,15 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 			// skip invalid add message
 			return nil
 		}
-		addr += storedrefs.Feed(addMsg.SubFeed)
 
-		level.Info(msgLogger).Log("adding", addMsg.SubFeed.String())
+		if err := setMetafeedBacklink(ctx, idx, addMsg.SubFeed, addMsg.MetaFeed); err != nil {
+			return fmt.Errorf("db/idx metafeeds: failed to update metafeed backlink %+v: %w", msg.Key().String(), err)
+		}
+
+		addr += storedrefs.Feed(addMsg.SubFeed)
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
+
+		level.Debug(msgLogger).Log("event", "add/existing", "feed", addMsg.SubFeed.ShortSigil())
 
 	case "metafeed/add/derived":
 		var addMsg metamngmt.AddDerived
@@ -223,10 +217,15 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 			// skip invalid add message
 			return nil
 		}
-		addr += storedrefs.Feed(addMsg.SubFeed)
 
-		level.Info(msgLogger).Log("adding", addMsg.SubFeed.ShortSigil())
+		if err := setMetafeedBacklink(ctx, idx, addMsg.SubFeed, addMsg.MetaFeed); err != nil {
+			return fmt.Errorf("db/idx metafeeds: failed to update metafeed backlink %+v: %w", msg.Key().String(), err)
+		}
+
+		addr += storedrefs.Feed(addMsg.SubFeed)
 		err = idx.Set(ctx, addr, idxRelValueMetafeed)
+
+		level.Debug(msgLogger).Log("event", "add/derived", "feed", addMsg.SubFeed.ShortSigil())
 
 	case "metafeed/tombstone":
 		var tMsg metamngmt.Tombstone
@@ -241,13 +240,14 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 			// skip invalid add message
 			return nil
 		}
-		addr += storedrefs.Feed(tMsg.SubFeed)
 
-		level.Info(msgLogger).Log("removing", tMsg.SubFeed.ShortSigil())
+		addr += storedrefs.Feed(tMsg.SubFeed)
 		err = idx.Set(ctx, addr, idxRelValueNone)
 
+		level.Debug(msgLogger).Log("event", "tombstone", "feed", tMsg.SubFeed.ShortSigil())
+
 	default:
-		level.Warn(msgLogger).Log("warning", "unhandeled message type", "type", justTheType.Type)
+		level.Warn(msgLogger).Log("event", "unhandeled message type", "type", justTheType.Type)
 	}
 
 	if err != nil {
@@ -255,7 +255,22 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 	}
 
 	return nil
+}
 
+func setMetafeedBacklink(ctx context.Context, idx librarian.SetterIndex, sub, meta refs.FeedRef) error {
+	addr := storedrefs.Feed(sub)
+
+	tfkRef, err := tfk.FeedFromRef(meta)
+	if err != nil {
+		return fmt.Errorf("failed to turn metafeed value into tfk: %w", err)
+	}
+
+	err = idx.Set(ctx, addr, tfkRef)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *BadgerBuilder) OpenMetafeedsIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {

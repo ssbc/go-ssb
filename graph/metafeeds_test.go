@@ -71,6 +71,11 @@ var metafeedsScenarios = []PeopleTestCase{
 			PeopleAssertIsSubfeed("alice-indexes", "alice-foo", true),
 			PeopleAssertIsSubfeed("alice-indexes", "alice-bar", true),
 
+			PeopleAssertHasMetafeed("alice-foo", "alice-indexes", true),
+			PeopleAssertHasMetafeed("alice-bar", "alice-indexes", true),
+
+			PeopleAssertHasMetafeed("alice-indexes", "alice", true),
+
 			PeopleAssertHops("alice", 0, "alice-indexes", "alice-foo", "alice-bar"),
 		},
 	},
@@ -188,7 +193,12 @@ func (op PeopleOpMetafeedAddExisting) Op(state *testState) error {
 	if err != nil {
 		return err
 	}
-	mf.publish.Append(signedAddExistingContent)
+
+	newMsgRef, err := mf.publish.Append(signedAddExistingContent)
+	if err != nil {
+		return err
+	}
+	state.t.Log("published add/existing:", newMsgRef)
 
 	return nil
 }
@@ -284,6 +294,34 @@ func PeopleAssertIsSubfeed(of, subfeed string, want bool) PeopleAssertMaker {
 			if g.Subfeed(a.key.ID(), b.key.ID()) != want {
 				return fmt.Errorf("subfeed assert failed - wanted %v", want)
 			}
+			return nil
+		}
+	}
+}
+
+func PeopleAssertHasMetafeed(sub, meta string, want bool) PeopleAssertMaker {
+	return func(state *testState) PeopleAssert {
+		a, b, err := getAliceBob(sub, meta, state)
+		return func(bld Builder) error {
+			if err != nil {
+				return fmt.Errorf("metafeed: no such peers: %w", err)
+			}
+			bb := bld.(*BadgerBuilder)
+
+			found, err := bb.Metafeed(a.key.ID())
+			if err != nil && want {
+				return fmt.Errorf("metafeed: expected to find the metafeed (%w)", err)
+			}
+
+			wanted := found.Equal(b.key.ID())
+			if wanted && !want {
+				return fmt.Errorf("metafeed: did not expect to find the metafeed (%s)", found.String())
+			}
+
+			if !wanted {
+				return fmt.Errorf("metafeed: found something but not the expected feed: %s", found.String())
+			}
+
 			return nil
 		}
 	}
