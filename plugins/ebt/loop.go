@@ -38,7 +38,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		h.Sessions.Ended(remoteAddr)
 
 		level.Debug(peerLogger).Log("event", "loop exited")
-		err := h.stateMatrix.SaveAndClose(peer)
+		err := h.stateMatrix.SaveAndClose(peer, format)
 		if err != nil {
 			level.Warn(peerLogger).Log("event", "failed to save state matrix for peer", "err", err)
 		}
@@ -70,6 +70,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 
 		var frontierUpdate ssb.NetworkFrontier
 		frontierUpdate.Format = format
+		// if format == "indexed" {
 
 		err = json.Unmarshal(body, &frontierUpdate)
 
@@ -135,20 +136,16 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 			continue
 		}
 
-		// update our network perception
+		// update our perception of the network with the new frontier
 		wants, err := h.stateMatrix.Update(peer, &frontierUpdate)
 		if err != nil {
 			return err
 		}
 
-		if format == "indexed" {
-			fmt.Println("indexed wants:", wants)
-		}
-
 		filterFormat := format
-		// if format == "indexed" {
-		// 	filterFormat = refs.RefAlgoFeedSSB1
-		// }
+		if format == "indexed" {
+			filterFormat = refs.RefAlgoFeedSSB1
+		}
 		filtered := filterRelevantNotes(wants, filterFormat, session.Unubscribe)
 		if format == "indexed" {
 			fmt.Println("filtered index feeds:", filtered)
@@ -194,8 +191,8 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 	return rx.Err()
 }
 
-func (h *Replicate) loadState(remote refs.FeedRef) (*ssb.NetworkFrontier, error) {
-	currState, err := h.stateMatrix.Changed(h.self, remote)
+func (h *Replicate) loadState(remote refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
+	currState, err := h.stateMatrix.Changed(h.self, remote, format)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changed frontier: %w", err)
 	}
@@ -212,7 +209,7 @@ func (h *Replicate) loadState(remote refs.FeedRef) (*ssb.NetworkFrontier, error)
 }
 
 func (h *Replicate) sendState(tx *muxrpc.ByteSink, remote refs.FeedRef, format refs.RefAlgo) error {
-	currState, err := h.loadState(remote)
+	currState, err := h.loadState(remote, format)
 	if err != nil {
 		return err
 	}

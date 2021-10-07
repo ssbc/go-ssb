@@ -65,12 +65,12 @@ func (s *Sbot) NullFeed(ref refs.FeedRef) error {
 	}
 
 	// delete my ebt state
-	// TODO: just remove that single feed
-	sfn, err := s.ebtState.StateFileName(s.KeyPair.ID())
-	if err != nil {
-		return fmt.Errorf("NullFeed: error while deleting ebt state file: %w", err)
-	}
-	os.Remove(sfn)
+	return fmt.Errorf("TODO: just remove that single feed")
+	// sfn, err := s.ebtState.StateFileName(s.KeyPair.ID())
+	// if err != nil {
+	// 	return fmt.Errorf("NullFeed: error while deleting ebt state file: %w", err)
+	// }
+	// os.Remove(sfn)
 
 	if !s.disableNetwork {
 		s.verifyRouter.CloseSink(ref)

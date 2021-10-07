@@ -38,8 +38,8 @@ type StateMatrix struct {
 	open currentFrontiers
 }
 
-// map[peer reference]frontier
-type currentFrontiers map[string]*ssb.NetworkFrontier
+// map[format]map[peer reference]frontier
+type currentFrontiers map[refs.RefAlgo]map[string]*ssb.NetworkFrontier
 
 func New(base string, self refs.FeedRef) (*StateMatrix, error) {
 
@@ -53,39 +53,51 @@ func New(base string, self refs.FeedRef) (*StateMatrix, error) {
 		open: make(currentFrontiers),
 	}
 
-	_, err := sm.loadFrontier(self)
-	if err != nil {
-		return nil, err
+	formats := []refs.RefAlgo{
+		refs.RefAlgoFeedSSB1,
+		refs.RefAlgoFeedGabby,
+		refs.RefAlgoFeedBendyButt,
+	}
+
+	for _, f := range formats {
+		if _, err := sm.loadFrontier(self, f); err != nil {
+			return nil, fmt.Errorf("stateMatrix: init of format %s failed: %w", f, err)
+		}
 	}
 
 	return &sm, nil
 }
 
 // Inspect returns the current frontier for the passed peer
-func (sm *StateMatrix) Inspect(peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Inspect(peer refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	return sm.loadFrontier(peer)
+	return sm.loadFrontier(peer, format)
 }
 
-func (sm *StateMatrix) StateFileName(peer refs.FeedRef) (string, error) {
+func (sm *StateMatrix) StateFileName(peer refs.FeedRef, format refs.RefAlgo) (string, error) {
 	peerTfk, err := tfk.Encode(peer)
 	if err != nil {
 		return "", err
 	}
 
-	hexPeerTfk := fmt.Sprintf("%x", peerTfk)
+	hexPeerTfk := fmt.Sprintf("%x.%s", peerTfk, format)
 	peerFileName := filepath.Join(sm.basePath, hexPeerTfk)
 	return peerFileName, nil
 }
 
-func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
-	curr, has := sm.open[peer.String()]
+func (sm *StateMatrix) loadFrontier(peer refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
+	formatMap, has := sm.open[format]
+	if !has {
+		formatMap = make(map[string]*ssb.NetworkFrontier)
+	}
+
+	curr, has := formatMap[peer.String()]
 	if has {
 		return curr, nil
 	}
 
-	peerFileName, err := sm.StateFileName(peer)
+	peerFileName, err := sm.StateFileName(peer, format)
 	if err != nil {
 		return nil, err
 	}
@@ -98,43 +110,56 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef) (*ssb.NetworkFrontier, er
 
 		// new file, nothing to see here
 		curr = ssb.NewNetworkFrontier()
-		sm.open[peer.String()] = curr
+		formatMap[peer.String()] = curr
 		return curr, nil
 	}
 	defer peerFile.Close()
 
 	curr = ssb.NewNetworkFrontier()
+	curr.Format = format
 	err = json.NewDecoder(peerFile).Decode(&curr)
 	if err != nil {
 		return nil, fmt.Errorf("state json decode failed: %w", err)
 	}
-	sm.open[peer.String()] = curr
+	formatMap[peer.String()] = curr
+	sm.open[format] = formatMap
 	return curr, nil
 }
 
-func (sm *StateMatrix) SaveAndClose(peer refs.FeedRef) error {
+func (sm *StateMatrix) SaveAndClose(peer refs.FeedRef, format refs.RefAlgo) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	return sm.saveAndClose(peer.String())
+	return sm.saveAndClose(peer.String(), format)
 }
 
-func (sm *StateMatrix) saveAndClose(peer string) error {
+// for internal use only (lock for map is not taken)
+func (sm *StateMatrix) saveAndClose(peer string, format refs.RefAlgo) error {
 	parsed, err := refs.ParseFeedRef(peer)
 	if err != nil {
 		return err
 	}
 
-	err = sm.save(parsed)
+	err = sm.save(parsed, format)
 	if err != nil {
 		return err
 	}
 
-	delete(sm.open, peer)
+	delete(sm.open[format], peer)
 	return nil
 }
 
-func (sm *StateMatrix) save(peer refs.FeedRef) error {
-	peerFileName, err := sm.StateFileName(peer)
+func (sm *StateMatrix) save(peer refs.FeedRef, format refs.RefAlgo) error {
+	formatMap, has := sm.open[format]
+	if !has {
+		return nil
+	}
+
+	nf, has := formatMap[peer.String()]
+	if !has {
+		return nil
+	}
+
+	peerFileName, err := sm.StateFileName(peer, format)
 	if err != nil {
 		return err
 	}
@@ -144,11 +169,6 @@ func (sm *StateMatrix) save(peer refs.FeedRef) error {
 	peerFile, err := os.OpenFile(newPeerFileName, os.O_TRUNC|os.O_WRONLY|os.O_CREATE, onlyOwnerPerms)
 	if err != nil {
 		return err
-	}
-
-	nf, has := sm.open[peer.String()]
-	if !has {
-		return nil
 	}
 
 	err = json.NewEncoder(peerFile).Encode(nf.Frontier)
@@ -180,57 +200,57 @@ func (hlr HasLongerResult) String() string {
 }
 
 // HasLonger returns all the feeds which have more messages then we have and who has them.
-func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
-	var err error
+// func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
+// 	var err error
 
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
+// 	sm.mu.Lock()
+// 	defer sm.mu.Unlock()
 
-	selfNf, has := sm.open[sm.self]
-	if !has {
-		return nil, nil
-	}
+// 	selfNf, has := sm.open[sm.self]
+// 	if !has {
+// 		return nil, nil
+// 	}
 
-	var res []HasLongerResult
+// 	var res []HasLongerResult
 
-	for peer, theirNf := range sm.open {
+// 	for peer, theirNf := range sm.open {
 
-		for feed, note := range selfNf.Frontier {
+// 		for feed, note := range selfNf.Frontier {
 
-			theirNote, has := theirNf.Frontier[feed]
-			if !has {
-				continue
-			}
+// 			theirNote, has := theirNf.Frontier[feed]
+// 			if !has {
+// 				continue
+// 			}
 
-			if theirNote.Seq > note.Seq {
-				var hlr HasLongerResult
-				hlr.Len = uint64(theirNote.Seq)
+// 			if theirNote.Seq > note.Seq {
+// 				var hlr HasLongerResult
+// 				hlr.Len = uint64(theirNote.Seq)
 
-				hlr.Peer, err = refs.ParseFeedRef(peer)
-				if err != nil {
-					return nil, err
-				}
+// 				hlr.Peer, err = refs.ParseFeedRef(peer)
+// 				if err != nil {
+// 					return nil, err
+// 				}
 
-				hlr.Feed, err = refs.ParseFeedRef(feed)
-				if err != nil {
-					return nil, err
-				}
+// 				hlr.Feed, err = refs.ParseFeedRef(feed)
+// 				if err != nil {
+// 					return nil, err
+// 				}
 
-				res = append(res, hlr)
-			}
+// 				res = append(res, hlr)
+// 			}
 
-		}
-	}
+// 		}
+// 	}
 
-	return res, nil
-}
+// 	return res, nil
+// }
 
 // WantsList returns all the feeds a peer wants to recevie messages for
-func (sm *StateMatrix) WantsList(peer refs.FeedRef) ([]refs.FeedRef, error) {
+func (sm *StateMatrix) WantsList(peer refs.FeedRef, format refs.RefAlgo) ([]refs.FeedRef, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	nf, err := sm.loadFrontier(peer)
+	nf, err := sm.loadFrontier(peer, format)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +275,7 @@ func (sm *StateMatrix) WantsFeed(peer, feed refs.FeedRef) (ssb.Note, bool, error
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	nf, err := sm.loadFrontier(peer)
+	nf, err := sm.loadFrontier(peer, feed.Algo())
 	if err != nil {
 		return ssb.Note{}, false, err
 	}
@@ -272,7 +292,7 @@ func (sm *StateMatrix) WantsFeedWithSeq(peer, feed refs.FeedRef, seq int64) (boo
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	nf, err := sm.loadFrontier(peer)
+	nf, err := sm.loadFrontier(peer, feed.Algo())
 	if err != nil {
 		return false, err
 	}
@@ -294,11 +314,11 @@ func (sm *StateMatrix) WantsFeedWithSeq(peer, feed refs.FeedRef, seq int64) (boo
 }
 
 // Changed returns which feeds have newer messages since last update
-func (sm *StateMatrix) Changed(self, peer refs.FeedRef) (*ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Changed(self, peer refs.FeedRef, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	selfNf, err := sm.loadFrontier(self)
+	selfNf, err := sm.loadFrontier(self, format)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +326,7 @@ func (sm *StateMatrix) Changed(self, peer refs.FeedRef) (*ssb.NetworkFrontier, e
 	selfNf.Lock()
 	defer selfNf.Unlock()
 
-	peerNf, err := sm.loadFrontier(peer)
+	peerNf, err := sm.loadFrontier(peer, format)
 	if err != nil {
 		return nil, err
 	}
@@ -352,16 +372,24 @@ func (sm *StateMatrix) Update(who refs.FeedRef, update *ssb.NetworkFrontier) (*s
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	current, err := sm.loadFrontier(who)
+	current, err := sm.loadFrontier(who, update.Format)
 	if err != nil {
 		return nil, err
 	}
+
 	current.Lock()
 	// overwrite the entries in current with the updated ones
 	for feed, note := range update.Frontier {
 		current.Frontier[feed] = note
 	}
-	sm.open[who.String()] = current
+
+	formatMap, has := sm.open[update.Format]
+	if !has {
+		formatMap = make(map[string]*ssb.NetworkFrontier)
+	}
+
+	formatMap[who.String()] = current
+	sm.open[update.Format] = formatMap
 	current.Unlock()
 	return current, nil
 }
@@ -381,13 +409,18 @@ func (sm *StateMatrix) UpdateSequences(who refs.FeedRef, feeds []FeedWithLength)
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	nf, err := sm.loadFrontier(who)
+	format := feeds[0].Algo()
+
+	nf, err := sm.loadFrontier(who, format)
 	if err != nil {
 		return err
 	}
 
 	nf.Lock()
 	for _, updatedFeed := range feeds {
+		if updatedFeed.Algo() != format {
+			return fmt.Errorf("stateMatrix: sequence update has feeds with different formats")
+		}
 		mapKey := updatedFeed.String()
 
 		currNote, hasNote := nf.Frontier[mapKey]
@@ -398,7 +431,7 @@ func (sm *StateMatrix) UpdateSequences(who refs.FeedRef, feeds []FeedWithLength)
 
 		nf.Frontier[mapKey] = currNote
 	}
-	sm.open[who.String()] = nf
+	sm.open[format][who.String()] = nf
 	nf.Unlock()
 
 	return nil
@@ -413,7 +446,9 @@ func (sm *StateMatrix) Fill(who refs.FeedRef, feeds []ObservedFeed) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	nf, err := sm.loadFrontier(who)
+	format := feeds[0].Feed.Algo()
+
+	nf, err := sm.loadFrontier(who, format)
 	if err != nil {
 		return err
 	}
@@ -427,7 +462,15 @@ func (sm *StateMatrix) Fill(who refs.FeedRef, feeds []ObservedFeed) error {
 			delete(nf.Frontier, updatedFeed.Feed.String())
 		}
 	}
-	sm.open[who.String()] = nf
+
+	formatMap, has := sm.open[format]
+	if !has {
+		formatMap = make(map[string]*ssb.NetworkFrontier)
+	}
+
+	formatMap[who.String()] = nf
+	sm.open[format] = formatMap
+
 	nf.Unlock()
 
 	return nil
@@ -437,8 +480,13 @@ func (sm *StateMatrix) Close() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	for peer := range sm.open {
-		sm.saveAndClose(peer)
+	for format, formatMap := range sm.open {
+		for peer := range formatMap {
+			err := sm.saveAndClose(peer, format)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
