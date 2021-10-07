@@ -57,6 +57,8 @@ type IndexFeedManager interface {
 
 	List() ([]IndexListEntry, error)
 	ListByType(msgtype string) ([]IndexListEntry, error)
+
+	GetMetadata(refs.FeedRef) (MetadataQuery, error)
 }
 
 // MetadataQuery is the metadata that get's added to the creation of an indexfeed
