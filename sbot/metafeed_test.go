@@ -431,7 +431,7 @@ func TestMetafeedIndexes(t *testing.T) {
 	mfId := bot.KeyPair.ID()
 
 	// listing on an empty meta feed should work
-	_, err = bot.MetaFeeds.ListSubFeeds(mfId)
+	_, err = bot.MetaFeeds.ListSubFeeds(mfID)
 	r.NoError(err)
 
 	// create a main feed (holds actual messages, regular old ssb feed thinger) on the root metafeed

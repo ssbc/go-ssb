@@ -189,7 +189,7 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 		ref, err := mainbot.PublishAs(intro.as, intro.c)
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
-		testRefs = append(testRefs, ref)
+		testRefs = append(testRefs, ref.Key())
 	}
 
 	r.EqualValues(len(testMsgs)-1, mainbot.ReceiveLog.Seq(), "did not get all the messages")
@@ -199,35 +199,54 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 	t.Run("by author", func(t *testing.T) {
 		r := require.New(t)
 
-		msgs, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, query.NewSubsetOpByAuthor(kpArny.ID()))
+		qry := query.NewSubsetOpByAuthor(kpArny.ID())
+
+		msgs, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, qry)
 		r.NoError(err)
 		r.Len(msgs, 2, "wrong number of resulting messages")
-		r.True(testRefs[0].Equal(msgs[0]))
-		r.True(testRefs[1].Equal(msgs[1]))
+		msgRefs := messagesToRefs(msgs)
+		r.True(testRefs[0].Equal(msgRefs[0]))
+		r.True(testRefs[1].Equal(msgRefs[1]))
 	})
 
 	t.Run("by type", func(t *testing.T) {
 		r := require.New(t)
 
-		msgs, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, query.NewSubsetOpByType("post"))
+		qry := query.NewSubsetOpByType("post")
+
+		msgs, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, qry)
 		r.NoError(err)
 		r.Len(msgs, 1, "wrong number of resulting messages")
-		r.True(testRefs[6].Equal(msgs[0]))
+		msgRefs := messagesToRefs(msgs)
+		r.True(testRefs[6].Equal(msgRefs[0]))
 	})
 
 	t.Run("OR two types (contact and post)", func(t *testing.T) {
 		r := require.New(t)
 
-		qry := query.NewSubsetOrCombination(query.NewSubsetOpByType("contact"), query.NewSubsetOpByType("post"))
-		res, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, qry)
+		qry := query.NewSubsetOrCombination(
+			query.NewSubsetOpByType("contact"),
+			query.NewSubsetOpByType("post"),
+		)
+
+		msgs, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, qry)
 		r.NoError(err)
-		r.Len(res, 3, "wrong number of resulting messages")
-		r.True(testRefs[1].Equal(res[0]))
-		r.True(testRefs[3].Equal(res[1]))
-		r.True(testRefs[6].Equal(res[2]))
+		r.Len(msgs, 3, "wrong number of resulting messages")
+		msgRefs := messagesToRefs(msgs)
+		r.True(testRefs[1].Equal(msgRefs[0]))
+		r.True(testRefs[3].Equal(msgRefs[1]))
+		r.True(testRefs[6].Equal(msgRefs[2]))
 	})
 
 	// shutdown bot
 	mainbot.Shutdown()
 	r.NoError(mainbot.Close())
+}
+
+func messagesToRefs(msgs []refs.Message) []refs.MessageRef {
+	r := make([]refs.MessageRef, len(msgs))
+	for i, m := range msgs {
+		r[i] = m.Key()
+	}
+	return r
 }
