@@ -60,11 +60,13 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 			mainLog = level.NewFilter(mainLog, level.AllowInfo())
 		}
 
+		format := refs.RefAlgoFeedSSB1
+
 		// </boilerplate>
 
 		// create bot 1
 		seed := bytes.Repeat([]byte{1}, 32)
-		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
+		aliKey, err := ssb.NewKeyPair(bytes.NewReader(seed), format)
 		r.NoError(err)
 		t.Log("ali is", aliKey.ID().String())
 
@@ -97,7 +99,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 
 		// create bot 2
 		seed = bytes.Repeat([]byte{2}, 32)
-		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), refs.RefAlgoFeedSSB1)
+		bobKey, err := ssb.NewKeyPair(bytes.NewReader(seed), format)
 		r.NoError(err)
 		t.Log("bob is", bobKey.ID().String())
 
@@ -160,7 +162,7 @@ func createFeedsOneByOneTest(useEBT bool) func(t *testing.T) {
 
 			// check the note is updated correctly
 			if useEBT {
-				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.ID())
+				aliHas, err := bob.ebtState.Inspect(ali.KeyPair.ID(), format)
 				r.NoError(err)
 				alisNoteAtBob := aliHas.Frontier[ali.KeyPair.ID().String()]
 				a.True(int(alisNoteAtBob.Seq) >= i, "expected more messages have %d", alisNoteAtBob.Seq)

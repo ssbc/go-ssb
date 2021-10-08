@@ -116,7 +116,6 @@ func (sm *StateMatrix) loadFrontier(peer refs.FeedRef, format refs.RefAlgo) (*ss
 	defer peerFile.Close()
 
 	curr = ssb.NewNetworkFrontier()
-	curr.Format = format
 	err = json.NewDecoder(peerFile).Decode(&curr)
 	if err != nil {
 		return nil, fmt.Errorf("state json decode failed: %w", err)
@@ -200,50 +199,52 @@ func (hlr HasLongerResult) String() string {
 }
 
 // HasLonger returns all the feeds which have more messages then we have and who has them.
-// func (sm *StateMatrix) HasLonger() ([]HasLongerResult, error) {
-// 	var err error
+func (sm *StateMatrix) HasLonger(format refs.RefAlgo) ([]HasLongerResult, error) {
+	var err error
 
-// 	sm.mu.Lock()
-// 	defer sm.mu.Unlock()
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-// 	selfNf, has := sm.open[sm.self]
-// 	if !has {
-// 		return nil, nil
-// 	}
+	formatMap := sm.open[format]
 
-// 	var res []HasLongerResult
+	selfNf, has := formatMap[sm.self]
+	if !has {
+		return nil, nil
+	}
 
-// 	for peer, theirNf := range sm.open {
+	var res []HasLongerResult
 
-// 		for feed, note := range selfNf.Frontier {
+	for peer, theirNf := range formatMap {
 
-// 			theirNote, has := theirNf.Frontier[feed]
-// 			if !has {
-// 				continue
-// 			}
+		for feed, note := range selfNf.Frontier {
 
-// 			if theirNote.Seq > note.Seq {
-// 				var hlr HasLongerResult
-// 				hlr.Len = uint64(theirNote.Seq)
+			theirNote, has := theirNf.Frontier[feed]
+			if !has {
+				continue
+			}
 
-// 				hlr.Peer, err = refs.ParseFeedRef(peer)
-// 				if err != nil {
-// 					return nil, err
-// 				}
+			if theirNote.Seq > note.Seq {
+				var hlr HasLongerResult
+				hlr.Len = uint64(theirNote.Seq)
 
-// 				hlr.Feed, err = refs.ParseFeedRef(feed)
-// 				if err != nil {
-// 					return nil, err
-// 				}
+				hlr.Peer, err = refs.ParseFeedRef(peer)
+				if err != nil {
+					return nil, err
+				}
 
-// 				res = append(res, hlr)
-// 			}
+				hlr.Feed, err = refs.ParseFeedRef(feed)
+				if err != nil {
+					return nil, err
+				}
 
-// 		}
-// 	}
+				res = append(res, hlr)
+			}
 
-// 	return res, nil
-// }
+		}
+	}
+
+	return res, nil
+}
 
 // WantsList returns all the feeds a peer wants to recevie messages for
 func (sm *StateMatrix) WantsList(peer refs.FeedRef, format refs.RefAlgo) ([]refs.FeedRef, error) {
@@ -369,11 +370,11 @@ type ObservedFeed struct {
 
 // Update gets the current state from who, overwrites the notes in current with the new ones from the passed update
 // and returns the complet updated frontier.
-func (sm *StateMatrix) Update(who refs.FeedRef, update *ssb.NetworkFrontier) (*ssb.NetworkFrontier, error) {
+func (sm *StateMatrix) Update(who refs.FeedRef, update *ssb.NetworkFrontier, format refs.RefAlgo) (*ssb.NetworkFrontier, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	current, err := sm.loadFrontier(who, update.Format)
+	current, err := sm.loadFrontier(who, format)
 	if err != nil {
 		return nil, err
 	}
@@ -384,13 +385,13 @@ func (sm *StateMatrix) Update(who refs.FeedRef, update *ssb.NetworkFrontier) (*s
 		current.Frontier[feed] = note
 	}
 
-	formatMap, has := sm.open[update.Format]
+	formatMap, has := sm.open[format]
 	if !has {
 		formatMap = make(map[string]*ssb.NetworkFrontier)
 	}
 
 	formatMap[who.String()] = current
-	sm.open[update.Format] = formatMap
+	sm.open[format] = formatMap
 	current.Unlock()
 	return current, nil
 }

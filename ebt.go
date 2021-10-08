@@ -74,8 +74,6 @@ type NetworkFrontier struct {
 	sync.Mutex
 
 	Frontier NetworkFrontierMap
-
-	Format refs.RefAlgo
 }
 
 // NewNetworkFrontier returns a new, initialized map
@@ -99,13 +97,9 @@ func (nf *NetworkFrontier) MarshalJSON() ([]byte, error) {
 
 	for fstr, s := range nf.Frontier {
 		// validate
-		feed, err := refs.ParseFeedRef(fstr)
+		_, err := refs.ParseFeedRef(fstr)
 		if err != nil {
 			// just skip invalid feeds
-			continue
-		}
-
-		if feed.Algo() != nf.Format {
 			continue
 		}
 
@@ -119,7 +113,6 @@ func (nf *NetworkFrontier) MarshalJSON() ([]byte, error) {
 func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 	nf.Mutex.Lock()
 	defer nf.Mutex.Unlock()
-
 
 	// first we decode into this dummy map to ignore invalid feed references
 	var dummy map[string]Note
@@ -136,7 +129,6 @@ func (nf *NetworkFrontier) UnmarshalJSON(b []byte) error {
 			// just skip invalid feeds
 			continue
 		}
-
 
 		newMap[fstr] = s
 	}

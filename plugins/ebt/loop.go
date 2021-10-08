@@ -68,7 +68,6 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		body := buf.Bytes()
 
 		var frontierUpdate ssb.NetworkFrontier
-		frontierUpdate.Format = format
 
 		err = json.Unmarshal(body, &frontierUpdate)
 
@@ -135,7 +134,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 		}
 
 		// update our perception of the network with the new frontier
-		wants, err := h.stateMatrix.Update(peer, &frontierUpdate)
+		wants, err := h.stateMatrix.Update(peer, &frontierUpdate, format)
 		if err != nil {
 			return err
 		}

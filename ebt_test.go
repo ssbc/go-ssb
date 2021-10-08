@@ -78,24 +78,9 @@ func TestEBTFrontierMarshal(t *testing.T) {
 	example.Frontier[f1.String()] = Note{Seq: 23, Replicate: true, Receive: true}
 	example.Frontier[f2.String()] = Note{Seq: 42, Replicate: true, Receive: true}
 
-	// no feeds with that format
-	example.Format = refs.RefAlgoFeedSSB1
 	data, err := json.Marshal(example)
 	r.NoError(err)
-	a.EqualValues(`{"@YWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWI=.ed25519":46}`, string(data))
-
-	// now just gabby feeds
-	example.Format = refs.RefAlgoFeedGabby
-	data, err = json.Marshal(example)
-	r.NoError(err)
-	a.EqualValues(`{"ssb:feed/gabbygrove-v1/YWNhY2FjYWNhY2FjYWNhY2FjYWNhY2FjYWNhY2FjYWM=":84}`, string(data))
-
-	// now just bamboo's
-	example.Format = refs.RefAlgoFeedBamboo
-	data, err = json.Marshal(example)
-	r.NoError(err)
-	t.Log(f1.String())
-	a.EqualValues(`{}`, string(data))
+	a.EqualValues(`{"@YWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWI=.ed25519":46,"ssb:feed/gabbygrove-v1/YWNhY2FjYWNhY2FjYWNhY2FjYWNhY2FjYWNhY2FjYWM=":84}`, string(data))
 }
 
 func TestEBTFrontierUnmarshal(t *testing.T) {
@@ -114,22 +99,15 @@ func TestEBTFrontierUnmarshal(t *testing.T) {
 	r.NoError(err)
 
 	var ex1 = NewNetworkFrontier()
-	ex1.Format = refs.RefAlgoFeedSSB1
 	err = ex1.UnmarshalJSON([]byte(input))
 	r.NoError(err)
-	a.Len(ex1.Frontier, 1)
+	a.Len(ex1.Frontier, 2)
 
 	note, has := ex1.Frontier[f1.String()]
 	r.True(has)
 	a.Equal(note, Note{Seq: 23, Replicate: true, Receive: true})
 
-	var ex2 = NewNetworkFrontier()
-	ex2.Format = refs.RefAlgoFeedGabby
-	err = ex2.UnmarshalJSON([]byte(input))
-	r.NoError(err)
-	a.Len(ex2.Frontier, 1)
-
-	note, has = ex2.Frontier[f2.String()]
+	note, has = ex1.Frontier[f2.String()]
 	r.True(has)
 	a.Equal(note, Note{Seq: 42, Replicate: true, Receive: true})
 }

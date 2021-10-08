@@ -450,6 +450,7 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	// this peer has no ebt state yet
 	if len(ownFrontier.Frontier) == 0 {
+		ownID := s.KeyPair.ID()
 		// use the replication lister and determine the stored feeds lenghts
 		lister := s.Replicator.Lister().ReplicationList()
 
@@ -472,7 +473,7 @@ func New(fopts ...Option) (*Sbot, error) {
 			return nil, fmt.Errorf("failed to get our sequence: %w", err)
 		}
 
-		_, err = s.ebtState.Update(s.KeyPair.ID(), ownFrontier)
+		_, err = s.ebtState.Update(ownID, ownFrontier, ownID.Algo())
 		if err != nil {
 			return nil, err
 		}

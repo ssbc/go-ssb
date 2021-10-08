@@ -24,6 +24,8 @@ func TestNew(t *testing.T) {
 	m, err := New("testrun/new", testFeed(0))
 	r.NoError(err)
 
+	format := refs.RefAlgoFeedSSB1
+
 	feeds := []ObservedFeed{
 		{Feed: testFeed(1), Note: ssb.Note{Replicate: true, Receive: true, Seq: 5}},
 		{Feed: testFeed(2), Note: ssb.Note{Replicate: true, Receive: true, Seq: 499}},
@@ -62,7 +64,7 @@ func TestNew(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(9), feeds))
 
-	has, err := m.HasLonger()
+	has, err := m.HasLonger(format)
 	r.NoError(err)
 	r.Len(has, 3)
 	t.Logf("%+v", has)
@@ -73,7 +75,7 @@ func TestNew(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
-	has, err = m.HasLonger()
+	has, err = m.HasLonger(format)
 	r.NoError(err)
 	r.Len(has, 1)
 	t.Logf("%+v", has)
@@ -83,7 +85,7 @@ func TestNew(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
-	has, err = m.HasLonger()
+	has, err = m.HasLonger(format)
 	r.NoError(err)
 	r.Len(has, 0)
 
@@ -92,7 +94,7 @@ func TestNew(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
-	has, err = m.HasLonger()
+	has, err = m.HasLonger(format)
 	r.NoError(err)
 	r.Len(has, 3)
 	t.Logf("%+v", has)
@@ -102,7 +104,7 @@ func TestNew(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(0), feeds))
 
-	has, err = m.HasLonger()
+	has, err = m.HasLonger(format)
 	r.NoError(err)
 	r.Len(has, 0)
 
@@ -142,7 +144,7 @@ func TestChanged(t *testing.T) {
 	}
 	r.NoError(m.Fill(testFeed(1), feeds))
 
-	changed, err := m.Changed(testFeed(0), testFeed(1))
+	changed, err := m.Changed(testFeed(0), testFeed(1), refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	// changed should have 1 as two still (to get just 3)

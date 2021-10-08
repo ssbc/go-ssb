@@ -37,12 +37,8 @@ func (h *Replicate) sendState(tx *muxrpc.ByteSink, remote refs.FeedRef, format r
 		return err
 	}
 
-	currState.Format = format
-
 	tx.SetEncoding(muxrpc.TypeJSON)
-	// w := io.MultiWriter(tx, os.Stderr)
-	w := tx
-	err = json.NewEncoder(w).Encode(currState)
+	err = json.NewEncoder(tx).Encode(currState)
 	if err != nil {
 		return fmt.Errorf("failed to send currState: %d: %w", len(currState.Frontier), err)
 	}
