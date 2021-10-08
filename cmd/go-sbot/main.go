@@ -48,6 +48,7 @@ var (
 	flagEnAdv    bool
 	flagEnDiscov bool
 	flagPromisc  bool
+	flagMetaFeed bool
 
 	flagEnableEBT bool
 
@@ -102,6 +103,7 @@ func initFlags() {
 	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
 
 	flag.BoolVar(&flagEnableEBT, "enable-ebt", false, "enable syncing by using epidemic-broadcast-trees (new code, test with caution)")
+	flag.BoolVar(&flagMetaFeed, "enable-metafeed", false, "enables metafeeds and automatic index creation (note: existing feeds must first be migrated with cmd/gossb-migrate-mf)")
 
 	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
 
@@ -164,6 +166,9 @@ func runSbot() error {
 	opts := []mksbot.Option{
 		mksbot.WithHops(flagHops),
 		mksbot.WithPromisc(flagPromisc),
+		// enabling this is for the brave & partially curious; try running cmd/gossb-migrate-mf first if go-sbot on an
+		// existing feed not yet upgraded to metafeeds
+		mksbot.WithMetaFeedMode(flagMetaFeed),
 		mksbot.WithInfo(log),
 		mksbot.WithAppKey(ak),
 		mksbot.WithRepoPath(repoDir),
