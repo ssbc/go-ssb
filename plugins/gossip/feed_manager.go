@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"sync"
 
 	"github.com/go-kit/kit/metrics"
@@ -104,7 +105,10 @@ func (m *FeedManager) serveLiveFeeds() {
 	}
 
 	err = luigi.Pump(m.rootCtx, luigi.FuncSink(m.pour), src)
-	if err != nil && err != ssb.ErrShuttingDown && err != context.Canceled {
+	if err != nil &&
+		err != ssb.ErrShuttingDown &&
+		err != context.Canceled &&
+		!errors.Is(err, os.ErrClosed) {
 		err = fmt.Errorf("error while serving live feed: %w", err)
 		panic(err)
 	}
