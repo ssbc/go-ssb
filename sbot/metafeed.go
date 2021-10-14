@@ -109,13 +109,13 @@ func (s metaFeedsService) RegisterIndex(mfID, contentFeed refs.FeedRef, msgType 
 	return nil
 }
 
-func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, error) {
+func (s metaFeedsService) getIndexesFeed(mfID refs.FeedRef) (refs.FeedRef, error) {
 	var err error
 	var indexesFeedRef, empty refs.FeedRef
 	var indexesFeeds []refs.FeedRef
 
-	// list the various subfeeds under the root metafeed mfId
-	subfeedList, err := s.ListSubFeeds(mfId)
+	// list the various subfeeds under the root metafeed mfID
+	subfeedList, err := s.ListSubFeeds(mfID)
 	if err != nil {
 		return empty, fmt.Errorf("failed to list subfeeds for root mf (%w)", err)
 	}
@@ -124,9 +124,9 @@ func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, erro
 		if entry.Seq == 0 {
 			continue
 		}
-		metafeedDerivedMsg, err := s.getMsgAtSeq(mfId, entry.Seq)
+		metafeedDerivedMsg, err := s.getMsgAtSeq(mfID, entry.Seq)
 		if err != nil {
-			return empty, fmt.Errorf("failed to get AddDerivedMsg at seq %d in metafeed %s (%w)", entry.Seq, mfId.ShortSigil(), err)
+			return empty, fmt.Errorf("failed to get AddDerivedMsg at seq %d in metafeed %s (%w)", entry.Seq, mfID.ShortSigil(), err)
 		}
 		if metafeedDerivedMsg.FeedPurpose == "indexes" {
 			indexesFeeds = append(indexesFeeds, metafeedDerivedMsg.SubFeed)
@@ -135,7 +135,7 @@ func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, erro
 
 	// we need to create the indexes feed
 	if len(indexesFeeds) == 0 {
-		indexesFeedRef, err = s.CreateSubFeed(mfId, "indexes", refs.RefAlgoFeedBendyButt)
+		indexesFeedRef, err = s.CreateSubFeed(mfID, "indexes", refs.RefAlgoFeedBendyButt)
 		if err != nil {
 			return empty, fmt.Errorf("failed to create `indexes` feed (%w)", err)
 		}
@@ -151,16 +151,16 @@ func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, erro
 	return indexesFeedRef, nil
 }
 
-func (s metaFeedsService) TombstoneIndex(mfId, contentFeed refs.FeedRef, msgType string) error {
-	index, err := s.GetOrCreateIndex(mfId, contentFeed, "index", msgType)
+func (s metaFeedsService) TombstoneIndex(mfID, contentFeed refs.FeedRef, msgType string) error {
+	index, err := s.GetOrCreateIndex(mfID, contentFeed, "index", msgType)
 	if err != nil {
-		return fmt.Errorf("index for feed %s of type %s mounted on %s not found (%w)", contentFeed, msgType, mfId, err)
+		return fmt.Errorf("index for feed %s of type %s mounted on %s not found (%w)", contentFeed, msgType, mfID, err)
 	}
 	_, err = s.indexManager.Deregister(index)
 	if err != nil {
 		return fmt.Errorf("tombstone index: failed to deregister index (%w)", err)
 	}
-	indexesFeed, err := s.getIndexesFeed(mfId)
+	indexesFeed, err := s.getIndexesFeed(mfID)
 	if err != nil {
 		return fmt.Errorf("tombstone index: failed to get `indexes` subfeed (%w)", err)
 	}
@@ -171,12 +171,12 @@ func (s metaFeedsService) TombstoneIndex(mfId, contentFeed refs.FeedRef, msgType
 	return nil
 }
 
-// Get or create an index feed for a particular message type and author contentFeed on a root metafeed mfId
-func (s metaFeedsService) GetOrCreateIndex(mfId, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error) {
+// Get or create an index feed for a particular message type and author contentFeed on a root metafeed mfID
+func (s metaFeedsService) GetOrCreateIndex(mfID, contentFeed refs.FeedRef, purpose, msgType string) (refs.FeedRef, error) {
 	var empty refs.FeedRef
 
 	// get the indexes feed, i.e. the feed listing indexes with a purpose "indexes"
-	indexesFeedRef, err := s.getIndexesFeed(mfId)
+	indexesFeedRef, err := s.getIndexesFeed(mfID)
 	if err != nil {
 		return empty, fmt.Errorf("failed to get `indexes` feed (%w)", err)
 	}
@@ -442,9 +442,9 @@ func (s metaFeedsService) ListSubFeeds(mount refs.FeedRef) ([]ssb.SubfeedListEnt
 		if keys.IsNoSuchKey(err) {
 			// this occurs when we try to list subfeeds for target metafeed which does not yet contain any subfeeds
 			return []ssb.SubfeedListEntry{}, nil
-		} else {
-			return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
 		}
+
+		return nil, fmt.Errorf("metafeed list: failed to get listing: %w", err)
 	}
 
 	lst := make([]ssb.SubfeedListEntry, len(feeds))
