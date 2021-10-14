@@ -158,6 +158,7 @@ func (h *Replicate) Loop(ctx context.Context, tx *muxrpc.ByteSink, rx *muxrpc.By
 			arg.Limit = -1
 			arg.Live = true
 
+			// default case, the sender is untouched
 			var sender muxrpc.ByteSinker = tx
 
 			// in indexed mode we need to tune the sender such that it merges the indexed with the referenced message

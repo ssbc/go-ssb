@@ -28,6 +28,8 @@ type replicateNegotiator struct {
 	// these control outgoing replication behaviour
 	disableEBT        bool
 	disableLiveLegacy bool
+
+	supportedFormats []refs.RefAlgo
 }
 
 func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
@@ -93,13 +95,7 @@ func (rn replicateNegotiator) HandleConnect(ctx context.Context, e muxrpc.Endpoi
 	}
 
 	// start one session per format, if they support that
-	formats := []refs.RefAlgo{
-		refs.RefAlgoFeedBendyButt,
-		refs.RefAlgoFeedGabby,
-		"indexed",
-	}
-
-	for _, format := range formats {
+	for _, format := range rn.supportedFormats {
 		var opt = map[string]interface{}{
 			"version": 3,
 			"format":  format,

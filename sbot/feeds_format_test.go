@@ -62,11 +62,17 @@ func testGenericFeedFormatSync(format refs.RefAlgo, withEBT bool) func(t *testin
 		// </boilerplate>
 
 		// create the two bots
+
+		// first ali, always classic format
+		alisKey, err := ssb.NewKeyPair(nil, refs.RefAlgoFeedSSB1)
+		r.NoError(err)
+
 		ali, err := New(
-			WithAppKey(appKey),
-			WithHMACSigning(hmacKey),
 			WithContext(ctx),
 			WithInfo(log.With(mainLog, "unit", "ali")),
+			WithAppKey(appKey),
+			WithHMACSigning(hmacKey),
+			WithKeyPair(alisKey),
 			WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 			WithListenAddr(":0"),
 			DisableEBT(!withEBT),
@@ -87,6 +93,7 @@ func testGenericFeedFormatSync(format refs.RefAlgo, withEBT bool) func(t *testin
 			WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 			WithListenAddr(":0"),
 			DisableEBT(!withEBT),
+			WithMetaFeedMode(refs.RefAlgoFeedBendyButt == format),
 		)
 		r.NoError(err)
 		botgroup.Go(bs.Serve(bob))

@@ -442,6 +442,10 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 	}
 
+	ebtAdditionalSupportedFormats := []refs.RefAlgo{
+		refs.RefAlgoFeedGabby,
+	}
+
 	// load our network frontier
 	ownFrontier, err := s.ebtState.Inspect(s.KeyPair.ID(), s.KeyPair.ID().Algo())
 	if err != nil {
@@ -481,6 +485,11 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	s.MetaFeeds = disabledMetaFeeds{}
 	if s.enableMetafeeds {
+		ebtAdditionalSupportedFormats = append(ebtAdditionalSupportedFormats,
+			refs.RefAlgoFeedBendyButt,
+			"indexed",
+		)
+
 		// a user might want to be able to read/replicate metafeeds without using bendybutt themselves
 		if s.KeyPair.ID().Algo() == refs.RefAlgoFeedBendyButt {
 			s.IndexFeeds, err = newIndexFeedManager(storageRepo.GetPath("indexfeeds"))
@@ -705,7 +714,8 @@ func New(fopts ...Option) (*Sbot, error) {
 		s.public.Register(ebtPlug)
 
 		rn := negPlugin{replicateNegotiator{
-			logger: log.With(s.info, "module", "replicate-negotiator"),
+			supportedFormats: ebtAdditionalSupportedFormats,
+			logger:           log.With(s.info, "module", "replicate-negotiator"),
 
 			lg:  gossipPlug.LegacyGossip,
 			ebt: ebtPlug.Replicate,
