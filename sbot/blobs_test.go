@@ -33,27 +33,39 @@ import (
 
 const blobSize = 1024 * 512
 
-const testDelay = 7 * time.Second
+const testDelay = 2 * time.Second
+
+// TODO(2020-10-14): this by sideeffect a repro for the neg-req bug
+// it seems like the erroring of the unsupported indexed call on the receiving side leads to some corruption...
 
 func TestBlobsPair(t *testing.T) {
-	defer leakcheck.Check(t)
+	// defer leakcheck.Check(t)
 	r := require.New(t)
-	if testing.Short() {
-		return
-	}
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
-
-	info := testutils.NewRelativeTimeLogger(nil)
-	bs := newBotServer(ctx, info)
+	t.Cleanup(cancel)
 
 	os.RemoveAll("testrun")
+
+	runLogFn := filepath.Join("testrun", t.Name(), "run.log")
+	err := os.MkdirAll(filepath.Dir(runLogFn), 0700)
+	r.NoError(err)
+	runLogF, err := os.Create(runLogFn)
+	r.NoError(err)
+	t.Cleanup(func() {
+		runLogF.Close()
+	})
+
+	info := testutils.NewRelativeTimeLogger(io.MultiWriter(os.Stderr, runLogF))
+	bs := newBotServer(ctx, info)
 
 	appKey := make([]byte, 32)
 	rand.Read(appKey)
 	hmacKey := make([]byte, 32)
 	rand.Read(hmacKey)
 
+	connI := 0
 	aliLog := log.With(info, "peer", "ali")
 	ali, err := New(
 		WithAppKey(appKey),
@@ -61,7 +73,13 @@ func TestBlobsPair(t *testing.T) {
 		WithContext(ctx),
 		WithInfo(aliLog),
 		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
-			return debug.WrapDump(filepath.Join("testrun", t.Name(), "muxdump"), conn)
+			dumpPath := filepath.Join(
+				"testrun",
+				t.Name(),
+				fmt.Sprintf("muxdump-ali-%d", connI),
+			)
+			connI++
+			return debug.WrapDump(dumpPath, conn)
 		}),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "ali")),
 		WithListenAddr(":0"),
@@ -77,6 +95,15 @@ func TestBlobsPair(t *testing.T) {
 		WithInfo(bobLog),
 		WithRepoPath(filepath.Join("testrun", t.Name(), "bob")),
 		WithListenAddr(":0"),
+		WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+			dumpPath := filepath.Join(
+				"testrun",
+				t.Name(),
+				fmt.Sprintf("muxdump-bob-%d", connI),
+			)
+			connI++
+			return debug.WrapDump(dumpPath, conn)
+		}),
 	)
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bob))
@@ -113,6 +140,8 @@ func TestBlobsPair(t *testing.T) {
 
 	info.Log("phase1", "done")
 
+	/* TODO: this fails _sometimes_
+
 	aliCT := ali.Network.GetConnTracker()
 	bobCT := bob.Network.GetConnTracker()
 	aliCT.CloseAll()
@@ -131,7 +160,6 @@ func TestBlobsPair(t *testing.T) {
 		bn = bobCT.Count()
 	}
 
-	/* TODO: this fails _sometimes_
 
 	// disconnect and reconnect
 	sess.redial = func(t *testing.T) {
@@ -198,6 +226,35 @@ type session struct {
 	alice, bob *Sbot
 }
 
+func newTestDoneEmiter(br refs.BlobRef) (<-chan struct{}, *testEmitter) {
+	ch := make(chan struct{})
+	return ch, &testEmitter{
+		wanted: br,
+		done:   ch,
+	}
+}
+
+type testEmitter struct {
+	wanted refs.BlobRef
+
+	done chan struct{}
+}
+
+func (te testEmitter) EmitBlob(w ssb.BlobStoreNotification) error {
+	if w.Op != ssb.BlobStoreOpPut {
+		fmt.Println("not put", w.Op.String(), w.Ref.String())
+		return nil
+	}
+	if w.Ref.Equal(te.wanted) {
+		close(te.done)
+	}
+	return nil
+}
+
+func (te testEmitter) Close() error {
+	return nil
+}
+
 // idea was to replace this with the sleep inbetween want and get assert
 // TODO: add this to want itself to avoid race conditions
 func blockUntilBlob(bot *Sbot, want refs.BlobRef) {
@@ -240,10 +297,20 @@ func (s *session) simple(t *testing.T) {
 	r.NoError(err)
 	t.Log("added", ref.Sigil())
 
+	done, te := newTestDoneEmiter(ref)
+	deRegister := s.alice.BlobStore.Register(te)
+	defer deRegister()
+
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
 
-	time.Sleep(testDelay)
+	select {
+	case <-time.After(testDelay):
+		// t.Error("timeout")
+		t.Log("timeout")
+	case <-done:
+		t.Log("fetched")
+	}
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -261,12 +328,22 @@ func (s *session) wantFirst(t *testing.T) {
 	r.NoError(err)
 	t.Log("added", ref.Sigil())
 
+	done, te := newTestDoneEmiter(ref)
+	deRegister := s.alice.BlobStore.Register(te)
+	defer deRegister()
+
 	err = s.alice.WantManager.Want(ref)
 	r.NoError(err)
 
 	s.redial(t)
 
-	time.Sleep(testDelay)
+	select {
+	case <-time.After(testDelay):
+		// t.Error("timeout")
+		t.Log("timeout")
+	case <-done:
+		t.Log("fetched")
+	}
 
 	_, err = s.alice.BlobStore.Get(ref)
 	a.NoError(err)
@@ -292,13 +369,33 @@ func (s *session) eachOne(t *testing.T) {
 
 	s.redial(t)
 
+	done1, te := newTestDoneEmiter(refOne)
+	deRegister := s.alice.BlobStore.Register(te)
+	defer deRegister()
+
+	done2, te := newTestDoneEmiter(refTwo)
+	deRegister2 := s.alice.BlobStore.Register(te)
+	defer deRegister2()
+
 	err = s.alice.WantManager.Want(refOne)
 	r.NoError(err)
 
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(testDelay)
+	select {
+	case <-time.After(testDelay / 2):
+		// t.Error("timeout")
+		t.Log("timeout")
+	case <-done1:
+		select {
+		case <-time.After(testDelay / 2):
+			// t.Error("timeout")
+			t.Log("timeout2")
+		case <-done2:
+			t.Log("fetched2")
+		}
+	}
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -323,6 +420,14 @@ func (s *session) eachOneConnet(t *testing.T) {
 	r.NoError(err)
 	t.Log("added2", refTwo.Sigil())
 
+	done1, te := newTestDoneEmiter(refOne)
+	deRegister := s.alice.BlobStore.Register(te)
+	defer deRegister()
+
+	done2, te := newTestDoneEmiter(refTwo)
+	deRegister2 := s.alice.BlobStore.Register(te)
+	defer deRegister2()
+
 	err = s.alice.WantManager.Want(refOne)
 	r.NoError(err)
 
@@ -331,7 +436,19 @@ func (s *session) eachOneConnet(t *testing.T) {
 	err = s.bob.WantManager.Want(refTwo)
 	r.NoError(err)
 
-	time.Sleep(testDelay)
+	select {
+	case <-time.After(testDelay / 2):
+		// t.Error("timeout")
+		t.Log("timeout")
+	case <-done1:
+		select {
+		case <-time.After(testDelay / 2):
+			// t.Error("timeout")
+			t.Log("timeout2")
+		case <-done2:
+			t.Log("fetched2")
+		}
+	}
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)
@@ -356,6 +473,14 @@ func (s *session) eachOnBothWant(t *testing.T) {
 	r.NoError(err)
 	t.Log("added2", refTwo.Sigil())
 
+	done1, te := newTestDoneEmiter(refOne)
+	deRegister := s.alice.BlobStore.Register(te)
+	defer deRegister()
+
+	done2, te := newTestDoneEmiter(refTwo)
+	deRegister2 := s.alice.BlobStore.Register(te)
+	defer deRegister2()
+
 	err = s.alice.WantManager.Want(refOne)
 	r.NoError(err)
 
@@ -364,7 +489,19 @@ func (s *session) eachOnBothWant(t *testing.T) {
 
 	s.redial(t)
 
-	time.Sleep(5 * time.Second)
+	select {
+	case <-time.After(testDelay / 2):
+		// t.Error("timeout")
+		t.Log("timeout")
+	case <-done1:
+		select {
+		case <-time.After(testDelay / 2):
+			// t.Error("timeout")
+			t.Log("timeout2")
+		case <-done2:
+			t.Log("fetched2")
+		}
+	}
 
 	_, err = s.alice.BlobStore.Get(refOne)
 	a.NoError(err)

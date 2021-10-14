@@ -97,6 +97,8 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) *WantManager {
 	return wmgr
 }
 
+// WantManager holds the logic for broadcasting (un)availablity of blobs to other peers.
+// It keeps a set of wanted blobs and fetches them from other peers in case the peer has it.
 type WantManager struct {
 	*broadcasts.BlobWantsBroadcast
 
@@ -125,6 +127,7 @@ type WantManager struct {
 	gauge  metrics.Gauge
 }
 
+// EmitBlob implements ssb.BlobStoreEmitter
 func (wmgr *WantManager) EmitBlob(n ssb.BlobStoreNotification) error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
@@ -176,7 +179,7 @@ func (wmgr *WantManager) getBlob(ctx context.Context, edp muxrpc.Endpoint, ref r
 		return errors.New("blobs: inconsitency(or size limit)")
 	}
 	sz, _ := wmgr.bs.Size(newBr)
-	level.Info(log).Log("msg", "stored", "ref", ref.ShortSigil(), "sz", sz)
+	level.Info(log).Log("msg", "stored", "sz", sz)
 	return nil
 }
 
@@ -200,6 +203,7 @@ func (wmgr *WantManager) promGaugeSet(name string, n int) {
 	}
 }
 
+// Close shuts down the processing of the manager
 func (wmgr *WantManager) Close() error {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
@@ -208,6 +212,7 @@ func (wmgr *WantManager) Close() error {
 	return nil
 }
 
+// AllWants returns a slice of all the blobs the maanger wants
 func (wmgr *WantManager) AllWants() []ssb.BlobWant {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
@@ -225,6 +230,7 @@ func (wmgr *WantManager) AllWants() []ssb.BlobWant {
 	return bws
 }
 
+// Wants returns true if a blob is wanted (or false otherwise)
 func (wmgr *WantManager) Wants(ref refs.BlobRef) bool {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
@@ -233,10 +239,12 @@ func (wmgr *WantManager) Wants(ref refs.BlobRef) bool {
 	return ok
 }
 
+// Want adds a blob to the set of wanted blobs
 func (wmgr *WantManager) Want(ref refs.BlobRef) error {
 	return wmgr.WantWithDist(ref, -1)
 }
 
+// WantWithDist is like Want() but let's the caller tune the hop distance
 func (wmgr *WantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	_, err := wmgr.bs.Size(ref)
 	if err == nil {
@@ -262,6 +270,7 @@ func (wmgr *WantManager) WantWithDist(ref refs.BlobRef, dist int64) error {
 	return nil
 }
 
+// CreateWants is used by the RPC layer to communicate about changes to their sets of wanted peers
 func (wmgr *WantManager) CreateWants(ctx context.Context, sink *muxrpc.ByteSink, edp muxrpc.Endpoint) luigi.Sink {
 	wmgr.l.Lock()
 	defer wmgr.l.Unlock()
