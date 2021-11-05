@@ -78,14 +78,14 @@ func TestReplicateUpTo(t *testing.T) {
 
 		testKeyPairs[kp.ID().String()] = keyAndCount{kp, i}
 		for n := i; n > 0; n-- {
-			ref, err := publish.Publish(struct {
+			msg, err := publish.Publish(struct {
 				Type  string `json:"type"`
 				Test  bool
 				N     int
 				Hello string
 			}{"test", true, n, kp.ID().String()})
 			r.NoError(err)
-			t.Log(ref.String())
+			t.Log(msg.Key().String())
 		}
 	}
 
