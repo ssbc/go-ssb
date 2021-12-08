@@ -24,6 +24,7 @@ import (
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/ssb/query"
 	"go.cryptoscope.co/secretstream"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
@@ -86,6 +87,7 @@ var app = cli.App{
 		blockCmd,
 		friendsCmd,
 		getCmd,
+		getSubsetCmd,
 		inviteCmds,
 		logStreamCmd,
 		sortedStreamCmd,
@@ -304,6 +306,55 @@ var sourceCmd = &cli.Command{
 
 		err = jsonDrain(os.Stdout, src)
 		return fmt.Errorf("%s: result copy failed: %w", cmd, err)
+	},
+}
+
+var getSubsetCmd = &cli.Command{
+	Name:  "subset",
+	Usage: "invoke the partialReplication.getSubset muxrpc",
+
+	// TODO (2021-12-07): allow use of limit and json arg somehow?
+	// Flags: []cli.Flag{
+	// 	&cli.StringFlag{Name: "id", Value: ""},
+	// 	// TODO: Slice of branches
+	// 	&cli.IntFlag{Name: "limit", Value: -1},
+	// },
+
+	Action: func(ctx *cli.Context) error {
+		if len(os.Args) < 3 {
+			return errors.New(`subset usage: sbotcli subset <valid json>`)
+		}
+		input := strings.Join(os.Args[2:], " ")
+		cmd := ctx.Args().Get(0)
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		// a helper struct borrowed from the query package for converting the string input into a something we can send over
+		// the wire & which will be unpacked correctly
+		var payload struct {
+			Operation string `json:"op"`
+
+			Args   []query.SubsetOperation `json:"args,omitempty"`
+			String string            `json:"string,omitempty"`
+			Feed   *refs.FeedRef     `json:"feed,omitempty"`
+		}
+
+		err = json.Unmarshal([]byte(input), &payload)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal input (%w)", err)
+		}
+		method := muxrpc.Method(strings.Split("partialReplication.getSubset", "."))
+		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload)
+		if err != nil {
+			return fmt.Errorf("%s call failed (%w)", cmd, err)
+		}
+		level.Debug(log).Log("event", "call reply")
+
+		err = jsonDrain(os.Stdout, src)
+		return fmt.Errorf("%s: result copy failed (%w)", cmd, err)
 	},
 }
 
