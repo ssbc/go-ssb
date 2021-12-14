@@ -312,19 +312,19 @@ var getSubsetCmd = &cli.Command{
 	Name:  "subset",
 	Usage: "invoke the partialReplication.getSubset muxrpc",
 
-	// TODO (2021-12-07): allow use of limit and json arg somehow?
-	// Flags: []cli.Flag{
-	// 	&cli.StringFlag{Name: "id", Value: ""},
-	// 	// TODO: Slice of branches
-	// 	&cli.IntFlag{Name: "limit", Value: -1},
-	// },
+	// define cli flags
+	Flags: []cli.Flag{
+		&cli.IntFlag{Name: "limit", Value: -1},
+		&cli.BoolFlag{Name: "dsc", Value: false},
+		&cli.BoolFlag{Name: "keys", Value: false},
+	},
 
 	Action: func(ctx *cli.Context) error {
-		if len(os.Args) < 3 {
-			return errors.New(`subset usage: sbotcli subset <valid json>`)
+		if ctx.NArg() < 1 {
+			return errors.New(`subset usage: sbotcli subset [optional --flags] <valid json>`)
 		}
-		input := strings.Join(os.Args[2:], " ")
-		cmd := ctx.Args().Get(0)
+		input := ctx.Args().Get(0)
+		cmd := "subset"
 
 		client, err := newClient(ctx)
 		if err != nil {
@@ -339,13 +339,19 @@ var getSubsetCmd = &cli.Command{
 			Args   []query.SubsetOperation `json:"args,omitempty"`
 			String string            `json:"string,omitempty"`
 			Feed   *refs.FeedRef     `json:"feed,omitempty"`
+			// embed query.SubsetOptions (adds limit, dsc and keys)
+			query.SubsetOptions
 		}
 
 		err = json.Unmarshal([]byte(input), &payload)
-		fmt.Println(payload)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal input (%w)", err)
 		}
+		// set the options after unmarshaling the input into struct form
+		payload.PageLimit = ctx.Int("limit")
+		payload.Descending = ctx.Bool("dsc")
+		payload.Keys = ctx.Bool("keys")
+
 		method := muxrpc.Method(strings.Split("partialReplication.getSubset", "."))
 		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload)
 		if err != nil {
@@ -354,7 +360,10 @@ var getSubsetCmd = &cli.Command{
 		level.Debug(log).Log("event", "call reply")
 
 		err = jsonDrain(os.Stdout, src)
-		return fmt.Errorf("%s: result copy failed (%w)", cmd, err)
+		if err != nil {
+			return fmt.Errorf("%s: result copy failed (%w)", cmd, err)
+		}
+		return nil
 	},
 }
 
