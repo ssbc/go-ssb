@@ -93,7 +93,6 @@ var app = cli.App{
 		sortedStreamCmd,
 		typeStreamCmd,
 		historyStreamCmd,
-		partialStreamCmd,
 		replicateUptoCmd,
 		repliesStreamCmd,
 		callCmd,
@@ -343,6 +342,7 @@ var getSubsetCmd = &cli.Command{
 		}
 
 		err = json.Unmarshal([]byte(input), &payload)
+		fmt.Println(payload)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal input (%w)", err)
 		}
