@@ -339,21 +339,21 @@ var getSubsetCmd = &cli.Command{
 			Args   []query.SubsetOperation `json:"args,omitempty"`
 			String string            `json:"string,omitempty"`
 			Feed   *refs.FeedRef     `json:"feed,omitempty"`
-			// embed query.SubsetOptions (adds limit, dsc and keys)
-			query.SubsetOptions
 		}
 
 		err = json.Unmarshal([]byte(input), &payload)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal input (%w)", err)
 		}
-		// set the options after unmarshaling the input into struct form
-		payload.PageLimit = ctx.Int("limit")
-		payload.Descending = ctx.Bool("desc")
-		payload.Keys = ctx.Bool("keys")
+		// and set the options 
+		options := query.SubsetOptions{
+			PageLimit: ctx.Int("limit"),
+			Descending: ctx.Bool("desc"),
+			Keys: ctx.Bool("keys"),
+		}
 
 		method := muxrpc.Method{"partialReplication", "getSubset"}
-		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload)
+		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload, options)
 		if err != nil {
 			return fmt.Errorf("%s call failed (%w)", cmd, err)
 		}
