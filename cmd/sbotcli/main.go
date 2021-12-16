@@ -315,7 +315,7 @@ var getSubsetCmd = &cli.Command{
 	// define cli flags
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "limit", Value: -1},
-		&cli.BoolFlag{Name: "dsc", Value: false},
+		&cli.BoolFlag{Name: "desc", Value: false, Usage: "order results in descending order? default is ascending"},
 		&cli.BoolFlag{Name: "keys", Value: false},
 	},
 
@@ -349,10 +349,10 @@ var getSubsetCmd = &cli.Command{
 		}
 		// set the options after unmarshaling the input into struct form
 		payload.PageLimit = ctx.Int("limit")
-		payload.Descending = ctx.Bool("dsc")
+		payload.Descending = ctx.Bool("desc")
 		payload.Keys = ctx.Bool("keys")
 
-		method := muxrpc.Method(strings.Split("partialReplication.getSubset", "."))
+		method := muxrpc.Method{"partialReplication", "getSubset"}
 		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload)
 		if err != nil {
 			return fmt.Errorf("%s call failed (%w)", cmd, err)
