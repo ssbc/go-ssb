@@ -32,7 +32,7 @@ func TestLoadKeyPair(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Perms  os.FileMode
-		HasErr bool
+		HasIncorrectPermissions bool
 	}{
 		{
 			"Success",
@@ -40,7 +40,7 @@ func TestLoadKeyPair(t *testing.T) {
 			false,
 		},
 		{
-			"Bad file permissions",
+			"Bad file permissions, should be corrected",
 			0777,
 			true,
 		},
@@ -59,8 +59,10 @@ func TestLoadKeyPair(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = LoadKeyPair(fname)
-			if test.HasErr {
-				assert.Error(t, err)
+			if test.HasIncorrectPermissions {
+				info, err := os.Stat(fname)
+				assert.NoError(t, err)
+				assert.EqualValues(t, info.Mode().Perm(), SecretPerms, "incorrect permissions have not been corrected automatically")
 				return
 			}
 			assert.NoError(t, err)
