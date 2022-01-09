@@ -51,5 +51,32 @@ $(PLATFORMS):
 	$(ZIPPER) $(ARCHIVENAME)
 	rm $(ARCHIVENAME) || true
 
+.PHONY: darwin-universal
+darwin-universal:
+ifeq (, $(shell which lipo))
+	$(info darwin-universal can only be made if lipo binary is available.)
+else
+	GOOS=darwin GOARCH=arm64 go build -v -i -trimpath $(LDFLAGS) -o go-sbot-arm64 ./cmd/go-sbot
+	GOOS=darwin GOARCH=arm64 go build -v -i -trimpath $(LDFLAGS) -o sbotcli-arm64 ./cmd/sbotcli
+	GOOS=darwin GOARCH=arm64 go build -v -i -trimpath $(LDFLAGS) -o gossb-truncate-log-arm64 ./cmd/ssb-truncate-log
+	GOOS=darwin GOARCH=arm64 go build -v -i -trimpath $(LDFLAGS) -o ssb-offset-converter-arm64 ./cmd/ssb-offset-converter
+
+	GOOS=darwin GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o go-sbot-amd64 ./cmd/go-sbot
+	GOOS=darwin GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o sbotcli-amd64 ./cmd/sbotcli
+	GOOS=darwin GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o gossb-truncate-log-amd64 ./cmd/ssb-truncate-log
+	GOOS=darwin GOARCH=amd64 go build -v -i -trimpath $(LDFLAGS) -o ssb-offset-converter-amd64 ./cmd/ssb-offset-converter
+
+	lipo -create go-sbot-arm64 go-sbot-amd64 -o go-sbot
+	lipo -create sbotcli-arm64 sbotcli-amd64 -o sbotcli
+	lipo -create gossb-truncate-log-arm64 gossb-truncate-log-amd64 -o gossb-truncate-log
+	lipo -create ssb-offset-converter-arm64 ssb-offset-converter-amd64 -o ssb-offset-converter 
+
+	tar cvf $(ARCHIVENAME) go-sbot sbotcli gossb-truncate-log ssb-offset-converter 
+	rm go-sbot sbotcli gossb-truncate-log ssb-offset-converter
+	$(ZIPPER) $(ARCHIVENAME)
+	rm $(ARCHIVENAME) || true
+endif
+
+
 .PHONY: release
-release: windows-amd64 windows-arm64 linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 freebsd-amd64
+release: windows-amd64 windows-arm64 linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 darwin-universal freebsd-amd64
