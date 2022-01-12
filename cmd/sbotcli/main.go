@@ -315,16 +315,15 @@ var getSubsetCmd = &cli.Command{
 	// define cli flags
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "limit", Value: -1},
-		&cli.BoolFlag{Name: "desc", Value: false, Usage: "order results in descending order? default is ascending"},
+		&cli.BoolFlag{Name: "desc", Value: false, Usage: "order results in descending order. default: ascending"},
 		&cli.BoolFlag{Name: "keys", Value: false},
 	},
 
 	Action: func(ctx *cli.Context) error {
 		if ctx.NArg() < 1 {
-			return errors.New(`subset usage: sbotcli subset [optional --flags] <valid json>`)
+			return errors.New(`subset usage: sbotcli subset [--flags] <valid json>`)
 		}
 		input := ctx.Args().Get(0)
-		cmd := "subset"
 
 		client, err := newClient(ctx)
 		if err != nil {
@@ -355,13 +354,13 @@ var getSubsetCmd = &cli.Command{
 		method := muxrpc.Method{"partialReplication", "getSubset"}
 		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload, options)
 		if err != nil {
-			return fmt.Errorf("%s call failed (%w)", cmd, err)
+			return fmt.Errorf("subset call failed (%w)", err)
 		}
 		level.Debug(log).Log("event", "call reply")
 
 		err = jsonDrain(os.Stdout, src)
 		if err != nil {
-			return fmt.Errorf("%s: result copy failed (%w)", cmd, err)
+			return fmt.Errorf("subset: result copy failed (%w)", err)
 		}
 		return nil
 	},
