@@ -58,6 +58,7 @@ var (
 	wsLisAddr   string
 	debugAddr   string
 	debugLogDir string
+	configDir   string
 
 	// helper
 	log        logging.Interface
@@ -110,6 +111,8 @@ func initFlags() {
 	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
+	flag.StringVar(&configDir, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to folder containing go-ssb config file (if using)")
+
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
@@ -120,6 +123,104 @@ func initFlags() {
 	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
 
 	flag.Parse()
+}
+
+func applyConfigValues() {
+	/*
+	 It's config & environment variable reading time! We read the config and/or any set environment variables first.
+	 Then, for each flag that has NOT been set and which corresponds to a config/env value, we set the flag variable's
+	 value to the value's found in conf / env variable.
+
+	 The hierarchy goes as follows:
+	 * flag set values trump environment variables
+	 * environment variables trumps config values
+	 * set config values trump default flag values
+	 * default flag values are the final fallback, if the corresponding config value or environment variable has not been
+	   set
+	*/
+	// returns true if the named flag was passed to go-sbot on startup
+	isFlagPassed := func(name string) bool {
+		found := false
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == name {
+				found = true
+			}
+		})
+		return found
+	}
+
+	configPath := filepath.Join(configDir, "config.toml")
+	if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
+		configPath = val
+	}
+	config := ReadConfigAndEnv(configPath)
+	// Returns true if the config has a value for flagname set, and the flag itself isn't passed on invocation
+	UseConfigValue := func(flagname string) bool {
+		return config.Has(flagname) && !isFlagPassed(flagname)
+	}
+
+	if UseConfigValue("hops") {
+		flagHops = config.Hops
+	}
+	if UseConfigValue("promisc") {
+		flagPromisc = config.EnableFirewall
+	}
+	if UseConfigValue("shscap") {
+		appKey = config.ShsCap
+	}
+	if UseConfigValue("repo") {
+		repoDir = config.Repo
+	}
+	if UseConfigValue("lis") {
+		listenAddr = config.MuxRPCAddress
+	}
+	if UseConfigValue("localadv") {
+		flagEnAdv = config.EnableAdvertiseUDP
+	}
+	if UseConfigValue("localdiscov") {
+		flagEnDiscov = config.EnableDiscoveryUDP
+	}
+	if UseConfigValue("wslis") {
+		wsLisAddr = config.WebsocketAddress
+	}
+	if UseConfigValue("enable-ebt") {
+		flagEnableEBT = config.EnableEBT
+	}
+	if UseConfigValue("nounixsock") {
+		flagDisableUNIXSock = config.NoUnixSocket
+	}
+	if UseConfigValue("hmac") {
+		hmacSec = config.Hmac
+	}
+	if UseConfigValue("debugdir") {
+		debugLogDir = config.DebugDir
+	}
+	if UseConfigValue("debuglis") {
+		debugAddr = config.MetricsAddress
+	}
+}
+
+func runSbot() error {
+	initFlags()
+	//log = logging.Logger("sbot")
+	log = testutils.NewRelativeTimeLogger(nil)
+
+	if flagPrintVersion {
+		log.Log("version", Version, "build", Build)
+		return nil
+	}
+
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+	defer func() {
+		cancel()
+		if r := recover(); r != nil {
+			logging.LogPanicWithStack(log, "main-panic", r)
+		}
+	}()
+
+	// try to read config && environment variables, and apply any set values on variables that
+	// have not been explicitly configured using flags on startup
+	applyConfigValues()
 
 	if debugLogDir != "" {
 		logDir := filepath.Join(repoDir, debugLogDir)
@@ -135,25 +236,6 @@ func initFlags() {
 	} else {
 		//logging.SetupLogging(os.Stderr)
 	}
-	//log = logging.Logger("sbot")
-	log = testutils.NewRelativeTimeLogger(nil)
-}
-
-func runSbot() error {
-	initFlags()
-
-	if flagPrintVersion {
-		log.Log("version", Version, "build", Build)
-		return nil
-	}
-
-	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
-	defer func() {
-		cancel()
-		if r := recover(); r != nil {
-			logging.LogPanicWithStack(log, "main-panic", r)
-		}
-	}()
 
 	ak, err := base64.StdEncoding.DecodeString(appKey)
 	if err != nil {
