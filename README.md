@@ -49,7 +49,7 @@ Requirements:
 
 The tool in `cmd/go-sbot` is similar to [ssb-server](https://github.com/ssbc/ssb-server) (previously called scuttlebot or sbot for short).
 
-See the [quick start](./docs/quick-start.md) document for a walkthrough and getting started tour.
+See the [quick start](./docs/quick-start.md) document for a walkthrough and getting started tour. You may also be interested in the ways you can configure a running `go-sbot`, see the [configuration guide](./docs/config.md).
 
 ## Bootstrapping from an existing key-pair
 
