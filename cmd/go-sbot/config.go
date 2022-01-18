@@ -29,6 +29,8 @@ type SbotConfig struct {
 	EnableEBT          bool `json:"enable-ebt"`
 	EnableFirewall     bool `json:"promisc"`
 
+	RepairFSBeforeStart bool `json:"repair"`
+
 	presence map[string]interface{}
 }
 
@@ -38,19 +40,20 @@ func (config SbotConfig) Has(flagname string) bool {
 }
 
 func ReadConfig(configPath string) SbotConfig {
+	var conf SbotConfig
+	conf.presence = make(map[string]interface{})
+
 	data, err := os.ReadFile(configPath)
 	var msg string
 	if err != nil {
 		msg = fmt.Sprintf("no config detected at %s; running without it", configPath)
 		level.Info(log).Log("event", msg)
-		return SbotConfig{}
-	} else {
+		return conf
 	}
 	msg = fmt.Sprintf("config detected (%s)", configPath)
 	level.Info(log).Log("event", msg)
 
 	// 1) first we unmarshal into struct for type checks
-	var conf SbotConfig
 	decoder := json.NewDecoder(toml.New(bytes.NewBuffer(data)))
 	err = decoder.Decode(&conf)
 	check(err, "decode into struct")
@@ -64,11 +67,6 @@ func ReadConfig(configPath string) SbotConfig {
 }
 
 func ReadEnvironmentVariables(config *SbotConfig) {
-	if val := os.Getenv("SSB_DATA_DIR"); val != "" {
-		config.Repo = val
-		config.presence["repo"] = true
-	}
-
 	if val := os.Getenv("SSB_SECRET_FILE"); val != "" {
 		loglib.Fatalln("flag SSB_SECRET_FILE not implemented")
 	}
@@ -80,6 +78,17 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	}
 	if val := os.Getenv("SSB_CAP_INVITE_KEY"); val != "" {
 		loglib.Fatalln("flag SSB_CAP_INVITE_KEY not implemented")
+	}
+
+	// go-ssb specific env flag, for peachcloud/pub compat
+	if val := os.Getenv("GO_SSB_REPAIR_FS"); val != "" {
+		config.RepairFSBeforeStart = BooleanIsTrue(val)
+		config.presence["repair"] = true
+	}
+
+	if val := os.Getenv("SSB_DATA_DIR"); val != "" {
+		config.Repo = val
+		config.presence["repo"] = true
 	}
 
 	// handled in /cmd/go-sbot

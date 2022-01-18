@@ -198,6 +198,9 @@ func applyConfigValues() {
 	if UseConfigValue("debuglis") {
 		debugAddr = config.MetricsAddress
 	}
+	if UseConfigValue("repair") {
+		flagRepair = config.RepairFSBeforeStart
+	}
 }
 
 func runSbot() error {

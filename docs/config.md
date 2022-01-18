@@ -94,6 +94,9 @@ SSB_CONN_FIREWALL_ENABLED=yes // equivalent with --promisc
 SSB_CONN_DISCOVERY_UDP_ENABLED=no
 SSB_CONN_BROADCAST_UDP_ENABLED=no
 
+// go-ssb specific (for peachpub compat purposes)
+GO_SSB_REPAIR_FS=no
+
 // SSB_LOG_LEVEL="info" currently not implemented
 // SSB_CAP_INVITE_KEY="" currently not implemented
 // SSB_SOCKET_ENABLED=no currently not implemented
