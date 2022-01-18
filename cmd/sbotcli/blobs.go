@@ -62,12 +62,13 @@ var blobsHasCmd = &cli.Command{
 		}
 
 		// TODO: direct blobstore mode!?
-		var has bool
+		var arr []bool
 		//sz, err := blobsStore.Size()
-		err = client.Async(longctx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
+		err = client.Async(longctx, &arr, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
 		if err != nil {
 			return fmt.Errorf("connect: async call failed: %w", err)
 		}
+		has := arr[0]
 		log.Log("event", "blob.has", "r", has)
 
 		if !has {
