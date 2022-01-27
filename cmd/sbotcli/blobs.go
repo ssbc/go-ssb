@@ -86,13 +86,13 @@ var blobsHasCmd = &cli.Command{
 
 var blobsWantCmd = &cli.Command{
 	Name:  "want",
-	Usage: "try to get it from other peers",
+	Usage: "try to get a blob from other peers",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
 			return errors.New("blobs.want: need a blob ref")
 		}
-		br, err := refs.ParseBlobRef(ref)
+		blobsRef, err := refs.ParseBlobRef(ref)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
@@ -101,13 +101,13 @@ var blobsWantCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		return client.BlobsWant(br)
+		return client.BlobsWant(blobsRef)
 	},
 }
 
 var blobsAddCmd = &cli.Command{
 	Name:  "add",
-	Usage: "add a file to the store (use - to open stdin)",
+	Usage: "add a file to the store (pass - to open stdin)",
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
 			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs add -' for now")
@@ -117,18 +117,18 @@ var blobsAddCmd = &cli.Command{
 			return errors.New("blobs.add: need file to add (- for stdin)")
 		}
 
-		var rd io.Reader
+		var reader io.Reader
 		if fname == "-" {
-			rd = os.Stdin
+			reader = os.Stdin
 		} else {
 			var err error
-			rd, err = os.Open(fname)
+			reader, err = os.Open(fname)
 			if err != nil {
 				return fmt.Errorf("blobs.add: failed to open input file: %w", err)
 			}
 		}
 
-		ref, err := blobsStore.Put(rd)
+		ref, err := blobsStore.Put(reader)
 		log.Log("blobs.add", ref.Sigil())
 		return err
 	},
@@ -148,11 +148,11 @@ var blobsGetCmd = &cli.Command{
 		if ref == "" {
 			return errors.New("blobs.get: need a blob ref")
 		}
-		br, err := refs.ParseBlobRef(ref)
+		blobsRef, err := refs.ParseBlobRef(ref)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
-		rd, err := blobsStore.Get(br)
+		reader, err := blobsStore.Get(blobsRef)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
@@ -169,8 +169,8 @@ var blobsGetCmd = &cli.Command{
 			}
 		}
 
-		n, err := io.Copy(out, rd)
-		log.Log("blobs.get", br.Sigil(), "written", n)
+		n, err := io.Copy(out, reader)
+		log.Log("blobs.get", blobsRef.Sigil(), "written", n)
 		return err
 	},
 }
