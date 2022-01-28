@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"gopkg.in/urfave/cli.v2"
@@ -23,16 +24,23 @@ var blobsStore ssb.BlobStore
 var blobsCmd = &cli.Command{
 	Name: "blobs",
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "localstore", Value: "", Usage: "non-remote repo allows for access withut involving a bot"},
+		&cli.StringFlag{Name: "path", Value: "", Usage: "specify the path to the blobs folder of the sbot you want to query"},
 	},
 	Before: func(ctx *cli.Context) error {
-		var localRepo = ctx.String("localstore")
-		if localRepo == "" {
-			//blobsStore, err = newClient(ctx)
-			return fmt.Errorf("TODO: implement more blobs features on client")
+		var blobsDir = ctx.String("path")
+		if blobsDir == "" {
+			homedir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get home directory (%w)", err)
+			}
+			blobsDir = filepath.Join(homedir, ".ssb-go", "blobs")
 		}
+		if _, err := os.Stat(blobsDir); os.IsNotExist(err) {
+			return fmt.Errorf("folder %s did not exist (%w)", blobsDir, err)
+		}
+
 		var err error
-		blobsStore, err = blobstore.New(localRepo)
+		blobsStore, err = blobstore.New(blobsDir)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to construct local edp: %w", err)
 		}
@@ -105,7 +113,7 @@ var blobsAddCmd = &cli.Command{
 	Usage: "add a file to the store (pass - to open stdin)",
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs add -' for now")
+			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs add -' for now")
 		}
 		fname := ctx.Args().Get(0)
 		if fname == "" {
@@ -137,7 +145,7 @@ var blobsGetCmd = &cli.Command{
 	},
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs get &...' for now")
+			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs get &...' for now")
 		}
 		ref := ctx.Args().Get(0)
 		if ref == "" {
