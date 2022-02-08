@@ -205,6 +205,7 @@ func applyConfigValues() {
 
 func runSbot() error {
 	initFlags()
+
 	//log = logging.Logger("sbot")
 	log = testutils.NewRelativeTimeLogger(nil)
 
@@ -224,6 +225,12 @@ func runSbot() error {
 	// try to read config && environment variables, and apply any set values on variables that
 	// have not been explicitly configured using flags on startup
 	applyConfigValues()
+
+	// add a log on what repo will be used, to aid ambient debugging for operators
+	absRepo, err := filepath.Abs(repoDir)
+	if err == nil {
+		level.Info(log).Log("event", fmt.Sprintf("using %s as repo", absRepo))
+	}
 
 	if debugLogDir != "" {
 		logDir := filepath.Join(repoDir, debugLogDir)
