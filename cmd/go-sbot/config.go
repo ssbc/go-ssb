@@ -12,23 +12,22 @@ import (
 )
 
 type SbotConfig struct {
-	ShsCap string `json:"shscap"`
-	Hmac   string `json:"hmac"`
-	Hops   uint   `json:"hops"`
+	ShsCap string `json:"shscap,omitempty"`
+	Hmac   string `json:"hmac,omitempty"`
+	Hops   uint   `json:"hops,omitempty"`
 
-	Repo     string `json:"repo"`
-	DebugDir string `json:"debugdir"`
+	Repo     string `json:"repo,omitempty"`
+	DebugDir string `json:"debugdir,omitempty"`
 
-	MuxRPCAddress    string `json:"lis"`
-	WebsocketAddress string `json:"wslis"`
-	MetricsAddress   string `json:"debuglis"`
+	MuxRPCAddress    string `json:"lis,omitempty"`
+	WebsocketAddress string `json:"wslis,omitempty"`
+	MetricsAddress   string `json:"debuglis,omitempty"`
 
 	NoUnixSocket       bool `json:"nounixsock"`
 	EnableAdvertiseUDP bool `json:"localdv"`
 	EnableDiscoveryUDP bool `json:"localdiscov"`
 	EnableEBT          bool `json:"enable-ebt"`
 	EnableFirewall     bool `json:"promisc"`
-
 	RepairFSBeforeStart bool `json:"repair"`
 
 	presence map[string]interface{}
@@ -152,7 +151,7 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 }
 
 func BooleanIsTrue(s string) bool {
-	return s == "1" || s == "yes" || s == "on"
+	return s == "true" || s == "1" || s == "yes" || s == "on"
 }
 
 func ReadConfigAndEnv(configPath string) SbotConfig {

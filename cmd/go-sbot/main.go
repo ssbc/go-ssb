@@ -10,6 +10,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -154,6 +155,17 @@ func applyConfigValues() {
 		configPath = val
 	}
 	config := ReadConfigAndEnv(configPath)
+	bconfig, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	runningConfigPath := filepath.Join(configDir, "running-config.json")
+	err = os.WriteFile(runningConfigPath, bconfig, 0644)
+	if err != nil {
+		panic(err)
+	} else {
+		level.Info(log).Log("info", fmt.Sprintf("running config and env vars dumped to %s", runningConfigPath))
+	}
 	// Returns true if the config has a value for flagname set, and the flag itself isn't passed on invocation
 	UseConfigValue := func(flagname string) bool {
 		return config.Has(flagname) && !isFlagPassed(flagname)
@@ -225,6 +237,7 @@ func runSbot() error {
 	// try to read config && environment variables, and apply any set values on variables that
 	// have not been explicitly configured using flags on startup
 	applyConfigValues()
+
 
 	// add a log on what repo will be used, to aid ambient debugging for operators
 	absRepo, err := filepath.Abs(repoDir)
