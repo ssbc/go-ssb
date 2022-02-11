@@ -239,7 +239,7 @@ func runSbot() error {
 	applyConfigValues()
 
 
-	// add a log on what repo will be used, to aid ambient debugging for operators
+	// add a log on is used by the sbot to aid ambient debugging for operators
 	absRepo, err := filepath.Abs(repoDir)
 	if err == nil {
 		level.Info(log).Log("event", fmt.Sprintf("using %s as repo", absRepo))
