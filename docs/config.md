@@ -102,3 +102,13 @@ GO_SSB_REPAIR_FS=no
 // SSB_SOCKET_ENABLED=no currently not implemented
 ```
 
+## Inspecting configured values
+
+If your use case necessitates grabbing the running sbot's currently configured values, whether
+be they from the configuration file or from environment variables, then these are exposed in a
+particular file called `running-config.json`.
+
+This file is located in relation to the configuration directory specified by the --config flag,
+and defaults to `~/.go-ssb/running-config.json`.
+
+**Note**: overrides from --flag options will not be represented in `running-config.json`.
