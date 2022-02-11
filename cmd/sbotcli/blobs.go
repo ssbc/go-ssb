@@ -68,7 +68,11 @@ var blobsHasCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("connect: async call failed: %w", err)
 		}
-		has := arr[0]
+
+		var has bool
+		if len(arr) > 0 {
+			has = arr[0]
+		}
 		log.Log("event", "blob.has", "r", has)
 
 		if !has {
