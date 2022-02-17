@@ -34,7 +34,7 @@ require (
 	github.com/ugorji/go/codec v1.2.6
 	github.com/zeebo/bencode v1.0.0
 	go.cryptoscope.co/luigi v0.3.6-0.20200131144242-3256b54e72c8
-	go.cryptoscope.co/margaret v0.4.0
+	go.cryptoscope.co/margaret v0.4.2
 	go.cryptoscope.co/muxrpc/v2 v2.0.10
 	go.cryptoscope.co/netwrap v0.1.1
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
@@ -51,3 +51,5 @@ require (
 	gopkg.in/urfave/cli.v2 v2.0.0-20190806201727-b62605953717
 	modernc.org/kv v1.0.3
 )
+
+replace go.cryptoscope.co/margaret => ../margaret
