@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/komkom/toml"
 	"go.mindeco.de/log/level"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 )
 
+type ConfigBool bool
 type SbotConfig struct {
 	ShsCap string `json:"shscap,omitempty"`
 	Hmac   string `json:"hmac,omitempty"`
@@ -23,12 +25,12 @@ type SbotConfig struct {
 	WebsocketAddress string `json:"wslis,omitempty"`
 	MetricsAddress   string `json:"debuglis,omitempty"`
 
-	NoUnixSocket       bool `json:"nounixsock"`
-	EnableAdvertiseUDP bool `json:"localdv"`
-	EnableDiscoveryUDP bool `json:"localdiscov"`
-	EnableEBT          bool `json:"enable-ebt"`
-	EnableFirewall     bool `json:"promisc"`
-	RepairFSBeforeStart bool `json:"repair"`
+	NoUnixSocket        ConfigBool `json:"nounixsock"`
+	EnableAdvertiseUDP  ConfigBool `json:"localadv"`
+	EnableDiscoveryUDP  ConfigBool `json:"localdiscov"`
+	EnableEBT           ConfigBool `json:"enable-ebt"`
+	EnableFirewall      ConfigBool `json:"promisc"`
+	RepairFSBeforeStart ConfigBool `json:"repair"`
 
 	presence map[string]interface{}
 }
@@ -81,7 +83,7 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 
 	// go-ssb specific env flag, for peachcloud/pub compat
 	if val := os.Getenv("GO_SSB_REPAIR_FS"); val != "" {
-		config.RepairFSBeforeStart = BooleanIsTrue(val)
+		config.RepairFSBeforeStart = readEnvironmentBoolean(val)
 		config.presence["repair"] = true
 	}
 
@@ -101,7 +103,7 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	}
 
 	if val := os.Getenv("SSB_PROMETHEUS_ENABLED"); val != "" {
-		config.presence["debuglis"] = BooleanIsTrue(val)
+		config.presence["debuglis"] = readEnvironmentBoolean(val)
 	}
 
 	if val := os.Getenv("SSB_HOPS"); val != "" {
@@ -122,27 +124,27 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	}
 
 	if val := os.Getenv("SSB_EBT_ENABLED"); val != "" {
-		config.EnableEBT = BooleanIsTrue(val)
+		config.EnableEBT = readEnvironmentBoolean(val)
 		config.presence["enable-ebt"] = true
 	}
 
 	if val := os.Getenv("SSB_CONN_FIREWALL_ENABLED"); val != "" {
-		config.EnableFirewall = BooleanIsTrue(val)
+		config.EnableFirewall = readEnvironmentBoolean(val)
 		config.presence["promisc"] = true
 	}
 
 	if val := os.Getenv("SSB_SOCKET_ENABLED"); val != "" {
-		config.NoUnixSocket = !BooleanIsTrue(val)
+		config.NoUnixSocket = !readEnvironmentBoolean(val)
 		config.presence["nounixsock"] = true
 	}
 
 	if val := os.Getenv("SSB_CONN_DISCOVERY_UDP_ENABLED"); val != "" {
-		config.EnableDiscoveryUDP = BooleanIsTrue(val)
+		config.EnableDiscoveryUDP = readEnvironmentBoolean(val)
 		config.presence["localdiscov"] = true
 	}
 
 	if val := os.Getenv("SSB_CONN_BROADCAST_UDP_ENABLED"); val != "" {
-		config.EnableAdvertiseUDP = BooleanIsTrue(val)
+		config.EnableAdvertiseUDP = readEnvironmentBoolean(val)
 		config.presence["localadv"] = true
 	}
 
@@ -157,8 +159,49 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	}
 }
 
+func (booly ConfigBool) MarshalJSON() ([]byte, error) {
+	temp := (bool)(booly)
+	b, err := json.Marshal(temp)
+	return b, err
+}
+
+func (booly *ConfigBool) UnmarshalJSON(b []byte) error {
+	// unmarshal into interface{} first, as a bool can't be unmarshaled into a string
+	var v interface{}
+	err := json.Unmarshal(b, &v)
+	if err != nil {
+		return eout(err, "unmarshal config bool")
+	}
+
+	// go through a type assertion dance, capturing the two cases:
+	// 1. if the config value is a proper boolean, and
+	// 2. if the config value is a boolish string (e.g. "true" or "1")
+	var temp bool
+	if val, ok := v.(bool); ok {
+		temp = val
+	} else if s, ok := v.(string); ok {
+		temp = BooleanIsTrue(s)
+		if !temp {
+			// catch strings that cause a false value, but which aren't boolish
+			if s != "false" || s != "0" || s != "no" || s != "off" {
+				return errors.New("non-boolean string found when unmarshaling boolish values")
+			}
+		}
+	}
+	*booly = (ConfigBool)(temp)
+
+	return nil
+}
+
 func BooleanIsTrue(s string) bool {
 	return s == "true" || s == "1" || s == "yes" || s == "on"
+}
+
+func readEnvironmentBoolean(s string) ConfigBool {
+	var booly ConfigBool
+	err := json.Unmarshal([]byte(s), booly)
+	check(err, "parsing environment variable bool")
+	return booly
 }
 
 func ReadConfigAndEnv(configPath string) SbotConfig {

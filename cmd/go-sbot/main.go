@@ -175,7 +175,7 @@ func applyConfigValues() {
 		flagHops = config.Hops
 	}
 	if UseConfigValue("promisc") {
-		flagPromisc = config.EnableFirewall
+		flagPromisc = (bool)(config.EnableFirewall)
 	}
 	if UseConfigValue("shscap") {
 		appKey = config.ShsCap
@@ -187,19 +187,19 @@ func applyConfigValues() {
 		listenAddr = config.MuxRPCAddress
 	}
 	if UseConfigValue("localadv") {
-		flagEnAdv = config.EnableAdvertiseUDP
+		flagEnAdv = (bool)(config.EnableAdvertiseUDP)
 	}
 	if UseConfigValue("localdiscov") {
-		flagEnDiscov = config.EnableDiscoveryUDP
+		flagEnDiscov = (bool)(config.EnableDiscoveryUDP)
 	}
 	if UseConfigValue("wslis") {
 		wsLisAddr = config.WebsocketAddress
 	}
 	if UseConfigValue("enable-ebt") {
-		flagEnableEBT = config.EnableEBT
+		flagEnableEBT = (bool)(config.EnableEBT)
 	}
 	if UseConfigValue("nounixsock") {
-		flagDisableUNIXSock = config.NoUnixSocket
+		flagDisableUNIXSock = (bool)(config.NoUnixSocket)
 	}
 	if UseConfigValue("hmac") {
 		hmacSec = config.Hmac
@@ -211,7 +211,7 @@ func applyConfigValues() {
 		debugAddr = config.MetricsAddress
 	}
 	if UseConfigValue("repair") {
-		flagRepair = config.RepairFSBeforeStart
+		flagRepair = (bool)(config.RepairFSBeforeStart)
 	}
 }
 
@@ -240,7 +240,6 @@ func runSbot() error {
 	// try to read config && environment variables, and apply any set values on variables that
 	// have not been explicitly configured using flags on startup
 	applyConfigValues()
-
 
 	// add a log on is used by the sbot to aid ambient debugging for operators
 	absRepo, err := filepath.Abs(repoDir)
