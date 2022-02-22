@@ -43,14 +43,11 @@ func ReadConfig(configPath string) SbotConfig {
 	conf.presence = make(map[string]interface{})
 
 	data, err := os.ReadFile(configPath)
-	var msg string
 	if err != nil {
-		msg = fmt.Sprintf("no config detected at %s; running without it", configPath)
-		level.Info(log).Log("event", msg)
+		level.Info(log).Log("event", "read config", "msg", "no config detected", "path", configPath)
 		return conf
 	}
-	msg = fmt.Sprintf("config detected (%s)", configPath)
-	level.Info(log).Log("event", msg)
+	level.Info(log).Log("event", "read config", "msg", "config detected", "path", configPath)
 
 	// 1) first we unmarshal into struct for type checks
 	decoder := json.NewDecoder(toml.New(bytes.NewBuffer(data)))
@@ -69,12 +66,15 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	if val := os.Getenv("SSB_SECRET_FILE"); val != "" {
 		loglib.Fatalln("flag SSB_SECRET_FILE not implemented")
 	}
+
 	if val := os.Getenv("SSB_SOCKET_FILE"); val != "" {
 		loglib.Fatalln("flag SSB_SOCKET_FILE not implemented")
 	}
+
 	if val := os.Getenv("SSB_LOG_LEVEL"); val != "" {
 		loglib.Fatalln("flag SSB_LOG_LEVEL not implemented")
 	}
+
 	if val := os.Getenv("SSB_CAP_INVITE_KEY"); val != "" {
 		loglib.Fatalln("flag SSB_CAP_INVITE_KEY not implemented")
 	}
@@ -90,18 +90,16 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 		config.presence["repo"] = true
 	}
 
-	// handled in /cmd/go-sbot
-	// if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
-	// }
-
 	if val := os.Getenv("SSB_LOG_DIR"); val != "" {
 		config.DebugDir = val
 		config.presence["debugdir"] = true
 	}
+
 	if val := os.Getenv("SSB_PROMETHEUS_ADDRESS"); val != "" {
 		config.MetricsAddress = val
 		config.presence["debuglis"] = true
 	}
+
 	if val := os.Getenv("SSB_PROMETHEUS_ENABLED"); val != "" {
 		config.presence["debuglis"] = BooleanIsTrue(val)
 	}
@@ -112,38 +110,47 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 		config.Hops = uint(hops)
 		config.presence["hops"] = true
 	}
+
 	if val := os.Getenv("SSB_MUXRPC_ADDRESS"); val != "" {
 		config.MuxRPCAddress = val
 		config.presence["lis"] = true
 	}
+
 	if val := os.Getenv("SSB_WS_ADDRESS"); val != "" {
 		config.WebsocketAddress = val
 		config.presence["wslis"] = true
 	}
+
 	if val := os.Getenv("SSB_EBT_ENABLED"); val != "" {
 		config.EnableEBT = BooleanIsTrue(val)
 		config.presence["enable-ebt"] = true
 	}
+
 	if val := os.Getenv("SSB_CONN_FIREWALL_ENABLED"); val != "" {
 		config.EnableFirewall = BooleanIsTrue(val)
 		config.presence["promisc"] = true
 	}
+
 	if val := os.Getenv("SSB_SOCKET_ENABLED"); val != "" {
 		config.NoUnixSocket = !BooleanIsTrue(val)
 		config.presence["nounixsock"] = true
 	}
+
 	if val := os.Getenv("SSB_CONN_DISCOVERY_UDP_ENABLED"); val != "" {
 		config.EnableDiscoveryUDP = BooleanIsTrue(val)
 		config.presence["localdiscov"] = true
 	}
+
 	if val := os.Getenv("SSB_CONN_BROADCAST_UDP_ENABLED"); val != "" {
 		config.EnableAdvertiseUDP = BooleanIsTrue(val)
 		config.presence["localadv"] = true
 	}
+
 	if val := os.Getenv("SSB_CAP_SHS_KEY"); val != "" {
 		config.ShsCap = val
 		config.presence["shscap"] = true
 	}
+
 	if val := os.Getenv("SSB_CAP_HMAC_KEY"); val != "" {
 		config.Hmac = val
 		config.presence["hmac"] = true

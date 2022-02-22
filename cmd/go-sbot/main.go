@@ -164,7 +164,7 @@ func applyConfigValues() {
 	if err != nil {
 		panic(err)
 	} else {
-		level.Info(log).Log("info", fmt.Sprintf("running config and env vars dumped to %s", runningConfigPath))
+		level.Info(log).Log("event", "write running-config.json", "msg", "active config and env vars have been persisted", "path", runningConfigPath)
 	}
 	// Returns true if the config has a value for flagname set, and the flag itself isn't passed on invocation
 	UseConfigValue := func(flagname string) bool {
@@ -219,6 +219,9 @@ func runSbot() error {
 	initFlags()
 
 	//log = logging.Logger("sbot")
+
+	// 2022-02-22: cryptix wants to change away from NewRelativeTimeLogger because for long running code it doesn't make
+	// sense; it's mostly a development convienence (which is why it's often used in the tests)
 	log = testutils.NewRelativeTimeLogger(nil)
 
 	if flagPrintVersion {
@@ -242,7 +245,7 @@ func runSbot() error {
 	// add a log on is used by the sbot to aid ambient debugging for operators
 	absRepo, err := filepath.Abs(repoDir)
 	if err == nil {
-		level.Info(log).Log("event", fmt.Sprintf("using %s as repo", absRepo))
+		level.Info(log).Log("event", "set repo", "path", absRepo)
 	}
 
 	if debugLogDir != "" {
