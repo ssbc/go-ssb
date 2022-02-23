@@ -136,7 +136,7 @@ nounixsock = false
 	err = goBuild.Run()
 	r.NoError(err)
 
-	bot1 := exec.Command(binPath, "-lis", ":0", "-repo", testPath, "-config", configPath)
+	bot1 := exec.Command(binPath, "-lis", ":0", "-repo", testPath)
 	bot1.Stderr = os.Stderr
 	bot1.Stdout = os.Stderr
 

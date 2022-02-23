@@ -150,13 +150,21 @@ func applyConfigValues() {
 		return found
 	}
 
+	/* order of looking for a config file:
+	* 1. $SSB_CONFIG_FILE or --config passed
+	* 2. --repo is passed (=> used as configdir)
+	* 3. fallback to default location at ~/.ssb-go/config.toml
+	*/
+	if isFlagPassed("repo") {
+		configPath = repoDir
+	}
 	if filepath.Ext(configPath) != ".toml" {
 		configPath = filepath.Join(configPath, "config.toml")
 	}
-	configDir := filepath.Dir(configPath)
 	if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
 		configPath = val
 	}
+	configDir := filepath.Dir(configPath)
 	config := readConfigAndEnv(configPath)
 	bconfig, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {

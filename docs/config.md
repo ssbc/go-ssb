@@ -19,7 +19,13 @@ The precedence order goes as follows:
 * default flag values are the final fallback, if the corresponding config value or environment variable has not been set
 
 ## Configuration file
-The default location for the config file is `~/.go-ssb/config.toml`
+The default location for the config file is `~/.go-ssb/config.toml`. The order of precedence
+when it comes to loading a config file is as follows:
+
+* 1. Environment variable `$SSB_CONFIG_FILE` or flag `--config` are used first
+* 2. Lacking that, the location defined by `--repo` is used
+* 3. The final fallback is to the default location at ~/.ssb-go/config.toml
+
 
 Below you may find a complete example of the config file, any values you comment out or leave
 as blanks `""` will be ignored.
