@@ -131,8 +131,10 @@ nounixsock = false
 	binPath := filepath.Join(testPath, binName)
 
 	goBuild := exec.Command("go", "build", "-o", binPath)
-	out, err := goBuild.CombinedOutput()
-	r.NoError(err, "build command failed: %s", string(out))
+	goBuild.Stderr = os.Stderr
+	goBuild.Stdout = os.Stderr
+	err = goBuild.Run()
+	r.NoError(err)
 
 	bot1 := exec.Command(binPath, "-lis", ":0", "-repo", testPath, "-config", configPath)
 	bot1.Stderr = os.Stderr
@@ -141,7 +143,7 @@ nounixsock = false
 	r.NoError(bot1.Start())
 	// wait a bit to let it start properly, and read the config
 	time.Sleep(5 * time.Second)
-	out, err = exec.Command("kill", strconv.Itoa(bot1.Process.Pid)).CombinedOutput()
+	out, err := exec.Command("kill", strconv.Itoa(bot1.Process.Pid)).CombinedOutput()
 	r.NoError(err, "kill command failed: %s", string(out))
 	err = bot1.Wait()
 	r.NoError(err)
