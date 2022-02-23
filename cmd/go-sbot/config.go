@@ -41,7 +41,7 @@ func (config SbotConfig) Has(flagname string) bool {
 	return ok
 }
 
-func ReadConfig(configPath string) SbotConfig {
+func readConfig(configPath string) SbotConfig {
 	var conf SbotConfig
 	conf.presence = make(map[string]interface{})
 
@@ -186,7 +186,7 @@ func (booly *ConfigBool) UnmarshalJSON(b []byte) error {
 	if val, ok := v.(bool); ok {
 		temp = val
 	} else if s, ok := v.(string); ok {
-		temp = BooleanIsTrue(s)
+		temp = booleanIsTrue(s)
 		if !temp {
 			// catch strings that cause a false value, but which aren't boolish
 			if s != "false" && s != "0" && s != "no" && s != "off" {
@@ -199,7 +199,7 @@ func (booly *ConfigBool) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func BooleanIsTrue(s string) bool {
+func booleanIsTrue(s string) bool {
 	return s == "true" || s == "1" || s == "yes" || s == "on"
 }
 
@@ -210,8 +210,8 @@ func readEnvironmentBoolean(s string) ConfigBool {
 	return booly
 }
 
-func ReadConfigAndEnv(configPath string) SbotConfig {
-	config := ReadConfig(configPath)
+func readConfigAndEnv(configPath string) SbotConfig {
+	config := readConfig(configPath)
 	ReadEnvironmentVariables(&config)
 	return config
 }

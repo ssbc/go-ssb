@@ -49,7 +49,7 @@ nounixsock = false
 	configPath := filepath.Join(testPath, "config.toml")
 	err := os.WriteFile(configPath, []byte(configContents), 0700)
 	r.NoError(err, "write config file")
-	configFromDisk := ReadConfig(configPath)
+	configFromDisk := readConfig(configPath)
 	// config values should be read correctly
 	r.EqualValues(expectedConfig.Hops, configFromDisk.Hops)
 	r.EqualValues(expectedConfig.MuxRPCAddress, configFromDisk.MuxRPCAddress)

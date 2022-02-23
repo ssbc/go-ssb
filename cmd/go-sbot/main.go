@@ -150,14 +150,14 @@ func applyConfigValues() {
 		return found
 	}
 
-	if !strings.HasSuffix(configPath, "toml") {
+	if filepath.Ext(configPath) != ".toml" {
 		configPath = filepath.Join(configPath, "config.toml")
 	}
 	configDir := filepath.Dir(configPath)
 	if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
 		configPath = val
 	}
-	config := ReadConfigAndEnv(configPath)
+	config := readConfigAndEnv(configPath)
 	bconfig, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		panic(err)
