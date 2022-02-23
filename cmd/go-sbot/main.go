@@ -59,7 +59,7 @@ var (
 	wsLisAddr   string
 	debugAddr   string
 	debugLogDir string
-	configDir   string
+	configPath   string
 
 	// helper
 	log        logging.Interface
@@ -112,7 +112,7 @@ func initFlags() {
 	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
-	flag.StringVar(&configDir, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to folder containing go-ssb config file (if using)")
+	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to folder containing go-ssb config file (if using)")
 
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
@@ -150,7 +150,10 @@ func applyConfigValues() {
 		return found
 	}
 
-	configPath := filepath.Join(configDir, "config.toml")
+	if !strings.HasSuffix(configPath, "toml") {
+		configPath = filepath.Join(configPath, "config.toml")
+	}
+	configDir := filepath.Dir(configPath)
 	if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
 		configPath = val
 	}
