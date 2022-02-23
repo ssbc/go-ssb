@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +44,11 @@ func (config SbotConfig) Has(flagname string) bool {
 func ReadConfig(configPath string) SbotConfig {
 	var conf SbotConfig
 	conf.presence = make(map[string]interface{})
+
+	// setup logger if not yet setup (used for tests)
+	if log == nil {
+		log = testutils.NewRelativeTimeLogger(nil)
+	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -183,7 +189,7 @@ func (booly *ConfigBool) UnmarshalJSON(b []byte) error {
 		temp = BooleanIsTrue(s)
 		if !temp {
 			// catch strings that cause a false value, but which aren't boolish
-			if s != "false" || s != "0" || s != "no" || s != "off" {
+			if s != "false" && s != "0" && s != "no" && s != "off" {
 				return errors.New("non-boolean string found when unmarshaling boolish values")
 			}
 		}

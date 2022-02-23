@@ -112,7 +112,7 @@ func initFlags() {
 	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
-	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to folder containing go-ssb config file (if using)")
+	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to config file; if filename is omitted from config path config.toml is used")
 
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
