@@ -24,6 +24,7 @@ import (
 	goon "github.com/shurcooL/go-goon"
 	"go.cryptoscope.co/muxrpc/v2"
 	"go.cryptoscope.co/netwrap"
+	"go.cryptoscope.co/ssb/query"
 	"go.cryptoscope.co/secretstream"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
@@ -86,12 +87,12 @@ var app = cli.App{
 		blockCmd,
 		friendsCmd,
 		getCmd,
+		getSubsetCmd,
 		inviteCmds,
 		logStreamCmd,
 		sortedStreamCmd,
 		typeStreamCmd,
 		historyStreamCmd,
-		partialStreamCmd,
 		replicateUptoCmd,
 		repliesStreamCmd,
 		callCmd,
@@ -304,6 +305,64 @@ var sourceCmd = &cli.Command{
 
 		err = jsonDrain(os.Stdout, src)
 		return fmt.Errorf("%s: result copy failed: %w", cmd, err)
+	},
+}
+
+var getSubsetCmd = &cli.Command{
+	Name:  "subset",
+	Usage: "invoke the partialReplication.getSubset muxrpc",
+
+	// define cli flags
+	Flags: []cli.Flag{
+		&cli.IntFlag{Name: "limit", Value: -1},
+		&cli.BoolFlag{Name: "desc", Value: false, Usage: "order results in descending order. default: ascending"},
+		&cli.BoolFlag{Name: "keys", Value: false},
+	},
+
+	Action: func(ctx *cli.Context) error {
+		if ctx.NArg() < 1 {
+			return errors.New(`subset usage: sbotcli subset [--flags] <valid json>`)
+		}
+		input := ctx.Args().Get(0)
+
+		client, err := newClient(ctx)
+		if err != nil {
+			return err
+		}
+
+		// a helper struct borrowed from the query package for converting the string input into a something we can send over
+		// the wire & which will be unpacked correctly
+		var payload struct {
+			Operation string `json:"op"`
+
+			Args   []query.SubsetOperation `json:"args,omitempty"`
+			String string            `json:"string,omitempty"`
+			Feed   *refs.FeedRef     `json:"feed,omitempty"`
+		}
+
+		err = json.Unmarshal([]byte(input), &payload)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal input (%w)", err)
+		}
+		// and set the options 
+		options := query.SubsetOptions{
+			PageLimit: ctx.Int("limit"),
+			Descending: ctx.Bool("desc"),
+			Keys: ctx.Bool("keys"),
+		}
+
+		method := muxrpc.Method{"partialReplication", "getSubset"}
+		src, err := client.Source(longctx, muxrpc.TypeJSON, method, payload, options)
+		if err != nil {
+			return fmt.Errorf("subset call failed (%w)", err)
+		}
+		level.Debug(log).Log("event", "call reply")
+
+		err = jsonDrain(os.Stdout, src)
+		if err != nil {
+			return fmt.Errorf("subset: result copy failed (%w)", err)
+		}
+		return nil
 	},
 }
 

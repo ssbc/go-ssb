@@ -55,43 +55,6 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 	return args
 }
 
-var partialStreamCmd = &cli.Command{
-	Name:  "partial",
-	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
-	Action: func(ctx *cli.Context) error {
-		client, err := newClient(ctx)
-		if err != nil {
-			return err
-		}
-
-		ir, err := client.Whoami()
-		if err != nil {
-			return err
-		}
-		id := ir.String()
-		if f := ctx.String("id"); f != "" {
-			id = f
-		}
-
-		src, err := client.Source(longctx, muxrpc.TypeJSON, muxrpc.Method{"partialReplication", "getMessagesOfType"}, struct {
-			ID   string `json:"id"`
-			Tipe string `json:"type"`
-		}{
-			ID:   id,
-			Tipe: ctx.Args().First(),
-		})
-		if err != nil {
-			return fmt.Errorf("source stream call failed: %w", err)
-		}
-		err = jsonDrain(os.Stdout, src)
-
-		if err != nil {
-			err = fmt.Errorf("byType pump failed: %w", err)
-		}
-		return err
-	},
-}
-
 var historyStreamCmd = &cli.Command{
 	Name:  "hist",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),

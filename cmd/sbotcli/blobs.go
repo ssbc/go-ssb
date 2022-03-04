@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"go.cryptoscope.co/muxrpc/v2"
 	"gopkg.in/urfave/cli.v2"
@@ -23,16 +24,23 @@ var blobsStore ssb.BlobStore
 var blobsCmd = &cli.Command{
 	Name: "blobs",
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "localstore", Value: "", Usage: "non-remote repo allows for access withut involving a bot"},
+		&cli.StringFlag{Name: "path", Value: "", Usage: "specify the path to the blobs folder of the sbot you want to query"},
 	},
 	Before: func(ctx *cli.Context) error {
-		var localRepo = ctx.String("localstore")
-		if localRepo == "" {
-			//blobsStore, err = newClient(ctx)
-			return fmt.Errorf("TODO: implement more blobs features on client")
+		var blobsDir = ctx.String("path")
+		if blobsDir == "" {
+			homedir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get home directory (%w)", err)
+			}
+			blobsDir = filepath.Join(homedir, ".ssb-go", "blobs")
 		}
+		if _, err := os.Stat(blobsDir); os.IsNotExist(err) {
+			return fmt.Errorf("folder %s did not exist (%w)", blobsDir, err)
+		}
+
 		var err error
-		blobsStore, err = blobstore.New(localRepo)
+		blobsStore, err = blobstore.New(blobsDir)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to construct local edp: %w", err)
 		}
@@ -62,11 +70,16 @@ var blobsHasCmd = &cli.Command{
 		}
 
 		// TODO: direct blobstore mode!?
-		var has bool
+		var arr []bool
 		//sz, err := blobsStore.Size()
-		err = client.Async(longctx, &has, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
+		err = client.Async(longctx, &arr, muxrpc.TypeJSON, muxrpc.Method{"blobs", "has"}, ref)
 		if err != nil {
 			return fmt.Errorf("connect: async call failed: %w", err)
+		}
+
+		var has bool
+		if len(arr) > 0 {
+			has = arr[0]
 		}
 		log.Log("event", "blob.has", "r", has)
 
@@ -81,13 +94,13 @@ var blobsHasCmd = &cli.Command{
 
 var blobsWantCmd = &cli.Command{
 	Name:  "want",
-	Usage: "try to get it from other peers",
+	Usage: "try to get a blob from other peers",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
 			return errors.New("blobs.want: need a blob ref")
 		}
-		br, err := refs.ParseBlobRef(ref)
+		blobsRef, err := refs.ParseBlobRef(ref)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
@@ -96,34 +109,34 @@ var blobsWantCmd = &cli.Command{
 		if err != nil {
 			return err
 		}
-		return client.BlobsWant(br)
+		return client.BlobsWant(blobsRef)
 	},
 }
 
 var blobsAddCmd = &cli.Command{
 	Name:  "add",
-	Usage: "add a file to the store (use - to open stdin)",
+	Usage: "add a file to the store (pass - to open stdin)",
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs add -' for now")
+			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs add -' for now")
 		}
 		fname := ctx.Args().Get(0)
 		if fname == "" {
 			return errors.New("blobs.add: need file to add (- for stdin)")
 		}
 
-		var rd io.Reader
+		var reader io.Reader
 		if fname == "-" {
-			rd = os.Stdin
+			reader = os.Stdin
 		} else {
 			var err error
-			rd, err = os.Open(fname)
+			reader, err = os.Open(fname)
 			if err != nil {
 				return fmt.Errorf("blobs.add: failed to open input file: %w", err)
 			}
 		}
 
-		ref, err := blobsStore.Put(rd)
+		ref, err := blobsStore.Put(reader)
 		log.Log("blobs.add", ref.Sigil())
 		return err
 	},
@@ -137,17 +150,17 @@ var blobsGetCmd = &cli.Command{
 	},
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
-			return fmt.Errorf("no blobstore use 'blobs --localstore $repo/blobs get &...' for now")
+			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs get &...' for now")
 		}
 		ref := ctx.Args().Get(0)
 		if ref == "" {
 			return errors.New("blobs.get: need a blob ref")
 		}
-		br, err := refs.ParseBlobRef(ref)
+		blobsRef, err := refs.ParseBlobRef(ref)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
-		rd, err := blobsStore.Get(br)
+		reader, err := blobsStore.Get(blobsRef)
 		if err != nil {
 			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
 		}
@@ -164,8 +177,8 @@ var blobsGetCmd = &cli.Command{
 			}
 		}
 
-		n, err := io.Copy(out, rd)
-		log.Log("blobs.get", br.Sigil(), "written", n)
+		n, err := io.Copy(out, reader)
+		log.Log("blobs.get", blobsRef.Sigil(), "written", n)
 		return err
 	},
 }
