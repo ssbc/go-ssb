@@ -19,6 +19,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/keks/persist v0.0.0-20210520094901-9bdd97c1fad2
 	github.com/keks/testops v0.1.0
+	github.com/komkom/toml v0.1.1 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.0.1

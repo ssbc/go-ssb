@@ -40,6 +40,9 @@ On the server, run:
 go-sbot 
 ```
 
+_optional step: configure your node in one of the ways outlined in the [configuration
+guide](./config.md)_
+
 ## Test sbotcli 
 
 While go-sbot is running, in another terminal on the server run:

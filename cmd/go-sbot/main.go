@@ -10,6 +10,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -58,6 +59,7 @@ var (
 	wsLisAddr   string
 	debugAddr   string
 	debugLogDir string
+	configPath   string
 
 	// helper
 	log        logging.Interface
@@ -110,6 +112,8 @@ func initFlags() {
 	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
+	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to config file; if filename is omitted from config path config.toml is used")
+
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
 	flag.BoolVar(&flagCleanup, "cleanup", false, "remove blocked feeds")
@@ -120,6 +124,139 @@ func initFlags() {
 	flag.BoolVar(&flagPrintVersion, "version", false, "print version number and build date")
 
 	flag.Parse()
+}
+
+func applyConfigValues() {
+	/*
+	 It's config & environment variable reading time! We read the config and/or any set environment variables first.
+	 Then, for each flag that has NOT been set and which corresponds to a config/env value, we set the flag variable's
+	 value to the value's found in conf / env variable.
+
+	 The hierarchy goes as follows:
+	 * flag set values trump environment variables
+	 * environment variables trumps config values
+	 * set config values trump default flag values
+	 * default flag values are the final fallback, if the corresponding config value or environment variable has not been
+	   set
+	*/
+	// returns true if the named flag was passed to go-sbot on startup
+	isFlagPassed := func(name string) bool {
+		found := false
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == name {
+				found = true
+			}
+		})
+		return found
+	}
+
+	/* order of looking for a config file:
+	* 1. $SSB_CONFIG_FILE or --config passed
+	* 2. --repo is passed (=> used as configdir)
+	* 3. fallback to default location at ~/.ssb-go/config.toml
+	*/
+	if isFlagPassed("repo") {
+		configPath = repoDir
+	}
+	if filepath.Ext(configPath) != ".toml" {
+		configPath = filepath.Join(configPath, "config.toml")
+	}
+	if val := os.Getenv("SSB_CONFIG_FILE"); val != "" {
+		configPath = val
+	}
+	configDir := filepath.Dir(configPath)
+	config := readConfigAndEnv(configPath)
+	bconfig, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	runningConfigPath := filepath.Join(configDir, "running-config.json")
+	err = os.WriteFile(runningConfigPath, bconfig, 0644)
+	if err != nil {
+		panic(err)
+	} else {
+		level.Info(log).Log("event", "write running-config.json", "msg", "active config and env vars have been persisted", "path", runningConfigPath)
+	}
+	// Returns true if the config has a value for flagname set, and the flag itself isn't passed on invocation
+	UseConfigValue := func(flagname string) bool {
+		return config.Has(flagname) && !isFlagPassed(flagname)
+	}
+
+	if UseConfigValue("hops") {
+		flagHops = config.Hops
+	}
+	if UseConfigValue("promisc") {
+		flagPromisc = (bool)(config.EnableFirewall)
+	}
+	if UseConfigValue("shscap") {
+		appKey = config.ShsCap
+	}
+	if UseConfigValue("repo") {
+		repoDir = config.Repo
+	}
+	if UseConfigValue("lis") {
+		listenAddr = config.MuxRPCAddress
+	}
+	if UseConfigValue("localadv") {
+		flagEnAdv = (bool)(config.EnableAdvertiseUDP)
+	}
+	if UseConfigValue("localdiscov") {
+		flagEnDiscov = (bool)(config.EnableDiscoveryUDP)
+	}
+	if UseConfigValue("wslis") {
+		wsLisAddr = config.WebsocketAddress
+	}
+	if UseConfigValue("enable-ebt") {
+		flagEnableEBT = (bool)(config.EnableEBT)
+	}
+	if UseConfigValue("nounixsock") {
+		flagDisableUNIXSock = (bool)(config.NoUnixSocket)
+	}
+	if UseConfigValue("hmac") {
+		hmacSec = config.Hmac
+	}
+	if UseConfigValue("debugdir") {
+		debugLogDir = config.DebugDir
+	}
+	if UseConfigValue("debuglis") {
+		debugAddr = config.MetricsAddress
+	}
+	if UseConfigValue("repair") {
+		flagRepair = (bool)(config.RepairFSBeforeStart)
+	}
+}
+
+func runSbot() error {
+	initFlags()
+
+	//log = logging.Logger("sbot")
+
+	// 2022-02-22: cryptix wants to change away from NewRelativeTimeLogger because for long running code it doesn't make
+	// sense; it's mostly a development convienence (which is why it's often used in the tests)
+	log = testutils.NewRelativeTimeLogger(nil)
+
+	if flagPrintVersion {
+		log.Log("version", Version, "build", Build)
+		return nil
+	}
+
+	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
+	defer func() {
+		cancel()
+		if r := recover(); r != nil {
+			logging.LogPanicWithStack(log, "main-panic", r)
+		}
+	}()
+
+	// try to read config && environment variables, and apply any set values on variables that
+	// have not been explicitly configured using flags on startup
+	applyConfigValues()
+
+	// add a log on is used by the sbot to aid ambient debugging for operators
+	absRepo, err := filepath.Abs(repoDir)
+	if err == nil {
+		level.Info(log).Log("event", "set repo", "path", absRepo)
+	}
 
 	if debugLogDir != "" {
 		logDir := filepath.Join(repoDir, debugLogDir)
@@ -135,25 +272,6 @@ func initFlags() {
 	} else {
 		//logging.SetupLogging(os.Stderr)
 	}
-	//log = logging.Logger("sbot")
-	log = testutils.NewRelativeTimeLogger(nil)
-}
-
-func runSbot() error {
-	initFlags()
-
-	if flagPrintVersion {
-		log.Log("version", Version, "build", Build)
-		return nil
-	}
-
-	ctx, cancel := ctxutils.WithError(context.Background(), ssb.ErrShuttingDown)
-	defer func() {
-		cancel()
-		if r := recover(); r != nil {
-			logging.LogPanicWithStack(log, "main-panic", r)
-		}
-	}()
 
 	ak, err := base64.StdEncoding.DecodeString(appKey)
 	if err != nil {
