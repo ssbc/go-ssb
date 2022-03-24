@@ -605,12 +605,6 @@ func New(fopts ...Option) (*Sbot, error) {
 			return s.public.MakeHandler(conn)
 		}
 
-		// TOFU restore/resync
-		if lst, err := s.Users.List(); err == nil && len(lst) == 0 {
-			level.Warn(s.info).Log("event", "no stored feeds - attempting re-sync with trust-on-first-use")
-			s.Replicate(s.KeyPair.ID())
-			return s.public.MakeHandler(conn)
-		}
 		return nil, err
 	}
 

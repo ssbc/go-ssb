@@ -64,6 +64,7 @@ func (s *Sbot) newGraphReplicator() (*graphReplicator, error) {
 	var r graphReplicator
 	r.bot = s
 	r.current = newLister()
+	r.current.feedWants.AddRef(s.KeyPair.ID())
 
 	replicateEvt := log.With(s.info, "event", "update-replicate")
 	update := r.makeUpdater(replicateEvt, s.KeyPair.ID(), int(s.hopCount))
