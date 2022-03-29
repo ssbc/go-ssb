@@ -68,10 +68,10 @@ func (LegacyGossip) Handled(m muxrpc.Method) bool { return m.String() == "create
 
 // HandleConnect on this handler triggers legacy createHistoryStream replication.
 func (g *LegacyGossip) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {
-	g.StartLegacyFetching(ctx, e, g.enableLiveStreaming)
+	g.StartLegacyFetching(ctx, e)
 }
 
-func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoint, withLive bool) {
+func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoint) {
 	remote := e.Remote()
 	remoteRef, err := ssb.GetFeedRefFromAddr(remote)
 	if err != nil {
@@ -83,7 +83,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		return
 	}
 
-	info := log.With(g.Info, "remote", remoteRef.ShortSigil(), "event", "gossiprx", "live", withLive)
+	info := log.With(g.Info, "remote", remoteRef.ShortSigil(), "event", "gossiprx", "live", g.enableLiveStreaming)
 
 	if g.promisc {
 		hasCallee, err := multilog.Has(g.UserFeeds, storedrefs.Feed(remoteRef))
@@ -94,7 +94,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 		if !hasCallee {
 			info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
-			if err := g.fetchFeed(ctx, remoteRef, e, time.Now(), withLive); err != nil {
+			if err := g.fetchFeed(ctx, remoteRef, e, time.Now(), g.enableLiveStreaming); err != nil {
 				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
@@ -104,7 +104,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 	feeds := g.WantList.ReplicationList()
 	//level.Debug(info).Log("msg", "hops count", "count", feeds.Count())
-	err = g.FetchAll(ctx, e, feeds, withLive)
+	err = g.FetchAll(ctx, e, feeds, g.enableLiveStreaming)
 	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Warn(info).Log("msg", "hops failed", "err", err)
 		return
@@ -121,7 +121,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 			case <-tick.C:
 				feeds := g.WantList.ReplicationList()
-				err = g.FetchAll(ctx, e, feeds, withLive)
+				err = g.FetchAll(ctx, e, feeds, g.enableLiveStreaming)
 				if err != nil && !muxrpc.IsSinkClosed(err) {
 					level.Warn(info).Log("msg", "hops failed", "err", err)
 					return
