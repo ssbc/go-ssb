@@ -57,42 +57,7 @@ func NewWantManager(bs ssb.BlobStore, opts ...WantManagerOption) *WantManager {
 
 	bs.Register(wmgr)
 
-	// once we learn about available blobs from peeers we are connected to
-	go func() {
-	workChan:
-		for has := range wmgr.available {
-			sz, _ := wmgr.bs.Size(has.want.Ref)
-			if sz > 0 { // already received
-				continue
-			}
-
-			initialFrom := has.remote.Remote().String()
-
-			// trying the one we got it from first
-			err := wmgr.getBlob(has.connCtx, has.remote, has.want.Ref)
-			if err == nil {
-				continue
-			}
-
-			wmgr.l.Lock()
-			// iterate through other open procs and try them
-			for remote, proc := range wmgr.procs {
-				if remote == initialFrom {
-					continue
-				}
-				ctx, cancel := context.WithTimeout(has.connCtx, 3*time.Minute)
-				err := wmgr.getBlob(ctx, proc.edp, has.want.Ref)
-				cancel()
-				if err == nil {
-					wmgr.l.Unlock()
-					continue workChan
-				}
-			}
-			delete(wmgr.wants, has.want.Ref.Sigil())
-			level.Warn(wmgr.info).Log("event", "blob retreive failed", "n", len(wmgr.procs))
-			wmgr.l.Unlock()
-		}
-	}()
+	go wmgr.replicateLoop()
 
 	return wmgr
 }
@@ -123,6 +88,50 @@ type WantManager struct {
 	info   logging.Interface
 	evtCtr metrics.Counter
 	gauge  metrics.Gauge
+}
+
+func (wmgr *WantManager) replicateLoop() {
+	for has := range wmgr.available {
+		wmgr.handleHasBlob(has)
+	}
+}
+
+func (wmgr *WantManager) handleHasBlob(has *hasBlob) {
+	ctx, cancel := context.WithTimeout(has.connCtx, 3*time.Minute)
+	defer cancel()
+
+	sz, _ := wmgr.bs.Size(has.want.Ref)
+	if sz > 0 { // already received
+		return
+	}
+
+	err := wmgr.getBlob(ctx, has.remote, has.want.Ref)
+	if err == nil {
+		return
+	}
+
+	for _, proc := range wmgr.getOtherProcs(has) {
+		err := wmgr.getBlob(ctx, proc.edp, has.want.Ref)
+		if err == nil {
+			return
+		}
+	}
+
+	level.Warn(wmgr.info).Log("event", "blob retrieve failed", "n", len(wmgr.procs))
+}
+
+func (wmgr *WantManager) getOtherProcs(has *hasBlob) []*wantProc {
+	wmgr.l.Lock()
+	defer wmgr.l.Unlock()
+
+	var procs []*wantProc
+	for remote, proc := range wmgr.procs {
+		if remote != has.remote.Remote().String() {
+			continue
+		}
+		procs = append(procs, proc)
+	}
+	return procs
 }
 
 func (wmgr *WantManager) EmitBlob(n ssb.BlobStoreNotification) error {
