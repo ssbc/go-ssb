@@ -12,7 +12,7 @@ import (
 	refs "go.mindeco.de/ssb-refs"
 )
 
-func (s Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
+func (s *Sbot) Get(ref refs.MessageRef) (refs.Message, error) {
 	getIdx, ok := s.simpleIndex["get"]
 	if !ok {
 		return nil, fmt.Errorf("sbot: get index disabled")
