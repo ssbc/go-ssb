@@ -22,15 +22,13 @@ const (
 )
 
 type FeedTracker struct {
-	activeTasks map[string]struct{}
-	peerStates  map[string]map[string]replicationResult
-	lock        sync.Mutex // locks activeTasks and peerStates
+	peerStates map[string]map[string]replicationResult
+	lock       sync.Mutex // locks peerStates
 }
 
 func NewFeedTracker() *FeedTracker {
 	return &FeedTracker{
-		activeTasks: make(map[string]struct{}),
-		peerStates:  make(map[string]map[string]replicationResult),
+		peerStates: make(map[string]map[string]replicationResult),
 	}
 }
 
@@ -40,10 +38,6 @@ func (f *FeedTracker) TryReplicate(peer net.Addr, feed refs.FeedRef) (Replicatio
 
 	fn := f.replicationCompleted(peer, feed)
 	shouldReplicate := f.shouldReplicate(peer, feed)
-
-	if shouldReplicate {
-		f.activeTasks[f.feedKey(feed)] = struct{}{}
-	}
 
 	return fn, shouldReplicate
 }
@@ -89,8 +83,6 @@ func (f *FeedTracker) replicationCompleted(peer net.Addr, feed refs.FeedRef) Rep
 			result: result,
 			t:      time.Now(),
 		}
-
-		delete(f.activeTasks, f.feedKey(feed))
 	}
 }
 
