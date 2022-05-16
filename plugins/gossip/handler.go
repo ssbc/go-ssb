@@ -65,6 +65,7 @@ type LegacyGossip struct {
 
 	numberOfConcurrentReplicationsPerPeer int
 	tokenPool                             *TokenPool
+	feedTracker                           *FeedTracker
 }
 
 func (LegacyGossip) Handled(m muxrpc.Method) bool { return m.String() == "createHistoryStream" }
@@ -97,7 +98,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 
 		if !hasCallee {
 			info.Log("handleConnect", "oops - dont have feed of remote peer. requesting...")
-			if err := g.fetchFeed(ctx, remoteRef, e, time.Now(), g.enableLiveStreaming); err != nil {
+			if _, err := g.fetchFeed(ctx, remoteRef, e, time.Now(), g.enableLiveStreaming); err != nil {
 				info.Log("handleConnect", "fetchFeed callee failed", "err", err)
 				return
 			}
