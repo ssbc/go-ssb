@@ -105,11 +105,6 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref re
 	}
 
 	fetchedMessages, err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
-
-	if fetchedMessages < limit {
-		onComplete(ReplicationResultDoesNotHaveMoreMessages)
-	}
-
 	var callErr *muxrpc.CallError
 	var noSuchMethodErr muxrpc.ErrNoSuchMethod
 	if muxrpc.IsSinkClosed(err) ||
@@ -122,6 +117,10 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref re
 	} else if err != nil {
 		// just logging the error assuming forked feed for instance
 		level.Warn(h.Info).Log("event", "skipped updating of stored feed", "err", err, "fr", ref.ShortSigil())
+	}
+
+	if fetchedMessages < limit {
+		onComplete(ReplicationResultDoesNotHaveMoreMessages)
 	}
 
 	return nil
