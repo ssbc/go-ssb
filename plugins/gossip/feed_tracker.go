@@ -17,7 +17,6 @@ type ReplicationCompletedFn func(ReplicationResult)
 type ReplicationResult string
 
 const (
-	ReplicationResultHasMoreMessages         ReplicationResult = "has_more_messages"
 	ReplicationResultDoesNotHaveMoreMessages ReplicationResult = "no_more_messages"
 )
 
@@ -57,8 +56,6 @@ func (f *FeedTracker) shouldReplicate(peer net.Addr, feed refs.FeedRef) bool {
 	}
 
 	switch state.result {
-	case ReplicationResultHasMoreMessages:
-		return true
 	case ReplicationResultDoesNotHaveMoreMessages:
 		return time.Since(state.t) > timeoutDoesNotHaveMoreMessages
 	default:

@@ -94,10 +94,10 @@ func (h *LegacyGossip) startWorkers(ctx context.Context, feedCh <-chan refs.Feed
 func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref refs.FeedRef, withLive bool) error {
 	select {
 	case <-h.tokenPool.GetToken():
+		defer h.tokenPool.ReturnToken()
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	defer h.tokenPool.ReturnToken()
 
 	onComplete, shouldReplicate := h.feedTracker.TryReplicate(edp.Remote(), ref)
 	if !shouldReplicate {
@@ -106,9 +106,7 @@ func (h *LegacyGossip) workFeed(ctx context.Context, edp muxrpc.Endpoint, ref re
 
 	fetchedMessages, err := h.fetchFeed(ctx, ref, edp, time.Now(), withLive)
 
-	if fetchedMessages >= limit {
-		onComplete(ReplicationResultHasMoreMessages)
-	} else {
+	if fetchedMessages < limit {
 		onComplete(ReplicationResultDoesNotHaveMoreMessages)
 	}
 
