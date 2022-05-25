@@ -42,9 +42,8 @@ func New(basePath string) (ssb.BlobStore, error) {
 
 	bs := &blobStore{
 		basePath: basePath,
+		bcst:     broadcasts.NewBlobStoreBroadcast(),
 	}
-
-	bs.update, bs.BlobStoreBroadcaster = broadcasts.NewBlobStoreEmitter()
 
 	return bs, nil
 }
@@ -52,9 +51,11 @@ func New(basePath string) (ssb.BlobStore, error) {
 type blobStore struct {
 	basePath string
 
-	ssb.BlobStoreBroadcaster
+	bcst *broadcasts.BlobStoreBroadcast
+}
 
-	update ssb.BlobStoreEmitter
+func (store *blobStore) Register(sink ssb.BlobStoreEmitter) ssb.CancelFunc {
+	return store.bcst.Register(sink)
 }
 
 func (store *blobStore) getPath(ref refs.BlobRef) (string, error) {
@@ -161,7 +162,7 @@ func (store *blobStore) Put(blob io.Reader) (refs.BlobRef, error) {
 		return refs.BlobRef{}, fmt.Errorf("error moving blob from temp path %q to final path %q: %w", tmpPath, finalPath, err)
 	}
 
-	err = store.update.EmitBlob(ssb.BlobStoreNotification{
+	err = store.bcst.EmitBlob(ssb.BlobStoreNotification{
 		Op:  ssb.BlobStoreOpPut,
 		Ref: ref,
 
@@ -188,7 +189,7 @@ func (store *blobStore) Delete(ref refs.BlobRef) error {
 		return fmt.Errorf("error removing file: %w", err)
 	}
 
-	err = store.update.EmitBlob(ssb.BlobStoreNotification{
+	err = store.bcst.EmitBlob(ssb.BlobStoreNotification{
 		Op:  ssb.BlobStoreOpRm,
 		Ref: ref,
 	})
