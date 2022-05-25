@@ -38,15 +38,22 @@ func (bcst *BlobStoreBroadcast) Register(sink ssb.BlobStoreEmitter) ssb.CancelFu
 
 func (bcst *BlobStoreBroadcast) EmitBlob(nf ssb.BlobStoreNotification) error {
 	bcst.mu.Lock()
+	defer bcst.mu.Unlock()
+
 	for s := range bcst.sinks {
-		err := (*s).EmitBlob(nf)
-		if err != nil {
-			delete(bcst.sinks, s)
-		}
+		go bcst.emit(s, nf)
 	}
-	bcst.mu.Unlock()
 
 	return nil
+}
+
+func (bcst *BlobStoreBroadcast) emit(s *ssb.BlobStoreEmitter, nf ssb.BlobStoreNotification) {
+	err := (*s).EmitBlob(nf)
+	if err != nil {
+		bcst.mu.Lock()
+		delete(bcst.sinks, s)
+		bcst.mu.Unlock()
+	}
 }
 
 func (bcst *BlobStoreBroadcast) Close() error {
