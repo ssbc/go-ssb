@@ -11,25 +11,18 @@ import (
 	"github.com/ssbc/go-ssb/internal/multierror"
 )
 
-// NewBlobStoreEmitter returns the Sink, to write to the broadcaster, and the new
-// broadcast instance.
-func NewBlobStoreEmitter() (ssb.BlobStoreEmitter, *BlobStoreBroadcast) {
-	bcst := BlobStoreBroadcast{
-		mu:    &sync.Mutex{},
-		sinks: make(map[*ssb.BlobStoreEmitter]struct{}),
-	}
-
-	return (*BlobStoreSink)(&bcst), &bcst
-}
-
-// BlobStoreBroadcast is an interface for registering one or more Sinks to recieve
-// updates.
 type BlobStoreBroadcast struct {
 	mu    *sync.Mutex
 	sinks map[*ssb.BlobStoreEmitter]struct{}
 }
 
-// Register a Sink for updates to be sent. also returns
+func NewBlobStoreBroadcast() *BlobStoreBroadcast {
+	return &BlobStoreBroadcast{
+		mu:    &sync.Mutex{},
+		sinks: make(map[*ssb.BlobStoreEmitter]struct{}),
+	}
+}
+
 func (bcst *BlobStoreBroadcast) Register(sink ssb.BlobStoreEmitter) ssb.CancelFunc {
 	bcst.mu.Lock()
 	defer bcst.mu.Unlock()
@@ -43,11 +36,7 @@ func (bcst *BlobStoreBroadcast) Register(sink ssb.BlobStoreEmitter) ssb.CancelFu
 	}
 }
 
-type BlobStoreSink BlobStoreBroadcast
-
-// Pour implements the Sink interface.
-func (bcst *BlobStoreSink) EmitBlob(nf ssb.BlobStoreNotification) error {
-
+func (bcst *BlobStoreBroadcast) EmitBlob(nf ssb.BlobStoreNotification) error {
 	bcst.mu.Lock()
 	for s := range bcst.sinks {
 		err := (*s).EmitBlob(nf)
@@ -60,8 +49,7 @@ func (bcst *BlobStoreSink) EmitBlob(nf ssb.BlobStoreNotification) error {
 	return nil
 }
 
-// Close implements the Sink interface.
-func (bcst *BlobStoreSink) Close() error {
+func (bcst *BlobStoreBroadcast) Close() error {
 	var sinks []ssb.BlobStoreEmitter
 
 	bcst.mu.Lock()
@@ -101,7 +89,6 @@ func (bcst *BlobStoreSink) Close() error {
 	return me
 }
 
-// util
 type BlobStoreFuncEmitter func(not ssb.BlobStoreNotification) error
 
 func (e BlobStoreFuncEmitter) EmitBlob(not ssb.BlobStoreNotification) error {

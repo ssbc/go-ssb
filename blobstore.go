@@ -46,16 +46,12 @@ type BlobStore interface {
 	Size(ref refs.BlobRef) (int64, error)
 
 	// Register allows to get notified when the store changes
-	BlobStoreBroadcaster
+	Register(sink BlobStoreEmitter) CancelFunc
 }
 
 type BlobStoreEmitter interface {
 	EmitBlob(BlobStoreNotification) error
 	io.Closer
-}
-
-type BlobStoreBroadcaster interface {
-	Register(sink BlobStoreEmitter) CancelFunc
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o mock/wantmanager.go . WantManager
