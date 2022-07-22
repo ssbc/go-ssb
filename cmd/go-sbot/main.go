@@ -158,6 +158,11 @@ func applyConfigValues() {
 	if isFlagPassed("repo") {
 		configPath = repoDir
 	}
+	if err := os.Mkdir(configPath, 0700); err != nil {
+		if !os.IsExist(err) {
+			panic(err)
+		}
+	}
 	if filepath.Ext(configPath) != ".toml" {
 		configPath = filepath.Join(configPath, "config.toml")
 	}
