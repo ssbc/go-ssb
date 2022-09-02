@@ -154,7 +154,7 @@ func (h *handler) disconnect(ctx context.Context, r *muxrpc.Request) (interface{
 		}
 	}
 
-	return reply{"disconencted"}, nil
+	return reply{"disconnected"}, nil
 }
 
 func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
@@ -181,7 +181,7 @@ func (h *handler) connect(ctx context.Context, req *muxrpc.Request) (interface{}
 	if err != nil {
 		return nil, fmt.Errorf("ctrl.connect call: error connecting to %q: %w", msaddr.Addr, err)
 	}
-	return reply{"conencted"}, nil
+	return reply{"connected"}, nil
 }
 
 func (h *handler) dialViaRoom(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
