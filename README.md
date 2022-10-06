@@ -10,13 +10,13 @@ SPDX-License-Identifier: MIT
   <img height="170px" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
-[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb) [![Go Report Card](https://goreportcard.com/badge/go.cryptoscope.co/ssb)](https://goreportcard.com/report/go.cryptoscope.co/ssb) ![Github Actions](https://github.com/cryptoscope/ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/cryptoscope/ssb)](https://api.reuse.software/info/github.com/cryptoscope/ssb)
+[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb) [![Go Report Card](https://goreportcard.com/badge/go.cryptoscope.co/ssb)](https://goreportcard.com/report/go.cryptoscope.co/ssb) ![Github Actions](https://github.com/ssbc/go-ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/ssbc/go-ssb)](https://api.reuse.software/info/github.com/ssbc/go-ssb)
 
 A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
 WARNING: Project is still in alpha, backwards incompatible changes will be made.  We suggest vendoring for a stable experience.
 
-If you encounter a bug, please refer to our [public issue tracker](https://github.com/cryptoscope/ssb/issues).
+If you encounter a bug, please refer to our [public issue tracker](https://github.com/ssbc/go-ssb/issues).
 
 ### Developing
 Want to contribute patches to go-ssb? Read the [developer documentation](https://dev.scuttlebutt.nz/#/golang/) hosted at [dev.scuttlebutt.nz](https://dev.scuttlebutt.nz/#/golang/). If you have a large change you want to make, reach out to [@cryptix](https://github.com/cryptix) first and we'll together make sure that the resulting PR will be accepted :black_heart:
@@ -28,14 +28,14 @@ Want to contribute patches to go-ssb? Read the [developer documentation](https:/
 * [x] Publishing new messages to the log
 * [x] _Legacy_ feed [replication](https://ssbc.github.io/scuttlebutt-protocol-guide/#createHistoryStream)
 * [x] [Epidemic Broadcast Trees (EBT)](https://github.com/dominictarr/epidemic-broadcast-trees) feed replication in beta (use `go-sbot -enable-ebt`)
-* [x] Invite mechanics ([peer-invites](https://github.com/ssbc/ssb-peer-invites) partially done, too. See [Issue 45](https://github.com/cryptoscope/ssb/issues/45) for more.)
+* [x] Invite mechanics ([peer-invites](https://github.com/ssbc/ssb-peer-invites) partially done, too. See [Issue 45](https://github.com/ssbc/go-ssb/issues/45) for more.)
 
 ## Installation
 
 You can install the project using Golang's [install command](https://golang.org/cmd/go/#hdr-Compile_and_install_packages_and_dependencies) which will place the commands into the directory pointed to by the GOBIN environment variable.
 
 ```bash
-git clone https://github.com/cryptoscope/ssb
+git clone https://github.com/ssbc/go-ssb
 cd ssb
 go install ./cmd/go-sbot
 go install ./cmd/sbotcli
@@ -198,7 +198,7 @@ If you _just_ want to build the server and play without contributing to the code
 
 ```bash
 # clone the repo
-git clone https://github.com/cryptoscope/ssb
+git clone https://github.com/ssbc/go-ssb
 # go into the servers folder
 cd ssb/cmd/go-sbot
 # build the binary (also fetches pinned dependencies)
@@ -224,7 +224,7 @@ go install ./cmd/go-sbot
 go install ./cmd/sbotcli
 ```
 
-## Testing [![Build Status](https://travis-ci.org/cryptoscope/ssb.svg?branch=master)](https://travis-ci.org/cryptoscope/ssb)
+## Testing 
 
 Once you have configured your environment set up to build the binaries, you can also run the tests. We have unit tests for most of the modules, most importantly `message`, `blobstore` and the replication plugins (`gossip` and `blobs`). There are also interoperability tests with the nodejs implementation (this requires recent versions of [node and npm](http://nodejs.org)).
 
@@ -280,12 +280,12 @@ $ go test -v
 
 ## Known Bugs
 
-See our [issue tracker](https://github.com/cryptoscope/ssb/issues) for a complete list.
+See our [issue tracker](https://github.com/ssbc/go-ssb/issues) for a complete list.
 
 
 ### Forked version of x/crypto
 
-We currently depend on [this patch](https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards) on x/crypto to support the key-material conversion between ed25519 and curve25519.  See https://github.com/cryptoscope/ssb/issues/44 for all the details.
+We currently depend on [this patch](https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards) on x/crypto to support the key-material conversion between ed25519 and curve25519.  See https://github.com/ssbc/go-ssb/issues/44 for all the details.
 
 ```
 package golang.org/x/crypto/ed25519/edwards25519: cannot find package "golang.org/x/crypto/ed25519/edwards25519" in any of:
