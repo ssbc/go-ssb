@@ -51,7 +51,7 @@ func TestPublishMetafeedAnnounce(t *testing.T) {
 	)
 	r.NoError(err)
 
-	subfeed, err := bot.MetaFeeds.CreateSubFeed("testfeed", refs.RefAlgoFeedSSB1)
+	subfeed, err := bot.MetaFeeds.CreateSubFeed(bot.KeyPair.ID(), "testfeed", refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
 	ma := legacy.NewMetafeedAnnounce(bot.KeyPair.ID(), subfeed)
@@ -62,7 +62,7 @@ func TestPublishMetafeedAnnounce(t *testing.T) {
 	ref, err := bot.MetaFeeds.Publish(subfeed, signedMsg)
 	r.NoError(err)
 
-	msg, err := bot.Get(ref)
+	msg, err := bot.Get(ref.Key())
 	r.NoError(err)
 	t.Log("content:", string(msg.ContentBytes()))
 
