@@ -359,6 +359,11 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 }
 
 func TestMetafeedIndexes(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	// <boilerplate>
 	r := require.New(t)
 
@@ -426,7 +431,6 @@ func TestMetafeedIndexes(t *testing.T) {
 	}
 
 	var getFeed = createGetFeed(bot)
-
 
 	mfId := bot.KeyPair.ID()
 

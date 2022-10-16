@@ -134,6 +134,11 @@ func makeBadger(t *testing.T) testStore {
 }
 
 func TestBadger(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
 }

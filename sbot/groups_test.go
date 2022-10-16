@@ -23,11 +23,17 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/private"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestPrivateGroupsManualDecrypt(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	r := require.New(t)
 
 	// cleanup previous run

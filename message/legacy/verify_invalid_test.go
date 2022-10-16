@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/private/keys"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -48,6 +49,11 @@ import (
 // 	/usr/local/Cellar/go/1.16.6/libexec/src/testing/testing.go:1238 +0x2b3
 // exit status 2
 func TestInvalidFuzzed(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	r := require.New(t)
 	a := assert.New(t)
 

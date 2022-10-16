@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -20,6 +21,11 @@ import (
 // but alice starts blocking claire
 // clair should not get new messages from alice's feed anymore
 func TestBlocking(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	// defer leakcheck.Check(t)
 	r := require.New(t)
 	const n = 23
