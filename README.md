@@ -18,6 +18,8 @@ WARNING: Project is still in alpha, backwards incompatible changes will be made.
 
 If you encounter a bug, please refer to our [public issue tracker](https://github.com/ssbc/go-ssb/issues).
 
+See the [FAQ](./docs/faq.md) for more.
+
 ### Developing
 Want to contribute patches to go-ssb? Read the [developer documentation](https://dev.scuttlebutt.nz/#/golang/) hosted at [dev.scuttlebutt.nz](https://dev.scuttlebutt.nz/#/golang/). If you have a large change you want to make, reach out to [@cryptix](https://github.com/cryptix) first and we'll together make sure that the resulting PR will be accepted :black_heart:
 
