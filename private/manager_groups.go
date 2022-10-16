@@ -127,7 +127,7 @@ func (mgr *Manager) deriveCloakedAndStoreNewKey(k keys.Recipient) (refs.MessageR
 		return emptyMsgRef, err
 	}
 
-	rootAsTFK, err := tfk.Encode(k.Metadata.GroupRoot)
+	rootAsTFK, err := tfk.Encode(*k.Metadata.GroupRoot)
 	if err != nil {
 		return emptyMsgRef, err
 	}
