@@ -4,7 +4,7 @@
 PKGS := $(shell go list ./... | grep -v node_modules )
 
 
-TESTFLAGS = -failfast -timeout 5m
+TESTFLAGS = -failfast -timeout 10m
 
 
 ZIPPER := zstd -9

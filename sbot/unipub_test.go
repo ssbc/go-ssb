@@ -23,6 +23,11 @@ import (
 )
 
 func TestPublishUnicode(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())

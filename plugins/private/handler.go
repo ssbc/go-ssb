@@ -91,7 +91,7 @@ func (h handler) handlePublish(ctx context.Context, req *muxrpc.Request) (interf
 
 	level.Info(h.info).Log("new-private", msg.Key().ShortSigil())
 
-	return msg.Key().String(), nil
+	return msg.Key(), nil
 }
 
 func (h handler) privatePublishBox1(msg []byte, recps []refs.Ref) ([]byte, error) {

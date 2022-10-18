@@ -152,8 +152,8 @@ func (tp testPublisher) Append(_ interface{}) (int64, error) {
 	return -1, fmt.Errorf("cant append in test setting")
 }
 
-func (tp testPublisher) Publish(_ interface{}) (refs.MessageRef, error) {
-	return refs.MessageRef{}, fmt.Errorf("cant publish in test setting")
+func (tp testPublisher) Publish(_ interface{}) (refs.Message, error) {
+	return nil, fmt.Errorf("cant publish in test setting")
 }
 
 func (tp testPublisher) Changes() luigi.Observable {

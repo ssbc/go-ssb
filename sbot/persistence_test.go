@@ -26,6 +26,11 @@ import (
 
 // store some feeds, stop the bot and reopen the repo
 func TestPersistence(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	defer leakcheck.Check(t)
 
 	var err error

@@ -170,7 +170,7 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 	r.NoError(err)
 
 	// create some messages
-	var testRefs []refs.MessageRef
+	var testRefs []refs.Message
 	testMsgs := []struct {
 		as string      // nick name
 		c  interface{} // content
@@ -199,32 +199,32 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 	t.Run("by author", func(t *testing.T) {
 		r := require.New(t)
 
-		msgs, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, query.NewSubsetOpByAuthor(kpArny.ID()))
+		msgs, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, query.NewSubsetOpByAuthor(kpArny.ID()))
 		r.NoError(err)
 		r.Len(msgs, 2, "wrong number of resulting messages")
-		r.True(testRefs[0].Equal(msgs[0]))
-		r.True(testRefs[1].Equal(msgs[1]))
+		r.Equal(testRefs[0], msgs[0])
+		r.Equal(testRefs[1], msgs[1])
 	})
 
 	t.Run("by type", func(t *testing.T) {
 		r := require.New(t)
 
-		msgs, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, query.NewSubsetOpByType("post"))
+		msgs, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, query.NewSubsetOpByType("post"))
 		r.NoError(err)
 		r.Len(msgs, 1, "wrong number of resulting messages")
-		r.True(testRefs[6].Equal(msgs[0]))
+		r.Equal(testRefs[6], msgs[0])
 	})
 
 	t.Run("OR two types (contact and post)", func(t *testing.T) {
 		r := require.New(t)
 
 		qry := query.NewSubsetOrCombination(query.NewSubsetOpByType("contact"), query.NewSubsetOpByType("post"))
-		res, err := sp.QuerySubsetMessageRefs(mainbot.ReceiveLog, qry)
+		res, err := sp.QuerySubsetMessages(mainbot.ReceiveLog, qry)
 		r.NoError(err)
 		r.Len(res, 3, "wrong number of resulting messages")
-		r.True(testRefs[1].Equal(res[0]))
-		r.True(testRefs[3].Equal(res[1]))
-		r.True(testRefs[6].Equal(res[2]))
+		r.Equal(testRefs[1], res[0])
+		r.Equal(testRefs[3], res[1])
+		r.Equal(testRefs[6], res[2])
 	})
 
 	// shutdown bot

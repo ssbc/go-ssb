@@ -11,6 +11,7 @@ import (
 
 	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
 	"github.com/stretchr/testify/require"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/sbot"
 	refs "go.mindeco.de/ssb-refs"
 )
@@ -40,6 +41,11 @@ func TestMigrationSentinel(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	/* setup start */
 	var err error
 	r := require.New(t)

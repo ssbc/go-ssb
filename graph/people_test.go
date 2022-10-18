@@ -17,6 +17,7 @@ import (
 
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	refs "go.mindeco.de/ssb-refs"
 )
 
@@ -241,6 +242,11 @@ type PeopleTestCase struct {
 
 func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T) {
 	return func(t *testing.T) {
+		if testutils.SkipOnCI(t) {
+			// https://github.com/ssbc/go-ssb/issues/163
+			return
+		}
+
 		r := require.New(t)
 		a := assert.New(t)
 
