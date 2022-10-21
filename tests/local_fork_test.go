@@ -3,12 +3,12 @@ package tests
 import (
 	"testing"
 	"fmt"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/sbot"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/sbot"
 	"github.com/stretchr/testify/assert"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestStartup (t *testing.T) {

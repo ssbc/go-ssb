@@ -12,17 +12,17 @@ import (
 	"errors"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/typemux"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	multiserver "go.mindeco.de/ssb-multiserver"
-	refs "go.mindeco.de/ssb-refs"
+	multiserver "github.com/ssbc/go-ssb-multiserver"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 type handler struct {

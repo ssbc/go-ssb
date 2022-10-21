@@ -8,11 +8,11 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 type listHandler struct {

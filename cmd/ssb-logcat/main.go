@@ -11,11 +11,11 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
 
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func check(err error) {

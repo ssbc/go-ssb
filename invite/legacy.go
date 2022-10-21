@@ -11,10 +11,10 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/client"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/client"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // Redeem takes an invite token and a long term key.

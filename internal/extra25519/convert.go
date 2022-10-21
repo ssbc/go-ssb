@@ -11,7 +11,7 @@ import (
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/ed25519"
 
-	"go.cryptoscope.co/ssb/internal/lo25519"
+	"github.com/ssbc/go-ssb/internal/lo25519"
 )
 
 // PrivateKeyToCurve25519 converts an ed25519 private key into a corresponding

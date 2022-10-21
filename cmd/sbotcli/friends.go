@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"gopkg.in/urfave/cli.v2"
 
-	"go.cryptoscope.co/ssb/plugins/friends"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/plugins/friends"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var friendsCmd = &cli.Command{

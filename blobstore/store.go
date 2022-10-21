@@ -16,11 +16,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // ErrNoSuchBlob is returned if the requested blob isn't available

@@ -13,17 +13,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/message/multimsg"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/message/multimsg"
 )
 
 func TestFeedsGabbySync(t *testing.T) {

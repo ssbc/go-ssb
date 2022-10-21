@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/secretbox"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/extra25519"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/extra25519"
 )
 
 var ErrPrivateMessageDecryptFailed = fmt.Errorf("decode pm: decryption failed")

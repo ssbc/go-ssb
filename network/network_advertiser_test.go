@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func makeTestPubKey(t *testing.T) ssb.KeyPair {

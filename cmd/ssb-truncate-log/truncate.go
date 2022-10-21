@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"time"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/repo"
 
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 )
 
 func check(err error) {

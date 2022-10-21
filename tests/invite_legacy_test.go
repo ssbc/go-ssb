@@ -15,13 +15,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/netwrap"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/invite"
+	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/invite"
 )
 
 // first js creates an invite

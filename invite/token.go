@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var ErrInvalidToken = errors.New("invite: invalid token")

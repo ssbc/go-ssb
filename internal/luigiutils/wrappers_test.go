@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 )
 
 func TestSinkCounter(t *testing.T) {

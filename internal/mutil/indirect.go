@@ -10,9 +10,9 @@ import (
 	"errors"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-luigi/mfr"
+	"github.com/ssbc/margaret"
 )
 
 type indirectLog struct {

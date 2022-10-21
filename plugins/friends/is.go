@@ -11,10 +11,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb/graph"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-ssb/graph"
 	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type sourceDestArg struct {

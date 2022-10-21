@@ -10,9 +10,9 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/require"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libbadger "go.cryptoscope.co/margaret/indexes/badger"
-	"go.cryptoscope.co/ssb/repo"
+	librarian "github.com/ssbc/margaret/indexes"
+	libbadger "github.com/ssbc/margaret/indexes/badger"
+	"github.com/ssbc/go-ssb/repo"
 	"modernc.org/kv"
 )
 

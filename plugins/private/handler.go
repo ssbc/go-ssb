@@ -9,17 +9,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/transform"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/private"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/transform"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/private"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type handler struct {

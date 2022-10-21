@@ -18,19 +18,19 @@ import (
 
 	"github.com/dgraph-io/sroar"
 	"github.com/keks/persist"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/margaret/multilog/roaring"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/margaret/multilog/roaring"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/statematrix"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/repo"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/statematrix"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/go-ssb/private"
+	"github.com/ssbc/go-ssb/repo"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // NewCombinedIndex creates one big index which updates the multilogs users, byType, private and tangles.

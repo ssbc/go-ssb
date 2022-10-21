@@ -6,14 +6,14 @@
 package friends
 
 import (
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/muxrpc/v2/typemux"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/graph"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/graph"
 )
 
 /*

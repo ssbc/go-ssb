@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
   <img height="170px" src="./docs/icon.png" alt="hermit gopher with a shell and crab hands">
 </p>
 
-[![GoDoc](https://godoc.org/go.cryptoscope.co/ssb?status.svg)](https://godoc.org/go.cryptoscope.co/ssb) [![Go Report Card](https://goreportcard.com/badge/go.cryptoscope.co/ssb)](https://goreportcard.com/report/go.cryptoscope.co/ssb) ![Github Actions](https://github.com/ssbc/go-ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/ssbc/go-ssb)](https://api.reuse.software/info/github.com/ssbc/go-ssb)
+[![GoDoc](https://godoc.org/github.com/ssbc/go-ssb?status.svg)](https://godoc.org/github.com/ssbc/go-ssb) [![Go Report Card](https://goreportcard.com/badge/github.com/ssbc/go-ssb)](https://goreportcard.com/report/github.com/ssbc/go-ssb) ![Github Actions](https://github.com/ssbc/go-ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/ssbc/go-ssb)](https://api.reuse.software/info/github.com/ssbc/go-ssb)
 
 A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
@@ -106,7 +106,7 @@ go-sbot also exposes the same async [publish](https://scuttlebot.io/apis/scuttle
 
 ### Through Go API
 
-To do this programatically in go, you construct a [margaret.Log](https://godoc.org/go.cryptoscope.co/margaret#Log) using `multilogs.OpenPublishLog` ([godoc](https://godoc.org/go.cryptoscope.co/ssb/multilogs#OpenPublishLog)) that publishes the content portion you `Append()` to it the feed of the keypair.
+To do this programatically in go, you construct a [margaret.Log](https://godoc.org/go.cryptoscope.co/margaret#Log) using `multilogs.OpenPublishLog` ([godoc](https://godoc.org/github.com/ssbc/go-ssb/multilogs#OpenPublishLog)) that publishes the content portion you `Append()` to it the feed of the keypair.
 
 Example:
 
@@ -117,9 +117,9 @@ import (
 	"log"
 	"fmt"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/sbot"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/multilogs"
+	"github.com/ssbc/go-ssb/sbot"
 )
 
 func main() {
@@ -218,9 +218,9 @@ If you want to hack on the other dependencies of the stack, we still advise usin
 export GOPATH=$HOME/proj/go-ssb
 mkdir -p $GOPATH
 # fetch project source and dependencies
-go get -v -u go.cryptoscope.co/ssb
+go get -v -u github.com/ssbc/go-ssb
 # change to the project directory
-cd $GOPATH/src/go.cryptoscope.co/ssb
+cd $GOPATH/src/github.com/ssbc/go-ssb
 # build the binaries (will get saved to $GOPATH/bin)
 go install ./cmd/go-sbot
 go install ./cmd/sbotcli
@@ -231,7 +231,7 @@ go install ./cmd/sbotcli
 Once you have configured your environment set up to build the binaries, you can also run the tests. We have unit tests for most of the modules, most importantly `message`, `blobstore` and the replication plugins (`gossip` and `blobs`). There are also interoperability tests with the nodejs implementation (this requires recent versions of [node and npm](http://nodejs.org)).
 
 ```bash
-$ cd $GOPATH/src/go.cryptoscope.co/ssb
+$ cd $GOPATH/src/github.com/ssbc/go-ssb
 
 $ go test -v ./message
 2019/01/08 12:21:55 loaded 236 messages from testdata.zip
@@ -254,18 +254,18 @@ $ go test -v ./message
 === RUN   TestVerifyBugs
 --- PASS: TestVerifyBugs (0.00s)
 PASS
-ok  	go.cryptoscope.co/ssb/message	0.180s
+ok  	github.com/ssbc/go-ssb/message	0.180s
 ```
 
 If you encounter a feed that can't be validated with our code, there is a `encode_test.js` script to create the `testdata.zip` from a local sbot. Call it like this  `cd message && node encode_test.js @feedPubKey.ed25519` and re-run `go test`.
 
 ```bash
 $ go test ./plugins/...
-ok  	go.cryptoscope.co/ssb/plugins/blobs	0.021s
-?   	go.cryptoscope.co/ssb/plugins/control	[no test files]
-ok  	go.cryptoscope.co/ssb/plugins/gossip	0.667s
-?   	go.cryptoscope.co/ssb/plugins/test	[no test files]
-?   	go.cryptoscope.co/ssb/plugins/whoami	[no test files]
+ok  	github.com/ssbc/go-ssb/plugins/blobs	0.021s
+?   	github.com/ssbc/go-ssb/plugins/control	[no test files]
+ok  	github.com/ssbc/go-ssb/plugins/gossip	0.667s
+?   	github.com/ssbc/go-ssb/plugins/test	[no test files]
+?   	github.com/ssbc/go-ssb/plugins/whoami	[no test files]
 ```
 
 (Sometimes the gossip test blocks indefinitely. This is a bug in go-muxrpcs closing behavior. See the _Known bugs_ section for more information.)
@@ -274,7 +274,7 @@ ok  	go.cryptoscope.co/ssb/plugins/gossip	0.667s
 To run the interop tests you need to install the dependencies first and then run the tests. Diagnosing a failure might require adding the `-v` flag to get the stderr output from the nodejs process.
 
 ```bash
-$ cd $GOPATH/src/go.cryptoscope.co/ssb/tests
+$ cd $GOPATH/src/github.com/ssbc/go-ssb/tests
 $ npm ci
 $ go test -v
 ```
@@ -352,11 +352,10 @@ badger failed to open: Mmap value log file. Path=C:\\some\\where\\.ssb-go\\index
 
 ## Stack links
 
-* [secret-handshake](https://secret-handshake.club) key exchange using [secretstream](https://godoc.org/go.cryptoscope.co/secretstream)
-* JS interoparability by using [go-muxprc](https://godoc.org/go.cryptoscope.co/muxrpc)
-* Embedded datastore, no external database required ([librarian](https://godoc.org/go.cryptoscope.co/librarian) abstraction with [BadgerDB](https://github.com/dgraph-io/badger) backend, similar to [flumedb](https://github.com/flumedb/flumedb))
-* [pull-stream](https://pull-stream.github.io)-like abstraction (called [luigi](https://godoc.org/go.cryptoscope.co/luigi)) to pipe between rpc and database.
-
+* [secret-handshake](https://secret-handshake.club) key exchange using [secretstream](https://godoc.org/github.com/ssbc/go-secretstream)
+* JS interoparability by using [go-muxprc](https://godoc.org/github.com/ssbc/go-muxrpc)
+* Embedded datastore, no external database required ([margaret](https://godoc.org/github.com/ssbc/margaret) abstraction with [BadgerDB](https://github.com/dgraph-io/badger) backend, similar to [flumedb](https://github.com/flumedb/flumedb))
+* [pull-stream](https://pull-stream.github.io)-like abstraction (called [luigi](https://godoc.org/github.com/ssbc/go-luigi)) to pipe between rpc and database.
 
 ## Contact
 

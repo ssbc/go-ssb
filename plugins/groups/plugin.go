@@ -6,13 +6,13 @@
 package groups
 
 import (
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/muxrpc/v2/typemux"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/private"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/private"
 )
 
 /*

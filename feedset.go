@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"sync"
 
-	librarian "go.cryptoscope.co/margaret/indexes"
+	librarian "github.com/ssbc/margaret/indexes"
 
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type strFeedMap map[librarian.Addr]struct{}

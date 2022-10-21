@@ -14,14 +14,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 
-	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/plugins2"
-	"go.cryptoscope.co/ssb/plugins2/names"
-	"go.cryptoscope.co/ssb/sbot"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/plugins2"
+	"github.com/ssbc/go-ssb/plugins2/names"
+	"github.com/ssbc/go-ssb/sbot"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestAboutNames(t *testing.T) {

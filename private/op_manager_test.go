@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var testMessage = json.RawMessage(`{"type":"test", "some": 1, "msg": "here"}`)

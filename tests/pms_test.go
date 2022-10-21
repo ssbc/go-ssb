@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/private/box"
-	"go.cryptoscope.co/ssb/sbot"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/private/box"
+	"github.com/ssbc/go-ssb/sbot"
 )
 
 func TestPrivMsgsFromGo(t *testing.T) {

@@ -13,14 +13,14 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 	kitlog "go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/invite"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/invite"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 // Service holds all the utility functions for invite managment

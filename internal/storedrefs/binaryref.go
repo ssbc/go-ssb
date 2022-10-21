@@ -7,8 +7,8 @@ package storedrefs
 import (
 	"fmt"
 
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type SerialzedFeed struct {

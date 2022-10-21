@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 const onlyOwnerPerms = 0700

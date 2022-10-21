@@ -7,15 +7,15 @@
 package partial
 
 import (
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog/roaring"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/plugins/gossip"
-	"go.cryptoscope.co/ssb/query"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/plugins/gossip"
+	"github.com/ssbc/go-ssb/query"
 )
 
 type plugin struct {

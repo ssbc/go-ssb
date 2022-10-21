@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/private/keys"
+	"github.com/ssbc/go-ssb/private/keys"
 )
 
 type cloakedIDSpecTest struct {

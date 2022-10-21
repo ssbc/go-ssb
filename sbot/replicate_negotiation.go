@@ -8,13 +8,13 @@ import (
 	"context"
 	"time"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/plugins/ebt"
-	"go.cryptoscope.co/ssb/plugins/gossip"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/plugins/ebt"
+	"github.com/ssbc/go-ssb/plugins/gossip"
 )
 
 type replicateNegotiator struct {

@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/margaret/multilog/roaring"
-	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
-	multifs "go.cryptoscope.co/margaret/multilog/roaring/fs"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/margaret/multilog/roaring"
+	multibadger "github.com/ssbc/margaret/multilog/roaring/badger"
+	multifs "github.com/ssbc/margaret/multilog/roaring/fs"
 )
 
 // todo: save the current state in the multilog

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
+	"github.com/ssbc/go-ssb"
 )
 
 type instrumentedConnTracker struct {

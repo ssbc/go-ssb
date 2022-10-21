@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 )
 
 type listSource struct {

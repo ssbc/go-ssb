@@ -7,9 +7,9 @@ package sbot
 import (
 	"fmt"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func (s *Sbot) Get(ref refs.MessageRef) (refs.Message, error) {

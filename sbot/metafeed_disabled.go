@@ -7,8 +7,8 @@ package sbot
 import (
 	"fmt"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // stub for disabled mode

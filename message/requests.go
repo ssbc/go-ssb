@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type WhoamiReply struct {

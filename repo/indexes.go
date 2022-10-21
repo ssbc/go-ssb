@@ -12,8 +12,8 @@ import (
 	"regexp"
 
 	"github.com/dgraph-io/badger/v3"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	librarian "github.com/ssbc/margaret/indexes"
+	libbadger "github.com/ssbc/margaret/indexes/badger"
 )
 
 const PrefixIndex = "indexes"

@@ -14,11 +14,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
 )
 
 func TestStore(t *testing.T) {

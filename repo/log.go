@@ -7,8 +7,8 @@ package repo
 import (
 	"fmt"
 
-	"go.cryptoscope.co/margaret/offset2"
-	"go.cryptoscope.co/ssb/message/multimsg"
+	"github.com/ssbc/margaret/offset2"
+	"github.com/ssbc/go-ssb/message/multimsg"
 )
 
 func OpenLog(r Interface, path ...string) (multimsg.AlterableLog, error) {

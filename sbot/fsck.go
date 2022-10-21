@@ -13,16 +13,16 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/machinebox/progress"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/multilogs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/multilogs"
 )
 
 // FSCKMode is an enum for the sbot.FSCK function

@@ -12,18 +12,18 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger/v3"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	librarian "github.com/ssbc/margaret/indexes"
+	libbadger "github.com/ssbc/margaret/indexes/badger"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 // Builder can build a trust graph and answer other questions

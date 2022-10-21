@@ -10,17 +10,17 @@ import (
 	"math"
 	"time"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/traverse"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 type logBuilder struct {

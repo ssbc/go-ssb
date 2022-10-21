@@ -19,18 +19,18 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
 
-	"go.cryptoscope.co/margaret/multilog"
-	multibadger "go.cryptoscope.co/margaret/multilog/roaring/badger"
+	"github.com/ssbc/margaret/multilog"
+	multibadger "github.com/ssbc/margaret/multilog/roaring/badger"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/ctxutils"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/multilogs"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func openUserMultilogs(t *testing.T) (multilog.MultiLog, multilog.Sink) {

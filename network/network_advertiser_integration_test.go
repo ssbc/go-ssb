@@ -18,10 +18,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/netwrap"
+	"github.com/ssbc/go-netwrap"
 
-	"go.cryptoscope.co/ssb"
-	multiserver "go.mindeco.de/ssb-multiserver"
+	"github.com/ssbc/go-ssb"
+	multiserver "github.com/ssbc/go-ssb-multiserver"
 )
 
 // To ensure this works, add this to the SUDO file, where USER is your username.

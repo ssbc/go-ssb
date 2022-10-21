@@ -13,12 +13,12 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libbadger "go.cryptoscope.co/margaret/indexes/badger"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	libbadger "github.com/ssbc/margaret/indexes/badger"
 
-	"go.cryptoscope.co/ssb/client"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/client"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type aboutStore struct {

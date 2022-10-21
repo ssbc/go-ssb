@@ -17,8 +17,8 @@ import (
 	"github.com/libp2p/go-reuseport"
 	"golang.org/x/crypto/ed25519"
 
-	"go.cryptoscope.co/ssb"
-	multiserver "go.mindeco.de/ssb-multiserver"
+	"github.com/ssbc/go-ssb"
+	multiserver "github.com/ssbc/go-ssb-multiserver"
 )
 
 type Advertiser struct {

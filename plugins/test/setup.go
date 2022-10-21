@@ -15,15 +15,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/debug"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2/debug"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
 
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func LoadTestDataPeer(t testing.TB, repopath string) repo.Interface {

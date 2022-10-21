@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/ed25519"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // Registration ties an alias to the ID of the user and the RoomID it should be registerd on

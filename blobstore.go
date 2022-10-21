@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 const (

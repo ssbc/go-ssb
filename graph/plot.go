@@ -12,7 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
 	"gonum.org/v1/gonum/graph/encoding/dot"

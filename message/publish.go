@@ -12,17 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
+	"github.com/ssbc/go-metafeed"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type publishLog struct {

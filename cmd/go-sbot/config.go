@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/internal/testutils"
 	"encoding/json"
 	"errors"
 	"fmt"

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/private/keys"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/private/keys"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // TODO: this somehow started panicing..?!
@@ -33,15 +33,15 @@ import (
 // 	/usr/local/Cellar/go/1.16.6/libexec/src/encoding/base64/base64.go:362 +0x545
 // encoding/base64.(*Encoding).Decode(0xc0000b4000, 0xc00293ae80, 0x40, 0x40, 0xc002764d1c, 0x78, 0x84, 0xc0026eb5b8, 0xc0026eb670, 0x0)
 // 	/usr/local/Cellar/go/1.16.6/libexec/src/encoding/base64/base64.go:530 +0x5d3
-// go.cryptoscope.co/ssb/message/legacy.NewSignatureFromBase64(0xc002764d1c, 0x84, 0x84, 0x6cd, 0xc0026eb670, 0x0, 0x0, 0xc002764e00)
+// github.com/ssbc/go-ssb/message/legacy.NewSignatureFromBase64(0xc002764d1c, 0x84, 0x84, 0x6cd, 0xc0026eb670, 0x0, 0x0, 0xc002764e00)
 // 	/Users/cryptix/ssb/go-ssb/message/legacy/signature.go:58 +0x1a6
-// go.cryptoscope.co/ssb/message/legacy.ExtractSignature(0xc002764700, 0x6a3, 0x6cd, 0x49cef01, 0xc00293f670, 0x0, 0x0, 0x6a3, 0x6cd, 0x0, ...)
+// github.com/ssbc/go-ssb/message/legacy.ExtractSignature(0xc002764700, 0x6a3, 0x6cd, 0x49cef01, 0xc00293f670, 0x0, 0x0, 0x6a3, 0x6cd, 0x0, ...)
 // 	/Users/cryptix/ssb/go-ssb/message/legacy/signature.go:33 +0x10a
-// go.cryptoscope.co/ssb/message/legacy.VerifyWithBuffer(0xc00023f500, 0x6c3, 0x700, 0x0, 0xc0028eb740, 0x0, 0x0, 0x0, 0x0, 0x0, ...)
+// github.com/ssbc/go-ssb/message/legacy.VerifyWithBuffer(0xc00023f500, 0x6c3, 0x700, 0x0, 0xc0028eb740, 0x0, 0x0, 0x0, 0x0, 0x0, ...)
 // 	/Users/cryptix/ssb/go-ssb/message/legacy/verify.go:115 +0x8b5
-// go.cryptoscope.co/ssb/message/legacy.Verify(0xc00023f500, 0x6c3, 0x700, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, ...)
+// github.com/ssbc/go-ssb/message/legacy.Verify(0xc00023f500, 0x6c3, 0x700, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, ...)
 // 	/Users/cryptix/ssb/go-ssb/message/legacy/verify.go:44 +0x110
-// go.cryptoscope.co/ssb/message/legacy.TestInvalidFuzzed(0xc000420300)
+// github.com/ssbc/go-ssb/message/legacy.TestInvalidFuzzed(0xc000420300)
 // 	/Users/cryptix/ssb/go-ssb/message/legacy/verify_invalid_test.go:46 +0x2a7
 // testing.tRunner(0xc000420300, 0x4b5d080)
 // 	/usr/local/Cellar/go/1.16.6/libexec/src/testing/testing.go:1193 +0xef

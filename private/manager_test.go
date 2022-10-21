@@ -10,15 +10,15 @@ import (
 
 	"github.com/keks/testops"
 	"github.com/stretchr/testify/require"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	libmkv "go.cryptoscope.co/margaret/indexes/mkv"
+	librarian "github.com/ssbc/margaret/indexes"
+	libmkv "github.com/ssbc/margaret/indexes/mkv"
 	"golang.org/x/crypto/nacl/box"
 	"modernc.org/kv"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/extra25519"
-	"go.cryptoscope.co/ssb/private/keys"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/extra25519"
+	"github.com/ssbc/go-ssb/private/keys"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestManager(t *testing.T) {

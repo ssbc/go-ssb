@@ -10,16 +10,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ssbc/margaret"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
 	"go.mindeco.de/log"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestNames(t *testing.T) {

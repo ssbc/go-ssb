@@ -15,7 +15,7 @@ import (
 	"flag"
 	"log"
 
-	"go.cryptoscope.co/ssb/cmd/gossb-migrate-mf/migrate"
+	"github.com/ssbc/go-ssb/cmd/gossb-migrate-mf/migrate"
 )
 
 func check(err error) {

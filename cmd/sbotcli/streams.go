@@ -11,11 +11,11 @@ import (
 	"io"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	cli "gopkg.in/urfave/cli.v2"
 
-	"go.cryptoscope.co/ssb/message"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/message"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var streamFlags = []cli.Flag{

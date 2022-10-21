@@ -15,7 +15,7 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type testMessage struct {

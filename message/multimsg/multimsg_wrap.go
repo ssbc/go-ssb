@@ -9,12 +9,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"go.cryptoscope.co/margaret"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-metafeed"
+	"github.com/ssbc/margaret"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/message/legacy"
+	"github.com/ssbc/go-ssb/message/legacy"
 )
 
 type AlterableLog interface {

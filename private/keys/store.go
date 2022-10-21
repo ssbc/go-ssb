@@ -9,9 +9,9 @@ import (
 	"context"
 	"fmt"
 
-	librarian "go.cryptoscope.co/margaret/indexes"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	librarian "github.com/ssbc/margaret/indexes"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 // Q: what's the relation of ID and key?

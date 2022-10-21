@@ -8,10 +8,10 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-luigi/mfr"
+	"github.com/ssbc/margaret"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // FilterFunc works on messages of a FilteredLog. If the func returns true, the log is in the filtered log.

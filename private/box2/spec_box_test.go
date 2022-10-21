@@ -8,10 +8,10 @@ import (
 	"bytes"
 	"testing"
 
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb-refs/tfk"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/private/keys"
+	"github.com/ssbc/go-ssb/private/keys"
 )
 
 type boxSpecTest struct {

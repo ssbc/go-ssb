@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 )
 
 func TestWithErrContext(t *testing.T) {

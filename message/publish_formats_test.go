@@ -14,19 +14,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/asynctesting"
-	"go.cryptoscope.co/ssb/internal/multicloser"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
-	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/asynctesting"
+	"github.com/ssbc/go-ssb/internal/multicloser"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/go-ssb/multilogs"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestFormatsSimple(t *testing.T) {

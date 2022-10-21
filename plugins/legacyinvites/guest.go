@@ -10,10 +10,10 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type acceptHandler struct {

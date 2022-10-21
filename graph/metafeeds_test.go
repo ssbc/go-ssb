@@ -7,12 +7,12 @@ package graph
 import (
 	"fmt"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
-	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message/legacy"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-metafeed"
+	"github.com/ssbc/go-metafeed/metakeys"
+	"github.com/ssbc/go-metafeed/metamngmt"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/message/legacy"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var metafeedsScenarios = []PeopleTestCase{

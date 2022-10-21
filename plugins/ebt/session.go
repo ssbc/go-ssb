@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type session struct {

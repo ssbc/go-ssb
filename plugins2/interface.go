@@ -5,8 +5,8 @@
 package plugins2
 
 import (
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb"
 )
 
 type AuthMode uint

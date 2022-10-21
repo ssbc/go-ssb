@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	librarian "go.cryptoscope.co/margaret/indexes"
+	librarian "github.com/ssbc/margaret/indexes"
 
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/private"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/private"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // ssb-db@20 problems

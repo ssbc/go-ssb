@@ -11,12 +11,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/margaret"
 
-	"go.cryptoscope.co/ssb/private/box2"
-	"go.cryptoscope.co/ssb/private/keys"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/private/box2"
+	"github.com/ssbc/go-ssb/private/keys"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type groupInit struct {

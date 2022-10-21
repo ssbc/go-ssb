@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"log"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/private"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/private"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type plugin struct {

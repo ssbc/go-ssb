@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret/mem"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret/mem"
+	"github.com/ssbc/go-ssb/repo"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestTimestampSorting(t *testing.T) {

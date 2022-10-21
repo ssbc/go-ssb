@@ -25,17 +25,17 @@ import (
 	// debug
 	_ "net/http/pprof"
 
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc/v2/debug"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/go-muxrpc/v2/debug"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/multilogs"
-	mksbot "go.cryptoscope.co/ssb/sbot"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/ctxutils"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/multilogs"
+	mksbot "github.com/ssbc/go-ssb/sbot"
 )
 
 var (

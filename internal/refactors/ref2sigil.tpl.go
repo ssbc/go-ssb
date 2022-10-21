@@ -4,7 +4,7 @@
 package p
 
 import (
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func before(r refs.MessageRef) string {

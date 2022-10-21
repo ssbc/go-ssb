@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/asynctesting"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/asynctesting"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/multilogs"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestSignMessages(t *testing.T) {

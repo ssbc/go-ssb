@@ -8,10 +8,10 @@ import (
 	"context"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2/typemux"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"go.mindeco.de/log"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/logging"
 )
 
