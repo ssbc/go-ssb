@@ -279,6 +279,13 @@ $ npm ci
 $ go test -v
 ```
 
+## CI
+
+The tests run under [this Github Actions configuration](./.github/workflows/go.yml).
+
+We cache both the global `~/.npm` and `**/node_modules` to reduce build times.
+This seems like a reasonable approach because we're testing against a single
+Node.js version and a locked package set. Go dependencies are also cached.
 
 ## Known Bugs
 
