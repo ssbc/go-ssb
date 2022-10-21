@@ -16,10 +16,10 @@ import (
 	"time"
 
 	bmap "github.com/dgraph-io/sroar"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // SortedSequence holds the sequence value of the message and the domain value it should be sorted by.

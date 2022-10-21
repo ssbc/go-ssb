@@ -11,9 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/message/multimsg"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type FlumeToMultiMsgCodec struct{}

@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // SubsetOptions defines additional options for the getSubset rpc call

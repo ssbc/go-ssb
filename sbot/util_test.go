@@ -11,7 +11,7 @@ import (
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 type botServer struct {

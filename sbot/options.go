@@ -15,16 +15,16 @@ import (
 	"strings"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/netwrap"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/ctxutils"
-	"go.cryptoscope.co/ssb/internal/netwraputil"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/ctxutils"
+	"github.com/ssbc/go-ssb/internal/netwraputil"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 // MuxrpcEndpointWrapper can be used to wrap ever call a endpoint makes

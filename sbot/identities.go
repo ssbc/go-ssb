@@ -7,9 +7,9 @@ package sbot
 import (
 	"fmt"
 
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.Message, error) {

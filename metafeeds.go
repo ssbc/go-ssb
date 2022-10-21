@@ -7,7 +7,7 @@ package ssb
 import (
 	"fmt"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // ErrSubfeedNotActive is returned when trying to publish or tombstone an invalid feed

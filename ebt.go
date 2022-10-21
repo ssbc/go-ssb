@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // NetworkFrontier represents a set of feeds and their length

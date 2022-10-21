@@ -22,7 +22,7 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func check(err error) {

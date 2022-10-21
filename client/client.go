@@ -14,18 +14,18 @@ import (
 	"net"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/crypto/ed25519"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/plugins/whoami"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/blobstore"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/plugins/whoami"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Client struct {

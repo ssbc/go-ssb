@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"go.cryptoscope.co/luigi"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-luigi"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/multilogs"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/multilogs"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 // NullFeed overwrites all the entries from ref in repo with zeros

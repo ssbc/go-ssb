@@ -16,11 +16,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 )
 

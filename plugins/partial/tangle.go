@@ -9,15 +9,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog/roaring"
+	"github.com/ssbc/go-muxrpc/v2"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type getTangleHandler struct {

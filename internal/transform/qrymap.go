@@ -9,14 +9,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-luigi/mfr"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/encodedTime"
 
-	"go.cryptoscope.co/ssb/message/multimsg"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // NewKeyValueWrapper turns a value into a key-value message.

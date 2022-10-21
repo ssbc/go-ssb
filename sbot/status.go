@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"go.cryptoscope.co/netwrap"
+	"github.com/ssbc/go-netwrap"
 
-	"go.cryptoscope.co/ssb"
-	multiserver "go.mindeco.de/ssb-multiserver"
+	"github.com/ssbc/go-ssb"
+	multiserver "github.com/ssbc/go-ssb-multiserver"
 )
 
 func (sbot *Sbot) Status() (ssb.Status, error) {

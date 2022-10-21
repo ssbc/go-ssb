@@ -8,9 +8,9 @@ package storedrefs
 import (
 	"fmt"
 
-	"go.cryptoscope.co/margaret/indexes"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/margaret/indexes"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 // Feed returns the key under which this ref is stored in the indexing system

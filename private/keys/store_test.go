@@ -15,7 +15,7 @@ import (
 	"github.com/keks/testops"
 	"github.com/stretchr/testify/require"
 
-	librarian "go.cryptoscope.co/margaret/indexes"
+	librarian "github.com/ssbc/margaret/indexes"
 )
 
 type opDo func(t *testing.T, env interface{})

@@ -15,12 +15,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
 	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 )
 

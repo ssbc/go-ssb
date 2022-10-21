@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"os"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/transform"
-	"go.cryptoscope.co/ssb/message"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/transform"
+	"github.com/ssbc/go-ssb/message"
 )
 
 // ~> sbot createLogStream --help

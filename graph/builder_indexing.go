@@ -9,17 +9,17 @@ import (
 	"fmt"
 
 	"github.com/zeebo/bencode"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb-refs/tfk"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"github.com/ssb-ngi-pointer/go-metafeed/metamngmt"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-metafeed"
+	"github.com/ssbc/go-metafeed/metamngmt"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type idxRelationState uint

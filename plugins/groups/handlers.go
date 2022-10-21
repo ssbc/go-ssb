@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/ssb/private"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/private"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type create struct {

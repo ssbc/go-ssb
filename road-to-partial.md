@@ -10,7 +10,7 @@ This document outlines the needed work to implement metafeeds and partial replic
 
 # done changes
 
-* implement the de- and encoders new [BendyButt format](github.com/ssb-ngi-pointer/bendy-butt-spec/): [go-metafeed](https://github.com/ssb-ngi-pointer/go-metafeed)
+* implement the de- and encoders new [BendyButt format](github.com/ssb-ngi-pointer/bendy-butt-spec/): [go-metafeed](https://github.com/ssbc/go-metafeed)
 * enable metafeed mode with the new option `sbot.WithMetaFeedMode(bool)`
 * `sbot.MetaFeeds` API for managing feeds
 
@@ -41,7 +41,7 @@ type MetaFeeds interface {
 
 I added `repo.NewFilteredLog()` which wrapps a log with a filter function to be able just iterate a specific set of messages (like `hasPrefix("metafeed/")`).
 
-With this I was able to add a new indexing function (`OpenMetafeedsIndex()`) to the `graph` package, where the content validation sits, using the pre-existing [VerifySubSignedContent](https://pkg.go.dev/github.com/ssb-ngi-pointer/go-metafeed#VerifySubSignedContent).
+With this I was able to add a new indexing function (`OpenMetafeedsIndex()`) to the `graph` package, where the content validation sits, using the pre-existing [VerifySubSignedContent](https://pkg.go.dev/github.com/ssbc/go-metafeed#VerifySubSignedContent).
 
 ## feed replicator
 Overhauld the `graph` package, which now consumes `type:contact` and `type:metafeed/*` messages. So it is able to tell us which (sub)feeds belong to an identity. Which in turn will be fed into the replication engine.

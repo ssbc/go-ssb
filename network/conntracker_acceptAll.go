@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 // This just keeps a count and doesn't actually track anything

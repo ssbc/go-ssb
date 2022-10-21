@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	cli "gopkg.in/urfave/cli.v2"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var publishCmd = &cli.Command{

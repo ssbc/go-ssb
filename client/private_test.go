@@ -10,14 +10,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/sbot"
+	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/sbot"
 )
 
 func TestAutomaticUnboxing(t *testing.T) {

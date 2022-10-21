@@ -11,14 +11,14 @@ import (
 	"errors"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/luigi/mfr"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-luigi/mfr"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/encodedTime"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/private/box"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/private/box"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type unboxedLog struct {

@@ -16,15 +16,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
+	"github.com/ssbc/go-luigi"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/blobstore"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestBlobToJS(t *testing.T) {

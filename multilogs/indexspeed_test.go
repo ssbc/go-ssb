@@ -16,15 +16,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
 
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type tFeedSet map[string]int

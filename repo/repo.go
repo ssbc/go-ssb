@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/blobstore"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/blobstore"
 )
 
 var _ Interface = repo{}

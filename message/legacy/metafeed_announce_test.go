@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message/legacy"
-	"go.cryptoscope.co/ssb/message/multimsg"
-	"go.cryptoscope.co/ssb/sbot"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/message/legacy"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/go-ssb/sbot"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestSignMetafeedAnnouncment(t *testing.T) {

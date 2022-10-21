@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/message"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/message"
 )
 
 type publisher struct {

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"math"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type authorizer struct {

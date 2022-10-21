@@ -11,7 +11,7 @@ import (
 	"io"
 	"os"
 
-	"go.cryptoscope.co/ssb/internal/slp"
+	"github.com/ssbc/go-ssb/internal/slp"
 )
 
 func ExampleEncodeStruct() {

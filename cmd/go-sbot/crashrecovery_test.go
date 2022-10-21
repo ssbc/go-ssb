@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 // make sure the process has an effective locking mechanism for the repo

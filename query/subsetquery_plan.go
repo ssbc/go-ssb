@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/sroar"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog/roaring"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 type SubsetPlaner struct {

@@ -15,15 +15,15 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/neterr"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/neterr"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // DefaultPort is the default listening port for ScuttleButt.

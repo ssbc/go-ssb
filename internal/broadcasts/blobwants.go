@@ -7,8 +7,8 @@ package broadcasts
 import (
 	"sync"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/multierror"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/multierror"
 )
 
 // NewBlobWantsEmitter returns the Sink, to write to the broadcaster, and the new

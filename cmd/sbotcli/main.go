@@ -22,20 +22,20 @@ import (
 	"time"
 
 	goon "github.com/shurcooL/go-goon"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/ssb/query"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-ssb/query"
+	"github.com/ssbc/go-secretstream"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/log/term"
 	"golang.org/x/crypto/ed25519"
 	cli "gopkg.in/urfave/cli.v2"
 
-	"go.cryptoscope.co/ssb"
-	ssbClient "go.cryptoscope.co/ssb/client"
-	"go.cryptoscope.co/ssb/plugins/legacyinvites"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	ssbClient "github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/plugins/legacyinvites"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // Version and Build are set by ldflags

@@ -15,15 +15,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-ssb"
 	kitlog "go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
-	"go.cryptoscope.co/ssb/plugins/test"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb/blobstore"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
+	"github.com/ssbc/go-ssb/plugins/test"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestReplicate(t *testing.T) {

@@ -13,16 +13,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/log"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/private/box"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/private/box"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 // TODO: refactor for multi manager

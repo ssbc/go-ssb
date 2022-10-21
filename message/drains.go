@@ -12,13 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-metafeed"
+	"github.com/ssbc/margaret"
 
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type SequencedVerificationSink interface {

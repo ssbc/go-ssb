@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/query"
-	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/query"
+	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/go-ssb/sbot"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestSubsetQuerySerializing(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var ErrShuttingDown = fmt.Errorf("ssb: shutting down now") // this is fine

@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"os"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"gopkg.in/urfave/cli.v2"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/aliases"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/aliases"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var aliasCmd = &cli.Command{

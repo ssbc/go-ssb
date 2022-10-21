@@ -8,11 +8,11 @@ import (
 	"context"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 
-	"go.cryptoscope.co/ssb/message/multimsg"
+	"github.com/ssbc/go-ssb/message/multimsg"
 )
 
 // NewGabbyStreamSink expects the values passing through to be of type multimsg.MultiMessage

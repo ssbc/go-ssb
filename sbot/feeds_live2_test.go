@@ -17,13 +17,13 @@ import (
 	"github.com/VividCortex/gohistogram"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/margaret"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 func TestFeedsLiveNetworkChain(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/margaret"
 )
 
 type MargaretCodec struct{}

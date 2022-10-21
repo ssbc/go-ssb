@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/margaret/offset2"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
+	"github.com/ssbc/margaret/offset2"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
 
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
-	refs "go.mindeco.de/ssb-refs"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // fakeNow can be used as a stub for time.Now()

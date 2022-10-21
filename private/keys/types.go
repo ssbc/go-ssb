@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type KeyScheme string

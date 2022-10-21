@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestParseParseLegacyToken(t *testing.T) {

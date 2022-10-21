@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestAbstractStored(t *testing.T) {

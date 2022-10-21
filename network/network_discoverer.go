@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/libp2p/go-reuseport"
-	"go.cryptoscope.co/netwrap"
-	"go.cryptoscope.co/secretstream"
-	"go.cryptoscope.co/ssb"
-	multiserver "go.mindeco.de/ssb-multiserver"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/go-secretstream"
+	"github.com/ssbc/go-ssb"
+	multiserver "github.com/ssbc/go-ssb-multiserver"
 )
 
 type Discoverer struct {

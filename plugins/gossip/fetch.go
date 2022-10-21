@@ -12,15 +12,15 @@ import (
 	"io"
 	"time"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/neterr"
-	"go.cryptoscope.co/ssb/message"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/neterr"
+	"github.com/ssbc/go-ssb/message"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func (h *LegacyGossip) FetchAll(

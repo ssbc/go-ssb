@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/statematrix"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/statematrix"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var _ ssb.Replicator = (*Sbot)(nil)

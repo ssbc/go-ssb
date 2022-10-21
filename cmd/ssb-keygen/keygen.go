@@ -11,8 +11,8 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func check(err error) {

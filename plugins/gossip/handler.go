@@ -15,19 +15,19 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/repo"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/repo"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // LegacyGossip implements incoming and outgoing createHistoryStream calls.

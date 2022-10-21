@@ -20,9 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"go.cryptoscope.co/ssb/internal/testutils"
-	"go.cryptoscope.co/ssb/sbot"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/sbot"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func buildCLI(t *testing.T) string {

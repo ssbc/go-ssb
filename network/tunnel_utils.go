@@ -11,7 +11,7 @@ import (
 	"net"
 	"time"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // tunnelHost is a net.Addr for a tunnel server

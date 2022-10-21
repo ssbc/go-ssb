@@ -7,12 +7,12 @@ package ssb
 import (
 	"fmt"
 
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	refs "go.mindeco.de/ssb-refs"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type Publisher interface {

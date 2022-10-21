@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/private/keys"
-	"go.mindeco.de/ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/private/keys"
+	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type unslotSpecTest struct {

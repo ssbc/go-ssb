@@ -15,9 +15,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/indexes"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/indexes"
+	"github.com/ssbc/go-ssb/repo"
 	"go.mindeco.de/log"
 )
 

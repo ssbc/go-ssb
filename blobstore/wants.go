@@ -14,15 +14,15 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // ErrBlobBlocked is returned if the want manager is unable to receive a blob after multiple tries

@@ -6,8 +6,8 @@ package repo
 
 import (
 	"github.com/dgraph-io/badger/v3"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
 )
 
 type Interface interface {

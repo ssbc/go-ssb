@@ -12,21 +12,21 @@ import (
 	"time"
 
 	bmap "github.com/dgraph-io/sroar"
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/margaret/multilog/roaring"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog/roaring"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/muxrpc/v2/typemux"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	"go.cryptoscope.co/ssb/internal/transform"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/private"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/transform"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/private"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 type Plugin struct {

@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ssb-ngi-pointer/go-metafeed"
+	"github.com/ssbc/go-metafeed"
 	"github.com/ugorji/go/codec"
-	gabbygrove "go.mindeco.de/ssb-gabbygrove"
+	gabbygrove "github.com/ssbc/go-gabbygrove"
 
-	"go.cryptoscope.co/ssb/internal/storedrefs"
-	"go.cryptoscope.co/ssb/message/legacy"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type MessageType byte

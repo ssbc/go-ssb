@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ssb-ngi-pointer/go-metafeed/metakeys"
+	"github.com/ssbc/go-metafeed/metakeys"
 	"go.cryptoscope.co/nocomment"
-	"go.cryptoscope.co/secretstream/secrethandshake"
+	"github.com/ssbc/go-secretstream/secrethandshake"
 	"golang.org/x/crypto/ed25519"
 
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type KeyPair interface {

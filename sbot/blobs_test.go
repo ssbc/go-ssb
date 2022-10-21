@@ -18,17 +18,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/muxrpc/v2/debug"
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-muxrpc/v2/debug"
+	"github.com/ssbc/go-ssb"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
-	"go.cryptoscope.co/ssb/blobstore"
-	"go.cryptoscope.co/ssb/internal/broadcasts"
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/blobstore"
+	"github.com/ssbc/go-ssb/internal/broadcasts"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 const blobSize = 1024 * 512

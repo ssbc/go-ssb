@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/logging"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/blobstore"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/blobstore"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type hasHandler struct {

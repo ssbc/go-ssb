@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.cryptoscope.co/ssb"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func DefaultKeyPair(r Interface, algo refs.RefAlgo) (ssb.KeyPair, error) {

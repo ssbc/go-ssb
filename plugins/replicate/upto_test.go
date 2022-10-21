@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/repo"
-	"go.cryptoscope.co/ssb/sbot"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/go-ssb/sbot"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestListing(t *testing.T) {

@@ -4,7 +4,7 @@
 
 package ssb
 
-import refs "go.mindeco.de/ssb-refs"
+import refs "github.com/ssbc/go-ssb-refs"
 
 type Authorizer interface {
 	Authorize(remote refs.FeedRef) error

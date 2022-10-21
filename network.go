@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-muxrpc/v2"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // EndpointStat gives some information about a connected peer

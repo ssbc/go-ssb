@@ -15,11 +15,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/luigi"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-luigi"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb/internal/leakcheck"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/internal/leakcheck"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 func TestPublishUnicode(t *testing.T) {

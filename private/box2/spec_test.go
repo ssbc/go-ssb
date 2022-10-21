@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 func seq(start, end int) []byte {

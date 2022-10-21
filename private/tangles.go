@@ -9,11 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go.cryptoscope.co/luigi"
-	"go.cryptoscope.co/margaret"
-	librarian "go.cryptoscope.co/margaret/indexes"
-	"go.cryptoscope.co/ssb/internal/mutil"
-	refs "go.mindeco.de/ssb-refs"
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.TanglePoint {

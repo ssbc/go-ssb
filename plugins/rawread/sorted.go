@@ -10,16 +10,16 @@ import (
 	"fmt"
 	"time"
 
-	"go.cryptoscope.co/margaret"
-	"go.cryptoscope.co/muxrpc/v2"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"go.cryptoscope.co/muxrpc/v2/typemux"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/transform"
-	"go.cryptoscope.co/ssb/message"
-	"go.cryptoscope.co/ssb/repo"
+	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/transform"
+	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 // ~> sbot createFeedStream --help

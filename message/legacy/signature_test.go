@@ -16,9 +16,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/ssb"
+	"github.com/ssbc/go-ssb"
 )
 
 func TestSignatureVerify(t *testing.T) {

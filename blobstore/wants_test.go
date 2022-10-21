@@ -18,12 +18,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "go.mindeco.de/ssb-refs"
+	refs "github.com/ssbc/go-ssb-refs"
 
-	"go.cryptoscope.co/muxrpc/v2"
-	"go.cryptoscope.co/muxrpc/v2/codec"
-	"go.cryptoscope.co/ssb"
-	"go.cryptoscope.co/ssb/internal/testutils"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2/codec"
+	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 // sadly there is no documentation here to explain what this test tries to show
