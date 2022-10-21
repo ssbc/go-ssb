@@ -29,6 +29,11 @@ import (
 )
 
 func TestNullFeed(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/170
+		return
+	}
+
 	defer leakcheck.Check(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)

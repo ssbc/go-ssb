@@ -17,11 +17,17 @@ import (
 	"go.cryptoscope.co/ssb"
 	"go.cryptoscope.co/ssb/client"
 	"go.cryptoscope.co/ssb/internal/leakcheck"
+	"go.cryptoscope.co/ssb/internal/testutils"
 	"go.cryptoscope.co/ssb/repo"
 	refs "go.mindeco.de/ssb-refs"
 )
 
 func TestNames(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/170
+		return
+	}
+
 	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
 		// TODO: expose index flushing
