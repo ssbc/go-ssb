@@ -15,20 +15,22 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-
-    - name: Set up Node for interop testing
-      uses: actions/setup-node@v1
-      with:
-        node-version: 12.x
-
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.17
-      id: go
-
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+
+    - name: Set up Node for interop testing
+      uses: actions/setup-node@v3
+      with:
+        node-version: 12.x
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v3
+      with:
+        go-version: ^1.17
+        cache: true
+      id: go
 
     - name: Get dependencies
       run: go get -v -t -d ./...
@@ -36,13 +38,27 @@ jobs:
     - name: Build smoke test
       run: go build -v ./cmd/go-sbot
 
-    - name: install node ssb-stack
+    - name: Cache node modules
+      id: cache-npm
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-node-modules
+      with:
+        path: "**/node_modules"
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+      name: Install node ssb-stack
       run: |
         pushd message/legacy
-        npm ci
+        npm ci --prefer-offline --no-audit
         popd
         pushd tests
-        npm ci
+        npm ci --prefer-offline --no-audit
         popd
 
     - name: Test

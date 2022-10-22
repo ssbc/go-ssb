@@ -165,6 +165,11 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 }
 
 func TestLegacyInviteJSAccept(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/170
+		return
+	}
+
 	r := require.New(t)
 
 	os.Remove("legacy_invite.txt")
