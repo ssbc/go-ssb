@@ -12,9 +12,9 @@ SPDX-License-Identifier: MIT
 
 [![GoDoc](https://godoc.org/github.com/ssbc/go-ssb?status.svg)](https://godoc.org/github.com/ssbc/go-ssb) [![Go Report Card](https://goreportcard.com/badge/github.com/ssbc/go-ssb)](https://goreportcard.com/report/github.com/ssbc/go-ssb) ![Github Actions](https://github.com/ssbc/go-ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/ssbc/go-ssb)](https://api.reuse.software/info/github.com/ssbc/go-ssb)
 
-A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
+> WARNING: Project is still in alpha, backwards incompatible changes will be made. We suggest vendoring for a stable experience.
 
-WARNING: Project is still in alpha, backwards incompatible changes will be made.  We suggest vendoring for a stable experience.
+A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
 If you encounter a bug, please refer to our [public issue tracker](https://github.com/ssbc/go-ssb/issues).
 
@@ -47,7 +47,7 @@ Requirements:
 
   - [Golang](https://www.golang.org) version 1.17 or higher
 
-## Running go-sbot
+## Running `go-sbot`
 
 The tool in `cmd/go-sbot` is similar to [ssb-server](https://github.com/ssbc/ssb-server) (previously called scuttlebot or sbot for short).
 
@@ -291,7 +291,6 @@ Node.js version and a locked package set. Go dependencies are also cached.
 
 See our [issue tracker](https://github.com/ssbc/go-ssb/issues) for a complete list.
 
-
 ### Forked version of x/crypto
 
 We currently depend on [this patch](https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards) on x/crypto to support the key-material conversion between ed25519 and curve25519.  See https://github.com/ssbc/go-ssb/issues/44 for all the details.
@@ -321,7 +320,6 @@ This should only happen if you are not using _Go modules_ way of building and th
 ```
 
 Either use the _Go Module_ way of building the project, which uses the pinned version specified by the `go.mod` file or check out the specific version of badger in your `$GOPATH`.
-
 
 ### Startup error / illegal JSON value
 
