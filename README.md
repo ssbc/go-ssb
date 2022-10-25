@@ -21,7 +21,8 @@ If you encounter a bug, please refer to our [public issue tracker](https://githu
 See the [FAQ](./docs/faq.md) for more.
 
 ### Developing
-Want to contribute patches to go-ssb? Read the [developer documentation](https://dev.scuttlebutt.nz/#/golang/) hosted at [dev.scuttlebutt.nz](https://dev.scuttlebutt.nz/#/golang/). If you have a large change you want to make, reach out to [@cryptix](https://github.com/cryptix) first and we'll together make sure that the resulting PR will be accepted :black_heart:
+
+Want to contribute patches to go-ssb? Read the [developer documentation](https://dev.scuttlebutt.nz/#/golang/) hosted at [dev.scuttlebutt.nz](https://dev.scuttlebutt.nz/#/golang/). If you have a large change you want to make, [reach out](#contact) first and we'll together make sure that the resulting PR will be accepted :black_heart:
 
 ## Server Features
 
@@ -357,7 +358,9 @@ badger failed to open: Mmap value log file. Path=C:\\some\\where\\.ssb-go\\index
 
 ## Contact
 
-Either post to the #go-ssb channel on the mainnet or mention us individually:
-
-* cryptix: `@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519`
-* keks: `@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519`
+* Post to the `#go-ssb` / `#go-ssb-dev` channels on ssb
+* [Raise an issue](https://github.com/ssbc/go-ssb/issues)
+* Or mention us individually on ssb
+  * cryptix: `@p13zSAiOpguI9nsawkGijsnMfWmFd5rlUNpzekEE+vI=.ed25519`
+  * keks: `@YXkE3TikkY4GFMX3lzXUllRkNTbj5E+604AkaO1xbz8=.ed25519`
+  * decentral1se `@i8OXtTYaK0PrF002pd4vpXmrlg98As7ZMaHGKoXixdM=.ed25519`
