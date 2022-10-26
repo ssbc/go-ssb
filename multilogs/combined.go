@@ -141,9 +141,8 @@ func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 
 	// (5) subtract those (4) from (3)
 	readableIt := myReadable.NewIterator()
-	for readableIt.HasNext() {
-		readableIt.Next()
-		v := readableIt.Val()
+	for i := 0; i < myReadable.GetCardinality(); i++ {
+		v := readableIt.Next()
 		if fromAuthor.Contains(v) {
 			fromAuthor.Remove(v)
 		}
@@ -151,7 +150,7 @@ func (idx *CombinedIndex) Box2Reindex(author refs.FeedRef) error {
 
 	// (6) iterate over those and reindex them
 	it := fromAuthor.NewIterator()
-	for it.HasNext() {
+	for i := 0; i < fromAuthor.GetCardinality(); i++ {
 		rxSeq := int64(it.Next())
 
 		msgv, err := idx.rxlog.Get(rxSeq)

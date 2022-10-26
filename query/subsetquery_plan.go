@@ -48,10 +48,9 @@ func (sp *SubsetPlaner) QuerySubsetMessages(rxLog margaret.Log, qry SubsetOperat
 
 	var msgs []refs.Message
 
-	for it.HasNext() {
-
-		v := it.Next()
-		msgv, err := rxLog.Get(int64(v))
+	for i := 0; i < resulting.GetCardinality(); i++ {
+		v := int64(it.Next())
+		msgv, err := rxLog.Get(v)
 		if err != nil {
 			return nil, err
 		}
