@@ -10,10 +10,10 @@ import (
 	"github.com/dgraph-io/sroar"
 	refs "github.com/ssbc/go-ssb-refs"
 
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog/roaring"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 type SubsetPlaner struct {

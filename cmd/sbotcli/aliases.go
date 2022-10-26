@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/ssbc/go-muxrpc/v2"
-	"gopkg.in/urfave/cli.v2"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/internal/aliases"

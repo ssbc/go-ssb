@@ -11,10 +11,10 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/sroar"
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
-	"github.com/ssbc/go-ssb/query"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/query"
+	"github.com/ssbc/margaret"
 )
 
 type getSubsetHandler struct {

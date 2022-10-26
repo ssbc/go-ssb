@@ -23,14 +23,14 @@ import (
 	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/margaret/multilog/roaring"
 
+	gabbygrove "github.com/ssbc/go-gabbygrove"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/statematrix"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/multimsg"
 	"github.com/ssbc/go-ssb/private"
 	"github.com/ssbc/go-ssb/repo"
-	gabbygrove "github.com/ssbc/go-gabbygrove"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // NewCombinedIndex creates one big index which updates the multilogs users, byType, private and tangles.

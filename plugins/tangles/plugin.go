@@ -14,22 +14,22 @@ import (
 
 	bmap "github.com/dgraph-io/sroar"
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog/roaring"
-	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/encodedTime"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
 	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/transform"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/private"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Plugin struct {

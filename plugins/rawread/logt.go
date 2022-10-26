@@ -13,10 +13,10 @@ import (
 
 	bmap "github.com/dgraph-io/sroar"
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog/roaring"
-	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
