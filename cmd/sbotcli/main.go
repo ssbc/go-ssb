@@ -30,7 +30,7 @@ import (
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/log/term"
 	"golang.org/x/crypto/ed25519"
-	cli "gopkg.in/urfave/cli.v2"
+	cli "github.com/urfave/cli/v2"
 
 	"github.com/ssbc/go-ssb"
 	ssbClient "github.com/ssbc/go-ssb/client"
