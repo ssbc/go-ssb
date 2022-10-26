@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/dgraph-io/sroar"
 	"github.com/ssbc/go-muxrpc/v2"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/query"
@@ -66,23 +65,21 @@ func (h getSubsetHandler) HandleSource(ctx context.Context, req *muxrpc.Request,
 	}
 
 	sink.SetEncoding(muxrpc.TypeJSON)
+
 	// iterate over the combined set of bitmaps
 	var (
-		it *sroar.Iterator
-
 		buf bytes.Buffer
 		enc = json.NewEncoder(&buf)
 	)
 
+	vals := resulting.ToArray()
 	if opts.Descending {
-		it = resulting.NewReverseIterator()
-	} else {
-		it = resulting.NewIterator()
+		for i, j := 0, len(vals)-1; i < j; i, j = i+1, j-1 {
+			vals[i], vals[j] = vals[j], vals[i]
+		}
 	}
 
-	for it.HasNext() {
-
-		v := it.Next()
+	for _, v := range vals {
 		msgv, err := h.rxLog.Get(int64(v))
 		if err != nil {
 			break

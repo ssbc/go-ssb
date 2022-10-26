@@ -195,9 +195,8 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 
 		// remove all the boxed ones from the type we are looking up
 		it := box1.NewIterator()
-		for it.HasNext() {
-			it.Next()
-			v := it.Val()
+		for i := 0; i < box1.GetCardinality(); i++ {
+			v := it.Next()
 			if threadBmap.Contains(v) {
 				threadBmap.Remove(v)
 			}
@@ -236,7 +235,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 
 	// get replies and add them to sorter
 	it := threadBmap.NewIterator()
-	for it.HasNext() {
+	for i := 0; i < threadBmap.GetCardinality(); i++ {
 		seq := int64(it.Next())
 		v, err := g.rxlog.Get(seq)
 		if err != nil {

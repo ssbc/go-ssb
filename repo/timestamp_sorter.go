@@ -197,9 +197,8 @@ func (sr SequenceResolver) SortAndFilterBitmap(seqs *bmap.Bitmap, by SortDomain,
 	it := seqs.NewIterator()
 
 	// pick and filter
-	for it.HasNext() {
+	for i := 0; i < seqs.GetCardinality(); i++ {
 		s := int64(it.Next())
-
 		if s < 0 || s > max {
 			return nil, fmt.Errorf("seq resolver: out of bounds (%d - %d)", s, max)
 		}

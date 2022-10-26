@@ -196,9 +196,8 @@ func (g Plugin) HandleSource(ctx context.Context, req *muxrpc.Request, w *muxrpc
 
 		// remove all the boxed ones from the type we are looking up
 		it := box1.NewIterator()
-		for it.HasNext() {
-			it.Next()
-			v := it.Val()
+		for i := 0; i < box1.GetCardinality(); i++ {
+			v := it.Next()
 			if typed.Contains(v) {
 				typed.Remove(v)
 			}
