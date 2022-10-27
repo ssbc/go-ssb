@@ -2,15 +2,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/komkom/toml"
-	"go.mindeco.de/log/level"
 	loglib "log"
 	"os"
 	"strconv"
+
+	"github.com/komkom/toml"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"go.mindeco.de/log/level"
 )
 
 type ConfigBool bool
@@ -32,6 +33,9 @@ type SbotConfig struct {
 	EnableEBT           ConfigBool `json:"enable-ebt"`
 	EnableFirewall      ConfigBool `json:"promisc"`
 	RepairFSBeforeStart ConfigBool `json:"repair"`
+
+	NumPeer uint `json:"numPeer,omitempty"`
+	NumRepl uint `json:"numRepl,omitempty"`
 
 	presence map[string]interface{}
 }
@@ -162,6 +166,18 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	if val := os.Getenv("SSB_CAP_HMAC_KEY"); val != "" {
 		config.Hmac = val
 		config.presence["hmac"] = true
+	}
+
+	if val := os.Getenv("SSB_NUM_PEER"); val != "" {
+		numPeer, err := strconv.Atoi(val)
+		check(err, "parse numPeer from environment variable")
+		config.NumPeer = uint(numPeer)
+	}
+
+	if val := os.Getenv("SSB_NUM_REPL"); val != "" {
+		numRepl, err := strconv.Atoi(val)
+		check(err, "parse numRepl from environment variable")
+		config.NumRepl = uint(numRepl)
 	}
 }
 

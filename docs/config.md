@@ -32,7 +32,7 @@ as blanks `""` will be ignored.
 
 **Note** the keys of the config file are the same as the names of the equivalent flags which
 can be used when invoking `go-sbot`. For example, if you wanted to set the `hops` to 2 and the
-default ssb-go location to somewhere else using only flags, that would look like: 
+default ssb-go location to somewhere else using only flags, that would look like:
 
 ```
 ./go-sbot -hops 2 -repo /var/scuttlebutt
@@ -42,35 +42,40 @@ default ssb-go location to somewhere else using only flags, that would look like
 
 ```toml
 # Where to put the log and indexes
-repo = '.ssb-go' 
+repo = '.ssb-go'
 # Where to write debug output: NOTE, this is relative to "repo" atm
-debugdir = '' 
+debugdir = ''
 
 # Secret-handshake app-key (or compatible alt-key)
-shscap = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=" 
+shscap = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
 # If set, sign with hmac hash of msg instead of plain message object using this key
-hmac = "" 
+hmac = ""
 # How many hops to fetch (1: friends, 2: friends of friends); note that a nodejs hops value needs to be decreased by one in go-sbot
 # e.g. go-sbot hops of 1 <=> ssb-js hops of 2
-hops = 1 
+hops = 1
+
+# how many feeds can be replicated with one peer connection using legacy gossip (shouldn't be higher than numRepl)
+numPeer = 5
+# how many feeds can be replicated concurrently using legacy gossip
+numRepl = 10
 
 # Address to listen on
-lis = ":8008" 
+lis = ":8008"
 # Address to listen on for ssb websocket connections
-wslis = ":8989" 
+wslis = ":8989"
 # Address to listen on for metrics and pprof HTTP server
-debuglis = "localhost:6078" 
+debuglis = "localhost:6078"
 
 # Enable sending local UDP broadcasts
-localadv = false 
+localadv = false
 # Enable connecting to incoming UDP broadcasts
-localdiscov = false 
+localdiscov = false
 # Enable syncing by using epidemic-broadcast-trees (EBT)
-enable-ebt = false 
+enable-ebt = false
 # Bypass graph auth and fetch remote's feed, useful for pubs that are restoring their data from peers. Caveats abound, however.
-promisc = false 
+promisc = false
 # Disable the UNIX socket RPC interface
-nounixsock = false 
+nounixsock = false
 ```
 
 ## Environment Variables
@@ -90,7 +95,7 @@ SSB_CAP_SHS_KEY=""
 SSB_CAP_HMAC_KEY=""
 SSB_HOPS=2
 
-SSB_MUXRPC_ADDRESS=":8008" 
+SSB_MUXRPC_ADDRESS=":8008"
 SSB_WS_ADDRESS=":8989"
 SSB_PROMETHEUS_ADDRESS="localhost:6078"  // aka debug metrics
 
@@ -99,6 +104,10 @@ SSB_EBT_ENABLED=no
 SSB_CONN_FIREWALL_ENABLED=yes // equivalent with --promisc
 SSB_CONN_DISCOVERY_UDP_ENABLED=no
 SSB_CONN_BROADCAST_UDP_ENABLED=no
+
+// limited replication
+SSB_NUM_PEER=5
+SSB_NUM_REPL=10
 
 // go-ssb specific (for peachpub compat purposes)
 GO_SSB_REPAIR_FS=no
