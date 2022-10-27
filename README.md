@@ -339,19 +339,15 @@ go-sbot &
 sbotcli connect "net:some.ho.st:8008~shs:SomeActuallyValidPubKey="
 ```
 
-### Startup error / no mmio
-
-The badger key-value database defaults to loading some of it's files using [memory-mapped i/o](https://en.wikipedia.org/wiki/Memory-mapped_I/O). If this turns out to be a problem on your target platform, you can use `go build -tags nommio` when building to fall back to standard files, which can be a bit slower but should still be fully functional.
-
-The error can look like this:
-
-```
-badger failed to open: Mmap value log file. Path=C:\\some\\where\\.ssb-go\\indexes\\contacts\\db\\000000.vlog. Error=MapViewOfFile: Not enough memory resources are available to process this command.
-```
-
 ### `go-ssb` is too memory hungry?
 
-Building with `-tags nommio` can be useful.
+Try building with the `-tags lite` build tag:
+
+```
+go build -tags lite ./cmd/go-sbot
+```
+
+It uses a lightweight BadgerDB configuration that [Planetary](https://github.com/planetary-social/ssb/blob/a76247b9e67a2792113f33840d1f15bbb1467d93/repo/badger_ios.go) have been running.
 
 Try also experimenting with `-numPeer` / `-numRepl` if you're using legacy gossip replication. This will limit the amount of replication that can happen concurrently. See [`#124`](https://github.com/ssbc/go-ssb/issues/124) for more details.
 

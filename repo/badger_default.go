@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MIT
 
-//go:build !nommio
-// +build !nommio
+//go:build !lite
+// +build !lite
 
 package repo
 
