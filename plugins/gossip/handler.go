@@ -16,18 +16,18 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // LegacyGossip implements incoming and outgoing createHistoryStream calls.
@@ -62,6 +62,9 @@ type LegacyGossip struct {
 	verifyRouter *message.VerificationRouter
 
 	rootCtx context.Context
+
+	numberOfConcurrentReplicationsPerPeer int
+	tokenPool                             *TokenPool
 }
 
 func (LegacyGossip) Handled(m muxrpc.Method) bool { return m.String() == "createHistoryStream" }
@@ -102,9 +105,8 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 		}
 	}
 
-	feeds := g.WantList.ReplicationList()
 	//level.Debug(info).Log("msg", "hops count", "count", feeds.Count())
-	err = g.FetchAll(ctx, e, feeds, g.enableLiveStreaming)
+	err = g.FetchAll(ctx, e, g.enableLiveStreaming)
 	if err != nil && !muxrpc.IsSinkClosed(err) {
 		level.Warn(info).Log("msg", "hops failed", "err", err)
 		return
@@ -120,8 +122,7 @@ func (g *LegacyGossip) StartLegacyFetching(ctx context.Context, e muxrpc.Endpoin
 				return
 
 			case <-tick.C:
-				feeds := g.WantList.ReplicationList()
-				err = g.FetchAll(ctx, e, feeds, g.enableLiveStreaming)
+				err = g.FetchAll(ctx, e, g.enableLiveStreaming)
 				if err != nil && !muxrpc.IsSinkClosed(err) {
 					level.Warn(info).Log("msg", "hops failed", "err", err)
 					return

@@ -22,19 +22,20 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/rs/cors"
 	"github.com/ssbc/go-metafeed/metamngmt"
-	"github.com/zeebo/bencode"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
 	librarian "github.com/ssbc/margaret/indexes"
 	libbadger "github.com/ssbc/margaret/indexes/badger"
 	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/margaret/multilog/roaring"
 	multibadger "github.com/ssbc/margaret/multilog/roaring/badger"
-	"github.com/ssbc/go-muxrpc/v2"
-	"github.com/ssbc/go-netwrap"
+	"github.com/zeebo/bencode"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/blobstore"
 	"github.com/ssbc/go-ssb/graph"
 	"github.com/ssbc/go-ssb/indexes"
@@ -66,7 +67,6 @@ import (
 	"github.com/ssbc/go-ssb/private"
 	"github.com/ssbc/go-ssb/private/keys"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // Sbot is the database and replication server
@@ -116,6 +116,9 @@ type Sbot struct {
 	enableDiscovery bool
 
 	websocketAddr string
+
+	numberOfConcurrentReplicationsPerPeer uint
+	numberOfConcurrentReplications        uint
 
 	repoPath string
 	KeyPair  ssb.KeyPair
@@ -669,6 +672,14 @@ func New(fopts ...Option) (*Sbot, error) {
 
 	if s.signHMACsecret != nil {
 		histOpts = append(histOpts, gossip.HMACSecret(s.signHMACsecret))
+	}
+
+	if s.numberOfConcurrentReplicationsPerPeer != 0 {
+		histOpts = append(histOpts, gossip.NumberOfConcurrentReplicationsPerPeer(s.numberOfConcurrentReplicationsPerPeer))
+	}
+
+	if s.numberOfConcurrentReplications != 0 {
+		histOpts = append(histOpts, gossip.NumberOfConcurrentReplications(s.numberOfConcurrentReplications))
 	}
 
 	s.verifyRouter, err = message.NewVerificationRouter(s.ReceiveLog, s.Users, s.signHMACsecret)

@@ -9,15 +9,15 @@ import (
 	"fmt"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // todo: make these proper functional options
@@ -27,6 +27,12 @@ type HMACSecret *[32]byte
 type Promisc bool
 
 type WithLive bool
+
+type NumberOfConcurrentReplicationsPerPeer int
+type NumberOfConcurrentReplications int
+
+const defaultNumberOfConcurrentReplicationsPerPeer = 5
+const defaultNumberOfConcurrentReplications = 10
 
 // NewFetcher returns a muxrpc handler plugin which requests and verifies feeds, based on the passed replication lister.
 func NewFetcher(
@@ -58,6 +64,9 @@ func NewFetcher(
 		verifyRouter: vr,
 
 		enableLiveStreaming: true,
+
+		numberOfConcurrentReplicationsPerPeer: defaultNumberOfConcurrentReplicationsPerPeer,
+		tokenPool:                             NewTokenPool(defaultNumberOfConcurrentReplications),
 	}
 
 	for i, o := range opts {
@@ -72,6 +81,10 @@ func NewFetcher(
 			h.promisc = bool(v)
 		case WithLive:
 			h.enableLiveStreaming = bool(v)
+		case NumberOfConcurrentReplicationsPerPeer:
+			h.numberOfConcurrentReplicationsPerPeer = int(v)
+		case NumberOfConcurrentReplications:
+			h.tokenPool = NewTokenPool(int(v))
 		default:
 			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
@@ -101,6 +114,9 @@ func NewServer(
 
 		Info:    log,
 		rootCtx: ctx,
+
+		numberOfConcurrentReplicationsPerPeer: defaultNumberOfConcurrentReplicationsPerPeer,
+		tokenPool:                             NewTokenPool(defaultNumberOfConcurrentReplications),
 	}
 
 	for i, o := range opts {
@@ -115,6 +131,10 @@ func NewServer(
 			h.hmacSec = v
 		case WithLive:
 			// no consequence - the outgoing live code is fine
+		case NumberOfConcurrentReplicationsPerPeer:
+			h.numberOfConcurrentReplicationsPerPeer = int(v)
+		case NumberOfConcurrentReplications:
+			h.tokenPool = NewTokenPool(int(v))
 		default:
 			level.Warn(log).Log("event", "unhandled gossip option", "i", i, "type", fmt.Sprintf("%T", o))
 		}
