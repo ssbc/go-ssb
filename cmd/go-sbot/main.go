@@ -25,8 +25,8 @@ import (
 	// debug
 	_ "net/http/pprof"
 
-	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/go-muxrpc/v2/debug"
+	"github.com/ssbc/margaret/multilog"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
@@ -49,6 +49,8 @@ var (
 	flagEnAdv    bool
 	flagEnDiscov bool
 	flagPromisc  bool
+	flagNumPeer  uint
+	flagNumRepl  uint
 
 	flagEnableEBT bool
 
@@ -59,7 +61,7 @@ var (
 	wsLisAddr   string
 	debugAddr   string
 	debugLogDir string
-	configPath   string
+	configPath  string
 
 	// helper
 	log        logging.Interface
@@ -91,6 +93,8 @@ func initFlags() {
 	u, err := user.Current()
 	checkFatal(err)
 
+	flag.UintVar(&flagNumPeer, "numPeer", 5, "how many feeds can be replicated with one peer connection using legacy gossip replication (shouldn't be higher than numRepl)")
+	flag.UintVar(&flagNumRepl, "numRepl", 10, "how many feeds can be replicated concurrently using legacy gossip replication")
 	flag.UintVar(&flagHops, "hops", 1, "how many hops to fetch (1: friends, 2:friends of friends)")
 	flag.BoolVar(&flagPromisc, "promisc", false, "bypass graph auth and fetch remote's feed")
 
@@ -154,7 +158,7 @@ func applyConfigValues() {
 	* 1. $SSB_CONFIG_FILE or --config passed
 	* 2. --repo is passed (=> used as configdir)
 	* 3. fallback to default location at ~/.ssb-go/config.toml
-	*/
+	 */
 	if isFlagPassed("repo") {
 		configPath = repoDir
 	}
@@ -189,6 +193,12 @@ func applyConfigValues() {
 
 	if UseConfigValue("hops") {
 		flagHops = config.Hops
+	}
+	if UseConfigValue("numPeer") {
+		flagNumPeer = config.NumPeer
+	}
+	if UseConfigValue("numRepl") {
+		flagNumRepl = config.NumRepl
 	}
 	if UseConfigValue("promisc") {
 		flagPromisc = (bool)(config.EnableFirewall)
@@ -298,6 +308,8 @@ func runSbot() error {
 		mksbot.DisableLegacyLiveReplication(true),
 		// new code, test with caution
 		mksbot.DisableEBT(!flagEnableEBT),
+		mksbot.WithNumberOfConcurrentReplicationsPerPeer(flagNumPeer),
+		mksbot.WithNumberOfConcurrentReplications(flagNumRepl),
 	}
 
 	if !flagDisableUNIXSock {

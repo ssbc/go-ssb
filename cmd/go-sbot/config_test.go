@@ -1,15 +1,16 @@
 package main
 
 import (
-	"testing"
-	"github.com/stretchr/testify/require"
 	"encoding/json"
-	"path/filepath"
-	"strings"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMarshalConfigBooleans(t *testing.T) {
@@ -32,16 +33,23 @@ enable-ebt = false
 promisc = false 
 # Disable the UNIX socket RPC interface
 nounixsock = false 
+
+# how many feeds can be replicated with one peer connection using legacy gossip replication (shouldn't be higher than numRepl)
+numPeer = 5
+# how many feeds can be replicated concurrently using legacy gossip replication
+numRepl = 10
 `
 	expectedConfig := SbotConfig{
-		Hops: 2,
-		MuxRPCAddress: ":8008",
-		WebsocketAddress: ":8989",
+		Hops:               2,
+		MuxRPCAddress:      ":8008",
+		WebsocketAddress:   ":8989",
 		EnableAdvertiseUDP: true,
 		EnableDiscoveryUDP: true,
-		EnableEBT: false,
-		EnableFirewall: false,
-		NoUnixSocket: false,
+		EnableEBT:          false,
+		EnableFirewall:     false,
+		NoUnixSocket:       false,
+		NumPeer:            5,
+		NumRepl:            10,
 	}
 	testPath := filepath.Join(".", "testrun", t.Name())
 	r.NoError(os.RemoveAll(testPath), "remove testrun folder")
@@ -59,17 +67,21 @@ nounixsock = false
 	r.EqualValues(expectedConfig.EnableEBT, configFromDisk.EnableEBT)
 	r.EqualValues(expectedConfig.EnableFirewall, configFromDisk.EnableFirewall)
 	r.EqualValues(expectedConfig.NoUnixSocket, configFromDisk.NoUnixSocket)
+	r.EqualValues(expectedConfig.NumPeer, configFromDisk.NumPeer)
+	r.EqualValues(expectedConfig.NumRepl, configFromDisk.NumRepl)
 }
 
 func TestUnmarshalConfig(t *testing.T) {
 	r := require.New(t)
 	config := SbotConfig{
-		NoUnixSocket: true,
-		EnableAdvertiseUDP: true,
-		EnableDiscoveryUDP: true,
-		EnableEBT: true,
-		EnableFirewall: true,
+		NoUnixSocket:        true,
+		EnableAdvertiseUDP:  true,
+		EnableDiscoveryUDP:  true,
+		EnableEBT:           true,
+		EnableFirewall:      true,
 		RepairFSBeforeStart: true,
+		NumPeer:             5,
+		NumRepl:             10,
 	}
 	b, err := json.MarshalIndent(config, "", "  ")
 	r.NoError(err)
@@ -79,14 +91,16 @@ func TestUnmarshalConfig(t *testing.T) {
   "localdiscov": true,
   "enable-ebt": true,
   "promisc": true,
-  "repair": true
+  "repair": true,
+  "numPeer": 5,
+  "numRepl": 10
 	`), "\n")
 	for _, expected := range expectedValues {
 		r.True(strings.Contains(configStr, expected), expected)
 	}
 }
 
-func TestConfiguredSbot (t *testing.T) {
+func TestConfiguredSbot(t *testing.T) {
 	r := require.New(t)
 	configContents := `# Supply various flags to control go-sbot options.
 hops = 2 
@@ -107,17 +121,24 @@ enable-ebt = false
 promisc = false 
 # Disable the UNIX socket RPC interface
 nounixsock = false 
+
+# how many feeds can be replicated with one peer connection using legacy gossip replication (shouldn't be higher than numRepl)
+numPeer = 5
+# how many feeds can be replicated concurrently using legacy gossip replication
+numRepl = 10
 `
 	expectedConfig := SbotConfig{
-		ShsCap: "0KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=",
-		Hops: 2,
-		MuxRPCAddress: ":8008",
-		WebsocketAddress: ":8989",
+		ShsCap:             "0KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=",
+		Hops:               2,
+		MuxRPCAddress:      ":8008",
+		WebsocketAddress:   ":8989",
 		EnableAdvertiseUDP: true,
 		EnableDiscoveryUDP: true,
-		EnableEBT: false,
-		EnableFirewall: false,
-		NoUnixSocket: false,
+		EnableEBT:          false,
+		EnableFirewall:     false,
+		NoUnixSocket:       false,
+		NumPeer:            5,
+		NumRepl:            10,
 	}
 	testPath := filepath.Join(".", "testrun", t.Name())
 	r.NoError(os.RemoveAll(testPath), "remove testrun folder")
@@ -165,4 +186,6 @@ nounixsock = false
 	r.EqualValues(expectedConfig.EnableEBT, runningConfig.EnableEBT)
 	r.EqualValues(expectedConfig.EnableFirewall, runningConfig.EnableFirewall)
 	r.EqualValues(expectedConfig.NoUnixSocket, runningConfig.NoUnixSocket)
+	r.EqualValues(expectedConfig.NumPeer, runningConfig.NumPeer)
+	r.EqualValues(expectedConfig.NumRepl, runningConfig.NumRepl)
 }
