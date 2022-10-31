@@ -541,6 +541,8 @@ github.com/ssbc/go-metafeed v1.1.3-0.20221019090205-458925e39156 h1:9fMiwqFKVsvT
 github.com/ssbc/go-metafeed v1.1.3-0.20221019090205-458925e39156/go.mod h1:+Pm/jgfvaDY1aHsu24fPlTLMlM20F3MCTLUVFJ7nBgo=
 github.com/ssbc/go-muxrpc/v2 v2.0.14-0.20221020091224-b09bdf60812f h1:eIzrej3VH9sYd13X8zVVzlsDRh0uCjYCbdsLcsZqrnc=
 github.com/ssbc/go-muxrpc/v2 v2.0.14-0.20221020091224-b09bdf60812f/go.mod h1:CFvV9kCI3SmJM38pf1NCXWrS7UVgTYXJdKs+Q9hkJIw=
+github.com/ssbc/go-muxrpc/v2 v2.0.14-0.20221031125422-c70b6b720951 h1:LqDM6j95P5gTi0JwAgpQnf2bfSFzSnD7MGUtqtaAkn4=
+github.com/ssbc/go-muxrpc/v2 v2.0.14-0.20221031125422-c70b6b720951/go.mod h1:CFvV9kCI3SmJM38pf1NCXWrS7UVgTYXJdKs+Q9hkJIw=
 github.com/ssbc/go-netwrap v0.1.5-0.20221019160355-cd323bb2e29d h1:UnYPPekKU0mHzMMOSuI6117Djq9xni60c/IzzUYxgCI=
 github.com/ssbc/go-netwrap v0.1.5-0.20221019160355-cd323bb2e29d/go.mod h1:tsE1qeqkc8kvf1psPNdJ5s8O+/jE1WlKwsEETb2VZqs=
 github.com/ssbc/go-secretstream v1.2.11-0.20221019175226-fa042d4912fe h1:naU+qPze58a1vOf4J0Glglc1GoTvRkuCv3+sWziocf4=
