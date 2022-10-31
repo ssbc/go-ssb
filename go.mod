@@ -6,24 +6,22 @@ module github.com/ssbc/go-ssb
 
 go 1.13
 
+replace github.com/ssbc/margaret => ./../margaret
+
 require (
 	filippo.io/edwards25519 v1.0.0
 	github.com/RoaringBitmap/roaring v1.2.1
 	github.com/VividCortex/gohistogram v1.0.0
 	github.com/bits-and-blooms/bitset v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dgraph-io/badger/v3 v3.2103.3
+	github.com/dgraph-io/badger/v3 v3.0.0-20221014230948-7a3a87a78191
 	github.com/dgraph-io/sroar v0.0.0-20220527172339-b92b7eaaf6e0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.12.0
-	github.com/golang/glog v1.0.0 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/flatbuffers v22.9.29+incompatible // indirect
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/keks/persist v0.0.0-20210520094901-9bdd97c1fad2
 	github.com/keks/testops v0.1.0
-	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/komkom/toml v0.1.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.2.0
@@ -33,7 +31,6 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20220927061507-ef77025ab5aa // indirect
 	github.com/rs/cors v1.8.2
 	github.com/shurcooL/go-goon v1.0.0
 	github.com/ssbc/go-gabbygrove v0.0.0-20221025092911-c274a44c3523
@@ -57,9 +54,5 @@ require (
 	golang.org/x/text v0.4.0
 	golang.org/x/tools v0.2.0 // indirect
 	gonum.org/v1/gonum v0.12.0
-	modernc.org/fileutil v1.1.1 // indirect
-	modernc.org/internal v1.0.5 // indirect
 	modernc.org/kv v1.0.4
-	modernc.org/lldb v1.0.4 // indirect
-	modernc.org/sortutil v1.1.1 // indirect
 )
