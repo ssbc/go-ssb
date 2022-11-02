@@ -210,28 +210,28 @@ go build -v -i
 sudo cp go-sbot /usr/local/bin
 ```
 
-If you want to hack on the other dependencies of the stack, we still advise using the classic Go way with a `$GOPATH`. This way you have all the code available to inspect and change. (Go modules get stored in a read-only cache. Replacing them needs a checkout on an individual basis.)
+If you want to hack on the other dependencies of the stack, you can use the `replace` statement.
 
-```bash
-# prepare workspace for all the go code
-export GOPATH=$HOME/proj/go-ssb
-mkdir -p $GOPATH
-# fetch project source and dependencies
-go get -v -u github.com/ssbc/go-ssb
-# change to the project directory
-cd $GOPATH/src/github.com/ssbc/go-ssb
-# build the binaries (will get saved to $GOPATH/bin)
-go install ./cmd/go-sbot
-go install ./cmd/sbotcli
+E.g. for hacking on a locally cloned copy of `go-muxrpc`, you'd do:
+
+```diff
+diff --git a/go.mod b/go.mod
+index c4d475f..51c2757 100644
+--- a/go.mod
++++ b/go.mod
+@@ -6,6 +6,8 @@ module github.com/ssbc/go-ssb
+
++replace github.com/ssbc/go-muxrpc/v2 => ./../go-muxrpc
++
 ```
+
+Which points the new build of `go-sbot`/`sbotcli` to use your local copy of `go-muxrpc`.
 
 ## Testing
 
 Once you have configured your environment set up to build the binaries, you can also run the tests. We have unit tests for most of the modules, most importantly `message`, `blobstore` and the replication plugins (`gossip` and `blobs`). There are also interoperability tests with the nodejs implementation (this requires recent versions of [node and npm](http://nodejs.org)).
 
 ```bash
-$ cd $GOPATH/src/github.com/ssbc/go-ssb
-
 $ go test -v ./message
 2019/01/08 12:21:55 loaded 236 messages from testdata.zip
 === RUN   TestPreserveOrder
@@ -269,12 +269,13 @@ ok  	github.com/ssbc/go-ssb/plugins/gossip	0.667s
 
 (Sometimes the gossip test blocks indefinitely. This is a bug in go-muxrpcs closing behavior. See the _Known bugs_ section for more information.)
 
-
 To run the interop tests you need to install the dependencies first and then run the tests. Diagnosing a failure might require adding the `-v` flag to get the stderr output from the nodejs process.
 
 ```bash
-$ cd $GOPATH/src/github.com/ssbc/go-ssb/tests
-$ npm ci
+$ cd message/legacy && npm ci
+$ go test -v
+$ cd -
+$ cd tests && npm ci
 $ go test -v
 ```
 
