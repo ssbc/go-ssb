@@ -193,11 +193,9 @@ cat some.json | sbotcli publish raw
 
 ## Building
 
-We are trying to adopt the new [Go Modules](https://github.com/golang/go/wiki/Modules) way of defining dependencies and therefore require at least Go version 1.11 to build with the `go.mod` file definitions. (Building with earlier versions is still possible, though. We keep an intact dependency tree in `vendor/`, populated by `go mod vendor`, which is picked up by default since Go 1.09.)
-
 There are two binary executable in this project that are useful right now, both located in the `cmd` folder. `go-sbot` is the database server, handling incoming connections and supplying replication to other peers. `sbotcli` is a command line interface to query feeds and instruct actions like _connect to X_. This also works against the JS implementation.
 
-If you _just_ want to build the server and play without contributing to the code (and are using a recent go version > 1.11), you can do this:
+If you _just_ want to build the server and play without contributing to the code (and are using a recent go version > 1.17), you can do this:
 
 ```bash
 # clone the repo
