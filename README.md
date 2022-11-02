@@ -307,20 +307,6 @@ If you see the above error, make sure your project has the following replace dir
 replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
 ```
 
-### compilation error regarding Badger
-
-This should only happen if you are not using _Go modules_ way of building and the `vendor/` folder isn't used to build the SSB code. Badger pushed an API change to master. We still depend on v1.5.4 as there is only a candidate release version of the new API yet.
-
-```
-# go.cryptoscope.co/librarian/badger
-./index.go:53:13: assignment mismatch: 2 variables but 1 values
-./index.go:53:26: not enough arguments in call to item.Value
-	have ()
-	want (func([]byte) error)
-```
-
-Either use the _Go Module_ way of building the project, which uses the pinned version specified by the `go.mod` file or check out the specific version of badger in your `$GOPATH`.
-
 ### Startup error / illegal JSON value
 
 We currently use a [very rough state file](https://github.com/keks/persist) to keep track of which messages are indexed already (multilogs and contact graph). When the server crashes while it is being rewritten, this file can get corrupted. We have a fsck-like tool in mind to rebuild the indicies from the static log but it's not done yet.
