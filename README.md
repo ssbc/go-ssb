@@ -12,7 +12,7 @@ SPDX-License-Identifier: MIT
 
 [![GoDoc](https://godoc.org/github.com/ssbc/go-ssb?status.svg)](https://godoc.org/github.com/ssbc/go-ssb) [![Go Report Card](https://goreportcard.com/badge/github.com/ssbc/go-ssb)](https://goreportcard.com/report/github.com/ssbc/go-ssb) ![Github Actions](https://github.com/ssbc/go-ssb/actions/workflows/go.yml/badge.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![REUSE status](https://api.reuse.software/badge/github.com/ssbc/go-ssb)](https://api.reuse.software/info/github.com/ssbc/go-ssb)
 
-> WARNING: Project is still in alpha, backwards incompatible changes will be made. We suggest vendoring for a stable experience.
+> **WARNING**: Project is still in alpha, backwards incompatible changes will be made.
 
 A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) using the [Go](https://golang.org) programming language.
 
@@ -101,7 +101,7 @@ The problem with this (for Go and others) is removing the `signature` field from
 
 What you are free to input is the `content` object, the rest is filled in for you. The author is determined by the keypair used by go-sbot. Multiple identities are supported through the API.
 
-### over muxrpc
+### Over muxrpc
 
 go-sbot also exposes the same async [publish](https://scuttlebot.io/apis/scuttlebot/ssb.html#publish-async) method that ssb-server has. So you can also use it with ssb-client!
 
@@ -171,7 +171,7 @@ func check(err error) {
 }
 ```
 
-### sbotcli
+### `sbotcli`
 
 Has some commands to publish frequently used messages like `post`, `vote` and `contact`:
 
