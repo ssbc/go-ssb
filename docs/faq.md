@@ -10,12 +10,14 @@ See [`#80`](https://github.com/ssbc/go-ssb/issues/80) for more.
 
 ## What platforms does `go-ssb` support?
 
+> **WARNING**: we've seen reports of data loss issues on 32 bit architectures, e.g. some of the Orage Pi Zero earlier series and older Rasperry Pis. This is being investigated on [`go-ssb/#183`](https://github.com/ssbc/go-ssb/issues/183). We would recommend avoiding 32 bit architecture systems until this issue has been wrapped up.
+
 We've seen reports of butts running `go-ssb` successfully on:
 
 - GNU/Linux
 - Mac OS X
-- Rasperry Pi 3/4
-- Orange Pi Zero
+- Rasperry Pi 3/4 (amd64/arm64)
+- Orange Pi Zero (amd64/arm64)
 - iOS
 
 Go [supports several other OS/arch](https://go.dev/doc/install/source#environment) possibilities.
