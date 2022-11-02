@@ -17,7 +17,6 @@ We've seen reports of butts running `go-ssb` successfully on:
 - Rasperry Pi 3/4
 - Orange Pi Zero
 - iOS
-- Android
 
 Go [supports several other OS/arch](https://go.dev/doc/install/source#environment) possibilities.
 
