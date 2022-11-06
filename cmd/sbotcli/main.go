@@ -24,18 +24,19 @@ import (
 	goon "github.com/shurcooL/go-goon"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-netwrap"
-	"github.com/ssbc/go-ssb/query"
 	"github.com/ssbc/go-secretstream"
+	"github.com/ssbc/go-ssb/invite"
+	"github.com/ssbc/go-ssb/query"
+	cli "github.com/urfave/cli/v2"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/log/term"
 	"golang.org/x/crypto/ed25519"
-	cli "github.com/urfave/cli/v2"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	ssbClient "github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/plugins/legacyinvites"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // Version and Build are set by ldflags
@@ -336,19 +337,19 @@ var getSubsetCmd = &cli.Command{
 			Operation string `json:"op"`
 
 			Args   []query.SubsetOperation `json:"args,omitempty"`
-			String string            `json:"string,omitempty"`
-			Feed   *refs.FeedRef     `json:"feed,omitempty"`
+			String string                  `json:"string,omitempty"`
+			Feed   *refs.FeedRef           `json:"feed,omitempty"`
 		}
 
 		err = json.Unmarshal([]byte(input), &payload)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal input (%w)", err)
 		}
-		// and set the options 
+		// and set the options
 		options := query.SubsetOptions{
-			PageLimit: ctx.Int("limit"),
+			PageLimit:  ctx.Int("limit"),
 			Descending: ctx.Bool("desc"),
-			Keys: ctx.Bool("keys"),
+			Keys:       ctx.Bool("keys"),
 		}
 
 		method := muxrpc.Method{"partialReplication", "getSubset"}
@@ -612,7 +613,6 @@ var inviteCreateCmd = &cli.Command{
 		&cli.UintFlag{Name: "uses", Value: 1, Usage: "How many times an invite can be used"},
 	},
 	Action: func(ctx *cli.Context) error {
-
 		client, err := newClient(ctx)
 		if err != nil {
 			return err
@@ -632,7 +632,38 @@ var inviteCreateCmd = &cli.Command{
 }
 
 var inviteAcceptCmd = &cli.Command{
-	Name:   "accept",
-	Usage:  "use an invite code",
-	Action: todo,
+	Name:      "accept",
+	Usage:     "use an invite code",
+	ArgsUsage: "<invite> <feed-id>",
+	Action: func(ctx *cli.Context) error {
+		token := ctx.Args().First()
+		localKey := ctx.Args().Get(1)
+
+		if token == "" {
+			return fmt.Errorf("missing invite?")
+		}
+
+		if localKey == "" {
+			return fmt.Errorf("missing local key?")
+		}
+
+		parsedToken, err := invite.ParseLegacyToken(token)
+		if err != nil {
+			return fmt.Errorf("unable to parse invite: %w", err)
+		}
+
+		ref, err := refs.ParseFeedRef(localKey)
+		if err != nil {
+			return fmt.Errorf("unable to parse feed ref: %w", err)
+		}
+
+		err = invite.Redeem(context.TODO(), parsedToken, ref)
+		if err != nil {
+			return fmt.Errorf("failed to redeem invite: %w", err)
+		}
+
+		fmt.Println("invite accepted")
+
+		return nil
+	},
 }

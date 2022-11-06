@@ -298,16 +298,26 @@ func TestInviteCreate(t *testing.T) {
 	sbotcli := mkCommandRunner(t, ctx, cliPath, filepath.Join(srvRepo, "socket"))
 
 	out, _ := sbotcli("invite", "create")
-
-	has := bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.ID().PubKey())))
+	srvPubKey := base64.StdEncoding.EncodeToString(srv.KeyPair.ID().PubKey())
+	has := bytes.Contains(out, []byte(srvPubKey))
 	a.True(has, "should have the srv's public key in it")
 
-	// TODO: accept the invite
-	out, _ = sbotcli("invite", "create", "--uses", "25")
-	has = bytes.Contains(out, []byte(base64.StdEncoding.EncodeToString(srv.KeyPair.ID().PubKey())))
+	tokenOut, _ := sbotcli("invite", "create", "--uses", "2")
+	has = bytes.Contains(tokenOut, []byte(srvPubKey))
 	a.True(has, "should have the srv's public key in it")
 
-	// TODO: accept the invite
+	token := string(tokenOut)
+
+	out, _ = sbotcli("invite", "accept", token, srv.KeyPair.ID().String())
+	has = bytes.Contains(out, []byte("accepted"))
+	a.True(has, "should have been accepted")
+
+	feedAlice, err := refs.NewFeedRefFromBytes(bytes.Repeat([]byte{1}, 32), refs.RefAlgoFeedSSB1)
+	r.NoError(err)
+
+	out, _ = sbotcli("invite", "accept", token, feedAlice.String())
+	has = bytes.Contains(out, []byte("accepted"))
+	a.True(has, "should have been accepted")
 
 	srv.Shutdown()
 	err = srv.Close()

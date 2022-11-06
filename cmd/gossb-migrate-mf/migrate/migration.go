@@ -25,6 +25,8 @@ import (
 	"github.com/ssbc/go-metafeed/metakeys"
 	"github.com/ssbc/go-metafeed/metamngmt"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/slp"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
@@ -34,8 +36,6 @@ import (
 	"github.com/ssbc/go-ssb/query"
 	"github.com/ssbc/go-ssb/repo"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
-	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 func migrationAlreadyRun(ssbdir string) bool {
@@ -189,6 +189,7 @@ func ew(header string) func(msg string, err ...error) error {
 }
 
 const sentinelName = ".metafeeds-upgraded"
+
 // Creates an empty file, signaling that the migration has run successfully. go-sbot will look for this file to
 // determine if it is to start up in metafeedsEnabled mode or not—and this tool looks for the file before continuing to
 // run the migration (should the sentinel not exist yet).
