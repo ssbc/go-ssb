@@ -49,22 +49,26 @@ func (h createHandler) HandleConnect(ctx context.Context, e muxrpc.Endpoint) {}
 
 func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 	// parse passed arguments
-	var args CreateArguments
+	var args []CreateArguments
+
 	if err := json.Unmarshal(req.RawArgs, &args); err != nil {
-		args.Uses = 1
+		req.CloseWithError(fmt.Errorf("unable to receive invite create payload: %w", err))
+		return
 	}
 
-	if args.Uses == 0 {
+	a := args[0]
+
+	if a.Uses == 0 {
 		req.CloseWithError(fmt.Errorf("cant create invite with zero uses"))
 		return
 	}
 
-	inv, err := h.service.Create(args.Uses, args.Note)
+	inv, err := h.service.Create(a.Uses, a.Note)
 	if err != nil {
 		req.CloseWithError(fmt.Errorf("failed to create invite"))
 		return
 	}
 
 	req.Return(ctx, inv.String())
-	h.service.logger.Log("invite", "created", "uses", args.Uses)
+	h.service.logger.Log("invite", "created", "uses", a.Uses)
 }

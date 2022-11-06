@@ -13,8 +13,8 @@ import (
 
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/client"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/client"
 )
 
 // Redeem takes an invite token and a long term key.
