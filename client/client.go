@@ -22,10 +22,10 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/blobstore"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/plugins/whoami"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Client struct {
@@ -349,6 +349,15 @@ func (c Client) TanglesThread(o message.TanglesArgs) (*muxrpc.ByteSource, error)
 		return nil, fmt.Errorf("ssbClient/tangles: failed to create stream: %w", err)
 	}
 	return src, nil
+}
+
+func (c Client) InviteCreate(o message.InviteCreateArgs) (string, error) {
+	var invite string
+	err := c.Async(c.rootCtx, &invite, muxrpc.TypeString, muxrpc.Method{"invite", "create"}, o)
+	if err != nil {
+		return "", fmt.Errorf("ssbClient/inviteCreate: failed to create stream: %w", err)
+	}
+	return invite, nil
 }
 
 // TODO: TanglesHeads

@@ -16,19 +16,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-netwrap"
+	"github.com/ssbc/margaret"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/go-muxrpc/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/network"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestUnixSock(t *testing.T) {
@@ -522,6 +523,49 @@ func TestTanglesThread(t *testing.T) {
 	srv.Shutdown()
 	r.NoError(srv.Close())
 	r.NoError(<-srvErrc)
+}
+
+func TestInviteCreate(t *testing.T) {
+	// defer leakcheck.Check(t)
+	r, _ := require.New(t), assert.New(t)
+
+	srvRepo := filepath.Join("testrun", t.Name(), "serv")
+	os.RemoveAll(srvRepo)
+	srvLog := testutils.NewRelativeTimeLogger(nil)
+
+	srv, err := sbot.New(
+		sbot.WithInfo(srvLog),
+		sbot.WithRepoPath(srvRepo),
+		sbot.WithListenAddr(":0"),
+		// sbot.WithPostSecureConnWrapper(func(conn net.Conn) (net.Conn, error) {
+		// 	return debug.WrapDump(filepath.Join(srvRepo, "muxdump"), conn)
+		// }),
+	)
+	r.NoError(err, "sbot srv init failed")
+
+	var srvErrc = make(chan error, 1)
+	go func() {
+		err := srv.Network.Serve(context.TODO())
+		if err != nil {
+			srvErrc <- fmt.Errorf("ali serve exited: %w", err)
+		}
+		close(srvErrc)
+	}()
+
+	kp, err := ssb.LoadKeyPair(filepath.Join(srvRepo, "secret"))
+	r.NoError(err, "failed to load servers keypair")
+	srvAddr := srv.Network.GetListenAddr()
+
+	c, err := client.NewTCP(kp, srvAddr)
+	r.NoError(err, "failed to make client connection")
+	// end test boilerplate
+
+	opts := message.InviteCreateArgs{Uses: 2}
+	token, err := c.InviteCreate(opts)
+	r.NoError(err)
+
+	r.Contains(token, netwrap.GetAddr(srv.Network.GetListenAddr(), "tcp").String())
+	r.Contains(token, srv.KeyPair.ID().String())
 }
 
 func decodeMuxMsg(msg interface{}) func(r io.Reader) error {

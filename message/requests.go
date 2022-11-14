@@ -83,6 +83,10 @@ type TanglesArgs struct {
 	Name string `json:"name"`
 }
 
+type InviteCreateArgs struct {
+	Uses int
+}
+
 // RoundedInteger also accepts unmarshaling from a float
 type RoundedInteger int64
 
