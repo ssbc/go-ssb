@@ -21,6 +21,7 @@ sbotcli
 
 # 'make $platform' output
 release
+dist
 
 # ignore vim swap files
 **/.*.sw[op]
