@@ -20,6 +20,7 @@ import (
 
 var aliasCmd = &cli.Command{
 	Name: "alias",
+	Usage: "Register and revoke user aliases (for use with SSB Room servers)",
 	Subcommands: []*cli.Command{
 		aliasRegisterCmd,
 		aliasRevokeCmd,

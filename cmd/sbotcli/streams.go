@@ -57,6 +57,7 @@ func getStreamArgs(ctx *cli.Context) message.CreateHistArgs {
 
 var historyStreamCmd = &cli.Command{
 	Name:  "hist",
+	Usage: "Fetch all messages authored by the local keypair / author",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "id"}, &cli.BoolFlag{Name: "asJSON"}),
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -91,6 +92,7 @@ var historyStreamCmd = &cli.Command{
 
 var logStreamCmd = &cli.Command{
 	Name:  "log",
+	Usage: "Fetch all messages from the local database (ordered by received time)",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -113,6 +115,7 @@ var logStreamCmd = &cli.Command{
 
 var sortedStreamCmd = &cli.Command{
 	Name:  "sorted",
+	Usage: "Fetch all messages from the local database (ordered by message timestamps)",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -135,6 +138,7 @@ var sortedStreamCmd = &cli.Command{
 
 var typeStreamCmd = &cli.Command{
 	Name:  "bytype",
+	Usage: "Fetch all messages from the local database matching the given type (e.g. post, vote, about etc.)",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -160,6 +164,7 @@ var typeStreamCmd = &cli.Command{
 
 var repliesStreamCmd = &cli.Command{
 	Name:  "replies",
+	Usage: "Fetch all replies to the given root message (%...)",
 	Flags: append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
@@ -191,6 +196,7 @@ var repliesStreamCmd = &cli.Command{
 
 var replicateUptoCmd = &cli.Command{
 	Name:  "upto",
+	Usage: "Return a list of all public keys in the log, along with the latest sequence number for each",
 	Flags: streamFlags,
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
