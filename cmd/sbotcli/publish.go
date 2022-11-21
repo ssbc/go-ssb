@@ -17,7 +17,7 @@ import (
 
 var publishCmd = &cli.Command{
 	Name:  "publish",
-	Usage: "p",
+	Usage: "Publish a message by type (raw, post, about, contact and vote)",
 	Subcommands: []*cli.Command{
 		publishRawCmd,
 		publishPostCmd,

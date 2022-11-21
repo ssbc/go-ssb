@@ -23,6 +23,7 @@ var blobsStore ssb.BlobStore
 
 var blobsCmd = &cli.Command{
 	Name: "blobs",
+	Usage: "Add a blob to the local store or call MUXRPC methods: `has`, `get` and `wants`",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "path", Value: "", Usage: "specify the path to the blobs folder of the sbot you want to query"},
 	},

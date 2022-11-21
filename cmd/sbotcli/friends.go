@@ -18,6 +18,7 @@ import (
 
 var friendsCmd = &cli.Command{
 	Name: "friends",
+	Usage: "Retrieve information about the social graph (follows, blocks, hops)",
 	Subcommands: []*cli.Command{
 		friendsIsFollowingCmd,
 		friendsBlocksCmd,

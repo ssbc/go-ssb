@@ -51,8 +51,8 @@ var (
 
 	log kitlog.Logger
 
-	keyFileFlag  = cli.StringFlag{Name: "key,k", Value: "unset"}
-	unixSockFlag = cli.StringFlag{Name: "unixsock", Usage: "if set, unix socket is used instead of tcp"}
+	keyFileFlag  = cli.StringFlag{Name: "key,k", Usage: "Secret key file", Value: "unset"}
+	unixSockFlag = cli.StringFlag{Name: "unixsock", Usage: "If set, Unix socket is used instead of TCP"}
 )
 
 func init() {
@@ -71,14 +71,14 @@ var app = cli.App{
 	Version: "alpha4",
 
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "shs key"},
-		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "tcp address of the sbot to connect to (or listen on)"},
-		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "the remote pubkey you are connecting to (by default the local key)"},
+		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "SHS key"},
+		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "TCP address of the sbot to connect to (or listen on)"},
+		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "The remote pubkey you are connecting to (by default the local key)"},
 		&keyFileFlag,
 		&unixSockFlag,
-		&cli.BoolFlag{Name: "verbose,vv", Usage: "print muxrpc packets"},
+		&cli.BoolFlag{Name: "verbose,vv", Usage: "Print MUXRPC packets"},
 
-		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "pass a duration (like 3s or 5m) after which it times out, empty string to disable"},
+		&cli.StringFlag{Name: "timeout", Value: "45s", Usage: "Pass a duration (like 3s or 5m) after which it times out (empty string to disable)"},
 	},
 
 	Before: initClient,
@@ -211,7 +211,7 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 
 var callCmd = &cli.Command{
 	Name:  "call",
-	Usage: "make an dump* async call",
+	Usage: "Make an async call",
 	UsageText: `SUPPORTS:
 * whoami
 * latestSequence
@@ -269,7 +269,7 @@ CAVEAT: only one argument...
 
 var sourceCmd = &cli.Command{
 	Name:  "source",
-	Usage: "make an simple source call",
+	Usage: "Make a source call",
 
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "id", Value: ""},
@@ -311,7 +311,7 @@ var sourceCmd = &cli.Command{
 
 var getSubsetCmd = &cli.Command{
 	Name:  "subset",
-	Usage: "invoke the partialReplication.getSubset muxrpc",
+	Usage: "Fetch subsets of messages from the log",
 
 	// define cli flags
 	Flags: []cli.Flag{
@@ -369,7 +369,7 @@ var getSubsetCmd = &cli.Command{
 
 var getCmd = &cli.Command{
 	Name:  "get",
-	Usage: "get a single message from the database by key (%...)",
+	Usage: "Get a single message from the local database by key (%...)",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
@@ -415,7 +415,7 @@ var getCmd = &cli.Command{
 
 var connectCmd = &cli.Command{
 	Name:  "connect",
-	Usage: "connect to a remote peer",
+	Usage: "Connect to a remote peer",
 	Action: func(ctx *cli.Context) error {
 		to := ctx.Args().Get(0)
 		if to == "" {
@@ -451,6 +451,7 @@ var connectCmd = &cli.Command{
 
 var blockCmd = &cli.Command{
 	Name: "block",
+	Usage: "Block a peer by specifying their public key (@...)",
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
@@ -482,7 +483,7 @@ var blockCmd = &cli.Command{
 
 var groupsCmd = &cli.Command{
 	Name:  "groups",
-	Usage: "group managment (create, invite, publishTo, etc.)",
+	Usage: "Manage groups (create, invite, publishTo, join)",
 	Subcommands: []*cli.Command{
 		groupsCreateCmd,
 		groupsInviteCmd,
@@ -600,6 +601,7 @@ var groupsJoinCmd = &cli.Command{
 
 var inviteCmds = &cli.Command{
 	Name: "invite",
+	Usage: "Create and accept invite codes",
 	Subcommands: []*cli.Command{
 		inviteCreateCmd,
 		inviteAcceptCmd,
