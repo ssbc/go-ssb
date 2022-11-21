@@ -18,7 +18,7 @@ A full-stack implementation of [secure-scuttlebutt](https://www.scuttlebutt.nz) 
 
 If you encounter a bug, please refer to our [public issue tracker](https://github.com/ssbc/go-ssb/issues).
 
-See the [FAQ](./docs/faq.md) for more.
+See the [FAQ](./docs/faq.md) for more. See [this project](https://github.com/orgs/ssbc/projects/2) for current focus.
 
 ### Developing
 
