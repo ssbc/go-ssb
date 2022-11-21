@@ -19,7 +19,7 @@ The precedence order goes as follows:
 * default flag values are the final fallback, if the corresponding config value or environment variable has not been set
 
 ## Configuration file
-The default location for the config file is `~/.go-ssb/config.toml`. The order of precedence
+The default location for the config file is `~/.ssb-go/config.toml`. The order of precedence
 when it comes to loading a config file is as follows:
 
 * 1. Environment variable `$SSB_CONFIG_FILE` or flag `--config` are used first
@@ -124,6 +124,6 @@ be they from the configuration file or from environment variables, then these ar
 particular file called `running-config.json`.
 
 This file is located in relation to the configuration directory specified by the --config flag,
-and defaults to `~/.go-ssb/running-config.json`.
+and defaults to `~/.ssb-go/running-config.json`.
 
 **Note**: overrides from --flag options will not be represented in `running-config.json`.

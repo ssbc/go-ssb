@@ -21,7 +21,7 @@ to confirm go is installed.
 On your server:
 ```
 git clone https://github.com/ssbc/go-ssb
-cd ssb
+cd go-ssb
 go install ./cmd/go-sbot
 go install ./cmd/sbotcli
 ```

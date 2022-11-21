@@ -39,7 +39,7 @@ You can install the project using Golang's [install command](https://golang.org/
 
 ```bash
 git clone https://github.com/ssbc/go-ssb
-cd ssb
+cd go-ssb
 go install ./cmd/go-sbot
 go install ./cmd/sbotcli
 ```
@@ -201,7 +201,7 @@ If you _just_ want to build the server and play without contributing to the code
 # clone the repo
 git clone https://github.com/ssbc/go-ssb
 # go into the servers folder
-cd ssb/cmd/go-sbot
+cd go-ssb/cmd/go-sbot
 # build the binary (also fetches pinned dependencies)
 go build -v -i
 # test the executable works by printing it's help listing
