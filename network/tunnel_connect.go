@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 	"io"
 
 	"github.com/ssbc/go-muxrpc/v2"
@@ -29,6 +30,7 @@ func (n *Node) TunnelPlugin() ssb.Plugin {
 		network: n,
 		logger:  tunnelLogger,
 	})
+	rootHdlr.RegisterAsync(muxrpc.Method{"tunnel", "ping"}, pingHandler{})
 
 	return plugin{
 		h: handleNewConnection{
@@ -50,6 +52,12 @@ type isRoomhandler struct{}
 
 func (h isRoomhandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
 	return false, nil
+}
+
+type pingHandler struct{}
+
+func (h pingHandler) HandleAsync(ctx context.Context, req *muxrpc.Request) (interface{}, error) {
+	return (time.Now().UTC().UnixNano() / 1000000), nil
 }
 
 type connectHandler struct {
