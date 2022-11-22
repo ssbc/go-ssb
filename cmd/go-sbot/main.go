@@ -59,6 +59,8 @@ var (
 	repoDir     string
 	listenAddr  string
 	wsLisAddr   string
+	wsTLSCert   string
+	wsTLSKey    string
 	debugAddr   string
 	debugLogDir string
 	configPath  string
@@ -106,6 +108,8 @@ func initFlags() {
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
 
 	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
+	flag.StringVar(&wsTLSCert, "wstlscert", "", "tls certificate file for ssb-ws connections")
+	flag.StringVar(&wsTLSKey, "wstlskey", "", "tls key file for ssb-ws connections")
 
 	flag.BoolVar(&flagEnableEBT, "enable-ebt", false, "enable syncing by using epidemic-broadcast-trees (new code, test with caution)")
 
@@ -221,6 +225,12 @@ func applyConfigValues() {
 	if UseConfigValue("wslis") {
 		wsLisAddr = config.WebsocketAddress
 	}
+	if UseConfigValue("wstlscert") {
+		wsTLSCert = config.WebsocketTLSCert
+	}
+	if UseConfigValue("wstlskey") {
+		wsTLSKey = config.WebsocketTLSKey
+	}
 	if UseConfigValue("enable-ebt") {
 		flagEnableEBT = (bool)(config.EnableEBT)
 	}
@@ -304,6 +314,8 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
+		mksbot.WithWebsocketTLSCert(wsTLSCert),
+		mksbot.WithWebsocketTLSKey(wsTLSKey),
 		// enabling this might consume a lot of resources
 		mksbot.DisableLegacyLiveReplication(true),
 		// new code, test with caution
