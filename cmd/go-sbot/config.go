@@ -99,12 +99,6 @@ func expandPath (p string) string {
 		p = filepath.Join(home, p)
 	}
 
-	// if err = os.MkdirAll(p, 0700); err != nil {
-	// 	if !os.IsExist(err) {
-	// 		loglib.Fatalln("failed to create directory for path: " + p)
-	// 	}
-	// }
-
 	return p
 }
 

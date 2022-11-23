@@ -192,19 +192,27 @@ numRepl = 10
 }
 
 func TestConfigRepoPathExpands(t *testing.T) {
+	var repodir string
 	r := require.New(t)
-	repodir := ".test-ssb"
-	configContents := fmt.Sprintf(`repo = "%s"`, repodir)
 
-	testPath := filepath.Join(".", "testrun", t.Name())
-	r.NoError(os.RemoveAll(testPath), "remove testrun folder")
-	r.NoError(os.MkdirAll(testPath, 0700), "make new testrun folder")
-	configPath := filepath.Join(testPath, "config.toml")
-	err := os.WriteFile(configPath, []byte(configContents), 0700)
-	r.NoError(err, "write config file")
-	parsedConfig := readConfig(configPath)
+	testRepoConfig := func (repodir, expected, failMsg string) {
+		configContents := fmt.Sprintf(`repo = "%s"`, repodir)
+
+		testPath := filepath.Join(".", "testrun", t.Name())
+		r.NoError(os.RemoveAll(testPath), "remove testrun folder")
+		r.NoError(os.MkdirAll(testPath, 0700), "make new testrun folder")
+		configPath := filepath.Join(testPath, "config.toml")
+		err := os.WriteFile(configPath, []byte(configContents), 0700)
+		r.NoError(err, "write config file")
+		parsedConfig := readConfig(configPath)
+
+		r.EqualValues(expected, parsedConfig.Repo, failMsg)
+	}
 
 	home, err := os.UserHomeDir()
 	r.NoError(err, "get user home dir")
-	r.EqualValues(filepath.Join(home, repodir), parsedConfig.Repo, "repo dir should expand to be relative to home dir")
+
+	testRepoConfig(".test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
+	testRepoConfig("~/.test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
+	testRepoConfig("/tmp/.test-ssb~", "/tmp/.test-ssb~", "repo dir should be absolute and not expand to anything else")
 }
