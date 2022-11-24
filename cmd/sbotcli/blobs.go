@@ -15,14 +15,14 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/blobstore"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/blobstore"
 )
 
 var blobsStore ssb.BlobStore
 
 var blobsCmd = &cli.Command{
-	Name: "blobs",
+	Name:  "blobs",
 	Usage: "Add a blob to the local store or call MUXRPC methods: `has`, `get` and `wants`",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "path", Value: "", Usage: "specify the path to the blobs folder of the sbot you want to query"},
@@ -57,8 +57,9 @@ var blobsCmd = &cli.Command{
 }
 
 var blobsHasCmd = &cli.Command{
-	Name:  "has",
-	Usage: "check if a blob is in the repo",
+	Name:      "has",
+	Usage:     "Check if a blob is in the repo",
+	ArgsUsage: "<&...sha256>",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
@@ -94,8 +95,9 @@ var blobsHasCmd = &cli.Command{
 }
 
 var blobsWantCmd = &cli.Command{
-	Name:  "want",
-	Usage: "try to get a blob from other peers",
+	Name:      "want",
+	Usage:     "Try to get a blob from other peers",
+	ArgsUsage: "<&...sha256>",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
@@ -115,8 +117,9 @@ var blobsWantCmd = &cli.Command{
 }
 
 var blobsAddCmd = &cli.Command{
-	Name:  "add",
-	Usage: "add a file to the store (pass - to open stdin)",
+	Name:      "add",
+	Usage:     "Add a file to the store (pass - to open stdin)",
+	ArgsUsage: "[<filename> | - <stdin>]",
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
 			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs add -' for now")
@@ -144,8 +147,9 @@ var blobsAddCmd = &cli.Command{
 }
 
 var blobsGetCmd = &cli.Command{
-	Name:  "get",
-	Usage: "prints the first argument to stdout",
+	Name:      "get",
+	Usage:     "Prints the first argument to stdout",
+	ArgsUsage: "<&...sha256>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "out", Value: "-", Usage: "where to? (stdout by default)"},
 	},

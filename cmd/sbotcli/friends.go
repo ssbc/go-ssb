@@ -12,12 +12,12 @@ import (
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/urfave/cli/v2"
 
-	"github.com/ssbc/go-ssb/plugins/friends"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/plugins/friends"
 )
 
 var friendsCmd = &cli.Command{
-	Name: "friends",
+	Name:  "friends",
 	Usage: "Retrieve information about the social graph (follows, blocks, hops)",
 	Subcommands: []*cli.Command{
 		friendsIsFollowingCmd,
@@ -27,7 +27,9 @@ var friendsCmd = &cli.Command{
 }
 
 var friendsIsFollowingCmd = &cli.Command{
-	Name: "isFollowing",
+	Name:      "isFollowing",
+	Usage:     "Check if a feed is friends with another (follows back)",
+	ArgsUsage: "<@...ed25519> <@...ed25519>",
 	Action: func(ctx *cli.Context) error {
 		src := ctx.Args().Get(0)
 		if src == "" {
@@ -70,7 +72,9 @@ var friendsIsFollowingCmd = &cli.Command{
 	},
 }
 var friendsHopsCmd = &cli.Command{
-	Name: "hops",
+	Name:      "hops",
+	Usage:     "Find out how many hops a feed ref is",
+	ArgsUsage: "<@...ed25519>",
 	Flags: []cli.Flag{
 		&cli.UintFlag{Name: "dist", Value: 2, Usage: "non-remote repo allows for access withut involving a bot"},
 	},
@@ -105,7 +109,9 @@ var friendsHopsCmd = &cli.Command{
 }
 
 var friendsBlocksCmd = &cli.Command{
-	Name: "blocks",
+	Name:      "blocks",
+	Usage:     "List blocks for a feed ref",
+	ArgsUsage: "<@...ed25519>",
 	Action: func(ctx *cli.Context) error {
 		var args = []interface{}{}
 

@@ -14,12 +14,12 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/internal/aliases"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/aliases"
 )
 
 var aliasCmd = &cli.Command{
-	Name: "alias",
+	Name:  "alias",
 	Usage: "Register and revoke user aliases (for use with SSB Room servers)",
 	Subcommands: []*cli.Command{
 		aliasRegisterCmd,
@@ -29,8 +29,8 @@ var aliasCmd = &cli.Command{
 
 var aliasRegisterCmd = &cli.Command{
 	Name:      "register",
-	Usage:     "alias register <name>",
-	UsageText: "register a new alias on the remote room (should be used with --remoteKey and --addr)",
+	Usage:     "Register a new alias on the remote room (should be used with --remoteKey and --addr)",
+	ArgsUsage: "<alias>",
 	Action: func(ctx *cli.Context) error {
 
 		alias := ctx.Args().Get(0)
@@ -74,8 +74,8 @@ var aliasRegisterCmd = &cli.Command{
 
 var aliasRevokeCmd = &cli.Command{
 	Name:      "revoke",
-	Usage:     "alias revoke <name>",
-	UsageText: "removes the alias from the remote (should be used with --remoteKey and --addr)",
+	Usage:     "Removes the alias from the remote (should be used with --remoteKey and --addr)",
+	ArgsUsage: "<%...sha256>",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {

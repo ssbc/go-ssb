@@ -14,8 +14,8 @@ import (
 	"github.com/ssbc/go-muxrpc/v2"
 	cli "github.com/urfave/cli/v2"
 
-	"github.com/ssbc/go-ssb/message"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/message"
 )
 
 var streamFlags = []cli.Flag{
@@ -165,7 +165,12 @@ var typeStreamCmd = &cli.Command{
 var repliesStreamCmd = &cli.Command{
 	Name:  "replies",
 	Usage: "Fetch all replies to the given root message (%...)",
-	Flags: append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
+	Description: `
+The --limt behaviour is root + n replies, i.e. the limit doesn't count the root
+message. This is different behaviour from the typical createHistoryStream call.
+`,
+	ArgsUsage: "<%...sha256>",
+	Flags:     append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
