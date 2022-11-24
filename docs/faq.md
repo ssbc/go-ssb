@@ -56,3 +56,30 @@ on [this repository](https://github.com/ssbc/ssb-ebt).
 `go-ssb` supports both *legacy replication* (pre-EBT replication) and EBT
 replication (although it is slightly buggy as of November 2022, see above for
 more).
+
+## `go-ssb` is not initiating outgoing connections?
+
+The implementation currently does not include an outgoing connection scheduler. This means
+that `go-ssb` will only replicate when it gets connected to or you initiate a conneciton
+via `sbotcli`.
+
+You can work around this by setting up a script like the one below. The
+multiserver addresses included for documentation purposes, please replace them
+with your own.
+
+```bash
+cat > /tmp/connect.hosts << EOF
+net:cryptbox.mindeco.de:8008~shs:xxZeuBUKIXYZZ7y+CIHUuy0NOFXz2MhUBkHemr86S3M=
+net:cryptoscope.co:8008~shs:G20wv2IZkB7BA/LKe7WMuByop3++J0u9+Y32OoEVOj8=
+net:one.butt.nz:8008~shs:VJM7w1W19ZsKmG2KnfaoKIM66BRoreEkzaVm/J//wl8=
+net:pub.t4l3.net:8008~shs:WndnBREUvtFVF14XYEq01icpt91753bA+nVycEJIAX4=
+EOF
+
+cat /tmp/connect.hosts | while read maddr
+do
+  sbotcli connect $maddr
+  sleep 600
+done
+```
+
+See [`ssbc/go-ssb#66`](https://github.com/ssbc/go-ssb/issues/66) for more.
