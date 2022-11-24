@@ -22,6 +22,10 @@ hops = 2
 lis = ":8008" 
 # Address to listen on for ssb websocket connections
 wslis = ":8989" 
+# TLS certificate file for ssb websocket connections
+wstlscert = "/etc/letsencrypt/live/example.com/fullchain.pem"
+# TLS key file for ssb websocket connections
+wstlskey = "/etc/letsencrypt/live/example.com/privkey.pem"
 
 # Enable sending local UDP broadcasts
 localadv = "on"
@@ -43,6 +47,8 @@ numRepl = 10
 		Hops:               2,
 		MuxRPCAddress:      ":8008",
 		WebsocketAddress:   ":8989",
+		WebsocketTLSCert:   "/etc/letsencrypt/live/example.com/fullchain.pem",
+		WebsocketTLSKey:    "/etc/letsencrypt/live/example.com/privkey.pem",
 		EnableAdvertiseUDP: true,
 		EnableDiscoveryUDP: true,
 		EnableEBT:          false,
@@ -62,6 +68,8 @@ numRepl = 10
 	r.EqualValues(expectedConfig.Hops, configFromDisk.Hops)
 	r.EqualValues(expectedConfig.MuxRPCAddress, configFromDisk.MuxRPCAddress)
 	r.EqualValues(expectedConfig.WebsocketAddress, configFromDisk.WebsocketAddress)
+	r.EqualValues(expectedConfig.WebsocketTLSCert, configFromDisk.WebsocketTLSCert)
+	r.EqualValues(expectedConfig.WebsocketTLSKey, configFromDisk.WebsocketTLSKey)
 	r.EqualValues(expectedConfig.EnableAdvertiseUDP, configFromDisk.EnableAdvertiseUDP)
 	r.EqualValues(expectedConfig.EnableDiscoveryUDP, configFromDisk.EnableDiscoveryUDP)
 	r.EqualValues(expectedConfig.EnableEBT, configFromDisk.EnableEBT)
