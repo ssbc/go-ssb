@@ -39,3 +39,20 @@ We've seen several reports (e.g. `%lmBRs0eSQP9JLTuVgVEipf4a9Ke5uSHZq0xt8UIzQSs=.
 ## What is the relationship between `go-ssb` & `scuttlego`?
 
 It's still a bit fuzzy but pulling some notes from the previous discussions: `scuttlego` is a new effort to build "an embeddable sdk for building lots of ssb apps, not just for planetary" which is being developed by Go hackers @ [Planetary](https://planetary.social). It is still in the early stages of development. For more background information, see `%AfPRFA+lc8bu95GQ04q43prH65jDukkSn8cBIg6Lbyc=.sha256` and [`github.com/planetary-social/scuttlego`](https://github.com/planetary-social/scuttlego).
+
+## What are *legacy messages*?
+
+See [`ssbc/go-ssb#87`](https://github.com/ssbc/go-ssb/issues/87) for more.
+
+## What is *legacy replication*?
+
+This means the way clients send / request messages from other peers. The SSB
+software ecosystem is moving and work is being done to make exchanging messages
+more performant.
+
+The new approach is called "EBT replication" and you can learn more about that
+on [this repository](https://github.com/ssbc/ssb-ebt).
+
+`go-ssb` supports both *legacy replication* (pre-EBT replication) and EBT
+replication (although it is slightly buggy as of November 2022, see above for
+more).
