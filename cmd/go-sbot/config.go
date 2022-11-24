@@ -8,6 +8,8 @@ import (
 	loglib "log"
 	"os"
 	"strconv"
+	"strings"
+	"path/filepath"
 
 	"github.com/komkom/toml"
 	"github.com/ssbc/go-ssb/internal/testutils"
@@ -71,7 +73,33 @@ func readConfig(configPath string) SbotConfig {
 	err = decoder.Decode(&conf.presence)
 	check(err, "decode into presence map")
 
+	// help repo path's default to align with common user expectations 
+	conf.Repo = expandPath(conf.Repo)
+
 	return conf
+}
+
+// ensure the following type of path expansions take place:
+// * ~/.ssb				=> /home/<user>/.ssb
+// * .ssb					=> /home/<user>/.ssb
+// * /stuff/.ssb	=> /stuff/.ssb
+func expandPath (p string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		loglib.Fatalln("could not get user home directory (os.UserHomeDir()")
+	}
+
+	if strings.HasPrefix(p, "~") {
+		p = strings.Replace(p, "~", home, 1)
+	}
+
+	// not relative path, not absolute path => 
+	// place relative to home dir "~/<here>"
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(home, p)
+	}
+
+	return p
 }
 
 func ReadEnvironmentVariables(config *SbotConfig) {
