@@ -83,3 +83,13 @@ done
 ```
 
 See [`ssbc/go-ssb#66`](https://github.com/ssbc/go-ssb/issues/66) for more.
+
+## Can I use `sbotc` to query `go-ssb`?
+
+Some commands are supported but not all. The safest bet is to use `sbotcli`
+packaged in this repository also. Client compatibility is desired but we may
+not have the capacity to handle all cases. Please raise [an
+issue](https://github.com/ssbc/go-ssb/issues) if you see a missing MUXRPC
+endpoint.
+
+Please see [`ssbc/go-ssb/#62`](https://github.com/ssbc/go-ssb/issues/62) for more.
