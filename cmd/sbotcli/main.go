@@ -66,8 +66,13 @@ func init() {
 }
 
 var app = cli.App{
-	Name:    os.Args[0],
-	Usage:   "client for controlling Cryptoscope's SSB server",
+	Name:  os.Args[0],
+	Usage: "Client for interacting with a go-ssb server",
+	Description: `
+Please note, global options must be placed before sub-commands, e.g.
+
+    sbotcli --key <@...ed25519> <cmd> <args>
+`,
 	Version: "alpha4",
 
 	Flags: []cli.Flag{
@@ -212,7 +217,8 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 var callCmd = &cli.Command{
 	Name:  "call",
 	Usage: "Make an async call",
-	UsageText: `SUPPORTS:
+	UsageText: `Supports common muxrpc async calls such as:
+
 * whoami
 * latestSequence
 * getLatest
@@ -220,11 +226,13 @@ var callCmd = &cli.Command{
 * blobs.(has|want|rm|wants)
 * gossip.(peers|add|connect)
 
+Example:
 
-see https://scuttlebot.io/apis/scuttlebot/ssb.html#createlogstream-source  for more
+    sbotcli call conn.connect "net:localhost:8008~shs:drNvbM6G1BSwklFzhKvRqeQZyHnxfkOKEbwPd3Fr3co="
 
-CAVEAT: only one argument...
+See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.
 `,
+	ArgsUsage: "<cmd> <arg>",
 	Action: func(ctx *cli.Context) error {
 		cmd := ctx.Args().Get(0)
 		if cmd == "" {
@@ -268,15 +276,14 @@ CAVEAT: only one argument...
 }
 
 var sourceCmd = &cli.Command{
-	Name:  "source",
-	Usage: "Make a source call",
-
+	Name:      "source",
+	Usage:     "Make a source call",
+	ArgsUsage: "<cmd>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "id", Value: ""},
 		// TODO: Slice of branches
 		&cli.IntFlag{Name: "limit", Value: -1},
 	},
-
 	Action: func(ctx *cli.Context) error {
 		cmd := ctx.Args().Get(0)
 		if cmd == "" {
@@ -311,8 +318,13 @@ var sourceCmd = &cli.Command{
 
 var getSubsetCmd = &cli.Command{
 	Name:  "subset",
-	Usage: "Fetch subsets of messages from the log",
+	Usage: "Fetch subsets of messages from the log.",
+	Description: `
+An example:
 
+    sbotcli subset '{"op":"type", "string": "post"}'
+`,
+	ArgsUsage: "<json>",
 	// define cli flags
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "limit", Value: -1},
@@ -368,8 +380,9 @@ var getSubsetCmd = &cli.Command{
 }
 
 var getCmd = &cli.Command{
-	Name:  "get",
-	Usage: "Get a single message from the local database by key (%...)",
+	Name:      "get",
+	Usage:     "Get a single message from the local database by key (%...)",
+	ArgsUsage: "<%...sha256>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
@@ -415,7 +428,17 @@ var getCmd = &cli.Command{
 
 var connectCmd = &cli.Command{
 	Name:  "connect",
-	Usage: "Connect to a remote peer",
+	Usage: "Connect to a remote peer.",
+	Description: `
+A multiserver address looks like this:
+
+    net:$HOST:$PORT~shs:$BASE64_OF_SSB_ID
+
+More info here:
+
+    https://github.com/ssbc/multiserver#address-format
+`,
+	ArgsUsage: "<addr>",
 	Action: func(ctx *cli.Context) error {
 		to := ctx.Args().Get(0)
 		if to == "" {
@@ -450,8 +473,9 @@ var connectCmd = &cli.Command{
 }
 
 var blockCmd = &cli.Command{
-	Name: "block",
-	Usage: "Block a peer by specifying their public key (@...)",
+	Name:      "block",
+	Usage:     "Block a peer by specifying their public key (@...)",
+	ArgsUsage: "<@...ed25519>",
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
@@ -497,8 +521,9 @@ var groupsCmd = &cli.Command{
 }
 
 var groupsCreateCmd = &cli.Command{
-	Name:  "create",
-	Usage: "create a new empty group",
+	Name:      "create",
+	Usage:     "Create a new empty group",
+	ArgsUsage: "<name>",
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
@@ -524,8 +549,9 @@ var groupsCreateCmd = &cli.Command{
 }
 
 var groupsInviteCmd = &cli.Command{
-	Name:  "invite",
-	Usage: "add people to a group",
+	Name:      "invite",
+	Usage:     "Add people to a group",
+	ArgsUsage: "<%...sha256> <@...ed25519>",
 	Action: func(ctx *cli.Context) error {
 		args := ctx.Args()
 		groupID, err := refs.ParseMessageRef(args.First())
@@ -559,8 +585,9 @@ var groupsInviteCmd = &cli.Command{
 }
 
 var groupsPublishToCmd = &cli.Command{
-	Name:  "publishTo",
-	Usage: "publish a handcrafted JSON blob to a group",
+	Name:      "publishTo",
+	Usage:     "Publish a handcrafted JSON blob to a group",
+	ArgsUsage: "<%...sha256> <json>",
 	Action: func(ctx *cli.Context) error {
 		var content interface{}
 		err := json.NewDecoder(os.Stdin).Decode(&content)
@@ -595,12 +622,12 @@ var groupsPublishToCmd = &cli.Command{
 
 var groupsJoinCmd = &cli.Command{
 	Name:   "join",
-	Usage:  "manually join a group by adding the group key",
+	Usage:  "Manually join a group by adding the group key",
 	Action: todo,
 }
 
 var inviteCmds = &cli.Command{
-	Name: "invite",
+	Name:  "invite",
 	Usage: "Create and accept invite codes",
 	Subcommands: []*cli.Command{
 		inviteCreateCmd,
@@ -610,7 +637,7 @@ var inviteCmds = &cli.Command{
 
 var inviteCreateCmd = &cli.Command{
 	Name:  "create",
-	Usage: "register and return an invite for somebody else to accept",
+	Usage: "Register and return an invite for somebody else to accept",
 	Flags: []cli.Flag{
 		&cli.UintFlag{Name: "uses", Value: 1, Usage: "How many times an invite can be used"},
 	},
@@ -635,8 +662,8 @@ var inviteCreateCmd = &cli.Command{
 
 var inviteAcceptCmd = &cli.Command{
 	Name:      "accept",
-	Usage:     "use an invite code",
-	ArgsUsage: "<invite> <feed-id>",
+	Usage:     "Use an invite code",
+	ArgsUsage: "<invite> <@...ed25519>",
 	Action: func(ctx *cli.Context) error {
 		token := ctx.Args().First()
 		localKey := ctx.Args().Get(1)

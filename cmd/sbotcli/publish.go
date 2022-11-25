@@ -29,9 +29,9 @@ var publishCmd = &cli.Command{
 
 var publishRawCmd = &cli.Command{
 	Name:      "raw",
-	UsageText: "reads JSON from stdin and publishes that as content",
+	UsageText: "Reads JSON from stdin and publishes that as content",
+	ArgsUsage: "<json>",
 	// TODO: add private
-
 	Action: func(ctx *cli.Context) error {
 		var content interface{}
 		err := json.NewDecoder(os.Stdin).Decode(&content)
@@ -61,7 +61,8 @@ var publishRawCmd = &cli.Command{
 
 var publishPostCmd = &cli.Command{
 	Name:      "post",
-	ArgsUsage: "text of the post",
+	Usage:     "Publish a post message",
+	ArgsUsage: "<text>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "root", Value: "", Usage: "the ID of the first message of the thread"},
 		// TODO: Slice of branches
@@ -114,7 +115,8 @@ var publishPostCmd = &cli.Command{
 
 var publishVoteCmd = &cli.Command{
 	Name:      "vote",
-	ArgsUsage: "%linkedMessage.sha256",
+	Usage:     "Publish a vote message",
+	ArgsUsage: "<%...sha256>",
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "value", Usage: "usually 1 (like) or 0 (unlike)"},
 		&cli.StringFlag{Name: "expression", Usage: "Dig/Yup/Heart"},
@@ -181,7 +183,8 @@ var publishVoteCmd = &cli.Command{
 
 var publishAboutCmd = &cli.Command{
 	Name:      "about",
-	ArgsUsage: "@aboutkeypair.ed25519",
+	Usage:     "Publish an about message",
+	ArgsUsage: "<@...ed25519>",
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "name", Usage: "what name to give"},
 		&cli.StringFlag{Name: "image", Usage: "image blob ref"},
@@ -228,7 +231,8 @@ var publishAboutCmd = &cli.Command{
 
 var publishContactCmd = &cli.Command{
 	Name:      "contact",
-	ArgsUsage: "@contactKeypair.ed25519",
+	Usage:     "Publish a contact message",
+	ArgsUsage: "<@...ed25519>",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "following"},
 		&cli.BoolFlag{Name: "blocking"},
