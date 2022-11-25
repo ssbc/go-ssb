@@ -100,7 +100,8 @@ var manifestBlob manifestHandler = `
 
 	"tunnel": {
 		"connect": "duplex",
-		"isRoom": "async"
+		"isRoom": "async",
+		"ping": "async"
 	},
 
 	"publish": "async",
