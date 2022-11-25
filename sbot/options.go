@@ -378,6 +378,23 @@ func WithWebsocketAddress(addr string) Option {
 	}
 }
 
+// WithWebsocketTLSCert changes the HTTP listener TLS certificate filename.
+func WithWebsocketTLSCert(fn string) Option {
+	return func(s *Sbot) error {
+		s.websocketTLSCert = fn
+		return nil
+	}
+}
+
+// WithWebsocketTLSKey changes the HTTP listener TLS key filename.
+func WithWebsocketTLSKey(fn string) Option {
+	return func(s *Sbot) error {
+		s.websocketTLSKey = fn
+		return nil
+	}
+}
+
+// WithHops sets the number of friends (or bi-directionla follows) to walk between two peers
 // WithHops sets the number of friends (or bi-directionla follows) to walk between two peers
 // controls fetch depth (whos feeds to fetch.
 // 0: only my own follows

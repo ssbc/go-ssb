@@ -27,6 +27,8 @@ type SbotConfig struct {
 
 	MuxRPCAddress    string `json:"lis,omitempty"`
 	WebsocketAddress string `json:"wslis,omitempty"`
+	WebsocketTLSCert string `json:"wstlscert,omitempty"`
+	WebsocketTLSKey  string `json:"wstlskey,omitempty"`
 	MetricsAddress   string `json:"debuglis,omitempty"`
 
 	NoUnixSocket        ConfigBool `json:"nounixsock"`
@@ -159,6 +161,16 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	if val := os.Getenv("SSB_WS_ADDRESS"); val != "" {
 		config.WebsocketAddress = val
 		config.presence["wslis"] = true
+	}
+
+	if val := os.Getenv("SSB_WS_TLS_CERT"); val != "" {
+		config.WebsocketTLSCert = val
+		config.presence["wstlscert"] = true
+	}
+
+	if val := os.Getenv("SSB_WS_TLS_KEY"); val != "" {
+		config.WebsocketTLSKey = val
+		config.presence["wstlskey"] = true
 	}
 
 	if val := os.Getenv("SSB_EBT_ENABLED"); val != "" {

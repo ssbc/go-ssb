@@ -57,6 +57,8 @@ type Options struct {
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
 	WebsocketAddr string
+	WebsocketTLSCert string
+	WebsocketTLSKey string
 }
 
 type Node struct {
@@ -178,7 +180,12 @@ func New(opts Options) (*Node, error) {
 
 		// TODO: move to serve
 		go func() {
-			err := http.Serve(n.httpLis, httpHandler)
+			var err error
+			if opts.WebsocketTLSCert != "" && opts.WebsocketTLSKey != "" {
+				err = http.ServeTLS(n.httpLis, httpHandler, opts.WebsocketTLSCert, opts.WebsocketTLSKey)
+			} else {
+				err = http.Serve(n.httpLis, httpHandler)
+			}
 			level.Error(n.log).Log("conn", "ssb-ws :8998 listen exited", "err", err)
 		}()
 	}
