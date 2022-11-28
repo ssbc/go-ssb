@@ -45,7 +45,7 @@ require (
 	github.com/zeebo/bencode v1.0.0
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
 	go.mindeco.de v1.12.0
-	golang.org/x/crypto v0.2.0
+	golang.org/x/crypto v0.3.0
 	golang.org/x/exp v0.0.0-20221025133541-111beb427cde // indirect
 	golang.org/x/sync v0.1.0
 	golang.org/x/text v0.4.0
