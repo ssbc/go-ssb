@@ -28,8 +28,8 @@ var publishCmd = &cli.Command{
 }
 
 var publishRawCmd = &cli.Command{
-	Name:      "raw",
-	UsageText: "reads JSON from stdin and publishes that as content",
+	Name:  "raw",
+	Usage: "Read JSON from stdin and publish it as the content of a new message",
 	// TODO: add private
 
 	Action: func(ctx *cli.Context) error {
@@ -61,13 +61,13 @@ var publishRawCmd = &cli.Command{
 
 var publishPostCmd = &cli.Command{
 	Name:      "post",
-	ArgsUsage: "text of the post",
+	Usage:     "Publish a post (public or private)",
+	ArgsUsage: "<text>",
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "root", Value: "", Usage: "the ID of the first message of the thread"},
+		&cli.StringFlag{Name: "root", Value: "", Usage: "The key of the first message of the thread"},
 		// TODO: Slice of branches
-		&cli.StringFlag{Name: "branch", Value: "", Usage: "the post ID that is beeing replied to"},
-
-		&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
+		&cli.StringFlag{Name: "branch", Value: "", Usage: "The key of the post being replied to"},
+		&cli.StringSliceFlag{Name: "recps", Usage: "The public key(s) to whom this post will be published as a private message"},
 	},
 	Action: func(ctx *cli.Context) error {
 		arg := map[string]interface{}{
@@ -114,16 +114,16 @@ var publishPostCmd = &cli.Command{
 
 var publishVoteCmd = &cli.Command{
 	Name:      "vote",
-	ArgsUsage: "%linkedMessage.sha256",
+	Usage:     "Publish a vote or expression",
+	ArgsUsage: "<%...sha256>",
 	Flags: []cli.Flag{
-		&cli.IntFlag{Name: "value", Usage: "usually 1 (like) or 0 (unlike)"},
-		&cli.StringFlag{Name: "expression", Usage: "Dig/Yup/Heart"},
+		&cli.IntFlag{Name: "value", Usage: "Usually 1 (like) or 0 (unlike)"},
+		&cli.StringFlag{Name: "expression", Usage: "An expression made in response to a message (ie. 'dig', 'yup' or 'heart')"},
 
-		&cli.StringFlag{Name: "root", Value: "", Usage: "the ID of the first message of the thread"},
+		&cli.StringFlag{Name: "root", Value: "", Usage: "The key of the first message of the thread"},
 		// TODO: Slice of branches
-		&cli.StringFlag{Name: "branch", Value: "", Usage: "the post ID that is beeing replied to"},
-
-		&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
+		&cli.StringFlag{Name: "branch", Value: "", Usage: "The key of the post being replied to"},
+		&cli.StringSliceFlag{Name: "recps", Usage: "The public key(s) to whom this post will be published as a private message"},
 	},
 	Action: func(ctx *cli.Context) error {
 		mref, err := refs.ParseMessageRef(ctx.Args().First())
@@ -181,10 +181,11 @@ var publishVoteCmd = &cli.Command{
 
 var publishAboutCmd = &cli.Command{
 	Name:      "about",
-	ArgsUsage: "@aboutkeypair.ed25519",
+	Usage:     "Publish an about message to define the name or image assigned to a public key",
+	ArgsUsage: "<@...ed25519>",
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "name", Usage: "what name to give"},
-		&cli.StringFlag{Name: "image", Usage: "image blob ref"},
+		&cli.StringFlag{Name: "name", Usage: "The name to be assigned to the public key"},
+		&cli.StringFlag{Name: "image", Usage: "The image blob ref to be assigned to the public key"},
 	},
 	Action: func(ctx *cli.Context) error {
 		aboutRef, err := refs.ParseFeedRef(ctx.Args().First())
@@ -228,12 +229,13 @@ var publishAboutCmd = &cli.Command{
 
 var publishContactCmd = &cli.Command{
 	Name:      "contact",
-	ArgsUsage: "@contactKeypair.ed25519",
+	Usage:     "Publish a contact message (follow, unfollow, block, unblock)",
+	ArgsUsage: "<@...ed25519>",
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "following"},
-		&cli.BoolFlag{Name: "blocking"},
+		&cli.BoolFlag{Name: "following", Usage: "A boolean expression denoting the follow state"},
+		&cli.BoolFlag{Name: "blocking", Usage: "A boolean expression denoting the block state"},
 
-		&cli.StringSliceFlag{Name: "recps", Usage: "as a PM to these feeds"},
+		&cli.StringSliceFlag{Name: "recps", Usage: "The public key(s) to whom this post will be published as a private message"},
 	},
 	Action: func(ctx *cli.Context) error {
 		cref, err := refs.ParseFeedRef(ctx.Args().First())
