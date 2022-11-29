@@ -317,14 +317,15 @@ var sourceCmd = &cli.Command{
 }
 
 var getSubsetCmd = &cli.Command{
-	Name:  "subset",
-	Usage: "Fetch subsets of messages from the log.",
-	Description: `
-An example:
+	Name:        "subset",
+	Usage:       "Fetch subsets of messages from the log.",
+	ArgsUsage:   "<json>",
+	Description: `Fetch subsets of messages from the log.
 
-    sbotcli subset '{"op":"type", "string": "post"}'
+Example:
+
+    sbotcli subset --limit 3 '{"op":"type", "string": "post"}'
 `,
-	ArgsUsage: "<json>",
 	// define cli flags
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "limit", Value: -1},
@@ -383,6 +384,11 @@ var getCmd = &cli.Command{
 	Name:      "get",
 	Usage:     "Get a single message from the local database by key (%...)",
 	ArgsUsage: "<%...sha256>",
+	Description: `Get a single message from the local database by key (%...).
+
+Example:
+
+    sbotcli get %Dj/W4PYYZUWj/iWlyVuOg8pgv4b+BwP0qOF5OpD+o4I=.sha256`,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
@@ -427,19 +433,18 @@ var getCmd = &cli.Command{
 }
 
 var connectCmd = &cli.Command{
-	Name:  "connect",
-	Usage: "Connect to a remote peer.",
-	Description: `
-A multiserver address looks like this:
+	Name:        "connect",
+	Usage:       "Connect to a remote peer.",
+	ArgsUsage:   "<multiserver address>",
+	Description: `Connect to a remote peer.
 
-    net:$HOST:$PORT~shs:$BASE64_OF_SSB_ID
+Example:
 
-More info here:
+    sbotcli connect "net:192.168.8.136:8008~shs:HEqy940T6uB+T+d9Jaa58aNfRzLx9eRWqkZljBmnkmk="
 
-    https://github.com/ssbc/multiserver#address-format
-`,
-	ArgsUsage: "<addr>",
-	Action: func(ctx *cli.Context) error {
+See https://github.com/ssbc/multiserver#address-format for more information about multiserver addresses.`,
+
+  Action: func(ctx *cli.Context) error {
 		to := ctx.Args().Get(0)
 		if to == "" {
 			return errors.New("connect: multiserv addr argument can't be empty")
@@ -473,9 +478,15 @@ More info here:
 }
 
 var blockCmd = &cli.Command{
-	Name:      "block",
-	Usage:     "Block a peer by specifying their public key (@...)",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "block",
+	Usage:       "Block a peer by specifying their public key (@...)",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `Block a peer by specifying their public key (@...).
+
+Example:
+
+    sbotcli block @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519`,
+
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
@@ -636,8 +647,13 @@ var inviteCmds = &cli.Command{
 }
 
 var inviteCreateCmd = &cli.Command{
-	Name:  "create",
-	Usage: "Register and return an invite for somebody else to accept",
+	Name:        "create",
+	Usage:       "Register and return an invite for somebody else to accept",
+	Description: `Register and return an invite for somebody else to accept.
+
+Example:
+
+    sbotcli invite create --uses 7`,
 	Flags: []cli.Flag{
 		&cli.UintFlag{Name: "uses", Value: 1, Usage: "How many times an invite can be used"},
 	},
