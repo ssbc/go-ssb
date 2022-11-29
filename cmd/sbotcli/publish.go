@@ -35,7 +35,7 @@ var publishRawCmd = &cli.Command{
 
 Example:
 
-echo '{"type":"post","text":"example"}' | sbotcli publish raw`,
+    echo '{"type":"post","text":"example"}' | sbotcli publish raw`,
   
 	// TODO: add private
 	Action: func(ctx *cli.Context) error {
@@ -73,7 +73,7 @@ var publishPostCmd = &cli.Command{
 
 Example:
 
-sbotcli publish post "Gophers create a network of tunnel systems that provide protection."`,
+    sbotcli publish post "Gophers create a network of tunnel systems that provide protection."`,
 
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "root", Value: "", Usage: "The key of the first message of the thread"},
@@ -132,7 +132,7 @@ var publishVoteCmd = &cli.Command{
 
 Example:
 
-sbotcli publish vote --value 1 %GOmisAlROznJEWJ/eht6tJWXgjFdQhbUKx4+/SeyoqI=.sha256`,
+    sbotcli publish vote --value 1 %GOmisAlROznJEWJ/eht6tJWXgjFdQhbUKx4+/SeyoqI=.sha256`,
 
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "value", Usage: "Usually 1 (like) or 0 (unlike)"},
@@ -205,7 +205,7 @@ var publishAboutCmd = &cli.Command{
 
 Example:
 
-sbotcli publish about --name "glf" @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519`,
+    sbotcli publish about --name "glf" @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519`,
 
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "name", Usage: "The name to be assigned to the public key"},
@@ -259,15 +259,15 @@ var publishContactCmd = &cli.Command{
 
 Example (follow):
 
-sbotcli publish contact --following @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+    sbotcli publish contact --following @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
 
 Example (unfollow):
 
-sbotcli publish contact @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+    sbotcli publish contact @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
 
 Example (block):
 
-sbotcli publish contact --blocking @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+    sbotcli publish contact --blocking @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
 
 Note that both fields (following and blocking) are set with each published contact message.
 This means that both the following and blocking fields can be updated with a single published message.`,
