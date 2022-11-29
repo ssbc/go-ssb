@@ -59,6 +59,8 @@ var (
 	repoDir     string
 	listenAddr  string
 	wsLisAddr   string
+	wsTLSCert   string
+	wsTLSKey    string
 	debugAddr   string
 	debugLogDir string
 	configPath  string
@@ -79,6 +81,8 @@ var (
 
 	flagPrintVersion bool
 )
+
+const DEFAULT_GO_SSB_DIR string = ".ssb-go"
 
 func checkAndLog(err error) {
 	if err != nil {
@@ -106,17 +110,19 @@ func initFlags() {
 	flag.BoolVar(&flagEnDiscov, "localdiscov", false, "enable connecting to incomming UDP brodcasts")
 
 	flag.StringVar(&wsLisAddr, "wslis", ":8989", "address to listen on for ssb-ws connections")
+	flag.StringVar(&wsTLSCert, "wstlscert", "", "tls certificate file for ssb-ws connections")
+	flag.StringVar(&wsTLSKey, "wstlskey", "", "tls key file for ssb-ws connections")
 
 	flag.BoolVar(&flagEnableEBT, "enable-ebt", false, "enable syncing by using epidemic-broadcast-trees (new code, test with caution)")
 
 	flag.BoolVar(&flagDisableUNIXSock, "nounixsock", false, "disable the UNIX socket RPC interface")
 
-	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, ".ssb-go"), "where to put the log and indexes")
+	flag.StringVar(&repoDir, "repo", filepath.Join(u.HomeDir, DEFAULT_GO_SSB_DIR), "where to put the log and indexes")
 
 	flag.StringVar(&debugAddr, "debuglis", "localhost:6078", "listen addr for metrics and pprof HTTP server")
 	flag.StringVar(&debugLogDir, "debugdir", "", "where to write debug output to")
 
-	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, ".ssb-go"), "path to config file; if filename is omitted from config path config.toml is used")
+	flag.StringVar(&configPath, "config", filepath.Join(u.HomeDir, DEFAULT_GO_SSB_DIR), "path to config file; if filename is omitted from config path config.toml is used")
 
 	flag.BoolVar(&flagReindex, "reindex", false, "if set, sbot exits after having its indicies updated")
 
@@ -221,6 +227,12 @@ func applyConfigValues() {
 	if UseConfigValue("wslis") {
 		wsLisAddr = config.WebsocketAddress
 	}
+	if UseConfigValue("wstlscert") {
+		wsTLSCert = config.WebsocketTLSCert
+	}
+	if UseConfigValue("wstlskey") {
+		wsTLSKey = config.WebsocketTLSKey
+	}
 	if UseConfigValue("enable-ebt") {
 		flagEnableEBT = (bool)(config.EnableEBT)
 	}
@@ -304,6 +316,8 @@ func runSbot() error {
 		mksbot.EnableAdvertismentBroadcasts(flagEnAdv),
 		mksbot.EnableAdvertismentDialing(flagEnDiscov),
 		mksbot.WithWebsocketAddress(wsLisAddr),
+		mksbot.WithWebsocketTLSCert(wsTLSCert),
+		mksbot.WithWebsocketTLSKey(wsTLSKey),
 		// enabling this might consume a lot of resources
 		mksbot.DisableLegacyLiveReplication(true),
 		// new code, test with caution

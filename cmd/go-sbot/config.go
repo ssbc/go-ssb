@@ -8,6 +8,8 @@ import (
 	loglib "log"
 	"os"
 	"strconv"
+	"strings"
+	"path/filepath"
 
 	"github.com/komkom/toml"
 	"github.com/ssbc/go-ssb/internal/testutils"
@@ -25,6 +27,8 @@ type SbotConfig struct {
 
 	MuxRPCAddress    string `json:"lis,omitempty"`
 	WebsocketAddress string `json:"wslis,omitempty"`
+	WebsocketTLSCert string `json:"wstlscert,omitempty"`
+	WebsocketTLSKey  string `json:"wstlskey,omitempty"`
 	MetricsAddress   string `json:"debuglis,omitempty"`
 
 	NoUnixSocket        ConfigBool `json:"nounixsock"`
@@ -71,7 +75,33 @@ func readConfig(configPath string) SbotConfig {
 	err = decoder.Decode(&conf.presence)
 	check(err, "decode into presence map")
 
+	// help repo path's default to align with common user expectations 
+	conf.Repo = expandPath(conf.Repo)
+
 	return conf
+}
+
+// ensure the following type of path expansions take place:
+// * ~/.ssb				=> /home/<user>/.ssb
+// * .ssb					=> /home/<user>/.ssb
+// * /stuff/.ssb	=> /stuff/.ssb
+func expandPath (p string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		loglib.Fatalln("could not get user home directory (os.UserHomeDir()")
+	}
+
+	if strings.HasPrefix(p, "~") {
+		p = strings.Replace(p, "~", home, 1)
+	}
+
+	// not relative path, not absolute path => 
+	// place relative to home dir "~/<here>"
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(home, p)
+	}
+
+	return p
 }
 
 func ReadEnvironmentVariables(config *SbotConfig) {
@@ -131,6 +161,16 @@ func ReadEnvironmentVariables(config *SbotConfig) {
 	if val := os.Getenv("SSB_WS_ADDRESS"); val != "" {
 		config.WebsocketAddress = val
 		config.presence["wslis"] = true
+	}
+
+	if val := os.Getenv("SSB_WS_TLS_CERT"); val != "" {
+		config.WebsocketTLSCert = val
+		config.presence["wstlscert"] = true
+	}
+
+	if val := os.Getenv("SSB_WS_TLS_KEY"); val != "" {
+		config.WebsocketTLSKey = val
+		config.presence["wstlskey"] = true
 	}
 
 	if val := os.Getenv("SSB_EBT_ENABLED"); val != "" {

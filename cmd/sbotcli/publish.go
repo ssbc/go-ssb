@@ -28,10 +28,11 @@ var publishCmd = &cli.Command{
 }
 
 var publishRawCmd = &cli.Command{
-	Name:  "raw",
-	Usage: "Read JSON from stdin and publish it as the content of a new message",
+	Name:      "raw",
+	Usage:     "Read JSON from stdin and publish it as the content of a new message",
+  ArgsUsage: "<json>",
+  
 	// TODO: add private
-
 	Action: func(ctx *cli.Context) error {
 		var content interface{}
 		err := json.NewDecoder(os.Stdin).Decode(&content)

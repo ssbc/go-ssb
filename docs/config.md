@@ -63,6 +63,10 @@ numRepl = 10
 lis = ":8008"
 # Address to listen on for ssb websocket connections
 wslis = ":8989"
+# TLS certificate file for ssb websocket connections
+#wstlscert = "/etc/letsencrypt/live/example.com/fullchain.pem"
+# TLS key file for ssb websocket connections
+#wstlskey = "/etc/letsencrypt/live/example.com/privkey.pem"
 # Address to listen on for metrics and pprof HTTP server
 debuglis = "localhost:6078"
 

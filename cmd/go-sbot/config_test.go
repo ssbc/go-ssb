@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"fmt"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,10 @@ hops = 2
 lis = ":8008" 
 # Address to listen on for ssb websocket connections
 wslis = ":8989" 
+# TLS certificate file for ssb websocket connections
+wstlscert = "/etc/letsencrypt/live/example.com/fullchain.pem"
+# TLS key file for ssb websocket connections
+wstlskey = "/etc/letsencrypt/live/example.com/privkey.pem"
 
 # Enable sending local UDP broadcasts
 localadv = "on"
@@ -43,6 +48,8 @@ numRepl = 10
 		Hops:               2,
 		MuxRPCAddress:      ":8008",
 		WebsocketAddress:   ":8989",
+		WebsocketTLSCert:   "/etc/letsencrypt/live/example.com/fullchain.pem",
+		WebsocketTLSKey:    "/etc/letsencrypt/live/example.com/privkey.pem",
 		EnableAdvertiseUDP: true,
 		EnableDiscoveryUDP: true,
 		EnableEBT:          false,
@@ -62,6 +69,8 @@ numRepl = 10
 	r.EqualValues(expectedConfig.Hops, configFromDisk.Hops)
 	r.EqualValues(expectedConfig.MuxRPCAddress, configFromDisk.MuxRPCAddress)
 	r.EqualValues(expectedConfig.WebsocketAddress, configFromDisk.WebsocketAddress)
+	r.EqualValues(expectedConfig.WebsocketTLSCert, configFromDisk.WebsocketTLSCert)
+	r.EqualValues(expectedConfig.WebsocketTLSKey, configFromDisk.WebsocketTLSKey)
 	r.EqualValues(expectedConfig.EnableAdvertiseUDP, configFromDisk.EnableAdvertiseUDP)
 	r.EqualValues(expectedConfig.EnableDiscoveryUDP, configFromDisk.EnableDiscoveryUDP)
 	r.EqualValues(expectedConfig.EnableEBT, configFromDisk.EnableEBT)
@@ -188,4 +197,30 @@ numRepl = 10
 	r.EqualValues(expectedConfig.NoUnixSocket, runningConfig.NoUnixSocket)
 	r.EqualValues(expectedConfig.NumPeer, runningConfig.NumPeer)
 	r.EqualValues(expectedConfig.NumRepl, runningConfig.NumRepl)
+}
+
+func TestConfigRepoPathExpands(t *testing.T) {
+	var repodir string
+	r := require.New(t)
+
+	testRepoConfig := func (repodir, expected, failMsg string) {
+		configContents := fmt.Sprintf(`repo = "%s"`, repodir)
+
+		testPath := filepath.Join(".", "testrun", t.Name())
+		r.NoError(os.RemoveAll(testPath), "remove testrun folder")
+		r.NoError(os.MkdirAll(testPath, 0700), "make new testrun folder")
+		configPath := filepath.Join(testPath, "config.toml")
+		err := os.WriteFile(configPath, []byte(configContents), 0700)
+		r.NoError(err, "write config file")
+		parsedConfig := readConfig(configPath)
+
+		r.EqualValues(expected, parsedConfig.Repo, failMsg)
+	}
+
+	home, err := os.UserHomeDir()
+	r.NoError(err, "get user home dir")
+
+	testRepoConfig(".test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
+	testRepoConfig("~/.test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
+	testRepoConfig("/tmp/.test-ssb~", "/tmp/.test-ssb~", "repo dir should be absolute and not expand to anything else")
 }

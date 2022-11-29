@@ -267,7 +267,7 @@ ok  	github.com/ssbc/go-ssb/plugins/gossip	0.667s
 ?   	github.com/ssbc/go-ssb/plugins/whoami	[no test files]
 ```
 
-(Sometimes the gossip test blocks indefinitely. This is a bug in go-muxrpcs closing behavior. See the _Known bugs_ section for more information.)
+(Sometimes the gossip test blocks indefinitely. This is a bug in go-muxrpcs closing behavior. See [the FAQ](./docs/faq.md) for more information.)
 
 To run the interop tests you need to install the dependencies first and then run the tests. Diagnosing a failure might require adding the `-v` flag to get the stderr output from the nodejs process.
 
@@ -286,55 +286,6 @@ The tests run under [this Github Actions configuration](./.github/workflows/go.y
 We cache both the global `~/.npm` and `**/node_modules` to reduce build times.
 This seems like a reasonable approach because we're testing against a single
 Node.js version and a locked package set. Go dependencies are also cached.
-
-## Known Bugs
-
-See our [issue tracker](https://github.com/ssbc/go-ssb/issues) for a complete list.
-
-### Forked version of x/crypto
-
-We currently depend on [this patch](https://github.com/cryptix/golang_x_crypto/tree/non-internal-edwards) on x/crypto to support the key-material conversion between ed25519 and curve25519.  See https://github.com/ssbc/go-ssb/issues/44 for all the details.
-
-```
-package golang.org/x/crypto/ed25519/edwards25519: cannot find package "golang.org/x/crypto/ed25519/edwards25519" in any of:
-	/home/cryptix/go.root/src/golang.org/x/crypto/ed25519/edwards25519 (from $GOROOT)
-	/home/cryptix/go-fooooo/src/golang.org/x/crypto/ed25519/edwards25519 (from $GOPATH)
-```
-
-If you see the above error, make sure your project has the following replace directive in place:
-
-```
-replace golang.org/x/crypto => github.com/cryptix/golang_x_crypto v0.0.0-20200303113948-2939d6771b24
-```
-
-### Startup error / illegal JSON value
-
-We currently use a [very rough state file](https://github.com/keks/persist) to keep track of which messages are indexed already (multilogs and contact graph). When the server crashes while it is being rewritten, this file can get corrupted. We have a fsck-like tool in mind to rebuild the indicies from the static log but it's not done yet.
-
-```
-time=2019-01-09T21:19:08.73736113Z caller=new.go:47 module=sbot event="component terminated" component=userFeeds error="error querying rootLog for mlog: error decoding value: json: cannot unmarshal number 272954244983260621261341 into Go value of type margaret.Seq"
-```
-
-Our current workaround is to do a full resync from the network:
-
-```bash
-kill $(pgrep go-sbot)
-rm -rf $HOME/.ssb-go/{log,sublogs,indicies}
-go-sbot &
-sbotcli connect "net:some.ho.st:8008~shs:SomeActuallyValidPubKey="
-```
-
-### `go-ssb` is too memory hungry?
-
-Try building with the `-tags lite` build tag:
-
-```
-go build -tags lite ./cmd/go-sbot
-```
-
-It uses a lightweight BadgerDB configuration that [Planetary](https://github.com/planetary-social/ssb/blob/a76247b9e67a2792113f33840d1f15bbb1467d93/repo/badger_ios.go) have been running.
-
-Try also experimenting with `-numPeer` / `-numRepl` if you're using legacy gossip replication. This will limit the amount of replication that can happen concurrently. See [`#124`](https://github.com/ssbc/go-ssb/issues/124) for more details.
 
 ## Stack links
 
