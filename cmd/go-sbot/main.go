@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -72,6 +73,9 @@ var (
 	// juicy bits
 	appKey  string
 	hmacSec string
+
+	//go:embed default-config.toml
+	defaultConfig string
 )
 
 // Version and Build are set by ldflags
@@ -180,7 +184,16 @@ func applyConfigValues() {
 		configPath = val
 	}
 	configDir := filepath.Dir(configPath)
-	config := readConfigAndEnv(configPath)
+	config, exists := readConfigAndEnv(configPath)
+
+	if !exists {
+		err := os.WriteFile(configPath, []byte(defaultConfig), 0644)
+		if err != nil {
+			panic(err)
+		}
+		level.Info(log).Log("event", "write config.toml", "msg", "default config has been written", "path", configPath)
+	}
+
 	bconfig, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		panic(err)

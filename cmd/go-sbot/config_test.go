@@ -1,16 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-	"fmt"
 	"time"
 
+	"github.com/ssbc/go-ssb/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,7 +66,7 @@ numRepl = 10
 	configPath := filepath.Join(testPath, "config.toml")
 	err := os.WriteFile(configPath, []byte(configContents), 0700)
 	r.NoError(err, "write config file")
-	configFromDisk := readConfig(configPath)
+	configFromDisk, _ := readConfig(configPath)
 	// config values should be read correctly
 	r.EqualValues(expectedConfig.Hops, configFromDisk.Hops)
 	r.EqualValues(expectedConfig.MuxRPCAddress, configFromDisk.MuxRPCAddress)
@@ -203,7 +205,7 @@ func TestConfigRepoPathExpands(t *testing.T) {
 	var repodir string
 	r := require.New(t)
 
-	testRepoConfig := func (repodir, expected, failMsg string) {
+	testRepoConfig := func(repodir, expected, failMsg string) {
 		configContents := fmt.Sprintf(`repo = "%s"`, repodir)
 
 		testPath := filepath.Join(".", "testrun", t.Name())
@@ -212,7 +214,7 @@ func TestConfigRepoPathExpands(t *testing.T) {
 		configPath := filepath.Join(testPath, "config.toml")
 		err := os.WriteFile(configPath, []byte(configContents), 0700)
 		r.NoError(err, "write config file")
-		parsedConfig := readConfig(configPath)
+		parsedConfig, _ := readConfig(configPath)
 
 		r.EqualValues(expected, parsedConfig.Repo, failMsg)
 	}
@@ -223,4 +225,83 @@ func TestConfigRepoPathExpands(t *testing.T) {
 	testRepoConfig(".test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
 	testRepoConfig("~/.test-ssb", filepath.Join(home, repodir, ".test-ssb"), "repo dir should expand to be relative to home dir")
 	testRepoConfig("/tmp/.test-ssb~", "/tmp/.test-ssb~", "repo dir should be absolute and not expand to anything else")
+}
+
+func TestGenerateDefaultConfig(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+
+	testPath := filepath.Join(".", "testrun", t.Name())
+	r.NoError(os.RemoveAll(testPath))
+	r.NoError(os.MkdirAll(testPath, 0700))
+
+	binName := "go-sbot-testing"
+	binPath := filepath.Join(testPath, binName)
+
+	goBuild := exec.Command("go", "build", "-o", binPath)
+	out, err := goBuild.CombinedOutput()
+	r.NoError(err, "build command failed: %s", string(out))
+
+	bot1 := exec.Command(binPath, "-lis", ":0", "-repo", testPath)
+	bot1.Stderr = os.Stderr
+	bot1.Stdout = os.Stderr
+
+	r.NoError(bot1.Start())
+
+	try := 0
+	checkSbot := func() {
+		var i int
+		for i = 10; i > 0; i-- {
+			time.Sleep(250 * time.Millisecond)
+
+			c, err := client.NewUnix(filepath.Join(testPath, "socket"), client.WithContext(ctx))
+			if err != nil && i > 0 {
+				t.Logf("%d: unable to make client", try)
+				continue
+			} else {
+				r.NoError(err)
+			}
+
+			who, err := c.Whoami()
+			if err != nil && i > 0 {
+				t.Log("unable to call whoami")
+				continue
+			} else if err == nil {
+
+			} else {
+				r.NoError(err)
+				r.NotNil(who)
+				break
+			}
+
+			ref, err := c.Publish(struct {
+				Type   string `json:"type"`
+				Test   string
+				Try, I int
+			}{"test", "working!", try, i})
+			r.NoError(err)
+			t.Logf("%d:connection established (i:%d) %s", try, i, ref.String())
+
+			c.Close()
+			break
+		}
+		if i == 0 {
+			t.Errorf("%d: check Sbot failed", try)
+		}
+		try++
+	}
+	checkSbot()
+
+	out, err = exec.Command("kill", strconv.Itoa(bot1.Process.Pid)).CombinedOutput()
+	r.NoError(err, "kill command failed: %s", string(out))
+
+	err = bot1.Wait()
+	r.NoError(err)
+
+	confPath := filepath.Join(".", "testrun", t.Name(), "config.toml")
+	_, err = os.Stat(confPath)
+	r.NoError(err)
+
+	_, exists := readConfig(confPath)
+	r.True(exists)
 }

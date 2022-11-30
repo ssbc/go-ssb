@@ -19,8 +19,9 @@ The precedence order goes as follows:
 * default flag values are the final fallback, if the corresponding config value or environment variable has not been set
 
 ## Configuration file
-The default location for the config file is `~/.ssb-go/config.toml`. The order of precedence
-when it comes to loading a config file is as follows:
+
+The default location for the config file is `~/.ssb-go/config.toml`. The order
+of precedence when it comes to loading a config file is as follows:
 
 * 1. Environment variable `$SSB_CONFIG_FILE` or flag `--config` are used first
 * 2. Lacking that, the location defined by `--repo` is used
@@ -38,7 +39,19 @@ default ssb-go location to somewhere else using only flags, that would look like
 ./go-sbot -hops 2 -repo /var/scuttlebutt
 ```
 
+### Config Generation
+
+A default config file will be generated for your when you first run `go-sbot`.
+
+Please note that if you have some specific env vars exposed (see
+[below](#environment-variables)) then those values will be persisted in the
+initial generated configuration.
+
 ### Example config
+
+Please note, a "vendored" default configuration is maintained in
+[`default-config.toml`](../cmd/go-sbot/default-config.toml) which may be more
+up-to-date.
 
 ```toml
 # Where to put the log and indexes
@@ -83,13 +96,16 @@ nounixsock = false
 ```
 
 ## Environment Variables
-Environment variables are a common way of customizing options of various services. For go-sbot, that could for instance take the appearance of
+
+Environment variables are a common way of customizing options of various
+services. For go-sbot, that could for instance take the appearance of
 
 ```
 SSB_CONFIG_FILE="~/.ssb-go-config.toml" ./go-sbot
 ```
 
 ### Environment variable listing
+
 ```sh
 SSB_DATA_DIR="/var/lib/ssb-server"
 SSB_CONFIG_FILE="/etc/ssb-server/config"

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	loglib "log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"path/filepath"
 
 	"github.com/komkom/toml"
 	"github.com/ssbc/go-ssb/internal/testutils"
@@ -49,8 +49,9 @@ func (config SbotConfig) Has(flagname string) bool {
 	return ok
 }
 
-func readConfig(configPath string) SbotConfig {
+func readConfig(configPath string) (SbotConfig, bool) {
 	var conf SbotConfig
+
 	conf.presence = make(map[string]interface{})
 
 	// setup logger if not yet setup (used for tests)
@@ -61,8 +62,9 @@ func readConfig(configPath string) SbotConfig {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		level.Info(log).Log("event", "read config", "msg", "no config detected", "path", configPath)
-		return conf
+		return conf, false
 	}
+
 	level.Info(log).Log("event", "read config", "msg", "config detected", "path", configPath)
 
 	// 1) first we unmarshal into struct for type checks
@@ -75,17 +77,17 @@ func readConfig(configPath string) SbotConfig {
 	err = decoder.Decode(&conf.presence)
 	check(err, "decode into presence map")
 
-	// help repo path's default to align with common user expectations 
+	// help repo path's default to align with common user expectations
 	conf.Repo = expandPath(conf.Repo)
 
-	return conf
+	return conf, true
 }
 
 // ensure the following type of path expansions take place:
 // * ~/.ssb				=> /home/<user>/.ssb
 // * .ssb					=> /home/<user>/.ssb
 // * /stuff/.ssb	=> /stuff/.ssb
-func expandPath (p string) string {
+func expandPath(p string) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		loglib.Fatalln("could not get user home directory (os.UserHomeDir()")
@@ -95,7 +97,7 @@ func expandPath (p string) string {
 		p = strings.Replace(p, "~", home, 1)
 	}
 
-	// not relative path, not absolute path => 
+	// not relative path, not absolute path =>
 	// place relative to home dir "~/<here>"
 	if !filepath.IsAbs(p) {
 		p = filepath.Join(home, p)
@@ -266,10 +268,10 @@ func readEnvironmentBoolean(s string) ConfigBool {
 	return booly
 }
 
-func readConfigAndEnv(configPath string) SbotConfig {
-	config := readConfig(configPath)
+func readConfigAndEnv(configPath string) (SbotConfig, bool) {
+	config, exists := readConfig(configPath)
 	ReadEnvironmentVariables(&config)
-	return config
+	return config, exists
 }
 
 func eout(err error, msg string, args ...interface{}) error {
