@@ -71,8 +71,7 @@ var app = cli.App{
 	Description: `
 Please note, global options must be placed before sub-commands, e.g.
 
-    sbotcli --key <@...ed25519> <cmd> <args>
-`,
+    sbotcli --key <@...ed25519> <cmd> <args>`,
 	Version: "alpha4",
 
 	Flags: []cli.Flag{
@@ -215,24 +214,25 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 }
 
 var callCmd = &cli.Command{
-	Name:  "call",
-	Usage: "Make an async call",
-	UsageText: `Supports common muxrpc async calls such as:
+	Name:        "call",
+	Usage:       "Make an async call",
+	ArgsUsage:   "<cmd> <arg>",
+	Description: `Make an async call.
 
-* whoami
-* latestSequence
-* getLatest
-* get
+Supports common muxrpc async calls such as:
+
 * blobs.(has|want|rm|wants)
+* get
+* getLatest
 * gossip.(peers|add|connect)
+* latestSequence
+* whoami
 
 Example:
 
     sbotcli call conn.connect "net:localhost:8008~shs:drNvbM6G1BSwklFzhKvRqeQZyHnxfkOKEbwPd3Fr3co="
 
-See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.
-`,
-	ArgsUsage: "<cmd> <arg>",
+See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.`,
 	Action: func(ctx *cli.Context) error {
 		cmd := ctx.Args().Get(0)
 		if cmd == "" {
@@ -276,9 +276,25 @@ See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.
 }
 
 var sourceCmd = &cli.Command{
-	Name:      "source",
-	Usage:     "Make a source call",
-	ArgsUsage: "<cmd>",
+	Name:        "source",
+	Usage:       "Make a source call",
+	ArgsUsage:   "<cmd>",
+	Description: `Make a source call.
+
+Call any muxrpc method that returns a stream, as long as the method takes the
+form of a <command.subcommand>.
+
+Supports common muxrpc source calls such as:
+
+* blobs.(get|ls|createWants)
+* friends.(hops|blocks)
+* partialReplication.getSubset
+* replicate.upto
+
+Example:
+
+    sbotcli source replicate.upto`,
+
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "id", Value: ""},
 		// TODO: Slice of branches
@@ -434,7 +450,7 @@ Example:
 
 var connectCmd = &cli.Command{
 	Name:        "connect",
-	Usage:       "Connect to a remote peer.",
+	Usage:       "Connect to a remote peer",
 	ArgsUsage:   "<multiserver address>",
 	Description: `Connect to a remote peer.
 
