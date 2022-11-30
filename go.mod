@@ -4,13 +4,12 @@
 
 module github.com/ssbc/go-ssb
 
-go 1.13
+go 1.17
 
 require (
 	filippo.io/edwards25519 v1.0.0
 	github.com/RoaringBitmap/roaring v1.2.1
 	github.com/VividCortex/gohistogram v1.0.0
-	github.com/bits-and-blooms/bitset v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger/v3 v3.2103.4
 	github.com/dgraph-io/sroar v0.0.0-20220527172339-b92b7eaaf6e0
@@ -24,8 +23,6 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.2.0
 	github.com/machinebox/progress v0.2.0
-	github.com/matryer/is v1.3.0 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/cors v1.8.2
@@ -46,10 +43,57 @@ require (
 	go.cryptoscope.co/nocomment v0.0.0-20210520094614-fb744e81f810
 	go.mindeco.de v1.12.0
 	golang.org/x/crypto v0.3.0
-	golang.org/x/exp v0.0.0-20221025133541-111beb427cde // indirect
 	golang.org/x/sync v0.1.0
 	golang.org/x/text v0.4.0
-	golang.org/x/tools v0.2.0 // indirect
 	gonum.org/v1/gonum v0.12.0
 	modernc.org/kv v1.0.4
+)
+
+require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.3.3 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/dgraph-io/ristretto v0.1.1 // indirect
+	github.com/edsrzf/mmap-go v1.1.0 // indirect
+	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/glog v1.0.0 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/flatbuffers v22.10.26+incompatible // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/karrick/bufpool v1.2.0 // indirect
+	github.com/karrick/gopool v1.2.2 // indirect
+	github.com/klauspost/compress v1.15.12 // indirect
+	github.com/kr/pretty v0.2.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/matryer/is v1.3.0 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/mschoch/smat v0.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_model v0.3.0 // indirect
+	github.com/prometheus/common v0.37.0 // indirect
+	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20220927061507-ef77025ab5aa // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	go.opencensus.io v0.23.0 // indirect
+	golang.org/x/exp v0.0.0-20221025133541-111beb427cde // indirect
+	golang.org/x/mod v0.6.0 // indirect
+	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/sys v0.2.0 // indirect
+	golang.org/x/tools v0.2.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	modernc.org/fileutil v1.1.1 // indirect
+	modernc.org/internal v1.0.5 // indirect
+	modernc.org/lldb v1.0.4 // indirect
+	modernc.org/mathutil v1.5.0 // indirect
+	modernc.org/sortutil v1.1.1 // indirect
+	modernc.org/zappy v1.0.5 // indirect
 )
