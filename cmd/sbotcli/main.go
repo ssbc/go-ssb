@@ -318,7 +318,7 @@ var sourceCmd = &cli.Command{
 
 var getSubsetCmd = &cli.Command{
 	Name:        "subset",
-	Usage:       "Fetch subsets of messages from the log.",
+	Usage:       "Fetch subsets of messages from the log",
 	ArgsUsage:   "<json>",
 	Description: `Fetch subsets of messages from the log.
 
