@@ -28,9 +28,14 @@ var publishCmd = &cli.Command{
 }
 
 var publishRawCmd = &cli.Command{
-	Name:      "raw",
-	Usage:     "Read JSON from stdin and publish it as the content of a new message",
-  ArgsUsage: "<json>",
+	Name:        "raw",
+	Usage:       "Read JSON from stdin and publish it as the content of a new message",
+  ArgsUsage:   "<json>",
+	Description: `Read JSON from stdin and publish it as the content of a new message.
+
+Example:
+
+    echo '{"type":"post","text":"example"}' | sbotcli publish raw`,
   
 	// TODO: add private
 	Action: func(ctx *cli.Context) error {
@@ -61,9 +66,15 @@ var publishRawCmd = &cli.Command{
 }
 
 var publishPostCmd = &cli.Command{
-	Name:      "post",
-	Usage:     "Publish a post (public or private)",
-	ArgsUsage: "<text>",
+	Name:        "post",
+	Usage:       "Publish a post (public or private)",
+	ArgsUsage:   "<text>",
+	Description: `Publish a post (public or private).
+
+Example:
+
+    sbotcli publish post "Gophers create a network of tunnel systems that provide protection."`,
+
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "root", Value: "", Usage: "The key of the first message of the thread"},
 		// TODO: Slice of branches
@@ -114,9 +125,15 @@ var publishPostCmd = &cli.Command{
 }
 
 var publishVoteCmd = &cli.Command{
-	Name:      "vote",
-	Usage:     "Publish a vote or expression",
-	ArgsUsage: "<%...sha256>",
+	Name:        "vote",
+	Usage:       "Publish a vote or expression",
+	ArgsUsage:   "<%...sha256>",
+	Description: `Publish a vote or expression.
+
+Example:
+
+    sbotcli publish vote --value 1 %GOmisAlROznJEWJ/eht6tJWXgjFdQhbUKx4+/SeyoqI=.sha256`,
+
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "value", Usage: "Usually 1 (like) or 0 (unlike)"},
 		&cli.StringFlag{Name: "expression", Usage: "An expression made in response to a message (ie. 'dig', 'yup' or 'heart')"},
@@ -181,9 +198,15 @@ var publishVoteCmd = &cli.Command{
 }
 
 var publishAboutCmd = &cli.Command{
-	Name:      "about",
-	Usage:     "Publish an about message to define the name or image assigned to a public key",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "about",
+	Usage:       "Publish an about message to define the name or image assigned to a public key",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `Publish an about message to define the name or image assigned to a public key.
+
+Example:
+
+    sbotcli publish about --name "glf" @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519`,
+
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "name", Usage: "The name to be assigned to the public key"},
 		&cli.StringFlag{Name: "image", Usage: "The image blob ref to be assigned to the public key"},
@@ -229,9 +252,26 @@ var publishAboutCmd = &cli.Command{
 }
 
 var publishContactCmd = &cli.Command{
-	Name:      "contact",
-	Usage:     "Publish a contact message (follow, unfollow, block, unblock)",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "contact",
+	Usage:       "Publish a contact message (follow, unfollow, block, unblock)",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `Publish a contact message (follow, unfollow, block, unblock).
+
+Example (follow):
+
+    sbotcli publish contact --following @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+
+Example (unfollow):
+
+    sbotcli publish contact @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+
+Example (block):
+
+    sbotcli publish contact --blocking @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519
+
+Note that both fields (following and blocking) are set with each published contact message.
+This means that both the following and blocking fields can be updated with a single published message.`,
+
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "following", Usage: "A boolean expression denoting the follow state"},
 		&cli.BoolFlag{Name: "blocking", Usage: "A boolean expression denoting the block state"},

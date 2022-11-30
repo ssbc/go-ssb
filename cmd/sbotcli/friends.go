@@ -27,9 +27,15 @@ var friendsCmd = &cli.Command{
 }
 
 var friendsIsFollowingCmd = &cli.Command{
-	Name:      "isFollowing",
-	Usage:     "Check if a feed is friends with another (follows back)",
-	ArgsUsage: "<@...ed25519> <@...ed25519>",
+	Name:        "isFollowing",
+	Usage:       "Check if a feed is friends with another (follows back)",
+	ArgsUsage:   "<@...ed25519> <@...ed25519>",
+	Description: `Check if a feed is friends with another (follows back).
+
+Example:
+
+sbotcli friends isFollowing @HEqy940T6uB+T+d9Jaa58aNfRzLx9eRWqkZljBmnkmk=.ed25519 @mfY4X9Gob0w2oVfFv+CpX56PfL0GZ2RNQkc51SJlMvc=.ed25519`,
+
 	Action: func(ctx *cli.Context) error {
 		src := ctx.Args().Get(0)
 		if src == "" {
@@ -72,11 +78,21 @@ var friendsIsFollowingCmd = &cli.Command{
 	},
 }
 var friendsHopsCmd = &cli.Command{
-	Name:      "hops",
-	Usage:     "Find out how many hops a feed ref is",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "hops",
+	Usage:       "List all peers within the hops range of the given feed ID",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `List all peers within the hops range of the given feed ID.
+
+When the <dist> flag is set to 0, the peers in the returned list represent the
+friends (mutual follows) of the given feed ID. Setting <dist> to 1 includes
+friends-of-friends in the output. The default value is 2. Be aware that this
+may return a long list!
+
+Example:
+
+    sbotcli friends hops --dist 0 @HEqy940T6uB+T+d9Jaa58aNfRzLx9eRWqkZljBmnkmk=.ed25519`,
 	Flags: []cli.Flag{
-		&cli.UintFlag{Name: "dist", Value: 2, Usage: "non-remote repo allows for access withut involving a bot"},
+		&cli.UintFlag{Name: "dist", Value: 2, Usage: "Hops range"},
 	},
 	Action: func(ctx *cli.Context) error {
 		var arg friends.HopsArgs
@@ -109,9 +125,15 @@ var friendsHopsCmd = &cli.Command{
 }
 
 var friendsBlocksCmd = &cli.Command{
-	Name:      "blocks",
-	Usage:     "List blocks for a feed ref",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "blocks",
+	Usage:       "List all peers blocked by the given feed ID",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `List all peers blocked by the given feed ID.
+
+Example:
+
+    sbotcli friends blocks @fGWzOR/FXU3Acbn4P65CpMewJIynFyqocvfLAyJdDno=.ed25519`,
+
 	Action: func(ctx *cli.Context) error {
 		var args = []interface{}{}
 

@@ -71,8 +71,7 @@ var app = cli.App{
 	Description: `
 Please note, global options must be placed before sub-commands, e.g.
 
-    sbotcli --key <@...ed25519> <cmd> <args>
-`,
+    sbotcli --key <@...ed25519> <cmd> <args>`,
 	Version: "alpha4",
 
 	Flags: []cli.Flag{
@@ -215,24 +214,25 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 }
 
 var callCmd = &cli.Command{
-	Name:  "call",
-	Usage: "Make an async call",
-	UsageText: `Supports common muxrpc async calls such as:
+	Name:        "call",
+	Usage:       "Make an async call",
+	ArgsUsage:   "<cmd> <arg>",
+	Description: `Make an async call.
 
-* whoami
-* latestSequence
-* getLatest
-* get
+Supports common muxrpc async calls such as:
+
 * blobs.(has|want|rm|wants)
+* get
+* getLatest
 * gossip.(peers|add|connect)
+* latestSequence
+* whoami
 
 Example:
 
     sbotcli call conn.connect "net:localhost:8008~shs:drNvbM6G1BSwklFzhKvRqeQZyHnxfkOKEbwPd3Fr3co="
 
-See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.
-`,
-	ArgsUsage: "<cmd> <arg>",
+See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.`,
 	Action: func(ctx *cli.Context) error {
 		cmd := ctx.Args().Get(0)
 		if cmd == "" {
@@ -276,9 +276,25 @@ See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.
 }
 
 var sourceCmd = &cli.Command{
-	Name:      "source",
-	Usage:     "Make a source call",
-	ArgsUsage: "<cmd>",
+	Name:        "source",
+	Usage:       "Make a source call",
+	ArgsUsage:   "<cmd>",
+	Description: `Make a source call.
+
+Call any muxrpc method that returns a stream, as long as the method takes the
+form of a <command.subcommand>.
+
+Supports common muxrpc source calls such as:
+
+* blobs.(get|ls|createWants)
+* friends.(hops|blocks)
+* partialReplication.getSubset
+* replicate.upto
+
+Example:
+
+    sbotcli source replicate.upto`,
+
 	Flags: []cli.Flag{
 		&cli.StringFlag{Name: "id", Value: ""},
 		// TODO: Slice of branches
@@ -317,14 +333,15 @@ var sourceCmd = &cli.Command{
 }
 
 var getSubsetCmd = &cli.Command{
-	Name:  "subset",
-	Usage: "Fetch subsets of messages from the log.",
-	Description: `
-An example:
+	Name:        "subset",
+	Usage:       "Fetch subsets of messages from the log",
+	ArgsUsage:   "<json>",
+	Description: `Fetch subsets of messages from the log.
 
-    sbotcli subset '{"op":"type", "string": "post"}'
+Example:
+
+    sbotcli subset --limit 3 '{"op":"type", "string": "post"}'
 `,
-	ArgsUsage: "<json>",
 	// define cli flags
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "limit", Value: -1},
@@ -383,6 +400,11 @@ var getCmd = &cli.Command{
 	Name:      "get",
 	Usage:     "Get a single message from the local database by key (%...)",
 	ArgsUsage: "<%...sha256>",
+	Description: `Get a single message from the local database by key (%...).
+
+Example:
+
+    sbotcli get %Dj/W4PYYZUWj/iWlyVuOg8pgv4b+BwP0qOF5OpD+o4I=.sha256`,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "private"},
 		&cli.StringFlag{Name: "format", Value: "json"},
@@ -427,19 +449,18 @@ var getCmd = &cli.Command{
 }
 
 var connectCmd = &cli.Command{
-	Name:  "connect",
-	Usage: "Connect to a remote peer.",
-	Description: `
-A multiserver address looks like this:
+	Name:        "connect",
+	Usage:       "Connect to a remote peer",
+	ArgsUsage:   "<multiserver address>",
+	Description: `Connect to a remote peer.
 
-    net:$HOST:$PORT~shs:$BASE64_OF_SSB_ID
+Example:
 
-More info here:
+    sbotcli connect "net:192.168.8.136:8008~shs:HEqy940T6uB+T+d9Jaa58aNfRzLx9eRWqkZljBmnkmk="
 
-    https://github.com/ssbc/multiserver#address-format
-`,
-	ArgsUsage: "<addr>",
-	Action: func(ctx *cli.Context) error {
+See https://github.com/ssbc/multiserver#address-format for more information about multiserver addresses.`,
+
+  Action: func(ctx *cli.Context) error {
 		to := ctx.Args().Get(0)
 		if to == "" {
 			return errors.New("connect: multiserv addr argument can't be empty")
@@ -473,9 +494,15 @@ More info here:
 }
 
 var blockCmd = &cli.Command{
-	Name:      "block",
-	Usage:     "Block a peer by specifying their public key (@...)",
-	ArgsUsage: "<@...ed25519>",
+	Name:        "block",
+	Usage:       "Block a peer by specifying their public key (@...)",
+	ArgsUsage:   "<@...ed25519>",
+	Description: `Block a peer by specifying their public key (@...).
+
+Example:
+
+    sbotcli block @r6Lzb9OT3/dlVYNDTABmsF+HWnhBsA1twZaobYhjVUY=.ed25519`,
+
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {
@@ -636,8 +663,13 @@ var inviteCmds = &cli.Command{
 }
 
 var inviteCreateCmd = &cli.Command{
-	Name:  "create",
-	Usage: "Register and return an invite for somebody else to accept",
+	Name:        "create",
+	Usage:       "Register and return an invite for somebody else to accept",
+	Description: `Register and return an invite for somebody else to accept.
+
+Example:
+
+    sbotcli invite create --uses 7`,
 	Flags: []cli.Flag{
 		&cli.UintFlag{Name: "uses", Value: 1, Usage: "How many times an invite can be used"},
 	},

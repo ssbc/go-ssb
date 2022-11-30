@@ -25,7 +25,7 @@ var blobsCmd = &cli.Command{
 	Name:  "blobs",
 	Usage: "Add a blob to the local store or call MUXRPC methods: `has`, `get` and `wants`",
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "path", Value: "", Usage: "specify the path to the blobs folder of the sbot you want to query"},
+		&cli.StringFlag{Name: "path", Value: "", Usage: "Specify the path to the blobs folder of the sbot you want to query"},
 	},
 	Before: func(ctx *cli.Context) error {
 		var blobsDir = ctx.String("path")
@@ -57,9 +57,15 @@ var blobsCmd = &cli.Command{
 }
 
 var blobsHasCmd = &cli.Command{
-	Name:      "has",
-	Usage:     "Check if a blob is in the repo",
-	ArgsUsage: "<&...sha256>",
+	Name:        "has",
+	Usage:       "Check if a blob is in the local blobstore.",
+	ArgsUsage:   "<&...sha256>",
+	Description: `Check if a blob is in the local blobstore.
+
+Example:
+
+    sbotcli blobs has "&hB2vsBGwqPAfkBQ5IQGIrLfHXzytmExYC3iJ6FC08F8=.sha256"`,
+
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
@@ -95,9 +101,20 @@ var blobsHasCmd = &cli.Command{
 }
 
 var blobsWantCmd = &cli.Command{
-	Name:      "want",
-	Usage:     "Try to get a blob from other peers",
-	ArgsUsage: "<&...sha256>",
+	Name:        "want",
+	Usage:       "Try to get a blob from other peers.",
+	ArgsUsage:   "<&...sha256>",
+	Description: `Try to get a blob from other peers.
+
+Adds the blob reference to a list of blobs being requested by the local sbot.
+This list of desired blobs is then shared with connected peers who then
+replicate the blob(s) if they have them. This means the requested blob(s) will
+likely not be received straight away (ie. there may be replication delays).
+
+Example:
+
+    sbotcli blobs has "&hB2vsBGwqPAfkBQ5IQGIrLfHXzytmExYC3iJ6FC08F8=.sha256"`,
+
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)
 		if ref == "" {
@@ -117,9 +134,17 @@ var blobsWantCmd = &cli.Command{
 }
 
 var blobsAddCmd = &cli.Command{
-	Name:      "add",
-	Usage:     "Add a file to the store (pass - to open stdin)",
-	ArgsUsage: "[<filename> | - <stdin>]",
+	Name:        "add",
+	Usage:       "Add a file to the blobstore (pass - to open stdin).",
+	ArgsUsage:   "[<filename> | - <stdin>]",
+	Description: `Add a file to the blobstore (pass - to open stdin).
+
+A blob reference will be returned (<&...sha256>) if the file is added successfully.
+
+Example:
+
+    cat /home/glyph/Pictures/2022/cabin_computer_setup.jpeg | sbotcli blobs add -`,
+
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
 			return fmt.Errorf("no blobstore use 'blobs --path $repo/blobs add -' for now")
@@ -147,11 +172,19 @@ var blobsAddCmd = &cli.Command{
 }
 
 var blobsGetCmd = &cli.Command{
-	Name:      "get",
-	Usage:     "Prints the first argument to stdout",
-	ArgsUsage: "<&...sha256>",
+	Name:        "get",
+	Usage:       "Streams the contents of the file",
+	ArgsUsage:   "<&...sha256>",
+	Description: `Streams the contents of the file.
+
+Contents are streamed to stdout by default. An alternative destination can be
+defined using the 'out' flag.
+
+Example:
+
+    sbotcli blobs get "&grLTZFapgHZHXRYh1zgz2bTuDelottGZSfogKauo/fk=.sha256" > blob_file`,
 	Flags: []cli.Flag{
-		&cli.StringFlag{Name: "out", Value: "-", Usage: "where to? (stdout by default)"},
+		&cli.StringFlag{Name: "out", Value: "-", Usage: "Where to? (stdout by default)"},
 	},
 	Action: func(ctx *cli.Context) error {
 		if blobsStore == nil {
@@ -167,7 +200,7 @@ var blobsGetCmd = &cli.Command{
 		}
 		reader, err := blobsStore.Get(blobsRef)
 		if err != nil {
-			return fmt.Errorf("blobs: failed to parse argument ref: %w", err)
+			return fmt.Errorf("blobs: failed to retrieve blob from store: %w", err)
 		}
 
 		var out io.Writer
