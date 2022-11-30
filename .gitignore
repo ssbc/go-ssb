@@ -6,9 +6,9 @@
 
 # ignore built binaries
 cmd/go-sbot/go-sbot
-go-sbot
+/go-sbot
 cmd/sbotcli/sbotcli
-sbotcli
+/sbotcli
 
 # ignore crash/test data
 **/testrun/

@@ -1,0 +1,39 @@
+# Where to put the log and indexes
+repo = '.ssb-go'
+# Where to write debug output: NOTE, this is relative to "repo" atm
+debugdir = ''
+
+# Secret-handshake app-key (or compatible alt-key)
+shscap = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+# If set, sign with hmac hash of msg instead of plain message object using this key
+hmac = ""
+# How many hops to fetch (1: friends, 2: friends of friends); note that a nodejs hops value needs to be decreased by one in go-sbot
+# e.g. go-sbot hops of 1 <=> ssb-js hops of 2
+hops = 1
+
+# how many feeds can be replicated with one peer connection using legacy gossip (shouldn't be higher than numRepl)
+numPeer = 5
+# how many feeds can be replicated concurrently using legacy gossip
+numRepl = 10
+
+# Address to listen on
+lis = ":8008"
+# Address to listen on for ssb websocket connections
+wslis = ":8989"
+# TLS certificate file for ssb websocket connections
+#wstlscert = "/etc/letsencrypt/live/example.com/fullchain.pem"
+# TLS key file for ssb websocket connections
+#wstlskey = "/etc/letsencrypt/live/example.com/privkey.pem"
+# Address to listen on for metrics and pprof HTTP server
+debuglis = "localhost:6078"
+
+# Enable sending local UDP broadcasts
+localadv = false
+# Enable connecting to incoming UDP broadcasts
+localdiscov = false
+# Enable syncing by using epidemic-broadcast-trees (EBT)
+enable-ebt = false
+# Bypass graph auth and fetch remote's feed, useful for pubs that are restoring their data from peers. Caveats abound, however.
+promisc = false
+# Disable the UNIX socket RPC interface
+nounixsock = false
