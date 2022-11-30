@@ -87,6 +87,10 @@ type InviteCreateArgs struct {
 	Uses int
 }
 
+type FriendsBlocksArgs struct {
+	Who refs.FeedRef `json:"who,omitempty"`
+}
+
 // RoundedInteger also accepts unmarshaling from a float
 type RoundedInteger int64
 

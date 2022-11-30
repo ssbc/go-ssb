@@ -343,6 +343,14 @@ func (c Client) MessagesByType(o message.MessagesByTypeArgs) (*muxrpc.ByteSource
 	return src, nil
 }
 
+func (c Client) FriendsBlocks(o message.FriendsBlocksArgs) (*muxrpc.ByteSource, error) {
+	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"friends", "blocks"}, o)
+	if err != nil {
+		return nil, fmt.Errorf("ssbClient: friends.blocks query failed: (%T): %w", o, err)
+	}
+	return src, nil
+}
+
 func (c Client) TanglesThread(o message.TanglesArgs) (*muxrpc.ByteSource, error) {
 	src, err := c.Source(c.rootCtx, muxrpc.TypeJSON, muxrpc.Method{"tangles", "thread"}, o)
 	if err != nil {
