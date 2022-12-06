@@ -56,97 +56,76 @@ func init() {
 	manifestBlob = manifestHandler(condensed)
 }
 
-// this is a very simple hardcoded manifest.json dump which oasis' ssb-client expects to do it's magic.
+// hardcoded manifest for MUXRPC clients
 var manifestBlob manifestHandler = `
 {
-	"manifest": "sync",
-
-	"get": "async",
-	"createFeedStream": "source",
-	"createUserStream": "source",
-
-	"createSequenceStream": "source",
-	"createLogStream": "source",
-	"messagesByType": "source",
-	"createHistoryStream": "source",
-
-	"ebt": { "replicate": "duplex" },
-
-	"partialReplication":{
-		"getSubset": "source",
-	 	"getTangle": "async"
+	"blobs": {
+		"add": "sink",
+		"createWants": "source",
+		"get": "source",
+		"has": "async",
+		"size": "async",
+		"want": "async"
 	},
-
+	"conn": {
+		"connect": "async",
+		"dialViaRoom": "async",
+		"disconnect": "async",
+		"replicate": "async"
+	},
+	"createFeedStream": "source",
+	"createHistoryStream": "source",
+	"createLogStream": "source",
+	"ebt": {
+		"replicate": "duplex"
+	},
+	"friends": {
+		"blocks": "source",
+		"hops": "source",
+		"isBlocking": "async",
+		"isFollowing": "async"
+	},
+	"get": "async",
+	"gossip": {
+		"connect": "async",
+		"ping": "duplex"
+	},
+	"groups": {
+		"create":"async",
+		"publishTo":"async"
+  },
+	"invite": {
+		"create": "async",
+		"use": "async"
+	},
+	"manifest": "sync",
+	"messagesByType": "source",
+	"names": {
+		"get": "async",
+		"getImageFor": "async",
+		"getSignifier": "async"
+	},
+	"partialReplication": {
+		"getSubset": "source",
+		"getTangle": "async"
+	},
+	"publish": "async",
 	"private": {
 		"publish": "async",
 		"read":"source"
 	},
-
+	"replicate": {
+		"upto": "source"
+	},
+	"status": "sync",
 	"tangles": {
-      "thread": "source"
+		"thread": "source"
 	},
-
-    "names": {
-        "get": "async",
-        "getImageFor": "async",
-        "getSignifier": "async"
-    },
-
-	"friends": {
-	  "hops": "source",
-	  "blocks": "source",
-	  "isFollowing": "async",
-	  "isBlocking": "async"
-	},
-
 	"tunnel": {
 		"connect": "duplex",
 		"isRoom": "async",
 		"ping": "async"
 	},
-
-	"publish": "async",
-	"whoami": "sync",
-	"status": "sync",
-	
-	"conn": {
-		"replicate": "async",
-		"connect": "async",
-		"disconnect": "async",
-		"dialViaRoom": "async"
-	},
-	
-	"gossip": {
-	  "connect": "async",
-	  "ping": "duplex"
-	},
-
-	"replicate": {
-	  "upto": "source"
-	},
-
-    "groups": {
-      "create":"async",
-      "publishTo":"async"
-    },
-
-	"blobs": {
-	  "get": "source",
-
-	  "add": "sink",
-	  "rm": "async",
-	  "ls": "source",
-	  "has": "async",
-	  "size": "async",
-
-	  "want": "async",
-
-	  "createWants": "source"
-	},
-
-	"invite": {
-		"create": "async",
-		"use": "async"
-	}
-  }
-  `
+	"whoami": "sync"
+}
+`
