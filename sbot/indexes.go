@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	syslog "log"
 
 	"github.com/machinebox/progress"
 	"github.com/ssbc/go-luigi"
@@ -184,9 +185,10 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			level.Warn(logger).Log("event", "index stopped", "err", err)
 			return fmt.Errorf("sbot index(%s) update of backlog failed: %w", name, err)
 		}
-		s.idxInSync.Done()
+		//s.idxInSync.Done()
 
 		if !s.liveIndexUpdates {
+			s.idxInSync.Done()
 			return nil
 		}
 
@@ -195,11 +197,16 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			return fmt.Errorf("sbot index(%s) failed to query receive log for live updates: %w", name, err)
 		}
 
+		syslog.Printf("done querying for index")
+
 		s.indexStateMu.Lock()
 		s.indexStates[name] = "live"
 		s.indexStateMu.Unlock()
+		s.idxInSync.Done()
 
+		syslog.Printf("starting luigi pump")
 		err = luigi.Pump(s.rootCtx, snk, src)
+		syslog.Printf("done with luigi pump")
 		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 			return nil
 		}

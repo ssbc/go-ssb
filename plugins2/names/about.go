@@ -228,6 +228,8 @@ func updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx li
 		return nil
 	}
 
+	log.Printf("updating about with info %#v", aboutMSG)
+
 	// about:from:field
 	addr := aboutMSG.About.Sigil()
 	addr += ":"

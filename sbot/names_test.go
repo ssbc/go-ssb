@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	syslog "log"
 
 	"github.com/ssbc/margaret"
 	"github.com/stretchr/testify/require"
@@ -18,15 +19,15 @@ import (
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/leakcheck"
-	"github.com/ssbc/go-ssb/internal/testutils"
+	//"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestNames(t *testing.T) {
-	if testutils.SkipOnCI(t) {
+	/*if testutils.SkipOnCI(t) {
 		// https://github.com/ssbc/go-ssb/pull/170
 		return
-	}
+	}*/
 
 	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
@@ -74,6 +75,7 @@ func TestNames(t *testing.T) {
 		LateOption(WithUNIXSocket()),
 	)
 	r.NoError(err)
+	syslog.Printf("created bot")
 
 	// create some messages
 	intros := []struct {
@@ -92,6 +94,7 @@ func TestNames(t *testing.T) {
 		r.NoError(err, "publish %d failed", idx)
 		r.NotNil(ref)
 	}
+	syslog.Printf("published messages")
 
 	// assert helper
 	checkLogSeq := func(l margaret.Log, seq int) {
@@ -101,12 +104,17 @@ func TestNames(t *testing.T) {
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// TODO: flush indexes
+	syslog.Printf("TODO: flush indexes")
+	mainbot.WaitUntilIndexesAreSynced()
+	syslog.Printf("index states: %#v", mainbot.indexStates)
 
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)
+	syslog.Printf("client joined socket")
 
 	all, err := c.NamesGet()
 	r.NoError(err)
+	syslog.Printf("got names")
 
 	want := map[string]string{
 		"arny": "i'm arny!",
@@ -114,18 +122,20 @@ func TestNames(t *testing.T) {
 		"cloe": "i'm cloe!",
 	}
 
-	r.Len(all, len(want), "expected entries for all three keypairs")
+	r.Len(all, len(want), "expected entries for all three keypairs but received %#v", all)
+
+	syslog.Printf("names to check: %#v", all)
 
 	for who, wantName := range want {
 		name, ok := all.GetCommonName(n2kp[who].ID())
-		r.True(ok, "did not get a name for %s", who)
-		r.Equal(wantName, name, "did not the right name for %s", who)
+		r.True(ok, "did not get a common name for %s", who)
+		r.Equal(wantName, name, "did not the right common name for %s", who)
 	}
 
 	for who, wantName := range want {
 		name2, err := c.NamesSignifier(n2kp[who].ID())
-		r.NoError(err, "did not get a name for %s", who)
-		r.Equal(wantName, name2, "did not the right name for %s", who)
+		r.NoError(err, "did not get a name signifier for %s", who)
+		r.Equal(wantName, name2, "did not the right name signifier for %s", who)
 	}
 
 	r.NoError(c.Close())
