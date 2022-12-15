@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	syslog "log"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/go-kit/kit/metrics"
@@ -33,6 +34,8 @@ import (
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
+	"github.com/ssbc/margaret"
+        "github.com/ssbc/go-luigi"
 
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
@@ -85,6 +88,7 @@ type Sbot struct {
 	closers   multicloser.MultiCloser
 	idxDone   errgroup.Group
 	idxInSync sync.WaitGroup
+	idxConstructing sync.WaitGroup
 
 	closed   bool
 	closedMu sync.Mutex
@@ -333,6 +337,35 @@ func New(fopts ...Option) (*Sbot, error) {
 		return nil, fmt.Errorf("sbot: failed to create publish log: %w", err)
 	}
 
+	// create a sink at the start of the index pipeline which increments idxInSync
+	if s.liveIndexUpdates {
+		s.idxConstructing.Add(1)
+		s.idxDone.Go(func() error {
+			src, err := s.ReceiveLog.Query(margaret.Live(true), margaret.SeqWrap(true))
+	                if err != nil {
+	                        return fmt.Errorf("sbot main index error querying receiveLog for message backlog: %w", err)
+	                }
+
+			var snk luigi.FuncSink = func(_ context.Context, v interface{}, _ error) error {
+				syslog.Printf("incrementing idxInSync")
+				s.idxInSync.Add(1)
+				return nil
+			}
+
+			s.idxConstructing.Done()
+			err = luigi.Pump(s.rootCtx, snk, src)
+
+			// don't really care how we were stopped
+			return nil
+		})
+
+		// make sure it's fully attached before we continue on to other indexes
+		s.idxConstructing.Wait()
+
+		// lock it until we're completely done with the other indexes - so we don't construct the end of the pipeline between indexes
+		s.idxConstructing.Add(1)
+	}
+
 	// get(msgRef) -> rxLog sequence index
 	getIdx, updateSink := indexes.OpenGet(s.indexStore)
 	s.closers.AddCloser(updateSink)
@@ -436,6 +469,33 @@ func New(fopts ...Option) (*Sbot, error) {
 	_, aboutSnk := namesPlug.OpenSharedIndex(s.indexStore)
 	s.closers.AddCloser(aboutSnk)
 	s.serveIndexFrom("abouts", aboutSnk, aboutsOnly)
+
+	// create a sink at the end of the index pipeline which decrements idxInSync
+	if s.liveIndexUpdates {
+		// decrement the refcount for the containing lock
+		s.idxConstructing.Done()
+
+		// make sure other indexes are attached before we attach this one
+		s.idxConstructing.Wait()
+
+		s.idxDone.Go(func() error {
+			src, err := s.ReceiveLog.Query(margaret.Live(true), margaret.SeqWrap(true))
+	                if err != nil {
+	                        return fmt.Errorf("sbot main index error querying receiveLog for message backlog: %w", err)
+	                }
+
+			var snk luigi.FuncSink = func(_ context.Context, v interface{}, _ error) error {
+				syslog.Printf("decrementing idxInSync")
+				s.idxInSync.Done()
+				return nil
+			}
+
+			err = luigi.Pump(s.rootCtx, snk, src)
+
+			// don't really care how we were stopped
+			return nil
+		})
+	}
 
 	// need to close s.indexStore _after_ the all the indexes closed and flushed
 	s.closers.AddCloser(s.indexStore)

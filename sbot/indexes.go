@@ -137,6 +137,7 @@ msgs := mutil.Indirect(s.ReceiveLog, contactLog)
 */
 func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margaret.Log) {
 	s.idxInSync.Add(1)
+	s.idxConstructing.Add(1)
 
 	s.indexStateMu.Lock()
 	s.indexStates[name] = "pending"
@@ -205,6 +206,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 		s.idxInSync.Done()
 
 		syslog.Printf("starting luigi pump")
+		s.idxConstructing.Done()
 		err = luigi.Pump(s.rootCtx, snk, src)
 		syslog.Printf("done with luigi pump")
 		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
