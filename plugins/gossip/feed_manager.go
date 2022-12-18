@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"sync"
+	"strings"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/ssbc/go-luigi"
@@ -104,7 +105,7 @@ func (m *FeedManager) serveLiveFeeds() {
 	}
 
 	err = luigi.Pump(m.rootCtx, luigi.FuncSink(m.pour), src)
-	if err != nil && err != ssb.ErrShuttingDown && err != context.Canceled {
+	if err != nil && err != ssb.ErrShuttingDown && err != context.Canceled && !strings.HasSuffix(err.Error(), "file already closed") {
 		err = fmt.Errorf("error while serving live feed: %w", err)
 		panic(err)
 	}

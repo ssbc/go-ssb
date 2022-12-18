@@ -11,7 +11,6 @@ import (
 
 	"github.com/ssbc/go-metafeed/metakeys"
 	refs "github.com/ssbc/go-ssb-refs"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/sbot"
 	"github.com/stretchr/testify/require"
 )
@@ -41,11 +40,6 @@ func TestMigrationSentinel(t *testing.T) {
 }
 
 func TestMigrate(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/167
-		return
-	}
-
 	/* setup start */
 	var err error
 	r := require.New(t)
