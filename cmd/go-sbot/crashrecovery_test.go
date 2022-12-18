@@ -13,17 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb/client"
-	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/stretchr/testify/require"
 )
 
 // make sure the process has an effective locking mechanism for the repo
 func TestDontStartTwiceOnTheSameRepo(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		return
-	}
-
 	r := require.New(t)
 
 	testPath := filepath.Join(".", "testrun", t.Name())
