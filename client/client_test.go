@@ -179,10 +179,6 @@ func TestLotsOfWhoami(t *testing.T) {
 func TestStatusCalls(t *testing.T) {
 	// defer leakcheck.Check(t)
 
-	if testutils.SkipOnCI(t) {
-		return
-	}
-
 	mkTCP := func(t *testing.T, opts ...sbot.Option) (*sbot.Sbot, mkClient) {
 		r := require.New(t)
 
