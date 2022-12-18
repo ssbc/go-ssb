@@ -17,11 +17,11 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/margaret/multilog"
 	multibadger "github.com/ssbc/margaret/multilog/roaring/badger"
@@ -134,6 +134,11 @@ func makeBadger(t *testing.T) testStore {
 }
 
 func TestBadger(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/167
+		return
+	}
+
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
 }
