@@ -14,20 +14,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb/internal/leakcheck"
 	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 func TestPublishUnicode(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/167
-		return
-	}
-
 	defer leakcheck.Check(t)
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
