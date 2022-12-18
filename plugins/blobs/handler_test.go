@@ -14,19 +14,25 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-ssb"
-	kitlog "go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
+	kitlog "go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb/blobstore"
 	"github.com/ssbc/go-ssb/internal/broadcasts"
+	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/plugins/test"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestReplicate(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/issues/237
+		return
+	}
+
 	r := require.New(t)
 
 	srcRepo, srcPath := test.MakeEmptyPeer(t)
