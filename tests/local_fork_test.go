@@ -1,17 +1,24 @@
 package tests
 
 import (
-	"testing"
 	"fmt"
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/internal/mutil"
-	"github.com/ssbc/go-ssb/sbot"
-	"github.com/stretchr/testify/assert"
+	"testing"
+
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/mutil"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/sbot"
+	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestStartup (t *testing.T) {
+func TestStartup(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/issues/237
+		return
+	}
+
 	a := assert.New(t)
 	var err error
 	session := newSession(t, nil, nil)
