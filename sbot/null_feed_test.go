@@ -162,6 +162,12 @@ func TestNullFeed(t *testing.T) {
 		r.NoError(err)
 	}
 
+	// make sure bertbot's log actually reflects all of the messages + the follow message
+	checkUserLogSeq(bertBot, "bert", testMsgCount)
+
+	// make sure mainbot still doesn't have any bert messages
+	checkUserLogSeq(mainbot, "bert", -1)
+
 	// tell mainbot to connect to bertbot so it will replicate
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
