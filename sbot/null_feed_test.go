@@ -123,9 +123,17 @@ func TestNullFeed(t *testing.T) {
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", 2)
 
+	// fsck mainbot before NullFeed so if it fails afterward we know it happened within NullFeed
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+
 	// delete bert's feed from mainbot
 	err = mainbot.NullFeed(kpBert.ID())
 	r.NoError(err, "null feed bert failed")
+
+	// fsck mainbot to make sure NullFeed didn't mess something up
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
 
 	// make sure we now have two messages for arny (follow and "hello") and none for bert
 	checkUserLogSeq(mainbot, "arny", 1)
