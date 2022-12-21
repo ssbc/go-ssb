@@ -151,7 +151,14 @@ func TestNullFeed(t *testing.T) {
 	_, err = bertBot.PublishLog.Publish(refs.NewContactFollow(mainbot.KeyPair.ID()))
 	r.NoError(err)
 
+	// fsck both bots before we try to replicate
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+	err = bertBot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+
 	// start the replication processes
+	t.Log("starting replication")
 	mainbot.Replicate(bertBot.KeyPair.ID())
 	bertBot.Replicate(mainbot.KeyPair.ID())
 
@@ -161,6 +168,7 @@ func TestNullFeed(t *testing.T) {
 		_, err = bertBot.PublishLog.Publish(i)
 		r.NoError(err)
 	}
+	t.Log("done publishing messages")
 
 	// make sure bertbot's log actually reflects all of the messages + the follow message
 	checkUserLogSeq(bertBot, "bert", testMsgCount)
@@ -169,6 +177,7 @@ func TestNullFeed(t *testing.T) {
 	checkUserLogSeq(mainbot, "bert", -1)
 
 	// tell mainbot to connect to bertbot so it will replicate
+	t.Log("connecting")
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
 
