@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-ssb/internal/testutils"
 )
 
 func seq(start, end int) []byte {
@@ -26,10 +25,6 @@ func seq(start, end int) []byte {
 }
 
 func TestSpec(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		return
-	}
-
 	dir, err := os.Open(filepath.Join("spec", "vectors"))
 	if !assert.NoError(t, err, "open vectors dir") {
 		t.Log("suggestion: run 'git clone https://github.com/ssbc/envelope-spec spec'")
