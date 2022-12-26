@@ -27,4 +27,4 @@ rm -r testrun
 mkdir -p tmp/unpack
 tar xf v2-sloop-m100000-a2000.tar.gz -C tmp/unpack
 
-go run go.cryptoscope.co/ssb/cmd/ssb-offset-converter -if lfo tmp/unpack/flume/log.offset $dest
+go run ../cmd/ssb-offset-converter -if lfo tmp/unpack/flume/log.offset $dest
