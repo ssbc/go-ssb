@@ -46,7 +46,7 @@ require (
 	golang.org/x/sync v0.1.0
 	golang.org/x/text v0.5.0
 	gonum.org/v1/gonum v0.12.0
-	modernc.org/kv v1.0.4
+	modernc.org/kv v1.0.5
 )
 
 require (
