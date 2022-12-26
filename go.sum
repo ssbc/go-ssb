@@ -1041,8 +1041,9 @@ modernc.org/internal v1.0.3/go.mod h1:dvHFQEGEd33HZar0OdSYIm6yen/77eukCqffWSAwQU
 modernc.org/internal v1.0.4/go.mod h1:dvHFQEGEd33HZar0OdSYIm6yen/77eukCqffWSAwQUc=
 modernc.org/internal v1.0.5 h1:liZJd7ANjmsxjPK1+Vra6KS8QdqjtypQfjFEnLJydfo=
 modernc.org/internal v1.0.5/go.mod h1:lbE47ueQuXAscba+1ykHkFFi1M3On4ZOreb9LRZ6k4k=
-modernc.org/kv v1.0.4 h1:OIqsYiaYstZnmN6t8Pzo3BEs3oA4MJj0TUiJT2vRV1s=
 modernc.org/kv v1.0.4/go.mod h1:H9R2sn82cljQsU13t3l/lIVCkwXnVzRtWuD3U8lyM/Y=
+modernc.org/kv v1.0.5 h1:6SgHjxhEuEhiXxCFe8bRYAv1HmTWRKnMRDblSb/+pY0=
+modernc.org/kv v1.0.5/go.mod h1:ZghsvmaB0tyfWo9LOZWN5D1YHI9lS7Am1paAXkNKZuM=
 modernc.org/lldb v1.0.2/go.mod h1:ovbKqyzA9H/iPwHkAOH0qJbIQVT9rlijecenxDwVUi0=
 modernc.org/lldb v1.0.4 h1:FWlxVwxUKjuyu1fz3rmXJb4plvsw5F83PYN72ulzFIQ=
 modernc.org/lldb v1.0.4/go.mod h1:AKDI6wUJk7iJS8nRX54St8rq9wUIi3o5YGN3rlejR5o=
