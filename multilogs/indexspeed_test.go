@@ -21,7 +21,6 @@ import (
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
 
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/repo"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
@@ -77,10 +76,6 @@ func BenchmarkIndexFixturesUserFeeds(b *testing.B) {
 func TestIndexFixtures(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
-
-	if testutils.SkipOnCI(t) {
-		return
-	}
 
 	f, err := os.Open("v2-sloop-authors.json")
 	r.NoError(err)
