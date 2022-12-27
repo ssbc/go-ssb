@@ -16,8 +16,10 @@ test "$dest" != "" || {
 sha256sum -c v2-sloop-m100000-a2000.tar.gz.shasum || {
     wget "https://github.com/ssb-ngi-pointer/ssb-fixtures/releases/download/2.3.0/v2-sloop-m100000-a2000.tar.gz"
 
-    echo 'rerun me'
-    exit 0
+    sha256sum -c v2-sloop-m100000-a2000.tar.gz.shasum || {
+        echo 'download of ssb-fixtures failed'
+        exit 1
+    }
 }
 
 
