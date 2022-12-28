@@ -13,18 +13,23 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
+	"github.com/stretchr/testify/require"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/plugins2"
 	"github.com/ssbc/go-ssb/plugins2/names"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestAboutNames(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/issues/282
+		return
+	}
+
 	// defer leakcheck.Check(t) TODO: add closer to plugin so that they can free their resources properly
 	r := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
