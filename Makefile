@@ -19,7 +19,9 @@ endif
 
 .PHONY: test
 test:
+	test -d private/box2/spec || git clone https://github.com/ssbc/envelope-spec private/box2/spec
 	$(foreach pkg, $(PKGS), echo -en "\n        $(pkg)\r"; LIBRARIAN_WRITEALL=0 go test $(TESTFLAGS) $(pkg) || exit 1;)
+	rm -rf private/box2/spec
 
 .PHONY: racetest
 racetest:
