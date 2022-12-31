@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"crypto/ed25519"
 
 	refs "github.com/ssbc/go-ssb-refs"
-	"golang.org/x/crypto/ed25519"
 )
 
 var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
@@ -51,6 +51,9 @@ func NewSignatureFromBase64(input []byte) (Signature, error) {
 	gotLen := base64.StdEncoding.DecodedLen(len(b64))
 	if gotLen < ed25519.SignatureSize {
 		return nil, fmt.Errorf("ssb/signature: expected more signature data but only got %d", gotLen)
+	}
+	if gotLen > ed25519.SignatureSize {
+		return nil, fmt.Errorf("ssb/signature: expected less signature data but got %d", gotLen)
 	}
 
 	// allocate space for the signature and copy data into it
