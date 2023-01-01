@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"log"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,12 +78,17 @@ func TestIndexFixtures(t *testing.T) {
 	r := require.New(t)
 	a := assert.New(t)
 
-	f, err := os.Open("v2-sloop-authors.json")
-	r.NoError(err)
+	outputList := false
+	f, err := os.Open("v3-sloop-authors.json")
 	var feedsSloop tFeedSet
-	err = json.NewDecoder(f).Decode(&feedsSloop)
-	r.NoError(err)
-	f.Close()
+	if err == nil {
+		err = json.NewDecoder(f).Decode(&feedsSloop)
+		r.NoError(err)
+		f.Close()
+	} else {
+		t.Log("log", t.Name(), "authors not found - this test will fail but will result in an authors file being generated")
+		outputList = true
+	}
 
 	testRepo := filepath.Join("testrun", t.Name())
 
@@ -123,6 +129,43 @@ func TestIndexFixtures(t *testing.T) {
 
 	// f, err := os.Create("/tmp/lengthfile")
 	// r.NoError(err)
+
+	if outputList {
+		// write out a list of authors and exit
+		authors := make(map[string]int64)
+
+		ml, combinedSnk, closer := setupCombinedIndex(t, testLog, makeFsMlog)
+		serve("combined", combinedSnk)
+
+		addrs, err := ml.List()
+		r.NoError(err)
+
+		for i, addr := range addrs {
+			var sr tfk.Feed
+			err := sr.UnmarshalBinary([]byte(addr))
+			r.NoError(err, "ref %d invalid", i)
+
+			sublog, err := ml.Get(addr)
+			r.NoError(err)
+
+			sublogSeq := sublog.Seq()
+
+			fr, err := sr.Feed()
+			r.NoError(err)
+
+			authors[fr.String()] = sublogSeq
+			log.Printf("setting %s to %d", fr.String(), sublogSeq)
+		}
+		log.Printf("writing authors")
+		r.NoError(testLog.Close())
+		f, err := os.OpenFile("v3-sloop-authors.json", os.O_WRONLY|os.O_CREATE, 0644)
+		r.NoError(err)
+		err = json.NewEncoder(f).Encode(authors)
+		r.NoError(err)
+		f.Close()
+		r.NoError(closer.Close())
+		return
+	}
 
 	compare := func(ml multilog.MultiLog) {
 		addrs, err := ml.List()

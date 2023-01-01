@@ -28,3 +28,6 @@ dist
 
 # ignore go coverage reports
 **/cover.out
+
+# ignore downloaded files for tests
+multilogs/v3-sloop-m100000-a2000.tar.gz

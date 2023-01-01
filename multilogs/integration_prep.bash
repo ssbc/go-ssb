@@ -13,10 +13,10 @@ test "$dest" != "" || {
 }
 
 
-sha256sum -c v2-sloop-m100000-a2000.tar.gz.shasum || {
-    wget "https://github.com/ssb-ngi-pointer/ssb-fixtures/releases/download/2.3.0/v2-sloop-m100000-a2000.tar.gz"
+sha256sum -c v3-sloop-m100000-a2000.tar.gz.shasum || {
+    wget "https://github.com/ssbc/ssb-fixtures/releases/download/3.0.2/v3-sloop-m100000-a2000.tar.gz"
 
-    sha256sum -c v2-sloop-m100000-a2000.tar.gz.shasum || {
+    sha256sum -c v3-sloop-m100000-a2000.tar.gz.shasum || {
         echo 'download of ssb-fixtures failed'
         exit 1
     }
@@ -27,6 +27,6 @@ rm -r tmp
 rm -r testrun
 
 mkdir -p tmp/unpack
-tar xf v2-sloop-m100000-a2000.tar.gz -C tmp/unpack
+tar xf v3-sloop-m100000-a2000.tar.gz -C tmp/unpack
 
 go run ../cmd/ssb-offset-converter -if lfo tmp/unpack/flume/log.offset $dest
