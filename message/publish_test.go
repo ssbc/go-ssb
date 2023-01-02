@@ -17,18 +17,11 @@ import (
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/asynctesting"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestSignMessages(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/170
-		return
-	}
-
 	tctx := context.TODO()
 	r := require.New(t)
 	a := assert.New(t)
@@ -60,9 +53,6 @@ func TestSignMessages(t *testing.T) {
 	testAuthor, err := ssb.NewKeyPair(staticRand, refs.RefAlgoFeedSSB1)
 	r.NoError(err)
 
-	authorLog, err := userFeeds.Get(storedrefs.Feed(testAuthor.ID()))
-	r.NoError(err)
-
 	w, err := OpenPublishLog(rl, userFeeds, testAuthor)
 	r.NoError(err)
 
@@ -86,18 +76,13 @@ func TestSignMessages(t *testing.T) {
 		newSeq, err := w.Append(msg)
 		r.NoError(err, "failed to pour test message %d", i)
 		r.EqualValues(i, newSeq, "advanced")
-		// TODO: weird flake
-		// currSeq, err := authorLog.Seq().Value()
-		// r.NoError(err, "failed to get log seq")
-		// r.Equal(newSeq, currSeq, "append messages was not current message?")
+		currSeq := rl.Seq()
+		r.NoError(err, "failed to get log seq")
+		r.Equal(newSeq, currSeq, "append messages was not current message?")
 	}
 
-	r.EqualValues(2, authorLog.Seq(), "not empty")
-
 	for i := 0; i < len(tmsgs); i++ {
-		rootSeq, err := authorLog.Get(int64(i))
-		r.NoError(err)
-		storedV, err := rl.Get(rootSeq.(int64))
+		storedV, err := rl.Get(int64(i))
 		r.NoError(err)
 		storedMsg, ok := storedV.(refs.Message)
 		r.True(ok)
@@ -108,9 +93,10 @@ func TestSignMessages(t *testing.T) {
 		} else {
 			a.Nil(storedMsg.Previous(), "msg:%d - expected nil previous", i)
 		}
-		// a.NotNil(storedMsg.Raw, "msg:%d - raw", i)
-		// a.Contains(string(storedMsg.Raw), `"signature": "`)
-		// a.Contains(string(storedMsg.Raw), fmt.Sprintf(`"sequence": %d`, i+1))
+		a.NotNil(storedMsg.ContentBytes(), "msg:%d - raw", i)
+		value := storedMsg.ValueContent()
+		a.NotNil(value.Signature, "msg:%d - expected signature", i)
+		a.NotNil(value.Sequence, "msg:%d - expected sequence number", i)
 	}
 
 	cancel()
