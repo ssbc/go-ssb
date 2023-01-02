@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"crypto/ed25519"
 
 	refs "github.com/ssbc/go-ssb-refs"
-	"golang.org/x/crypto/ed25519"
 )
 
 var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
@@ -47,17 +47,24 @@ func NewSignatureFromBase64(input []byte) (Signature, error) {
 	}
 	b64 := bytes.TrimSuffix(input, signatureSuffix)
 
-	// check we have at least 64 bytes of signature data
+	// initial check of signature data to make sure it's within reasonable limits, to be checked in detail later due to padding issues
+	// this is mainly to avoid decoding a signature that's obviously invalid and huge and filling up RAM in the process
 	gotLen := base64.StdEncoding.DecodedLen(len(b64))
 	if gotLen < ed25519.SignatureSize {
 		return nil, fmt.Errorf("ssb/signature: expected more signature data but only got %d", gotLen)
 	}
+	if gotLen > ed25519.SignatureSize + 2 {
+		return nil, fmt.Errorf("ssb/signature: expected less signature data but got a string that could decode to up to %d bytes", gotLen)
+	}
 
-	// allocate space for the signature and copy data into it
-	decoded := make([]byte, ed25519.SignatureSize)
-	_, err := base64.StdEncoding.Decode(decoded, b64)
+	// decode and check lengths
+	decoded, err := base64.StdEncoding.DecodeString(string(b64))
 	if err != nil {
 		return nil, fmt.Errorf("ssb/signature: invalid base64 data: %w", err)
+	}
+	decodedLen := len(decoded)
+	if decodedLen != ed25519.SignatureSize {
+		return nil, fmt.Errorf("ssb/signature: decoded data is %d bytes long and should be %d", decodedLen, ed25519.SignatureSize)
 	}
 
 	return Signature(decoded), err
