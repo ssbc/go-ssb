@@ -17,11 +17,17 @@ import (
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/asynctesting"
+	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestSignMessages(t *testing.T) {
+	if testutils.SkipOnCI(t) {
+		// https://github.com/ssbc/go-ssb/pull/170
+		return
+	}
+	
 	tctx := context.TODO()
 	r := require.New(t)
 	a := assert.New(t)
