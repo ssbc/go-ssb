@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 func (s *Sbot) Get(ref refs.MessageRef) (refs.Message, error) {

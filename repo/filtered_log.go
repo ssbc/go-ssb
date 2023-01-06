@@ -10,8 +10,8 @@ import (
 
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-luigi/mfr"
-	"github.com/ssbc/margaret"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
 )
 
 // FilterFunc works on messages of a FilteredLog. If the func returns true, the log is in the filtered log.

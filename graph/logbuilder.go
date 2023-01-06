@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/ssbc/go-luigi"
-	"github.com/ssbc/margaret"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/margaret"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "github.com/ssbc/go-ssb-refs"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/traverse"

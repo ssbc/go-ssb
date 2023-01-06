@@ -10,9 +10,9 @@ import (
 
 	librarian "github.com/ssbc/margaret/indexes"
 
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 type strFeedMap map[librarian.Addr]struct{}

@@ -9,10 +9,10 @@ import (
 	"math"
 	"sync"
 
-	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	librarian "github.com/ssbc/margaret/indexes"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"

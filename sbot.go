@@ -7,12 +7,12 @@ package ssb
 import (
 	"fmt"
 
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	refs "github.com/ssbc/go-ssb-refs"
-	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 type Publisher interface {

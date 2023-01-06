@@ -115,9 +115,9 @@ type Sbot struct {
 	enableAdverts   bool
 	enableDiscovery bool
 
-	websocketAddr string
+	websocketAddr    string
 	websocketTLSCert string
-	websocketTLSKey string
+	websocketTLSKey  string
 
 	numberOfConcurrentReplicationsPerPeer uint
 	numberOfConcurrentReplications        uint
@@ -809,9 +809,9 @@ func New(fopts ...Option) (*Sbot, error) {
 		EndpointWrapper: s.edpWrapper,
 		Latency:         s.latency,
 
-		WebsocketAddr: s.websocketAddr,
+		WebsocketAddr:    s.websocketAddr,
 		WebsocketTLSCert: s.websocketTLSCert,
-		WebsocketTLSKey: s.websocketTLSKey,
+		WebsocketTLSKey:  s.websocketTLSKey,
 	}
 
 	networkNode, err := network.New(opts)

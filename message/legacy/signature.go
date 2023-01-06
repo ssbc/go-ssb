@@ -6,6 +6,7 @@ package legacy
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -13,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"crypto/ed25519"
 
 	refs "github.com/ssbc/go-ssb-refs"
 )
@@ -53,7 +53,7 @@ func NewSignatureFromBase64(input []byte) (Signature, error) {
 	if gotLen < ed25519.SignatureSize {
 		return nil, fmt.Errorf("ssb/signature: expected more signature data but only got %d", gotLen)
 	}
-	if gotLen > ed25519.SignatureSize + 2 {
+	if gotLen > ed25519.SignatureSize+2 {
 		return nil, fmt.Errorf("ssb/signature: expected less signature data but got a string that could decode to up to %d bytes", gotLen)
 	}
 

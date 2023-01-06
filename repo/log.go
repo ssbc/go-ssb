@@ -7,8 +7,8 @@ package repo
 import (
 	"fmt"
 
-	"github.com/ssbc/margaret/offset2"
 	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/margaret/offset2"
 )
 
 func OpenLog(r Interface, path ...string) (multimsg.AlterableLog, error) {

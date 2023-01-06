@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb/message/multimsg"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/legacyflumeoffset"
 	"github.com/ssbc/margaret/offset2"
-	"github.com/ssbc/go-ssb/message/multimsg"
 )
 
 func main() {

@@ -14,18 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog/roaring"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 	kitlog "go.mindeco.de/log"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/private"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestPrivateGroupsManualDecrypt(t *testing.T) {

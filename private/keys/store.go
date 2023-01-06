@@ -9,9 +9,9 @@ import (
 	"context"
 	"fmt"
 
-	librarian "github.com/ssbc/margaret/indexes"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	librarian "github.com/ssbc/margaret/indexes"
 )
 
 // Q: what's the relation of ID and key?

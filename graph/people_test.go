@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type PeopleOp interface {

@@ -214,9 +214,9 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 }
 
 var callCmd = &cli.Command{
-	Name:        "call",
-	Usage:       "Make an async call",
-	ArgsUsage:   "<cmd> <arg>",
+	Name:      "call",
+	Usage:     "Make an async call",
+	ArgsUsage: "<cmd> <arg>",
 	Description: `Make an async call.
 
 Supports common muxrpc async calls such as:
@@ -276,9 +276,9 @@ See https://scuttlebot.io/apis/scuttlebot/ssb.html for more.`,
 }
 
 var sourceCmd = &cli.Command{
-	Name:        "source",
-	Usage:       "Make a source call",
-	ArgsUsage:   "<cmd>",
+	Name:      "source",
+	Usage:     "Make a source call",
+	ArgsUsage: "<cmd>",
 	Description: `Make a source call.
 
 Call any muxrpc method that returns a stream, as long as the method takes the
@@ -333,9 +333,9 @@ Example:
 }
 
 var getSubsetCmd = &cli.Command{
-	Name:        "subset",
-	Usage:       "Fetch subsets of messages from the log",
-	ArgsUsage:   "<json>",
+	Name:      "subset",
+	Usage:     "Fetch subsets of messages from the log",
+	ArgsUsage: "<json>",
 	Description: `Fetch subsets of messages from the log.
 
 Example:
@@ -449,9 +449,9 @@ Example:
 }
 
 var connectCmd = &cli.Command{
-	Name:        "connect",
-	Usage:       "Connect to a remote peer",
-	ArgsUsage:   "<multiserver address>",
+	Name:      "connect",
+	Usage:     "Connect to a remote peer",
+	ArgsUsage: "<multiserver address>",
 	Description: `Connect to a remote peer.
 
 Example:
@@ -460,7 +460,7 @@ Example:
 
 See https://github.com/ssbc/multiserver#address-format for more information about multiserver addresses.`,
 
-  Action: func(ctx *cli.Context) error {
+	Action: func(ctx *cli.Context) error {
 		to := ctx.Args().Get(0)
 		if to == "" {
 			return errors.New("connect: multiserv addr argument can't be empty")
@@ -494,9 +494,9 @@ See https://github.com/ssbc/multiserver#address-format for more information abou
 }
 
 var blockCmd = &cli.Command{
-	Name:        "block",
-	Usage:       "Block a peer by specifying their public key (@...)",
-	ArgsUsage:   "<@...ed25519>",
+	Name:      "block",
+	Usage:     "Block a peer by specifying their public key (@...)",
+	ArgsUsage: "<@...ed25519>",
 	Description: `Block a peer by specifying their public key (@...).
 
 Example:
@@ -663,8 +663,8 @@ var inviteCmds = &cli.Command{
 }
 
 var inviteCreateCmd = &cli.Command{
-	Name:        "create",
-	Usage:       "Register and return an invite for somebody else to accept",
+	Name:  "create",
+	Usage: "Register and return an invite for somebody else to accept",
 	Description: `Register and return an invite for somebody else to accept.
 
 Example:

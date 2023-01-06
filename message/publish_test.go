@@ -27,7 +27,7 @@ func TestSignMessages(t *testing.T) {
 		// https://github.com/ssbc/go-ssb/pull/170
 		return
 	}
-	
+
 	tctx := context.TODO()
 	r := require.New(t)
 	a := assert.New(t)

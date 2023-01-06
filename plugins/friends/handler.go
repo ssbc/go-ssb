@@ -7,9 +7,9 @@ package friends
 
 import (
 	"github.com/ssbc/go-muxrpc/v2"
+	refs "github.com/ssbc/go-ssb-refs"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
-	refs "github.com/ssbc/go-ssb-refs"
 
 	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"github.com/ssbc/go-ssb"

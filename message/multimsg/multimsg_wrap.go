@@ -9,10 +9,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/ssbc/go-metafeed"
-	"github.com/ssbc/margaret"
 	gabbygrove "github.com/ssbc/go-gabbygrove"
+	"github.com/ssbc/go-metafeed"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
 
 	"github.com/ssbc/go-ssb/message/legacy"
 )

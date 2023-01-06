@@ -15,16 +15,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/blobstore"
 	"github.com/ssbc/go-ssb/internal/broadcasts"
 	"github.com/ssbc/go-ssb/internal/leakcheck"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestBlobToJS(t *testing.T) {

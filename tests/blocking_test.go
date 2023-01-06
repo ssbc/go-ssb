@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // first simple case

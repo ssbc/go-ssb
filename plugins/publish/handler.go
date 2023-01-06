@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/private"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/private"
 )
 
 type handler struct {

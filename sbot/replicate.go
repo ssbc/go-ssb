@@ -17,9 +17,9 @@ import (
 	"go.mindeco.de/log/level"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/statematrix"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var _ ssb.Replicator = (*Sbot)(nil)

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
-	"go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
+	"go.mindeco.de/log"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"

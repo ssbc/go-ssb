@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ssbc/go-muxrpc/v2/debug"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-muxrpc/v2/debug"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"

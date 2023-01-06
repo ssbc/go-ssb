@@ -17,11 +17,11 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/margaret/multilog"
 	multibadger "github.com/ssbc/margaret/multilog/roaring/badger"

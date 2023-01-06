@@ -11,13 +11,13 @@ import (
 	"io"
 
 	"github.com/dgraph-io/badger/v3"
-	librarian "github.com/ssbc/margaret/indexes"
-	libbader "github.com/ssbc/margaret/indexes/badger"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/private"
+	librarian "github.com/ssbc/margaret/indexes"
+	libbader "github.com/ssbc/margaret/indexes/badger"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Members map[string]bool

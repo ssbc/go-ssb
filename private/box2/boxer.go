@@ -14,9 +14,9 @@ import (
 
 	"golang.org/x/crypto/nacl/secretbox"
 
-	"github.com/ssbc/go-ssb/private/keys"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/private/keys"
 )
 
 const (

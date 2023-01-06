@@ -9,9 +9,9 @@ import (
 	"math"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type authorizer struct {

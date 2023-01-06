@@ -14,10 +14,10 @@ import (
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/margaret/multilog/roaring"
 	"github.com/ssbc/go-muxrpc/v2"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog/roaring"
 )
 
 type getTangleHandler struct {

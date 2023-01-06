@@ -9,9 +9,9 @@ import (
 	"net"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/ssbc/go-netwrap"
 	"github.com/ssbc/go-secretstream"
+	"github.com/stretchr/testify/assert"
 
 	refs "github.com/ssbc/go-ssb-refs"
 )

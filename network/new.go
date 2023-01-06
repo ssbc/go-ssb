@@ -22,8 +22,8 @@ import (
 	"go.mindeco.de/log/level"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/internal/neterr"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/neterr"
 )
 
 // DefaultPort is the default listening port for ScuttleButt.
@@ -56,9 +56,9 @@ type Options struct {
 	Latency         metrics.Histogram
 	EndpointWrapper func(muxrpc.Endpoint) muxrpc.Endpoint
 
-	WebsocketAddr string
+	WebsocketAddr    string
 	WebsocketTLSCert string
-	WebsocketTLSKey string
+	WebsocketTLSKey  string
 }
 
 type Node struct {

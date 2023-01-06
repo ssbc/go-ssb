@@ -21,9 +21,9 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 // Builder can build a trust graph and answer other questions

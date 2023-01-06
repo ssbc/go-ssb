@@ -28,15 +28,15 @@ var publishCmd = &cli.Command{
 }
 
 var publishRawCmd = &cli.Command{
-	Name:        "raw",
-	Usage:       "Read JSON from stdin and publish it as the content of a new message",
-  ArgsUsage:   "<json>",
+	Name:      "raw",
+	Usage:     "Read JSON from stdin and publish it as the content of a new message",
+	ArgsUsage: "<json>",
 	Description: `Read JSON from stdin and publish it as the content of a new message.
 
 Example:
 
     echo '{"type":"post","text":"example"}' | sbotcli publish raw`,
-  
+
 	// TODO: add private
 	Action: func(ctx *cli.Context) error {
 		var content interface{}
@@ -66,9 +66,9 @@ Example:
 }
 
 var publishPostCmd = &cli.Command{
-	Name:        "post",
-	Usage:       "Publish a post (public or private)",
-	ArgsUsage:   "<text>",
+	Name:      "post",
+	Usage:     "Publish a post (public or private)",
+	ArgsUsage: "<text>",
 	Description: `Publish a post (public or private).
 
 Example:
@@ -125,9 +125,9 @@ Example:
 }
 
 var publishVoteCmd = &cli.Command{
-	Name:        "vote",
-	Usage:       "Publish a vote or expression",
-	ArgsUsage:   "<%...sha256>",
+	Name:      "vote",
+	Usage:     "Publish a vote or expression",
+	ArgsUsage: "<%...sha256>",
 	Description: `Publish a vote or expression.
 
 Example:
@@ -198,9 +198,9 @@ Example:
 }
 
 var publishAboutCmd = &cli.Command{
-	Name:        "about",
-	Usage:       "Publish an about message to define the name or image assigned to a public key",
-	ArgsUsage:   "<@...ed25519>",
+	Name:      "about",
+	Usage:     "Publish an about message to define the name or image assigned to a public key",
+	ArgsUsage: "<@...ed25519>",
 	Description: `Publish an about message to define the name or image assigned to a public key.
 
 Example:
@@ -252,9 +252,9 @@ Example:
 }
 
 var publishContactCmd = &cli.Command{
-	Name:        "contact",
-	Usage:       "Publish a contact message (follow, unfollow, block, unblock)",
-	ArgsUsage:   "<@...ed25519>",
+	Name:      "contact",
+	Usage:     "Publish a contact message (follow, unfollow, block, unblock)",
+	ArgsUsage: "<@...ed25519>",
 	Description: `Publish a contact message (follow, unfollow, block, unblock).
 
 Example (follow):

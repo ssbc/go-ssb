@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/margaret"
 
 	"github.com/ssbc/go-luigi"
 )

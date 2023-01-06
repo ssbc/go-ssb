@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/ssbc/go-luigi"
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/internal/transform"

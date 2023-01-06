@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MIT
 
-// +build !darwin
-// +build !windows
+//go:build !darwin && !windows
+// +build !darwin,!windows
 
 package ssb
 

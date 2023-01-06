@@ -24,13 +24,13 @@ import (
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 	"github.com/ssbc/go-ssb/internal/extra25519"
 	"github.com/ssbc/go-ssb/internal/slp"
 	"github.com/ssbc/go-ssb/private/box"
 	"github.com/ssbc/go-ssb/private/box2"
 	"github.com/ssbc/go-ssb/private/keys"
-	refs "github.com/ssbc/go-ssb-refs"
-	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 // Manager is in charge of storing and retriving keys with the help of keymgr, can de- and encrypt messages and publish them.

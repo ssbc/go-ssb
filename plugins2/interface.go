@@ -5,8 +5,8 @@
 package plugins2
 
 import (
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/margaret"
 )
 
 type AuthMode uint

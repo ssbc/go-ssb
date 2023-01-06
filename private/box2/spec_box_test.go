@@ -10,8 +10,8 @@ import (
 
 	"github.com/ssbc/go-ssb-refs/tfk"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb/private/keys"
+	"github.com/stretchr/testify/require"
 )
 
 type boxSpecTest struct {

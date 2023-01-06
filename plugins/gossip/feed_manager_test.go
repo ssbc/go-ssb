@@ -14,15 +14,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/go-muxrpc/v2/codec"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-muxrpc/v2"
-	"github.com/ssbc/go-muxrpc/v2/codec"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/asynctesting"
 	"github.com/ssbc/go-ssb/internal/ctxutils"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
@@ -30,7 +31,6 @@ import (
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func requireFeedRef(

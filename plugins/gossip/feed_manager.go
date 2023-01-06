@@ -10,25 +10,25 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"sync"
 	"strings"
+	"sync"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/luigiutils"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/transform"
 	"github.com/ssbc/go-ssb/message"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // FeedManager handles serving gossip about User Feeds.

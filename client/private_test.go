@@ -12,12 +12,12 @@ import (
 
 	"github.com/ssbc/go-muxrpc/v2"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/sbot"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAutomaticUnboxing(t *testing.T) {

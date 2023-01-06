@@ -27,9 +27,9 @@ var friendsCmd = &cli.Command{
 }
 
 var friendsIsFollowingCmd = &cli.Command{
-	Name:        "isFollowing",
-	Usage:       "Check if a feed is friends with another (follows back)",
-	ArgsUsage:   "<@...ed25519> <@...ed25519>",
+	Name:      "isFollowing",
+	Usage:     "Check if a feed is friends with another (follows back)",
+	ArgsUsage: "<@...ed25519> <@...ed25519>",
 	Description: `Check if a feed is friends with another (follows back).
 
 Example:
@@ -78,9 +78,9 @@ sbotcli friends isFollowing @HEqy940T6uB+T+d9Jaa58aNfRzLx9eRWqkZljBmnkmk=.ed2551
 	},
 }
 var friendsHopsCmd = &cli.Command{
-	Name:        "hops",
-	Usage:       "List all peers within the hops range of the given feed ID",
-	ArgsUsage:   "<@...ed25519>",
+	Name:      "hops",
+	Usage:     "List all peers within the hops range of the given feed ID",
+	ArgsUsage: "<@...ed25519>",
 	Description: `List all peers within the hops range of the given feed ID.
 
 When the <dist> flag is set to 0, the peers in the returned list represent the
@@ -125,9 +125,9 @@ Example:
 }
 
 var friendsBlocksCmd = &cli.Command{
-	Name:        "blocks",
-	Usage:       "List all peers blocked by the given feed ID",
-	ArgsUsage:   "<@...ed25519>",
+	Name:      "blocks",
+	Usage:     "List all peers blocked by the given feed ID",
+	ArgsUsage: "<@...ed25519>",
 	Description: `List all peers blocked by the given feed ID.
 
 Example:

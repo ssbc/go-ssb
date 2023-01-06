@@ -12,13 +12,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/asynctesting"
 	"github.com/ssbc/go-ssb/internal/multicloser"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
@@ -26,7 +27,6 @@ import (
 	"github.com/ssbc/go-ssb/message/multimsg"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestFormatsSimple(t *testing.T) {

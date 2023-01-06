@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/ssbc/go-metafeed/metakeys"
-	"go.cryptoscope.co/nocomment"
 	"github.com/ssbc/go-secretstream/secrethandshake"
+	"go.cryptoscope.co/nocomment"
 	"golang.org/x/crypto/ed25519"
 
 	refs "github.com/ssbc/go-ssb-refs"

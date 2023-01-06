@@ -15,10 +15,10 @@ import (
 	"github.com/ssbc/go-metafeed"
 	"github.com/ssbc/margaret"
 
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/message/legacy"
 	gabbygrove "github.com/ssbc/go-gabbygrove"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/ssbc/go-ssb/message/legacy"
 )
 
 type SequencedVerificationSink interface {

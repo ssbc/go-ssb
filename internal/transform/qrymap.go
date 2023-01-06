@@ -11,12 +11,12 @@ import (
 
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-luigi/mfr"
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/encodedTime"
 
-	"github.com/ssbc/go-ssb/message/multimsg"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/message/multimsg"
 )
 
 // NewKeyValueWrapper turns a value into a key-value message.

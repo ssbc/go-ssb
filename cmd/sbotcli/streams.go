@@ -163,9 +163,9 @@ var typeStreamCmd = &cli.Command{
 }
 
 var repliesStreamCmd = &cli.Command{
-	Name:        "replies",
-	Usage:       "Fetch all replies to the given root message (%...)",
-	ArgsUsage:   "<%...sha256>",
+	Name:      "replies",
+	Usage:     "Fetch all replies to the given root message (%...)",
+	ArgsUsage: "<%...sha256>",
 	Description: `Fetch all replies to the given root message (%...).
 
 The --limt behaviour is root + n replies, i.e. the limit doesn't count the root
@@ -174,7 +174,7 @@ message. This is different behaviour from the typical createHistoryStream call.
 Example:
 
     sbotcli replies %6Jke7N/zqjxBlv3c6GgmQ96mGfpzszdhnKAnh2RnPR8=.sha256`,
-	Flags:     append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
+	Flags: append(streamFlags, &cli.StringFlag{Name: "tname", Usage: "tangle name (v2)"}),
 	Action: func(ctx *cli.Context) error {
 		client, err := newClient(ctx)
 		if err != nil {

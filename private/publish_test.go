@@ -13,20 +13,20 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	kitlog "go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/private"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestPrivatePublish(t *testing.T) {

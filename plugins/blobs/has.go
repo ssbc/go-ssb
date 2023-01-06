@@ -13,8 +13,8 @@ import (
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/blobstore"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/blobstore"
 )
 
 type hasHandler struct {

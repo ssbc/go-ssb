@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAbstractStored(t *testing.T) {

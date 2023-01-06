@@ -20,11 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-muxrpc/v2/debug"
 	"github.com/ssbc/go-netwrap"
-	"go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
+	"go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/sbot"

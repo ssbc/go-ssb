@@ -11,9 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/go-ssb/message/multimsg"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/margaret"
 )
 
 type FlumeToMultiMsgCodec struct{}

@@ -19,13 +19,13 @@ import (
 	"github.com/ssbc/go-metafeed/metakeys"
 	"github.com/ssbc/go-metafeed/metamngmt"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb-refs/tfk"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/slp"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/private/keys"
-	refs "github.com/ssbc/go-ssb-refs"
-	"github.com/ssbc/go-ssb-refs/tfk"
 )
 
 // WithMetaFeedMode enables metafeed support.
@@ -109,7 +109,7 @@ func (s metaFeedsService) RegisterIndex(mfId, contentFeed refs.FeedRef, msgType 
 	return nil
 }
 
-func (s metaFeedsService) getIndexesFeed (mfId refs.FeedRef) (refs.FeedRef, error) {
+func (s metaFeedsService) getIndexesFeed(mfId refs.FeedRef) (refs.FeedRef, error) {
 	var err error
 	var indexesFeedRef, empty refs.FeedRef
 	var indexesFeeds []refs.FeedRef

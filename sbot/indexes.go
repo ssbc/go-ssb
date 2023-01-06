@@ -13,12 +13,12 @@ import (
 
 	"github.com/machinebox/progress"
 	"github.com/ssbc/go-luigi"
-	"github.com/ssbc/margaret"
-	librarian "github.com/ssbc/margaret/indexes"
-	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/plugins2"
 	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/margaret"
+	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/ssbc/margaret/multilog"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 )

@@ -14,16 +14,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-muxrpc/v2"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // this is only a basic test.

@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/keks/testops"
-	"github.com/stretchr/testify/require"
 	librarian "github.com/ssbc/margaret/indexes"
 	libmkv "github.com/ssbc/margaret/indexes/mkv"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 	"modernc.org/kv"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/extra25519"
 	"github.com/ssbc/go-ssb/private/keys"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestManager(t *testing.T) {

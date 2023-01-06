@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"testing"
 
+	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	librarian "github.com/ssbc/margaret/indexes"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/private"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // ssb-db@20 problems

@@ -8,13 +8,13 @@
 package private
 
 import (
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/private"
-	"go.mindeco.de/logging"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/private"
+	"github.com/ssbc/margaret"
+	"go.mindeco.de/logging"
 )
 
 type privatePlug struct {

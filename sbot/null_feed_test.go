@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 	kitlog "go.mindeco.de/log"
-	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"

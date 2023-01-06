@@ -7,8 +7,8 @@ package ssb
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFeedSetEmpty(t *testing.T) {

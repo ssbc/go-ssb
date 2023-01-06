@@ -8,8 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 	"io"
+	"time"
 
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/typemux"

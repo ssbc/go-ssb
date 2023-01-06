@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/VividCortex/gohistogram"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/margaret"
-	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb/internal/mutil"

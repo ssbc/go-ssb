@@ -10,12 +10,12 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	refs "github.com/ssbc/go-ssb-refs"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/internal/mutil"
