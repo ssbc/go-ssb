@@ -7,15 +7,15 @@ package ebt
 import (
 	"sync"
 
+	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-muxrpc/v2"
 	"go.mindeco.de/logging"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/statematrix"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/plugins/gossip"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Plugin struct{ *MUXRPCHandler }

@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"github.com/ssbc/margaret/offset2"
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/legacy"
+	"github.com/ssbc/margaret/offset2"
+	"github.com/stretchr/testify/require"
 
 	gabbygrove "github.com/ssbc/go-gabbygrove"
 	refs "github.com/ssbc/go-ssb-refs"

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/margaret/mem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-luigi"
-	"github.com/ssbc/margaret/mem"
-	"github.com/ssbc/go-ssb/repo"
 
 	refs "github.com/ssbc/go-ssb-refs"
 )

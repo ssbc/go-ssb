@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/ssbc/go-muxrpc/v2"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/graph"
 	"go.mindeco.de/log"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type blocksSrc struct {

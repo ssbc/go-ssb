@@ -8,8 +8,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/private/box"

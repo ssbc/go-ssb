@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "github.com/ssbc/go-ssb-refs"
 
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/codec"

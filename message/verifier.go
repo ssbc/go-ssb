@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"sync"
 
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // NewVerificationRouter supplies a unique drain per author that skip duplicate messages

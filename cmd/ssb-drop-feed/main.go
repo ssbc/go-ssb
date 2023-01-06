@@ -14,9 +14,9 @@ import (
 	"runtime/debug"
 	"time"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/repo"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func check(err error, msg string, args ...interface{}) {

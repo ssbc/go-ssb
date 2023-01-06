@@ -9,17 +9,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/log/level"
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/transform"
 	"github.com/ssbc/go-ssb/message"
 	"github.com/ssbc/go-ssb/private"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type handler struct {

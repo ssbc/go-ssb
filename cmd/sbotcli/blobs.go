@@ -57,9 +57,9 @@ var blobsCmd = &cli.Command{
 }
 
 var blobsHasCmd = &cli.Command{
-	Name:        "has",
-	Usage:       "Check if a blob is in the local blobstore.",
-	ArgsUsage:   "<&...sha256>",
+	Name:      "has",
+	Usage:     "Check if a blob is in the local blobstore.",
+	ArgsUsage: "<&...sha256>",
 	Description: `Check if a blob is in the local blobstore.
 
 Example:
@@ -101,9 +101,9 @@ Example:
 }
 
 var blobsWantCmd = &cli.Command{
-	Name:        "want",
-	Usage:       "Try to get a blob from other peers.",
-	ArgsUsage:   "<&...sha256>",
+	Name:      "want",
+	Usage:     "Try to get a blob from other peers.",
+	ArgsUsage: "<&...sha256>",
 	Description: `Try to get a blob from other peers.
 
 Adds the blob reference to a list of blobs being requested by the local sbot.
@@ -134,9 +134,9 @@ Example:
 }
 
 var blobsAddCmd = &cli.Command{
-	Name:        "add",
-	Usage:       "Add a file to the blobstore (pass - to open stdin).",
-	ArgsUsage:   "[<filename> | - <stdin>]",
+	Name:      "add",
+	Usage:     "Add a file to the blobstore (pass - to open stdin).",
+	ArgsUsage: "[<filename> | - <stdin>]",
 	Description: `Add a file to the blobstore (pass - to open stdin).
 
 A blob reference will be returned (<&...sha256>) if the file is added successfully.
@@ -172,9 +172,9 @@ Example:
 }
 
 var blobsGetCmd = &cli.Command{
-	Name:        "get",
-	Usage:       "Streams the contents of the file",
-	ArgsUsage:   "<&...sha256>",
+	Name:      "get",
+	Usage:     "Streams the contents of the file",
+	ArgsUsage: "<&...sha256>",
 	Description: `Streams the contents of the file.
 
 Contents are streamed to stdout by default. An alternative destination can be

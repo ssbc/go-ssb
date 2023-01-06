@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ssbc/go-ssb/private/keys"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/private/keys"
 )
 
 // TODO: this somehow started panicing..?!

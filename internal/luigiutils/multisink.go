@@ -8,8 +8,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 )
 
 // MultiSink takes each message poured into it, and passes it on to all

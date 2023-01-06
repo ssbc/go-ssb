@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 )
 
 func makeTestPubKey(t *testing.T) ssb.KeyPair {

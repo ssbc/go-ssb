@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 

@@ -13,10 +13,10 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
-	kitlog "go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
+	kitlog "go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/invite"

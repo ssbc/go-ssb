@@ -13,8 +13,8 @@ import (
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
-	"github.com/ssbc/go-ssb/private"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/private"
 )
 
 type create struct {

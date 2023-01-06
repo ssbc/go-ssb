@@ -7,8 +7,8 @@ package ssb
 import (
 	"encoding/json"
 
-	"github.com/ssbc/margaret"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
 )
 
 // DropContentRequest has special meaning on a gabby-grove feed.

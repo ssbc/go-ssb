@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/ssbc/go-metafeed/metakeys"
-	"github.com/stretchr/testify/require"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultKeyPair(t *testing.T) {

@@ -12,17 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ssbc/go-metafeed"
 	"github.com/ssbc/go-luigi"
+	"github.com/ssbc/go-metafeed"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
 
+	gabbygrove "github.com/ssbc/go-gabbygrove"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/legacy"
-	gabbygrove "github.com/ssbc/go-gabbygrove"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type publishLog struct {

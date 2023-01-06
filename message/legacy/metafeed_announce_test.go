@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/message/legacy"
 	"github.com/ssbc/go-ssb/message/multimsg"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignMetafeedAnnouncment(t *testing.T) {

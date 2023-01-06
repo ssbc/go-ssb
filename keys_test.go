@@ -9,9 +9,9 @@ import (
 	"path"
 	"testing"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func TestSaveKeyPair(t *testing.T) {
@@ -30,8 +30,8 @@ func TestSaveKeyPair(t *testing.T) {
 
 func TestLoadKeyPair(t *testing.T) {
 	tests := []struct {
-		Name   string
-		Perms  os.FileMode
+		Name                    string
+		Perms                   os.FileMode
 		HasIncorrectPermissions bool
 	}{
 		{

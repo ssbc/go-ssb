@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+//go:build ignore
 // +build ignore
 
 // TODO: mutli-author refactor
@@ -14,10 +15,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/indexes"
 	"github.com/ssbc/go-ssb/repo"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 )
 

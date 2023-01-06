@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"time"
 
+	gabbygrove "github.com/ssbc/go-gabbygrove"
 	"github.com/ssbc/go-metafeed"
 	"github.com/ugorji/go/codec"
-	gabbygrove "github.com/ssbc/go-gabbygrove"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/legacy"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type MessageType byte

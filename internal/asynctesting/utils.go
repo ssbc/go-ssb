@@ -12,11 +12,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"

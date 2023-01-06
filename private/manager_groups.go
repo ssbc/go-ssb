@@ -13,10 +13,10 @@ import (
 
 	"github.com/ssbc/margaret"
 
-	"github.com/ssbc/go-ssb/private/box2"
-	"github.com/ssbc/go-ssb/private/keys"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/private/box2"
+	"github.com/ssbc/go-ssb/private/keys"
 )
 
 type groupInit struct {

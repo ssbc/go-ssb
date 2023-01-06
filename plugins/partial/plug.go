@@ -7,10 +7,10 @@
 package partial
 
 import (
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/margaret/multilog/roaring"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/typemux"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog/roaring"
 	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"

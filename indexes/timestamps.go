@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/repo"
 	"github.com/ssbc/margaret"
 	mindex "github.com/ssbc/margaret/indexes"
-	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type Timestamps struct {

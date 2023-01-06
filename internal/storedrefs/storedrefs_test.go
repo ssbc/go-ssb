@@ -7,8 +7,8 @@ package storedrefs
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTangles(t *testing.T) {

@@ -10,10 +10,10 @@ import (
 	"fmt"
 
 	"github.com/ssbc/go-luigi"
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
-	"github.com/ssbc/go-ssb/internal/mutil"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func (mgr *Manager) getTangleState(root refs.MessageRef, tname string) refs.TanglePoint {

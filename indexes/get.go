@@ -15,8 +15,8 @@ import (
 	librarian "github.com/ssbc/margaret/indexes"
 	libbadger "github.com/ssbc/margaret/indexes/badger"
 
-	"github.com/ssbc/go-ssb/internal/storedrefs"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 )
 
 // OpenGet supplies the get(msgRef) -> rootLogSeq idx

@@ -17,8 +17,8 @@ import (
 	librarian "github.com/ssbc/margaret/indexes"
 	libbadger "github.com/ssbc/margaret/indexes/badger"
 
-	"github.com/ssbc/go-ssb/client"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/client"
 )
 
 type aboutStore struct {

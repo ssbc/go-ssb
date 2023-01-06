@@ -11,8 +11,8 @@ import (
 	"github.com/ssbc/go-metafeed/metakeys"
 	"github.com/ssbc/go-metafeed/metamngmt"
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/message/legacy"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/message/legacy"
 )
 
 var metafeedsScenarios = []PeopleTestCase{

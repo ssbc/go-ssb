@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 )
 
 var testMessage = json.RawMessage(`{"type":"test", "some": 1, "msg": "here"}`)

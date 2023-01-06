@@ -12,11 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/typemux"
-	"go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret/multilog"
+	"go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb"
 )

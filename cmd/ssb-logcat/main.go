@@ -14,8 +14,8 @@ import (
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 
-	"github.com/ssbc/go-ssb/repo"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func check(err error) {

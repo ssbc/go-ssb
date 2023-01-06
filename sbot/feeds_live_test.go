@@ -16,21 +16,21 @@ import (
 	"time"
 
 	"github.com/VividCortex/gohistogram"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/leakcheck"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/network"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 var (

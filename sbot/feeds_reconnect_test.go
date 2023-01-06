@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/margaret"
 )
 
 func TestFeedsLiveReconnect(t *testing.T) {

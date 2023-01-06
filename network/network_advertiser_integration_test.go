@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+//go:build integration
 // +build integration
 
 package network
@@ -16,9 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ssbc/go-netwrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-netwrap"
 
 	"github.com/ssbc/go-ssb"
 	multiserver "github.com/ssbc/go-ssb-multiserver"

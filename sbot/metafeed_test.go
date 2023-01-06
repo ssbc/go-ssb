@@ -17,15 +17,15 @@ import (
 
 	"github.com/ssbc/go-metafeed"
 	"github.com/ssbc/go-metafeed/metamngmt"
-	"github.com/stretchr/testify/require"
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/repo"
+	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/require"
 	"go.mindeco.de/log"
-	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/sync/errgroup"
 )
 

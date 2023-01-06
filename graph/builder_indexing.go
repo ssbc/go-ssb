@@ -8,18 +8,18 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/zeebo/bencode"
+	"github.com/ssbc/go-ssb-refs/tfk"
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
+	"github.com/zeebo/bencode"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
-	"github.com/ssbc/go-ssb-refs/tfk"
 
 	"github.com/ssbc/go-metafeed"
 	"github.com/ssbc/go-metafeed/metamngmt"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/legacy"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 type idxRelationState uint

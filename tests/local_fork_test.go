@@ -64,20 +64,20 @@ func TestStartup(t *testing.T) {
 // string header will be prefixed before each message. typically it is the context we're generating errors within.
 // msg is the specific message, err is the error (if passed)
 func ew(header string) func(msg string, err ...error) error {
-    return func(msg string, err ...error) error {
-        if len(err) > 0 {
-            return fmt.Errorf("[gossb: %s] %s (%w)", header, msg, err[0])
-        }
-        return fmt.Errorf("[gossb: %s] %s", header, msg)
-    }
+	return func(msg string, err ...error) error {
+		if len(err) > 0 {
+			return fmt.Errorf("[gossb: %s] %s (%w)", header, msg, err[0])
+		}
+		return fmt.Errorf("[gossb: %s] %s", header, msg)
+	}
 }
 
 func getFeed(bot *sbot.Sbot, feedID refs.FeedRef) (margaret.Log, error) {
-    feed, err := bot.Users.Get(storedrefs.Feed(feedID))
-    if err != nil {
-        return nil, fmt.Errorf("get feed failed (%w)", err)
-    }
+	feed, err := bot.Users.Get(storedrefs.Feed(feedID))
+	if err != nil {
+		return nil, fmt.Errorf("get feed failed (%w)", err)
+	}
 
-    // convert from log of seqnos-in-rxlog to log of refs.Message and return
-    return mutil.Indirect(bot.ReceiveLog, feed), nil
+	// convert from log of seqnos-in-rxlog to log of refs.Message and return
+	return mutil.Indirect(bot.ReceiveLog, feed), nil
 }

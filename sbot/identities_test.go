@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
-	"github.com/ssbc/margaret"
-	"go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/require"
+	"go.mindeco.de/log"
 
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/internal/leakcheck"

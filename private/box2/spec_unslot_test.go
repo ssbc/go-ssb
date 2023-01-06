@@ -7,9 +7,9 @@ package box2
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"github.com/ssbc/go-ssb/private/keys"
 	"github.com/ssbc/go-ssb-refs/tfk"
+	"github.com/ssbc/go-ssb/private/keys"
+	"github.com/stretchr/testify/require"
 )
 
 type unslotSpecTest struct {

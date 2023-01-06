@@ -11,14 +11,14 @@ import (
 	"os"
 	"testing"
 
-	"go.mindeco.de/log"
 	refs "github.com/ssbc/go-ssb-refs"
+	"go.mindeco.de/log"
 
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-ssb"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-ssb/network"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsServer(t *testing.T) {

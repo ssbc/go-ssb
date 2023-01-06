@@ -17,8 +17,8 @@ import (
 	"go.mindeco.de/encodedTime"
 
 	"github.com/ssbc/go-ssb"
-	"github.com/ssbc/go-ssb/private/box"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/private/box"
 )
 
 type unboxedLog struct {

@@ -7,13 +7,13 @@ package graph
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/stretchr/testify/require"
 
-	"github.com/ssbc/margaret"
-	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/message"
+	"github.com/ssbc/margaret"
+	"github.com/ssbc/margaret/multilog"
 )
 
 type publisher struct {

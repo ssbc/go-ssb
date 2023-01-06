@@ -11,8 +11,8 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/ssbc/go-ssb/repo"
 	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/repo"
 )
 
 func check(err error) {

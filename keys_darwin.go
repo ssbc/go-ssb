@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
+//go:build darwin
 // +build darwin
 
 package ssb

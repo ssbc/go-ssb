@@ -8,11 +8,11 @@ package publish
 import (
 	"sync"
 
-	"github.com/ssbc/margaret"
 	"github.com/ssbc/go-muxrpc/v2"
 	"github.com/ssbc/go-muxrpc/v2/typemux"
 	"github.com/ssbc/go-ssb"
 	"github.com/ssbc/go-ssb/private"
+	"github.com/ssbc/margaret"
 	"go.mindeco.de/logging"
 )
 

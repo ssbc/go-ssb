@@ -8,10 +8,10 @@ import (
 	"context"
 	"fmt"
 
+	refs "github.com/ssbc/go-ssb-refs"
+	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"github.com/ssbc/go-ssb/internal/storedrefs"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 const IndexNameFeeds = "userFeeds"

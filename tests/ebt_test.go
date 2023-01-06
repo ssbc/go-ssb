@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-muxrpc/v2/debug"
 	"github.com/ssbc/go-netwrap"
 	"github.com/ssbc/go-secretstream"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/sbot"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func XTestEpidemicBroadcastTrees(t *testing.T) {

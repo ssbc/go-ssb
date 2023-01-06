@@ -10,8 +10,8 @@ import (
 	"fmt"
 
 	"github.com/ssbc/go-muxrpc/v2"
-	"go.mindeco.de/logging"
 	refs "github.com/ssbc/go-ssb-refs"
+	"go.mindeco.de/logging"
 
 	"github.com/ssbc/go-ssb"
 )

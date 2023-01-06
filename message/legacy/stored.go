@@ -10,9 +10,9 @@ import (
 	"log"
 	"time"
 
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"go.mindeco.de/encodedTime"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 // really dislike the underlines but they are there to implement the message interface more easily

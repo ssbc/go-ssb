@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/stretchr/testify/require"
+	"github.com/ssbc/go-ssb/repo"
 	librarian "github.com/ssbc/margaret/indexes"
 	libbadger "github.com/ssbc/margaret/indexes/badger"
-	"github.com/ssbc/go-ssb/repo"
+	"github.com/stretchr/testify/require"
 	"modernc.org/kv"
 )
 

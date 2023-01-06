@@ -9,9 +9,9 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
+	"github.com/stretchr/testify/require"
 
 	refs "github.com/ssbc/go-ssb-refs"
 )

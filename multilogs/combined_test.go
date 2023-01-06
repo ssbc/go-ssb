@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/indexes"
@@ -21,14 +20,15 @@ import (
 	"github.com/ssbc/margaret/multilog"
 	"github.com/ssbc/margaret/multilog/roaring"
 	multifs "github.com/ssbc/margaret/multilog/roaring/fs"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/multicloser"
 	"github.com/ssbc/go-ssb/internal/statematrix"
 	"github.com/ssbc/go-ssb/private"
 	"github.com/ssbc/go-ssb/private/keys"
 	"github.com/ssbc/go-ssb/repo"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 func BenchmarkIndexFixturesCombined(b *testing.B) {

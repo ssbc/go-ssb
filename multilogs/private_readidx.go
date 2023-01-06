@@ -20,13 +20,13 @@ import (
 	kitlog "go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
+	gabbygrove "github.com/ssbc/go-gabbygrove"
 	"github.com/ssbc/go-ssb"
+	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/message/multimsg"
 	"github.com/ssbc/go-ssb/private/box"
 	"github.com/ssbc/go-ssb/repo"
-	gabbygrove "github.com/ssbc/go-gabbygrove"
-	refs "github.com/ssbc/go-ssb-refs"
 )
 
 const IndexNamePrivates = "privates"
