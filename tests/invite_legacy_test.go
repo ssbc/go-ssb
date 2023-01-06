@@ -22,6 +22,7 @@ import (
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/invite"
+	"github.com/ssbc/go-ssb/plugins/legacyinvites"
 )
 
 // first js creates an invite
@@ -165,11 +166,6 @@ func TestLegacyInviteJSCreate(t *testing.T) {
 }
 
 func TestLegacyInviteJSAccept(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/170
-		return
-	}
-
 	r := require.New(t)
 
 	os.Remove("legacy_invite.txt")
@@ -205,8 +201,11 @@ func TestLegacyInviteJSAccept(t *testing.T) {
 	master, err := client.NewTCP(bob.KeyPair, wrappedAddr)
 	r.NoError(err)
 
+	var args legacyinvites.CreateArguments
+	args.Uses = 1
+
 	var invite string
-	err = master.Async(context.TODO(), &invite, muxrpc.TypeString, muxrpc.Method{"invite", "create"})
+	err = master.Async(context.TODO(), &invite, muxrpc.TypeString, muxrpc.Method{"invite", "create"}, args)
 	r.NoError(err)
 	t.Log(invite)
 

@@ -55,6 +55,10 @@ func (h createHandler) HandleCall(ctx context.Context, req *muxrpc.Request) {
 		req.CloseWithError(fmt.Errorf("unable to receive invite create payload: %w", err))
 		return
 	}
+	if len(args) == 0 {
+		req.CloseWithError(fmt.Errorf("missing invite create payload?"))
+		return
+	}
 
 	a := args[0]
 
