@@ -100,7 +100,8 @@ func TestNames(t *testing.T) {
 
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
-	// TODO: flush indexes
+	// flush indexes
+	mainbot.WaitUntilIndexesAreSynced()
 
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)

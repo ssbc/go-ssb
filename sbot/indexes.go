@@ -199,7 +199,18 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 		s.indexStates[name] = "live"
 		s.indexStateMu.Unlock()
 
-		err = luigi.Pump(s.rootCtx, snk, src)
+		startWaiting := func() {
+		}
+		doneWaiting := func() {
+		}
+		startProcessing := func() {
+			s.idxInSync.Add(1)
+		}
+		doneProcessing := func() {
+			s.idxInSync.Done()
+		}
+
+		err = luigi.PumpWithStatus(s.rootCtx, snk, src, startWaiting, doneWaiting, startProcessing, doneProcessing)
 		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 			return nil
 		}
