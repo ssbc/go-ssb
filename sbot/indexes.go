@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/machinebox/progress"
@@ -118,9 +119,23 @@ func (s *Sbot) GetIndexNamesMultiLog() []string {
 
 var _ ssb.Indexer = (*Sbot)(nil)
 
+func (s *Sbot) indexSyncStart() {
+	s.idxInSync.Add(1)
+	atomic.AddInt64(&s.idxNumSyncing, 1)
+}
+
+func (s *Sbot) indexSyncDone() {
+	atomic.AddInt64(&s.idxNumSyncing, -1)
+	s.idxInSync.Done()
+}
+
 // WaitUntilIndexesAreSynced blocks until all the index processing is in sync with the rootlog
 func (s *Sbot) WaitUntilIndexesAreSynced() {
 	s.idxInSync.Wait()
+}
+
+func (s *Sbot) AreIndexesSynced() bool {
+	return s.idxNumSyncing == 0
 }
 
 // the default is to fill an index with all messages
@@ -135,7 +150,7 @@ if err != nil { ... }
 msgs := mutil.Indirect(s.ReceiveLog, contactLog)
 */
 func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margaret.Log) {
-	s.idxInSync.Add(1)
+	s.indexSyncStart()
 
 	s.indexStateMu.Lock()
 	s.indexStates[name] = "pending"
@@ -174,6 +189,7 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 
 		err = luigi.Pump(s.rootCtx, &ps, src)
 		cancel()
+		s.indexSyncDone() // this needs to be before we can return for errors or idxInSync will not be updated correctly
 		if errors.Is(err, ssb.ErrShuttingDown) || errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -184,7 +200,6 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			level.Warn(logger).Log("event", "index stopped", "err", err)
 			return fmt.Errorf("sbot index(%s) update of backlog failed: %w", name, err)
 		}
-		s.idxInSync.Done()
 
 		if !s.liveIndexUpdates {
 			return nil
@@ -204,10 +219,10 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 		doneWaiting := func() {
 		}
 		startProcessing := func() {
-			s.idxInSync.Add(1)
+			s.indexSyncStart()
 		}
 		doneProcessing := func() {
-			s.idxInSync.Done()
+			s.indexSyncDone()
 		}
 
 		err = luigi.PumpWithStatus(s.rootCtx, snk, src, startWaiting, doneWaiting, startProcessing, doneProcessing)
