@@ -85,6 +85,7 @@ type Sbot struct {
 	closers   multicloser.MultiCloser
 	idxDone   errgroup.Group
 	idxInSync sync.WaitGroup
+	idxNumSyncing int64
 
 	closed   bool
 	closedMu sync.Mutex
