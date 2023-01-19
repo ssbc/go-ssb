@@ -29,6 +29,7 @@ type publishLog struct {
 	mu         sync.Mutex
 	byAuthor   margaret.Log
 	receiveLog margaret.Log
+	areIndexesSyncedCallback func() bool
 
 	create creater
 }
@@ -57,6 +58,11 @@ func (pl publishLog) Changes() luigi.Observable {
 }
 
 func (pl publishLog) Seq() int64 {
+	if pl.areIndexesSyncedCallback != nil && !pl.areIndexesSyncedCallback() {
+		// indexes are not synced
+		// we need to check the log directly
+		TODO()
+	}
 	return pl.byAuthor.Seq()
 }
 
@@ -88,13 +94,16 @@ func (pl *publishLog) Append(val interface{}) (int64, error) {
 		nextSequence = int64(-1)
 	)
 
-	seq := pl.byAuthor.Seq()
-
+	// this takes care of checking if indexes are synced yet
+	seq := pl.Seq()
 	currRootSeq, err := pl.byAuthor.Get(seq)
 	if err != nil && !luigi.IsEOS(err) {
+		// check if the root log has it
+		TODO()
 		return -2, fmt.Errorf("publishLog: failed to retreive current msg: %w", err)
 	}
-	if luigi.IsEOS(err) { // new feed
+
+	if luigi.IsEOS(luigiErr) { // new feed
 		nextSequence = 1
 	} else {
 		currMM, err := pl.receiveLog.Get(currRootSeq.(int64))
@@ -199,6 +208,13 @@ func UseNowTimestamps(yes bool) PublishOption {
 		default:
 			return fmt.Errorf("setTimestamp: unknown creater: %T", cv)
 		}
+		return nil
+	}
+}
+
+func UseIndexesSyncedCallback(cb func() bool) PublishOption {
+	return func(pl *publishLog) error {
+		pl.areIndexesSyncedCallback = cb
 		return nil
 	}
 }

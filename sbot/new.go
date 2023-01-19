@@ -325,6 +325,7 @@ func New(fopts ...Option) (*Sbot, error) {
 	// publish
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
+		message.UseIndexesSyncedCallback(s.AreIndexesSynced),
 	}
 	if s.signHMACsecret != nil {
 		pubopts = append(pubopts, message.SetHMACKey(s.signHMACsecret))

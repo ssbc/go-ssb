@@ -4,6 +4,8 @@
 
 module github.com/ssbc/go-ssb
 
+replace github.com/ssbc/go-luigi => ./../go-luigi
+
 go 1.17
 
 require (
