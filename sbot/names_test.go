@@ -18,16 +18,10 @@ import (
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/client"
 	"github.com/ssbc/go-ssb/internal/leakcheck"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestNames(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/170
-		return
-	}
-
 	if os.Getenv("LIBRARIAN_WRITEALL") != "0" {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
 		// TODO: expose index flushing
@@ -100,7 +94,8 @@ func TestNames(t *testing.T) {
 
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
-	// TODO: flush indexes
+	// flush indexes
+	mainbot.WaitUntilIndexesAreSynced()
 
 	c, err := client.NewUnix(filepath.Join(tRepoPath, "socket"))
 	r.NoError(err)
