@@ -29,6 +29,7 @@ type publishLog struct {
 	mu         sync.Mutex
 	byAuthor   margaret.Log
 	receiveLog margaret.Log
+	waitForIndexesCallback func()
 
 	create creater
 }
@@ -57,6 +58,10 @@ func (pl publishLog) Changes() luigi.Observable {
 }
 
 func (pl publishLog) Seq() int64 {
+	if pl.waitForIndexesCallback != nil {
+		pl.waitForIndexesCallback()
+	}
+
 	return pl.byAuthor.Seq()
 }
 
@@ -79,6 +84,11 @@ func (pl publishLog) Query(qry ...margaret.QuerySpec) (luigi.Source, error) {
 }
 
 func (pl *publishLog) Append(val interface{}) (int64, error) {
+	// wait for indexes to catch up before pulling a mutex so we're not locking unnecessarily
+	if pl.waitForIndexesCallback != nil {
+		pl.waitForIndexesCallback()
+	}
+
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 
@@ -199,6 +209,13 @@ func UseNowTimestamps(yes bool) PublishOption {
 		default:
 			return fmt.Errorf("setTimestamp: unknown creater: %T", cv)
 		}
+		return nil
+	}
+}
+
+func UseWaitForIndexesCallback(cb func()) PublishOption {
+	return func(pl *publishLog) error {
+		pl.waitForIndexesCallback = cb
 		return nil
 	}
 }

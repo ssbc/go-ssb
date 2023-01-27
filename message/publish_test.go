@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,17 +18,11 @@ import (
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/asynctesting"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/repo"
 )
 
 func TestSignMessages(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/170
-		return
-	}
-
 	tctx := context.TODO()
 	r := require.New(t)
 	a := assert.New(t)
@@ -79,6 +74,11 @@ func TestSignMessages(t *testing.T) {
 		},
 	}
 	for i, msg := range tmsgs {
+		// delay for a bit to allow the indexes to catch up
+		// to be reliable, this has to be done between each publish
+		// TODO: find a way to wait for indexes for this isolated test like we do for sbot
+		time.Sleep(100 * time.Millisecond)
+
 		newSeq, err := w.Append(msg)
 		r.NoError(err, "failed to pour test message %d", i)
 		r.EqualValues(i, newSeq, "advanced")

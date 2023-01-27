@@ -22,6 +22,7 @@ func (sbot *Sbot) PublishAs(nick string, val interface{}) (refs.Message, error) 
 
 	var pubopts = []message.PublishOption{
 		message.UseNowTimestamps(true),
+		message.UseWaitForIndexesCallback(sbot.WaitUntilIndexesAreSynced),
 	}
 	if sbot.signHMACsecret != nil { // all feeds use the same settings right now
 		pubopts = append(pubopts, message.SetHMACKey(sbot.signHMACsecret))
