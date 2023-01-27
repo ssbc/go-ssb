@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/ssbc/margaret"
@@ -35,9 +37,26 @@ type AboutAttribute struct {
 }
 
 var idxKeyPrefix = []byte("idx-abouts")
+var idxInSync sync.WaitGroup
+
+func (ab aboutStore) waitForIndexes() {
+	idxInSync.Wait()
+}
+
+func (ab aboutStore) startIndexing() {
+	idxInSync.Add(1)
+}
+
+func (ab aboutStore) doneIndexing() {
+	time.AfterFunc(100 * time.Millisecond, func() {
+		idxInSync.Done()
+	})
+}
 
 func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 	var br refs.BlobRef
+
+	ab.waitForIndexes()
 
 	err := ab.kv.View(func(txn *badger.Txn) error {
 
@@ -68,6 +87,8 @@ func (ab aboutStore) ImageFor(ref *refs.FeedRef) (*refs.BlobRef, error) {
 }
 
 func (ab aboutStore) All() (client.NamesGetResult, error) {
+	ab.waitForIndexes()
+
 	var ngr = make(client.NamesGetResult)
 	err := ab.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -122,6 +143,8 @@ func (ab aboutStore) All() (client.NamesGetResult, error) {
 }
 
 func (ab aboutStore) CollectedFor(ref refs.FeedRef) (*AboutInfo, error) {
+	ab.waitForIndexes()
+
 	addr := append(idxKeyPrefix, []byte(ref.Sigil()+":")...)
 
 	// direct badger magic
@@ -198,15 +221,22 @@ const FolderNameAbout = "about"
 
 func (plug *Plugin) OpenSharedIndex(db *badger.DB) (librarian.Index, librarian.SinkIndex) {
 	aboutIdx := libbadger.NewIndexWithKeyPrefix(db, 0, idxKeyPrefix)
-	update := librarian.NewSinkIndex(updateAboutMessage, aboutIdx)
 
 	plug.about = aboutStore{db}
+
+	plug.about.startIndexing()
+	defer plug.about.doneIndexing()
+
+	update := librarian.NewSinkIndex(plug.about.updateAboutMessage, aboutIdx)
 
 	return aboutIdx, update
 }
 
-func updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx librarian.SetterIndex) error {
+func (ab aboutStore) updateAboutMessage(ctx context.Context, seq int64, msgv interface{}, idx librarian.SetterIndex) error {
 	var msg refs.Message
+
+	ab.startIndexing()
+	defer ab.doneIndexing()
 
 	switch tv := msgv.(type) {
 	case refs.Message:
