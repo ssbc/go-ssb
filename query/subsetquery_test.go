@@ -194,6 +194,9 @@ func TestSubsetQueryPlanExecution(t *testing.T) {
 
 	r.EqualValues(len(testMsgs)-1, mainbot.ReceiveLog.Seq(), "did not get all the messages")
 
+	// wait for indexes to catch up, since the tests rely on them being up-to-date to be able to ask for messages by author or type
+	mainbot.WaitUntilIndexesAreSynced()
+
 	sp := query.NewSubsetPlaner(mainbot.Users, mainbot.ByType)
 
 	t.Run("by author", func(t *testing.T) {
