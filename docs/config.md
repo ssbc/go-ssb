@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2023 The Go-SSB Authors
+
+SPDX-License-Identifier: MIT
+-->
+
 # Configuration
 
 go-ssb's `go-sbot` can be configured in three different ways:
