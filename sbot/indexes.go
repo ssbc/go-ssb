@@ -222,7 +222,13 @@ func (s *Sbot) serveIndexFrom(name string, snk librarian.SinkIndex, msgs margare
 			s.indexSyncStart()
 		}
 		doneProcessing := func() {
-			s.indexSyncDone()
+			// don't clear the waitgroup right away but give it a little time in case it needs to continue on to another message.
+			// this adds a short (theoretically unnecessary) delay to publish operations but not append operations where
+			// we have received a message from somewhere else.
+			// TODO: eliminate this delay by finding a way to directly check if the luigi queue is completely empty
+			time.AfterFunc(100 * time.Millisecond, func() {
+				s.indexSyncDone()
+			})
 		}
 
 		err = luigi.PumpWithStatus(s.rootCtx, snk, src, startWaiting, doneWaiting, startProcessing, doneProcessing)
