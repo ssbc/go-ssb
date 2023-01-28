@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2023 The Go-SSB Authors
+
+SPDX-License-Identifier: MIT
+-->
+
 # FAQ
 
 ## Is `go-ssb` production ready?

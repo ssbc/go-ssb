@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2023 The Go-SSB Authors
+# SPDX-License-Identifier: MIT
+
 # Where to put the log and indexes
 repo = '.ssb-go'
 # Where to write debug output: NOTE, this is relative to "repo" atm
