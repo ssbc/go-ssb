@@ -59,6 +59,8 @@ type BadgerBuilder struct {
 	idxSinkMetaFeeds     librarian.SinkIndex
 	idxSinkAnnouncements librarian.SinkIndex
 
+	idxInSync   sync.WaitGroup
+
 	log log.Logger
 
 	cacheLock   sync.Mutex
@@ -86,6 +88,7 @@ func NewBuilder(log log.Logger, db *badger.DB, hmacSecret *[32]byte) *BadgerBuil
 }
 
 func (b *BadgerBuilder) DeleteAuthor(who refs.FeedRef) error {
+	b.WaitUntilIndexesAreSynced()
 	b.cacheLock.Lock()
 	defer b.cacheLock.Unlock()
 	b.cachedGraph = nil
@@ -116,6 +119,7 @@ func (b *BadgerBuilder) Authorizer(from refs.FeedRef, maxHops int) ssb.Authorize
 }
 
 func (b *BadgerBuilder) Build() (*Graph, error) {
+	b.WaitUntilIndexesAreSynced()
 	dg := NewGraph()
 
 	b.cacheLock.Lock()
@@ -244,6 +248,7 @@ func (l Lookup) Dist(to refs.FeedRef) ([]graph.Node, float64) {
 }
 
 func (b *BadgerBuilder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
+	b.WaitUntilIndexesAreSynced()
 	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -283,6 +288,7 @@ func (b *BadgerBuilder) Follows(forRef refs.FeedRef) (*ssb.StrFeedSet, error) {
 
 // Metafeed returns the metafeed for a subfeed, or an error if it has none.
 func (b *BadgerBuilder) Metafeed(subfeed refs.FeedRef) (refs.FeedRef, error) {
+	b.WaitUntilIndexesAreSynced()
 	var found refs.FeedRef
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -316,6 +322,7 @@ func (b *BadgerBuilder) Metafeed(subfeed refs.FeedRef) (refs.FeedRef, error) {
 
 // Subfeeds returns the set of subfeeds for a particular metafeed.
 func (b *BadgerBuilder) Subfeeds(metaFeed refs.FeedRef) (*ssb.StrFeedSet, error) {
+	b.WaitUntilIndexesAreSynced()
 	fs := ssb.NewFeedSet(50)
 	err := b.kv.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -361,6 +368,7 @@ func (b *BadgerBuilder) Subfeeds(metaFeed refs.FeedRef) (*ssb.StrFeedSet, error)
 //
 // See hops_test.go for concrete examples.
 func (b *BadgerBuilder) Hops(from refs.FeedRef, max int) *ssb.StrFeedSet {
+	b.WaitUntilIndexesAreSynced()
 	max++
 	walked := ssb.NewFeedSet(0)
 	visited := make(map[string]struct{}) // tracks the nodes we already recursed from (so we don't do them multiple times on common friends)

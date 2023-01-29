@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/ssbc/go-luigi"
@@ -134,11 +133,6 @@ func makeBadger(t *testing.T) testStore {
 }
 
 func TestBadger(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/167
-		return
-	}
-
 	tc := makeBadger(t)
 	t.Run("scene1", tc.theScenario)
 }
@@ -232,11 +226,10 @@ func (tc testStore) theScenario(t *testing.T) {
 	myself.follow(alice.key.ID())
 	myself.block(bob.key.ID())
 
-	time.Sleep(time.Second / 10)
-
+	// this should result in 3 nodes - alice, bob, and myself
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)
-	if !a.Equal(3, g.NodeCount()) {
+	if !a.Equal(3, g.NodeCount(), "wrong count for number of nodes in the graph") {
 		return
 	}
 
@@ -265,8 +258,6 @@ func (tc testStore) theScenario(t *testing.T) {
 		t.Fatal("please 'export LIBRARIAN_WRITEALL=0' for this test to pass")
 		// TODO: expose index flushing
 	}
-
-	time.Sleep(time.Second / 10)
 
 	g, err = tc.gbuilder.Build()
 	r.NoError(err)

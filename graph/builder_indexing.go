@@ -7,6 +7,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ssbc/go-ssb-refs/tfk"
 	"github.com/ssbc/margaret"
@@ -31,8 +32,27 @@ const (
 	idxRelValueMetafeed
 )
 
+func (b *BadgerBuilder) indexSyncStart() {
+	b.idxInSync.Add(1)
+}
+
+func (b *BadgerBuilder) indexSyncDone() {
+	// this delay is here so that the WaitGroup is held while Luigi continues to process more data
+	// TODO: eliminate this delay once we have a way to query Luigi directly to see if it's done with its source queue
+	time.AfterFunc(100 * time.Millisecond, func() {
+		b.idxInSync.Done()
+	})
+}
+
+// WaitUntilIndexesAreSynced blocks until all the index processing is in sync with the rootlog
+func (b *BadgerBuilder) WaitUntilIndexesAreSynced() {
+	b.idxInSync.Wait()
+}
+
 func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	defer b.cacheLock.Unlock()
 
 	if nulled, ok := val.(error); ok {
@@ -72,6 +92,8 @@ func (b *BadgerBuilder) updateAnnouncement(ctx context.Context, seq int64, val i
 }
 
 func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	if b.idxSinkAnnouncements == nil {
 		b.idxSinkAnnouncements = librarian.NewSinkIndex(b.updateAnnouncement, b.idx)
 	}
@@ -80,6 +102,8 @@ func (b *BadgerBuilder) OpenAnnouncementIndex() (librarian.SeqSetterIndex, libra
 
 func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	defer b.cacheLock.Unlock()
 
 	if nulled, ok := val.(error); ok {
@@ -136,6 +160,8 @@ func (b *BadgerBuilder) OpenContactsIndex() (librarian.SeqSetterIndex, librarian
 
 func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val interface{}, idx librarian.SetterIndex) error {
 	b.cacheLock.Lock()
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	defer b.cacheLock.Unlock()
 
 	if nulled, ok := val.(error); ok {
@@ -259,6 +285,8 @@ func (b *BadgerBuilder) updateMetafeeds(ctx context.Context, seq int64, val inte
 }
 
 func (b *BadgerBuilder) OpenMetafeedsIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	if b.idxSinkMetaFeeds == nil {
 		b.idxSinkMetaFeeds = librarian.NewSinkIndex(b.updateMetafeeds, b.idx)
 	}
