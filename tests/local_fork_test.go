@@ -11,18 +11,12 @@ import (
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/mutil"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/sbot"
 	"github.com/ssbc/margaret"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStartup(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/issues/237
-		return
-	}
-
 	a := assert.New(t)
 	var err error
 	session := newSession(t, nil, nil)
@@ -52,14 +46,17 @@ func TestStartup(t *testing.T) {
 	botlog, err = getFeed(bot, feedID)
 	a.NoError(err)
 	a.NotNil(botlog)
+	bot.WaitUntilIndexesAreSynced()
 	a.EqualValues(1, botlog.Seq(), "maggie seqno of log with 2 messages should be 1")
 	// post another message
 	_, err = bot.PublishLog.Append(refs.Post{Type: "post", Text: "3 hello world!"})
 	a.NoError(err)
+	bot.WaitUntilIndexesAreSynced()
 	a.EqualValues(2, botlog.Seq(), "maggie seqno of log with 3 messages should be 2")
 	// post another message
 	_, err = bot.PublishLog.Append(refs.Post{Type: "post", Text: "4 hello world!"})
 	a.NoError(err)
+	bot.WaitUntilIndexesAreSynced()
 	a.EqualValues(3, botlog.Seq(), "maggie seqno of log with 4 messages should be 3")
 	bot.Shutdown()
 }
