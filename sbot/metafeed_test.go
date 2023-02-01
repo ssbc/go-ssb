@@ -359,11 +359,6 @@ func TestMetafeedInsideMetafeed(t *testing.T) {
 }
 
 func TestMetafeedIndexes(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/167
-		return
-	}
-
 	// <boilerplate>
 	r := require.New(t)
 
@@ -466,6 +461,8 @@ func TestMetafeedIndexes(t *testing.T) {
 	r.NoError(err)
 	// contact index should still be empty
 	checkSeq(contactIndex, int(margaret.SeqEmpty))
+	// wait for indexes to catch up
+	bot.WaitUntilIndexesAreSynced()
 	// about index should have one message
 	checkSeq(aboutIndex, 1)
 
@@ -474,6 +471,8 @@ func TestMetafeedIndexes(t *testing.T) {
 	rando, err := repo.NewKeyPair(tRepo, "rando", refs.RefAlgoFeedSSB1)
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewContactFollow(rando.ID()))
 	r.NoError(err)
+	// wait for indexes to catch up
+	bot.WaitUntilIndexesAreSynced()
 	// contact index should now have a message
 	checkSeq(contactIndex, 1)
 	// about index should still have one message
@@ -483,6 +482,8 @@ func TestMetafeedIndexes(t *testing.T) {
 	// publish another about to the main feed
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewAboutName(mainFeedRef, "goofier"))
 	r.NoError(err)
+	// wait for indexes to catch up
+	bot.WaitUntilIndexesAreSynced()
 	// about index should now have two messages
 	checkSeq(aboutIndex, 2)
 	// contact index still only have one message
@@ -499,6 +500,8 @@ func TestMetafeedIndexes(t *testing.T) {
 	// publish another about to the main feed
 	_, err = bot.MetaFeeds.Publish(mainFeedRef, refs.NewAboutName(mainFeedRef, "name that will not be named"))
 	r.NoError(err)
+	// wait for indexes to catch up
+	bot.WaitUntilIndexesAreSynced()
 	// about index should still have have two messages?
 	checkSeq(aboutIndex, 2)
 	// number of registered indexes should only be 1 after tombstoning
@@ -543,6 +546,9 @@ func TestMetafeedIndexes(t *testing.T) {
 	// contact index should start with one message
 	contactIndex = getFeed(contactIndexId)
 
+	// wait for indexes to catch up to make sure all of the messages are in the index
+	bot2.WaitUntilIndexesAreSynced()
+
 	// contact index should now have two messages
 	contactIdxMsg := getMsg(contactIndex, 0)
 	var idxmsg ssb.IndexedMessage
@@ -557,12 +563,15 @@ func TestMetafeedIndexes(t *testing.T) {
 	lastContact, err := bot2.MetaFeeds.Publish(mainFeedRef, refs.NewContactFollow(rando.ID()))
 	r.NoError(err)
 
+	// wait for indexes to catch up
+	bot2.WaitUntilIndexesAreSynced()
+
 	// load the final message
 	lastContactIdxMsg := getMsg(contactIndex, 1)
 	err = json.Unmarshal(lastContactIdxMsg.ContentBytes(), &idxmsg)
 	r.NoError(err)
 	r.Equal("indexed", idxmsg.Type)
-	r.EqualValues(4, idxmsg.Indexed.Sequence)
+	r.EqualValues(5, idxmsg.Indexed.Sequence)
 	r.Equal(lastContact.Key().String(), idxmsg.Indexed.Key.String())
 
 	// <teardown>
