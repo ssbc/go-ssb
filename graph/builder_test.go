@@ -32,6 +32,8 @@ import (
 	"github.com/ssbc/go-ssb/repo"
 )
 
+var indexesReady sync.WaitGroup
+
 func openUserMultilogs(t *testing.T) (multilog.MultiLog, multilog.Sink) {
 	r := require.New(t)
 
@@ -107,6 +109,8 @@ func makeBadger(t *testing.T) testStore {
 
 	_, announcementSink := builder.OpenAnnouncementIndex()
 	mfAnnounceErrc := serveLog(ctx, "badgerMetafeedAnnounce", tRootLog, announcementSink, true)
+
+	indexesReady.Wait()
 
 	tc.root = tRootLog
 	tc.gbuilder = builder
@@ -314,20 +318,43 @@ func (tc testStore) theScenario(t *testing.T) {
 }
 
 func serveLog(ctx context.Context, name string, l margaret.Log, snk librarian.SinkIndex, live bool) <-chan error {
+	indexesReady.Add(1)
 	errc := make(chan error)
 	go func() {
 		defer close(errc)
 
-		src, err := l.Query(snk.QuerySpec(), margaret.Live(live))
+		// first do a non-live query to process any messages which have already been posted
+		src, err := l.Query(snk.QuerySpec(), margaret.Live(false))
 		if err != nil {
-			log.Println("got err for", name, err)
+			log.Println("got non-live err for", name, err)
 			errc <- fmt.Errorf("%s query failed: %w", name, err)
 			return
 		}
 
 		err = luigi.Pump(ctx, snk, src)
 		if err != nil && !errors.Is(err, ssb.ErrShuttingDown) {
-			log.Println("got err for", name, err)
+			log.Println("got non-live err for", name, err)
+			errc <- fmt.Errorf("%s serve exited: %w", name, err)
+		}
+
+		if !live {
+			// not doing a live query, so we're done
+			indexesReady.Done()
+			return
+		}
+
+		// now do the live query
+		src, err = l.Query(snk.QuerySpec(), margaret.Live(live))
+		if err != nil {
+			log.Println("got live err for", name, err)
+			errc <- fmt.Errorf("%s query failed: %w", name, err)
+			return
+		}
+
+		indexesReady.Done()
+		err = luigi.Pump(ctx, snk, src)
+		if err != nil && !errors.Is(err, ssb.ErrShuttingDown) {
+			log.Println("got live err for", name, err)
 			errc <- fmt.Errorf("%s serve exited: %w", name, err)
 		}
 	}()

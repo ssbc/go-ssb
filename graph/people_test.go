@@ -19,6 +19,7 @@ import (
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
 	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/multilogs"
 )
 
 type PeopleOp interface {
@@ -260,6 +261,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			err := op.Op(&state)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
+
+		// wait for the multilogs to catch up
+		multilogs.WaitUntilUserFeedIndexIsSynced()
 
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()

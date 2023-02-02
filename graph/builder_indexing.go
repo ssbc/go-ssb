@@ -152,6 +152,8 @@ func (b *BadgerBuilder) updateContacts(ctx context.Context, seq int64, val inter
 }
 
 func (b *BadgerBuilder) OpenContactsIndex() (librarian.SeqSetterIndex, librarian.SinkIndex) {
+	b.indexSyncStart()
+	defer b.indexSyncDone()
 	if b.idxSinkContacts == nil {
 		b.idxSinkContacts = librarian.NewSinkIndex(b.updateContacts, b.idx)
 	}

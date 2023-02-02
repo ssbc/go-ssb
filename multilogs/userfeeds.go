@@ -7,6 +7,8 @@ package multilogs
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
@@ -16,7 +18,27 @@ import (
 
 const IndexNameFeeds = "userFeeds"
 
+var idxInSync sync.WaitGroup
+
+func indexSyncStart() {
+	idxInSync.Add(1)
+}
+
+func indexSyncDone() {
+	time.AfterFunc(100 * time.Millisecond, func() {
+		idxInSync.Done()
+	})
+}
+
+// WaitUntilUserFeedIndexIsSynced blocks until all the index processing is in sync with the rootlog
+func WaitUntilUserFeedIndexIsSynced() {
+	idxInSync.Wait()
+}
+
 func UserFeedsUpdate(ctx context.Context, seq int64, value interface{}, mlog multilog.MultiLog) error {
+	indexSyncStart()
+	defer indexSyncDone()
+
 	if nulled, ok := value.(error); ok {
 		if margaret.IsErrNulled(nulled) {
 			return nil

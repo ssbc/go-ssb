@@ -84,6 +84,11 @@ func NewBuilder(log log.Logger, db *badger.DB, hmacSecret *[32]byte) *BadgerBuil
 
 		hmacSecret: hmacSecret,
 	}
+
+	// make sure we initialize the waitgroup so we have an opportunity to index
+	b.indexSyncStart()
+	defer b.indexSyncDone()
+
 	return b
 }
 
