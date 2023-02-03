@@ -18,7 +18,6 @@ import (
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/internal/testutils"
 	"github.com/ssbc/go-ssb/multilogs"
 )
 
@@ -243,11 +242,6 @@ type PeopleTestCase struct {
 
 func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T) {
 	return func(t *testing.T) {
-		if testutils.SkipOnCI(t) {
-			// https://github.com/ssbc/go-ssb/issues/163
-			return
-		}
-
 		r := require.New(t)
 		a := assert.New(t)
 
