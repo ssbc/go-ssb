@@ -18,7 +18,7 @@ import (
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"github.com/ssbc/go-ssb/internal/testutils"
+	"github.com/ssbc/go-ssb/multilogs"
 )
 
 type PeopleOp interface {
@@ -242,11 +242,6 @@ type PeopleTestCase struct {
 
 func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T) {
 	return func(t *testing.T) {
-		if testutils.SkipOnCI(t) {
-			// https://github.com/ssbc/go-ssb/issues/163
-			return
-		}
-
 		r := require.New(t)
 		a := assert.New(t)
 
@@ -260,6 +255,9 @@ func (tc PeopleTestCase) run(mk func(t *testing.T) testStore) func(t *testing.T)
 			err := op.Op(&state)
 			r.NoError(err, "error performing operation(%d) of %v type %T: %s", i, op, op)
 		}
+
+		// wait for the multilogs to catch up
+		multilogs.WaitUntilUserFeedIndexIsSynced()
 
 		// punch in nicks
 		g, err := state.store.gbuilder.Build()
