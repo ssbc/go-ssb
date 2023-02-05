@@ -155,7 +155,7 @@ type Sbot struct {
 
 	verifyRouter *message.VerificationRouter
 
-	GraphBuilder graph.Builder
+	GraphBuilder *graph.BadgerBuilder
 
 	BlobStore   ssb.BlobStore
 	WantManager ssb.WantManager
@@ -857,7 +857,7 @@ func New(fopts ...Option) (*Sbot, error) {
 		}
 
 		if strings.HasPrefix(req.URL.Path, graphDumpPathPrefix) {
-			s.GraphBuilder.(*graph.BadgerBuilder).DumpXMLOverHTTP(s.KeyPair.ID(), w, req)
+			s.GraphBuilder.DumpXMLOverHTTP(s.KeyPair.ID(), w, req)
 			return
 		}
 

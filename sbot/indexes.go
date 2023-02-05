@@ -15,6 +15,7 @@ import (
 	"github.com/machinebox/progress"
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-ssb"
+	"github.com/ssbc/go-ssb/multilogs"
 	"github.com/ssbc/go-ssb/plugins2"
 	"github.com/ssbc/go-ssb/repo"
 	"github.com/ssbc/margaret"
@@ -131,7 +132,31 @@ func (s *Sbot) indexSyncDone() {
 
 // WaitUntilIndexesAreSynced blocks until all the index processing is in sync with the rootlog
 func (s *Sbot) WaitUntilIndexesAreSynced() {
-	s.idxInSync.Wait()
+	var wg sync.WaitGroup
+
+	// wait for the indexes in parallel so we catch up as quickly as possible
+	wg.Add(3)
+
+	go func() {
+		// wait for our internal indexes to catch up
+		s.idxInSync.Wait()
+		wg.Done()
+	}()
+
+	go func() {
+		// wait for the multilogs to catch up
+		multilogs.WaitUntilUserFeedIndexIsSynced()
+		wg.Done()
+	}()
+
+	go func() {
+		// wait for all of the graph builder's indexes to catch up
+		s.GraphBuilder.WaitUntilIndexesAreSynced()
+		wg.Done()
+	}()
+
+	// wait for all the concurrent waits to finish
+	wg.Wait()
 }
 
 func (s *Sbot) AreIndexesSynced() bool {
