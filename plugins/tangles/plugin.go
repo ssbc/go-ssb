@@ -18,7 +18,6 @@ import (
 	"github.com/ssbc/margaret"
 	librarian "github.com/ssbc/margaret/indexes"
 	"github.com/ssbc/margaret/multilog/roaring"
-	"go.mindeco.de/encodedTime"
 	"go.mindeco.de/log"
 	"go.mindeco.de/log/level"
 
@@ -224,7 +223,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 			tp.TheKey = root.Key()
 			tp.Value.Author = root.Author()
 			tp.Value.Sequence = root.Seq()
-			tp.Value.Timestamp = encodedTime.Millisecs(root.Claimed())
+			tp.Value.Timestamp = refs.Millisecs(root.Claimed())
 			tps = append(tps, tp)
 		} else {
 			if qry.Private {
@@ -272,7 +271,7 @@ func (g repliesHandler) HandleSource(ctx context.Context, req *muxrpc.Request, s
 		tp.TheKey = msg.Key()
 		tp.Value.Author = msg.Author()
 		tp.Value.Sequence = msg.Seq()
-		tp.Value.Timestamp = encodedTime.Millisecs(msg.Claimed())
+		tp.Value.Timestamp = refs.Millisecs(msg.Claimed())
 
 		tps = append(tps, tp)
 

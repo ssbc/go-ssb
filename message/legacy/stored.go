@@ -12,7 +12,6 @@ import (
 
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/internal/storedrefs"
-	"go.mindeco.de/encodedTime"
 )
 
 // really dislike the underlines but they are there to implement the message interface more easily
@@ -87,9 +86,9 @@ func (sm StoredMessage) ValueContent() *refs.Value {
 	msg.Sequence = sm.Sequence_
 	msg.Hash = "sha256"
 	var cs struct {
-		Timestamp encodedTime.Millisecs `json:"timestamp"`
-		Content   json.RawMessage       `json:"content"`
-		Signature string                `json:"signature"`
+		Timestamp refs.Millisecs  `json:"timestamp"`
+		Content   json.RawMessage `json:"content"`
+		Signature string          `json:"signature"`
 	}
 	err := json.Unmarshal(sm.Raw_, &cs)
 	if err != nil {

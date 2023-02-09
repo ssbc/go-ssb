@@ -12,11 +12,9 @@ import (
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-luigi/mfr"
 	"github.com/ssbc/go-muxrpc/v2"
-	"github.com/ssbc/margaret"
-	"go.mindeco.de/encodedTime"
-
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/message/multimsg"
+	"github.com/ssbc/margaret"
 )
 
 // NewKeyValueWrapper turns a value into a key-value message.
@@ -104,7 +102,7 @@ func NewKeyValueWrapper(mw *muxrpc.ByteSink, keyWrap bool) luigi.Sink {
 		var kv refs.KeyValueRaw
 		kv.Key_ = abs.Key()
 		kv.Value = *abs.ValueContent()
-		kv.Timestamp = encodedTime.Millisecs(abs.Received())
+		kv.Timestamp = refs.Millisecs(abs.Received())
 
 		if seqWrap == nil {
 			kvMsg, err := json.Marshal(kv)

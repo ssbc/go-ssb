@@ -13,12 +13,10 @@ import (
 
 	"github.com/ssbc/go-luigi"
 	"github.com/ssbc/go-luigi/mfr"
-	"github.com/ssbc/margaret"
-	"go.mindeco.de/encodedTime"
-
 	"github.com/ssbc/go-ssb"
 	refs "github.com/ssbc/go-ssb-refs"
 	"github.com/ssbc/go-ssb/private/box"
+	"github.com/ssbc/margaret"
 )
 
 type unboxedLog struct {
@@ -130,11 +128,11 @@ func (il unboxedLog) indirectFunc(ctx context.Context, iv interface{}) (interfac
 
 	var msg refs.KeyValueRaw
 	msg.Key_ = amsg.Key()
-	msg.Timestamp = encodedTime.Millisecs(amsg.Received())
+	msg.Timestamp = refs.Millisecs(amsg.Received())
 	msg.Value.Previous = amsg.Previous()
 	msg.Value.Author = author
 	msg.Value.Sequence = amsg.Seq()
-	msg.Value.Timestamp = encodedTime.Millisecs(amsg.Claimed())
+	msg.Value.Timestamp = refs.Millisecs(amsg.Claimed())
 	msg.Value.Hash = "go-ssb-unboxed"
 	msg.Value.Content = clearContent
 	msg.Value.Signature = "go-ssb-unboxed"
