@@ -94,7 +94,7 @@ func ReadConfigSbot(configPath string) (SbotConfig, bool) {
 	if presence["go-sbot"] != nil {
 		conf.GoSbot.Presence = presence["go-sbot"].(map[string]interface{})
 	} else {
-		level.Warn(log).Log("event", "read config", "msg", "no [go-sbot] detected in config file", "path", configPath)
+		level.Warn(log).Log("event", "read config", "msg", "no [go-sbot] detected in config file - I am not reading anything from the config file", "path", configPath)
 		conf.GoSbot.Presence = make(map[string]interface{})
 	}
 
@@ -131,7 +131,7 @@ func ReadConfigSbotCli(configPath string) (SbotCliConfig, bool) {
 	if presence["sbotcli"] != nil {
 		conf.SbotCli.Presence = presence["sbotcli"].(map[string]interface{})
 	} else {
-		level.Warn(log).Log("event", "read config", "msg", "no [sbotcli] detected in config file", "path", configPath)
+		level.Warn(log).Log("event", "read config", "msg", "no [sbotcli] detected in config file - I am not reading anything from the config file", "path", configPath)
 		conf.SbotCli.Presence = make(map[string]interface{})
 	}
 
