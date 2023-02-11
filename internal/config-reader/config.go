@@ -50,9 +50,11 @@ type SbotCliConfig struct {
 	ShsCap    string `json:"shscap,omitempty"`
 	Addr      string `json:"addr,omitempty"`
 	RemoteKey string `json:"remotekey,omitempty"`
-	KeyFile   string `json:"keyfile,omitempty"`
+	Key       string `json:"key,omitempty"`
 	UnixSock  string `json:"unixsock,omitempty"`
 	Timeout   string `json:"timeout,omitempty"`
+
+	Presence map[string]interface{}
 }
 
 type MergedConfig struct {
@@ -100,6 +102,40 @@ func ReadConfigSbot(configPath string) (SbotConfig, bool) {
 	conf.GoSbot.Repo = expandPath(conf.GoSbot.Repo)
 
 	return conf.GoSbot, true
+}
+
+func ReadConfigSbotCli(configPath string) (SbotCliConfig, bool) {
+	var conf MergedConfig
+
+	// setup logger if not yet setup (used for tests)
+	log := testutils.NewRelativeTimeLogger(nil)
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		level.Info(log).Log("event", "read config", "msg", "no config detected", "path", configPath)
+		return conf.SbotCli, false
+	}
+
+	level.Info(log).Log("event", "read config", "msg", "config detected", "path", configPath)
+
+	// 1) first we unmarshal into struct for type checks
+	decoder := json.NewDecoder(toml.New(bytes.NewBuffer(data)))
+	err = decoder.Decode(&conf)
+	check(err, "decode into struct")
+
+	// 2) then we unmarshal into a map for presence check (to make sure bools are treated correctly)
+	presence := make(map[string]interface{})
+	decoder = json.NewDecoder(toml.New(bytes.NewBuffer(data)))
+	err = decoder.Decode(&presence)
+	check(err, "decode into presence map")
+	if presence["sbotcli"] != nil {
+		conf.SbotCli.Presence = presence["sbotcli"].(map[string]interface{})
+	} else {
+		level.Warn(log).Log("event", "read config", "msg", "no [sbotcli] detected in config file", "path", configPath)
+		conf.SbotCli.Presence = make(map[string]interface{})
+	}
+
+	return conf.SbotCli, true
 }
 
 // ensure the following type of path expansions take place:
