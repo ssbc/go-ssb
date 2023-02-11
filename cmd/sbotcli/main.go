@@ -82,7 +82,7 @@ Please note, global options must be placed before sub-commands, e.g.
 		&configFileFlag,
 		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "SHS key"},
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "TCP address of the sbot to connect to (or listen on)"},
-		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "The remote pubkey you are connecting to (by default the local key)"},
+		&cli.StringFlag{Name: "remotekey", Aliases: []string{"remoteKey"}, Value: "", Usage: "The remote pubkey you are connecting to (by default the local key)"},
 		&keyFileFlag,
 		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "Print MUXRPC packets"},
@@ -229,12 +229,12 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 
 	var remotePubKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
 	copy(remotePubKey, localKey.ID().PubKey())
-	if rk := ctx.String("remoteKey"); rk != "" {
+	if rk := ctx.String("remotekey"); rk != "" {
 		rk = strings.TrimSuffix(rk, ".ed25519")
 		rk = strings.TrimPrefix(rk, "@")
 		rpk, err := base64.StdEncoding.DecodeString(rk)
 		if err != nil {
-			return nil, fmt.Errorf("init: base64 decode of --remoteKey failed: %w", err)
+			return nil, fmt.Errorf("init: base64 decode of --remotekey failed: %w", err)
 		}
 		copy(remotePubKey, rpk)
 	}
