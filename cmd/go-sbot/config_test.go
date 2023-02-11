@@ -22,7 +22,8 @@ import (
 
 func TestMarshalConfigBooleans(t *testing.T) {
 	r := require.New(t)
-	configContents := `# Supply various flags to control go-sbot options.
+	configContents := `[go-sbot]
+# Supply various flags to control go-sbot options.
 hops = 2 
 
 # Address to listen on
@@ -117,7 +118,8 @@ func TestUnmarshalConfig(t *testing.T) {
 
 func TestConfiguredSbot(t *testing.T) {
 	r := require.New(t)
-	configContents := `# Supply various flags to control go-sbot options.
+	configContents := `[go-sbot]
+# Supply various flags to control go-sbot options.
 hops = 2 
 
 shscap = "0KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=" 
@@ -210,7 +212,8 @@ func TestConfigRepoPathExpands(t *testing.T) {
 	r := require.New(t)
 
 	testRepoConfig := func(repodir, expected, failMsg string) {
-		configContents := fmt.Sprintf(`repo = "%s"`, repodir)
+		configContents := fmt.Sprintf(`[go-sbot]
+repo = "%s"`, repodir)
 
 		testPath := filepath.Join(".", "testrun", t.Name())
 		r.NoError(os.RemoveAll(testPath), "remove testrun folder")

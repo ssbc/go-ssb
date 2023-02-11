@@ -60,6 +60,7 @@ Please note, a "vendored" default configuration is maintained in
 up-to-date.
 
 ```toml
+[go-sbot]
 # Where to put the log and indexes
 repo = '.ssb-go'
 # Where to write debug output: NOTE, this is relative to "repo" atm

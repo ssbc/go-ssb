@@ -48,15 +48,17 @@ type SbotConfig struct {
 	presence map[string]interface{}
 }
 
+type MergedConfig struct {
+	GoSbot SbotConfig `json:"go-sbot"`
+}
+
 func (config SbotConfig) Has(flagname string) bool {
 	_, ok := config.presence[flagname]
 	return ok
 }
 
 func readConfig(configPath string) (SbotConfig, bool) {
-	var conf SbotConfig
-
-	conf.presence = make(map[string]interface{})
+	var conf MergedConfig
 
 	// setup logger if not yet setup (used for tests)
 	if log == nil {
@@ -66,7 +68,7 @@ func readConfig(configPath string) (SbotConfig, bool) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		level.Info(log).Log("event", "read config", "msg", "no config detected", "path", configPath)
-		return conf, false
+		return conf.GoSbot, false
 	}
 
 	level.Info(log).Log("event", "read config", "msg", "config detected", "path", configPath)
@@ -77,14 +79,21 @@ func readConfig(configPath string) (SbotConfig, bool) {
 	check(err, "decode into struct")
 
 	// 2) then we unmarshal into a map for presence check (to make sure bools are treated correctly)
+	presence := make(map[string]interface{})
 	decoder = json.NewDecoder(toml.New(bytes.NewBuffer(data)))
-	err = decoder.Decode(&conf.presence)
+	err = decoder.Decode(&presence)
 	check(err, "decode into presence map")
+	if presence["go-sbot"] != nil {
+		conf.GoSbot.presence = presence["go-sbot"].(map[string]interface{})
+	} else {
+		level.Warn(log).Log("event", "read config", "msg", "no [go-sbot] detected in config file", "path", configPath)
+		conf.GoSbot.presence = make(map[string]interface{})
+	}
 
 	// help repo path's default to align with common user expectations
-	conf.Repo = expandPath(conf.Repo)
+	conf.GoSbot.Repo = expandPath(conf.GoSbot.Repo)
 
-	return conf, true
+	return conf.GoSbot, true
 }
 
 // ensure the following type of path expansions take place:
