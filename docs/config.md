@@ -100,6 +100,27 @@ enable-ebt = false
 promisc = false
 # Disable the UNIX socket RPC interface
 nounixsock = false
+
+
+
+[sbotcli]
+# SHS Key (default: 1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=)
+shscap = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+
+# TCP address of the sbot to connect to (or listen on) (default: localhost:8008)
+addr = "localhost:8008"
+
+# The remote pubkey you are connecting to (by default the local key)
+remotekey = ""
+
+# Secret key file (default: ~/.ssb-go/secret)
+key = "~/.ssb-go/secret"
+
+# If set, Unix socket is used instead of TCP (default: ~/.ssb-go/socket)
+unixsock = "~/.ssb-go/socket"
+
+# Pass a duration (like 3s or 5m) after which it times out (empty string to disable) (default: 45s)
+timeout = "45s"
 ```
 
 ## Environment Variables
@@ -114,6 +135,7 @@ SSB_CONFIG_FILE="~/.ssb-go-config.toml" ./go-sbot
 ### Environment variable listing
 
 ```sh
+// === for go-ssb ===
 SSB_DATA_DIR="/var/lib/ssb-server"
 SSB_CONFIG_FILE="/etc/ssb-server/config"
 SSB_LOG_DIR="/var/log/ssb-server"
@@ -142,6 +164,16 @@ GO_SSB_REPAIR_FS=no
 // SSB_LOG_LEVEL="info" currently not implemented
 // SSB_CAP_INVITE_KEY="" currently not implemented
 // SSB_SOCKET_ENABLED=no currently not implemented
+
+
+
+// === for sbotcli ===
+SSB_CAP_SHS_KEY="1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+SSB_ADDR="localhost:8008"
+SSB_REMOTE_KEY=""
+SSB_KEY="~/.ssb-go/secret"
+SSB_UNIX_SOCK="~/.ssb-go/socket"
+SSB_TIMEOUT="45s"
 ```
 
 ## Inspecting configured values
