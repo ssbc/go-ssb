@@ -27,9 +27,9 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/cors v1.8.3
 	github.com/shurcooL/go-goon v1.0.0
-	github.com/ssbc/go-gabbygrove v0.0.0-20221025092911-c274a44c3523
+	github.com/ssbc/go-gabbygrove v0.2.2
 	github.com/ssbc/go-luigi v0.3.7-0.20230119190114-bd28e676fa99
-	github.com/ssbc/go-metafeed v1.1.3-0.20221019090205-458925e39156
+	github.com/ssbc/go-metafeed v1.1.3
 	github.com/ssbc/go-muxrpc/v2 v2.0.14-0.20221111190521-10382533750c
 	github.com/ssbc/go-netwrap v0.1.5-0.20221019160355-cd323bb2e29d
 	github.com/ssbc/go-secretstream v1.2.11-0.20221019175226-fa042d4912fe
