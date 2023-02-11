@@ -19,7 +19,6 @@ import (
 	"github.com/ssbc/go-luigi/mfr"
 	"github.com/ssbc/margaret"
 	"github.com/ssbc/margaret/multilog"
-	"go.mindeco.de/encodedTime"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 
@@ -319,7 +318,7 @@ func (mgr *Manager) WrappedUnboxingSink(snk luigi.Sink) luigi.Sink {
 		rv.Value.Author = msg.Author()
 		rv.Value.Previous = msg.Previous()
 		rv.Value.Sequence = msg.Seq()
-		rv.Value.Timestamp = encodedTime.NewMillisecs(msg.Claimed().Unix())
+		rv.Value.Timestamp = refs.Millisecs(msg.Claimed())
 		rv.Value.Signature = "reboxed"
 
 		rv.Value.Content = cleartxt

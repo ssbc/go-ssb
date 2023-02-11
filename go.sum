@@ -520,7 +520,6 @@ github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnIn
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
 github.com/ssbc/go-gabbygrove v0.0.0-20221025092911-c274a44c3523 h1:veYe4pNgQ5nKHruw2pdllHIJH7Oqg7Onk9F1DKbVTqk=
 github.com/ssbc/go-gabbygrove v0.0.0-20221025092911-c274a44c3523/go.mod h1:CKx4WZRQFAjhnFniMtqdPy8T1oRR0O6yZ1nP7cVKgZM=
-github.com/ssbc/go-luigi v0.3.7-0.20221019204020-324065b9a7c6 h1:4Mhg4qHaiX56eXNND9gGJAf0xzoRQQtfFFhv6wcIOIU=
 github.com/ssbc/go-luigi v0.3.7-0.20221019204020-324065b9a7c6/go.mod h1:tBPMBysJeh1u3vStvrWe5w3YBC4fnbnGsLk5ML4D6do=
 github.com/ssbc/go-luigi v0.3.7-0.20230119190114-bd28e676fa99 h1:qy9SdIIFwM+4SuKtBZyJVoIL02/V0YvqDBi8qIRQlls=
 github.com/ssbc/go-luigi v0.3.7-0.20230119190114-bd28e676fa99/go.mod h1:tBPMBysJeh1u3vStvrWe5w3YBC4fnbnGsLk5ML4D6do=
@@ -537,6 +536,8 @@ github.com/ssbc/go-ssb-multiserver v0.1.5-0.20221019203850-917ae0e23d57/go.mod h
 github.com/ssbc/go-ssb-refs v0.5.2-0.20221017100922-8e95413c6580/go.mod h1:rUj40X7iiUWFt62aF4NVm3uNnKiPZ9Uo/ds4D4ZE980=
 github.com/ssbc/go-ssb-refs v0.5.2-0.20221019090322-8b558c2f31de h1:av0v73MeB+HASXfbtr3+r1dWD1DrYlGEIMCdVKV09Ag=
 github.com/ssbc/go-ssb-refs v0.5.2-0.20221019090322-8b558c2f31de/go.mod h1:TRIqkOhZERfVzB+NoO3eUoru0ceQAsDnfZricPd1sUM=
+github.com/ssbc/go-ssb-refs v0.5.2 h1:PDjtfRMywwsP69pNdiCh/P9gj95W4iJsrQo5uDus0EY=
+github.com/ssbc/go-ssb-refs v0.5.2/go.mod h1:HlojPQQVXjZv+rqOnDVaZo5c8kwJQC7kpejcRqOJ54o=
 github.com/ssbc/margaret v0.4.4-0.20221101112304-4f5815095ef3 h1:oA9tmdVzuTKZUF7cipd61SCKz69ceOZhrvgWC9rcUWU=
 github.com/ssbc/margaret v0.4.4-0.20221101112304-4f5815095ef3/go.mod h1:9m7o/KRKrqnm26tqHK/q7LP3Q1coSJ51/tRHSZsvCxY=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
