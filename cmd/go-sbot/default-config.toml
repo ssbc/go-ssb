@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2023 The Go-SSB Authors
 # SPDX-License-Identifier: MIT
 
+[go-sbot]
 # Where to put the log and indexes
 repo = '.ssb-go'
 # Where to write debug output: NOTE, this is relative to "repo" atm
@@ -40,3 +41,24 @@ enable-ebt = false
 promisc = false
 # Disable the UNIX socket RPC interface
 nounixsock = false
+
+
+
+[sbotcli]
+# SHS Key (default: 1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=)
+shscap = "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s="
+
+# TCP address of the sbot to connect to (or listen on) (default: localhost:8008)
+addr = "localhost:8008"
+
+# The remote pubkey you are connecting to (by default the local key)
+remotekey = ""
+
+# Secret key file (default: ~/.ssb-go/secret)
+key = "~/.ssb-go/secret"
+
+# If set, Unix socket is used instead of TCP (default: ~/.ssb-go/socket)
+unixsock = "~/.ssb-go/socket"
+
+# Pass a duration (like 3s or 5m) after which it times out (empty string to disable) (default: 45s)
+timeout = "45s"

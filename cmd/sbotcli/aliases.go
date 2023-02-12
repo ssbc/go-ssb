@@ -29,7 +29,7 @@ var aliasCmd = &cli.Command{
 
 var aliasRegisterCmd = &cli.Command{
 	Name:      "register",
-	Usage:     "Register a new alias on the remote room (should be used with --remoteKey and --addr)",
+	Usage:     "Register a new alias on the remote room (should be used with --remotekey and --addr)",
 	ArgsUsage: "<alias>",
 	Action: func(ctx *cli.Context) error {
 
@@ -48,7 +48,7 @@ var aliasRegisterCmd = &cli.Command{
 			return err
 		}
 
-		roomID, err := refs.ParseFeedRef(ctx.String("remoteKey"))
+		roomID, err := refs.ParseFeedRef(ctx.String("remotekey"))
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ var aliasRegisterCmd = &cli.Command{
 
 var aliasRevokeCmd = &cli.Command{
 	Name:      "revoke",
-	Usage:     "Removes the alias from the remote (should be used with --remoteKey and --addr)",
+	Usage:     "Removes the alias from the remote (should be used with --remotekey and --addr)",
 	ArgsUsage: "<%...sha256>",
 	Action: func(ctx *cli.Context) error {
 		ref := ctx.Args().Get(0)

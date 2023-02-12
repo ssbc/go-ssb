@@ -17,12 +17,14 @@ import (
 	"time"
 
 	"github.com/ssbc/go-ssb/client"
+	"github.com/ssbc/go-ssb/internal/config-reader"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMarshalConfigBooleans(t *testing.T) {
 	r := require.New(t)
-	configContents := `# Supply various flags to control go-sbot options.
+	configContents := `[go-sbot]
+# Supply various flags to control go-sbot options.
 hops = 2 
 
 # Address to listen on
@@ -50,7 +52,7 @@ numPeer = 5
 # how many feeds can be replicated concurrently using legacy gossip replication
 numRepl = 10
 `
-	expectedConfig := SbotConfig{
+	expectedConfig := config.SbotConfig{
 		Hops:               2,
 		MuxRPCAddress:      ":8008",
 		WebsocketAddress:   ":8989",
@@ -70,7 +72,7 @@ numRepl = 10
 	configPath := filepath.Join(testPath, "config.toml")
 	err := os.WriteFile(configPath, []byte(configContents), 0700)
 	r.NoError(err, "write config file")
-	configFromDisk, _ := readConfig(configPath)
+	configFromDisk, _ := config.ReadConfigSbot(configPath)
 	// config values should be read correctly
 	r.EqualValues(expectedConfig.Hops, configFromDisk.Hops)
 	r.EqualValues(expectedConfig.MuxRPCAddress, configFromDisk.MuxRPCAddress)
@@ -88,7 +90,7 @@ numRepl = 10
 
 func TestUnmarshalConfig(t *testing.T) {
 	r := require.New(t)
-	config := SbotConfig{
+	config := config.SbotConfig{
 		NoUnixSocket:        true,
 		EnableAdvertiseUDP:  true,
 		EnableDiscoveryUDP:  true,
@@ -117,7 +119,8 @@ func TestUnmarshalConfig(t *testing.T) {
 
 func TestConfiguredSbot(t *testing.T) {
 	r := require.New(t)
-	configContents := `# Supply various flags to control go-sbot options.
+	configContents := `[go-sbot]
+# Supply various flags to control go-sbot options.
 hops = 2 
 
 shscap = "0KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=" 
@@ -142,7 +145,7 @@ numPeer = 5
 # how many feeds can be replicated concurrently using legacy gossip replication
 numRepl = 10
 `
-	expectedConfig := SbotConfig{
+	expectedConfig := config.SbotConfig{
 		ShsCap:             "0KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=",
 		Hops:               2,
 		MuxRPCAddress:      ":8008",
@@ -188,7 +191,7 @@ numRepl = 10
 	runningConfPath := filepath.Join(testPath, "running-config.json")
 	b, err := os.ReadFile(runningConfPath)
 	r.NoError(err)
-	var runningConfig SbotConfig
+	var runningConfig config.SbotConfig
 	err = json.Unmarshal(b, &runningConfig)
 	r.NoError(err)
 
@@ -210,7 +213,8 @@ func TestConfigRepoPathExpands(t *testing.T) {
 	r := require.New(t)
 
 	testRepoConfig := func(repodir, expected, failMsg string) {
-		configContents := fmt.Sprintf(`repo = "%s"`, repodir)
+		configContents := fmt.Sprintf(`[go-sbot]
+repo = "%s"`, repodir)
 
 		testPath := filepath.Join(".", "testrun", t.Name())
 		r.NoError(os.RemoveAll(testPath), "remove testrun folder")
@@ -218,7 +222,7 @@ func TestConfigRepoPathExpands(t *testing.T) {
 		configPath := filepath.Join(testPath, "config.toml")
 		err := os.WriteFile(configPath, []byte(configContents), 0700)
 		r.NoError(err, "write config file")
-		parsedConfig, _ := readConfig(configPath)
+		parsedConfig, _ := config.ReadConfigSbot(configPath)
 
 		r.EqualValues(expected, parsedConfig.Repo, failMsg)
 	}
@@ -306,6 +310,6 @@ func TestGenerateDefaultConfig(t *testing.T) {
 	_, err = os.Stat(confPath)
 	r.NoError(err)
 
-	_, exists := readConfig(confPath)
+	_, exists := config.ReadConfigSbot(confPath)
 	r.True(exists)
 }

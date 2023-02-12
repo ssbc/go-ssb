@@ -39,6 +39,8 @@ import (
 	"github.com/ssbc/go-ssb/plugins/legacyinvites"
 )
 
+const DEFAULT_GO_SSB_DIR string = ".ssb-go"
+
 // Version and Build are set by ldflags
 var (
 	Version = "snapshot"
@@ -51,6 +53,7 @@ var (
 
 	log kitlog.Logger
 
+	configFileFlag = cli.StringFlag{Name: "config", Usage: "path to config file; if filename is omitted from config path config.toml is used"}
 	keyFileFlag  = cli.StringFlag{Name: "key,k", Usage: "Secret key file", Value: "unset"}
 	unixSockFlag = cli.StringFlag{Name: "unixsock", Usage: "If set, Unix socket is used instead of TCP"}
 )
@@ -59,8 +62,9 @@ func init() {
 	u, err := user.Current()
 	check(err)
 
-	keyFileFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "secret")
-	unixSockFlag.Value = filepath.Join(u.HomeDir, ".ssb-go", "socket")
+	configFileFlag.Value = filepath.Join(u.HomeDir, DEFAULT_GO_SSB_DIR, "config.toml")
+	keyFileFlag.Value = filepath.Join(u.HomeDir, DEFAULT_GO_SSB_DIR, "secret")
+	unixSockFlag.Value = filepath.Join(u.HomeDir, DEFAULT_GO_SSB_DIR, "socket")
 
 	log = term.NewColorLogger(os.Stderr, kitlog.NewLogfmtLogger, colorFn)
 }
@@ -75,9 +79,10 @@ Please note, global options must be placed before sub-commands, e.g.
 	Version: "alpha4",
 
 	Flags: []cli.Flag{
+		&configFileFlag,
 		&cli.StringFlag{Name: "shscap", Value: "1KHLiKZvAvjbY1ziZEHMXawbCEIM6qwjCDm3VYRan/s=", Usage: "SHS key"},
 		&cli.StringFlag{Name: "addr", Value: "localhost:8008", Usage: "TCP address of the sbot to connect to (or listen on)"},
-		&cli.StringFlag{Name: "remoteKey", Value: "", Usage: "The remote pubkey you are connecting to (by default the local key)"},
+		&cli.StringFlag{Name: "remotekey", Aliases: []string{"remoteKey"}, Value: "", Usage: "The remote pubkey you are connecting to (by default the local key)"},
 		&keyFileFlag,
 		&unixSockFlag,
 		&cli.BoolFlag{Name: "verbose,vv", Usage: "Print MUXRPC packets"},
@@ -140,6 +145,43 @@ func todo(ctx *cli.Context) error {
 }
 
 func initClient(ctx *cli.Context) error {
+	// first, we need to check if we have a config file to pull options from
+	// if we do, then this is where we would apply those options if they have not been overridden by a command-line flag
+	config, exists := readConfigAndEnv(ctx.String("config"))
+	if exists {
+		if !ctx.IsSet("shscap") {
+			if config.Has("shscap") {
+				ctx.Set("shscap", config.ShsCap)
+			}
+		}
+		if !ctx.IsSet("addr") {
+			if config.Has("addr") {
+				ctx.Set("addr", config.Addr)
+			}
+		}
+		if !ctx.IsSet("remotekey") {
+			if config.Has("remotekey") {
+				ctx.Set("remotekey", config.RemoteKey)
+			}
+		}
+		if !ctx.IsSet("key") {
+			if config.Has("key") {
+				ctx.Set("key", config.Key)
+			}
+		}
+		if !ctx.IsSet("unixsock") {
+			if config.Has("unixsock") {
+				ctx.Set("unixsock", config.UnixSock)
+			}
+		}
+		if !ctx.IsSet("timeout") {
+			if config.Has("timeout") {
+				ctx.Set("timeout", config.Timeout)
+			}
+		}
+	}
+
+	// now, initialize the client
 	dstr := ctx.String("timeout")
 	if dstr != "" {
 		d, err := time.ParseDuration(dstr)
@@ -187,12 +229,12 @@ func newTCPClient(ctx *cli.Context) (*ssbClient.Client, error) {
 
 	var remotePubKey = make(ed25519.PublicKey, ed25519.PublicKeySize)
 	copy(remotePubKey, localKey.ID().PubKey())
-	if rk := ctx.String("remoteKey"); rk != "" {
+	if rk := ctx.String("remotekey"); rk != "" {
 		rk = strings.TrimSuffix(rk, ".ed25519")
 		rk = strings.TrimPrefix(rk, "@")
 		rpk, err := base64.StdEncoding.DecodeString(rk)
 		if err != nil {
-			return nil, fmt.Errorf("init: base64 decode of --remoteKey failed: %w", err)
+			return nil, fmt.Errorf("init: base64 decode of --remotekey failed: %w", err)
 		}
 		copy(remotePubKey, rpk)
 	}
