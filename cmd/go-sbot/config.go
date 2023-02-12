@@ -34,88 +34,88 @@ func ReadEnvironmentVariables(config *config.SbotConfig) {
 	// go-ssb specific env flag, for peachcloud/pub compat
 	if val := os.Getenv("GO_SSB_REPAIR_FS"); val != "" {
 		config.RepairFSBeforeStart = readEnvironmentBoolean(val)
-		config.Presence["repair"] = true
+		config.SetPresence("repair", true)
 	}
 
 	if val := os.Getenv("SSB_DATA_DIR"); val != "" {
 		config.Repo = val
-		config.Presence["repo"] = true
+		config.SetPresence("repo", true)
 	}
 
 	if val := os.Getenv("SSB_LOG_DIR"); val != "" {
 		config.DebugDir = val
-		config.Presence["debugdir"] = true
+		config.SetPresence("debugdir", true)
 	}
 
 	if val := os.Getenv("SSB_PROMETHEUS_ADDRESS"); val != "" {
 		config.MetricsAddress = val
-		config.Presence["debuglis"] = true
+		config.SetPresence("debuglis", true)
 	}
 
 	if val := os.Getenv("SSB_PROMETHEUS_ENABLED"); val != "" {
-		config.Presence["debuglis"] = readEnvironmentBoolean(val)
+		config.SetPresence("debuglis", readEnvironmentBoolean(val))
 	}
 
 	if val := os.Getenv("SSB_HOPS"); val != "" {
 		hops, err := strconv.Atoi(val)
 		check(err, "parse hops from environment variable")
 		config.Hops = uint(hops)
-		config.Presence["hops"] = true
+		config.SetPresence("hops", true)
 	}
 
 	if val := os.Getenv("SSB_MUXRPC_ADDRESS"); val != "" {
 		config.MuxRPCAddress = val
-		config.Presence["lis"] = true
+		config.SetPresence("lis", true)
 	}
 
 	if val := os.Getenv("SSB_WS_ADDRESS"); val != "" {
 		config.WebsocketAddress = val
-		config.Presence["wslis"] = true
+		config.SetPresence("wslis", true)
 	}
 
 	if val := os.Getenv("SSB_WS_TLS_CERT"); val != "" {
 		config.WebsocketTLSCert = val
-		config.Presence["wstlscert"] = true
+		config.SetPresence("wstlscert", true)
 	}
 
 	if val := os.Getenv("SSB_WS_TLS_KEY"); val != "" {
 		config.WebsocketTLSKey = val
-		config.Presence["wstlskey"] = true
+		config.SetPresence("wstlskey", true)
 	}
 
 	if val := os.Getenv("SSB_EBT_ENABLED"); val != "" {
 		config.EnableEBT = readEnvironmentBoolean(val)
-		config.Presence["enable-ebt"] = true
+		config.SetPresence("enable-ebt", true)
 	}
 
 	if val := os.Getenv("SSB_CONN_FIREWALL_ENABLED"); val != "" {
 		config.EnableFirewall = readEnvironmentBoolean(val)
-		config.Presence["promisc"] = true
+		config.SetPresence("promisc", true)
 	}
 
 	if val := os.Getenv("SSB_SOCKET_ENABLED"); val != "" {
 		config.NoUnixSocket = !readEnvironmentBoolean(val)
-		config.Presence["nounixsock"] = true
+		config.SetPresence("nounixsock", true)
 	}
 
 	if val := os.Getenv("SSB_CONN_DISCOVERY_UDP_ENABLED"); val != "" {
 		config.EnableDiscoveryUDP = readEnvironmentBoolean(val)
-		config.Presence["localdiscov"] = true
+		config.SetPresence("localdiscov", true)
 	}
 
 	if val := os.Getenv("SSB_CONN_BROADCAST_UDP_ENABLED"); val != "" {
 		config.EnableAdvertiseUDP = readEnvironmentBoolean(val)
-		config.Presence["localadv"] = true
+		config.SetPresence("localadv", true)
 	}
 
 	if val := os.Getenv("SSB_CAP_SHS_KEY"); val != "" {
 		config.ShsCap = val
-		config.Presence["shscap"] = true
+		config.SetPresence("shscap", true)
 	}
 
 	if val := os.Getenv("SSB_CAP_HMAC_KEY"); val != "" {
 		config.Hmac = val
-		config.Presence["hmac"] = true
+		config.SetPresence("hmac", true)
 	}
 
 	if val := os.Getenv("SSB_NUM_PEER"); val != "" {

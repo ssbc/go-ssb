@@ -150,32 +150,32 @@ func initClient(ctx *cli.Context) error {
 	config, exists := readConfigAndEnv(ctx.String("config"))
 	if exists {
 		if !ctx.IsSet("shscap") {
-			if config.Presence["shscap"] != nil {
+			if config.Has("shscap") {
 				ctx.Set("shscap", config.ShsCap)
 			}
 		}
 		if !ctx.IsSet("addr") {
-			if config.Presence["addr"] != nil {
+			if config.Has("addr") {
 				ctx.Set("addr", config.Addr)
 			}
 		}
 		if !ctx.IsSet("remotekey") {
-			if config.Presence["remotekey"] != nil {
+			if config.Has("remotekey") {
 				ctx.Set("remotekey", config.RemoteKey)
 			}
 		}
 		if !ctx.IsSet("key") {
-			if config.Presence["key"] != nil {
+			if config.Has("key") {
 				ctx.Set("key", config.Key)
 			}
 		}
 		if !ctx.IsSet("unixsock") {
-			if config.Presence["unixsock"] != nil {
+			if config.Has("unixsock") {
 				ctx.Set("unixsock", config.UnixSock)
 			}
 		}
 		if !ctx.IsSet("timeout") {
-			if config.Presence["timeout"] != nil {
+			if config.Has("timeout") {
 				ctx.Set("timeout", config.Timeout)
 			}
 		}

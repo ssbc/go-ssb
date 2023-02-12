@@ -44,7 +44,7 @@ type SbotConfig struct {
 	NumPeer uint `json:"numPeer,omitempty"`
 	NumRepl uint `json:"numRepl,omitempty"`
 
-	Presence map[string]interface{}
+	presence map[string]interface{}
 }
 type SbotCliConfig struct {
 	ShsCap    string `json:"shscap,omitempty"`
@@ -54,7 +54,7 @@ type SbotCliConfig struct {
 	UnixSock  string `json:"unixsock,omitempty"`
 	Timeout   string `json:"timeout,omitempty"`
 
-	Presence map[string]interface{}
+	presence map[string]interface{}
 }
 
 type MergedConfig struct {
@@ -63,8 +63,21 @@ type MergedConfig struct {
 }
 
 func (config SbotConfig) Has(flagname string) bool {
-	_, ok := config.Presence[flagname]
+	_, ok := config.presence[flagname]
 	return ok
+}
+
+func (config SbotConfig) SetPresence(flagname string, val ConfigBool) {
+	config.presence[flagname] = val
+}
+
+func (config SbotCliConfig) Has(flagname string) bool {
+	_, ok := config.presence[flagname]
+	return ok
+}
+
+func (config SbotCliConfig) SetPresence(flagname string, val ConfigBool) {
+	config.presence[flagname] = val
 }
 
 func ReadConfigSbot(configPath string) (SbotConfig, bool) {
@@ -92,10 +105,10 @@ func ReadConfigSbot(configPath string) (SbotConfig, bool) {
 	err = decoder.Decode(&presence)
 	check(err, "decode into presence map")
 	if presence["go-sbot"] != nil {
-		conf.GoSbot.Presence = presence["go-sbot"].(map[string]interface{})
+		conf.GoSbot.presence = presence["go-sbot"].(map[string]interface{})
 	} else {
 		level.Warn(log).Log("event", "read config", "msg", "no [go-sbot] detected in config file - I am not reading anything from the config file", "path", configPath)
-		conf.GoSbot.Presence = make(map[string]interface{})
+		conf.GoSbot.presence = make(map[string]interface{})
 	}
 
 	// help repo path's default to align with common user expectations
@@ -129,10 +142,10 @@ func ReadConfigSbotCli(configPath string) (SbotCliConfig, bool) {
 	err = decoder.Decode(&presence)
 	check(err, "decode into presence map")
 	if presence["sbotcli"] != nil {
-		conf.SbotCli.Presence = presence["sbotcli"].(map[string]interface{})
+		conf.SbotCli.presence = presence["sbotcli"].(map[string]interface{})
 	} else {
 		level.Warn(log).Log("event", "read config", "msg", "no [sbotcli] detected in config file - I am not reading anything from the config file", "path", configPath)
-		conf.SbotCli.Presence = make(map[string]interface{})
+		conf.SbotCli.presence = make(map[string]interface{})
 	}
 
 	return conf.SbotCli, true

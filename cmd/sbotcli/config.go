@@ -16,32 +16,32 @@ import (
 func ReadEnvironmentVariables(config *config.SbotCliConfig) {
 	if val := os.Getenv("SSB_CAP_SHS_KEY"); val != "" {
 		config.ShsCap = val
-		config.Presence["shscap"] = true
+		config.SetPresence("shscap", true)
 	}
 
 	if val := os.Getenv("SSB_ADDR"); val != "" {
 		config.Addr = val
-		config.Presence["addr"] = true
+		config.SetPresence("addr", true)
 	}
 
 	if val := os.Getenv("SSB_REMOTE_KEY"); val != "" {
 		config.RemoteKey = val
-		config.Presence["remotekey"] = true
+		config.SetPresence("remotekey", true)
 	}
 
 	if val := os.Getenv("SSB_KEY"); val != "" {
 		config.Key = val
-		config.Presence["key"] = true
+		config.SetPresence("key", true)
 	}
 
 	if val := os.Getenv("SSB_UNIX_SOCK"); val != "" {
 		config.UnixSock = val
-		config.Presence["unixsock"] = true
+		config.SetPresence("unixsock", true)
 	}
 
 	if val := os.Getenv("SSB_TIMEOUT"); val != "" {
 		config.Timeout = val
-		config.Presence["timeout"] = true
+		config.SetPresence("timeout", true)
 	}
 }
 
