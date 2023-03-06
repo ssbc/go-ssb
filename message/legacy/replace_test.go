@@ -31,24 +31,21 @@ func TestStripSignature(t *testing.T) {
 	var (
 		input = []byte(`{
   "foo": "hello",
-  "signature": "aBISzGroszUndKlein01234567890/+="
+  "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==.sig.ed25519"
 }`)
 		want = []byte(`{
   "foo": "hello"
 }`)
-		wantSig = []byte("aBISzGroszUndKlein01234567890/+=")
 	)
-	matches := signatureRegexp.FindSubmatch(input)
-	if n := len(matches); n != 2 {
-		t.Fatalf("expected 2 results, got %d", n)
-	}
-	if s := matches[1]; bytes.Compare(s, wantSig) != 0 {
-		t.Errorf("unexpected submatch: %s", s)
-	}
-	out := signatureRegexp.ReplaceAll(input, []byte{})
-	if bytes.Compare(out, want) != 0 {
-		t.Errorf("got unexpected replace:\n%s", out)
-	}
+
+	wantSig, err := NewSignatureFromBase64([]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==.sig.ed25519"))
+	require.NoError(t, err)
+
+	msg, sig, err := ExtractSignature(input)
+	require.NoError(t, err)
+
+	require.Equal(t, want, msg)
+	require.Equal(t, wantSig, sig)
 }
 
 func TestUnicodeFind(t *testing.T) {
