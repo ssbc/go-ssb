@@ -6,186 +6,210 @@ package legacy
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"strconv"
+	jsoniter "github.com/json-iterator/go"
 	"strings"
 )
 
-func (pp *prettyPrinter) formatArray(depth int) error {
-
-	b := pp.buffer
-	dec := pp.decoder
-
-	for {
-		t, err := dec.Token()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("message Encode: unexpected error from Token(): %w", err)
-		}
-		switch v := t.(type) {
-
-		case json.Delim: // [ ] { }
-			switch v {
-			case ']':
-				fmt.Fprint(b, strings.Repeat("  ", depth-1))
-				fmt.Fprint(b, "]")
-				if dec.More() {
-					fmt.Fprint(b, ",")
-				}
-				fmt.Fprintf(b, "\n")
-				return nil
-			case '{':
-				fmt.Fprint(b, strings.Repeat("  ", depth))
-				fmt.Fprint(b, "{\n")
-				if err := pp.formatObject(depth + 1); err != nil {
-					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
-				}
-			case '[':
-				fmt.Fprint(b, strings.Repeat("  ", depth))
-				fmt.Fprint(b, "[\n")
-				if err := pp.formatArray(depth + 1); err != nil {
-					return fmt.Errorf("formatArray(%d): decend failed: %w", depth, err)
-				}
-			default:
-				return fmt.Errorf("formatArray(%d): unexpected token: %v", depth, v)
-			}
-
-		case string:
-			fmt.Fprint(b, strings.Repeat("  ", depth))
-			fmt.Fprintf(b, "%q", v)
-			if dec.More() {
-				fmt.Fprintf(b, ",")
-			}
-			fmt.Fprintf(b, "\n")
-
-		case float64:
-			fmt.Fprint(b, strings.Repeat("  ", depth))
-			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-			if dec.More() {
-				fmt.Fprintf(b, ",")
-			}
-			fmt.Fprintf(b, "\n")
-
-		default:
-			fmt.Fprint(b, strings.Repeat("  ", depth))
-			if v == nil {
-				fmt.Fprint(b, "null")
-			} else {
-				fmt.Fprintf(b, "%v", v)
-			}
-			if dec.More() {
-				fmt.Fprintf(b, ",")
-			}
-			fmt.Fprintf(b, "\n")
-		}
-	}
-}
-
 var replacer = strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
 
+var iteratorConfig = jsoniter.Config{
+	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
+	// not particular excited to implement all of the above
+	// this keeps the original value as a string
+	UseNumber: true,
+}.Froze()
+
 func (pp *prettyPrinter) formatObject(depth int) error {
-	var isKey = true // key:value pair toggle
+	if pp.iter.WhatIsNext() != jsoniter.ObjectValue {
+		return errors.New("next value is not an object")
+	}
 
-	b := pp.buffer
-	dec := pp.decoder
+	pp.buffer.WriteString("{\n")
 
+	i := 0
 	for {
-		t, err := dec.Token()
-		if err == io.EOF {
-			return nil
+		s := pp.iter.ReadObject()
+		if s == "" {
+			break
 		}
-		if err != nil {
-			return fmt.Errorf("message Encode: unexpected error from Token(): %w", err)
+
+		if depth == 1 {
+			pp.topLevelFields = append(pp.topLevelFields, s)
 		}
-		switch v := t.(type) {
 
-		case json.Delim: // [ ] { }
-			switch v {
-			case '}':
-				b.WriteString(strings.Repeat("  ", depth-1))
-				b.WriteString("}")
-				if dec.More() {
-					b.WriteString(",")
-				}
-				b.WriteString("\n")
-				return nil
-			case '{':
-				b.WriteString("{")
-				var d = depth + 1
-				if dec.More() {
-					b.WriteString("\n")
-				} else {
-					// empty object. no spaces between { and }
-					// hint this to the next recurision by setting d=1
-					// which will use depth-1
-					d = 1
-				}
-				if err := pp.formatObject(d); err != nil {
-					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
-				}
-				isKey = true
-			case '[':
-				b.WriteString("[")
-				var d = depth + 1
-				if dec.More() {
-					b.WriteString("\n")
-				} else {
-					// empty array. no spaces between [ and ]
-					// hint this to the next recurision by setting d=1
-					// which will use depth-1
-					d = 1
-				}
-				if err := pp.formatArray(d); err != nil {
-					return fmt.Errorf("formatObject(%d): decend failed: %w", depth, err)
-				}
-				isKey = true
-			default:
-				return fmt.Errorf("formatObject(%d): unexpected token: %v", depth, v)
+		if i > 0 {
+			pp.buffer.WriteString(",\n")
+		}
+
+		pp.buffer.WriteString(strings.Repeat("  ", depth))
+		pp.writeString(s)
+		pp.buffer.WriteString(": ")
+
+		switch whatIsNext := pp.iter.WhatIsNext(); whatIsNext {
+		case jsoniter.ObjectValue:
+			if err := pp.formatObject(depth + 1); err != nil {
+				return err
 			}
 
-		case string:
-			if isKey {
-				if depth == 1 {
-					pp.topLevelFields = append(pp.topLevelFields, v)
-				}
-				b.WriteString(strings.Repeat("  ", depth))
-				fmt.Fprintf(b, "%q: ", v)
-			} else {
-				b.WriteByte('"')
-				b.WriteString(unicodeEscapeSome(replacer.Replace(v)))
-				b.WriteByte('"')
-				if dec.More() {
-					b.WriteString(",")
-				}
-				b.WriteString("\n")
+		case jsoniter.StringValue:
+			if err := pp.formatString(); err != nil {
+				return err
 			}
-			isKey = !isKey
 
-		case float64:
-			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-			if dec.More() {
-				b.WriteString(",")
+		case jsoniter.NumberValue:
+			if err := pp.formatNumber(); err != nil {
+				return err
 			}
-			b.WriteString("\n")
-			isKey = !isKey
+
+		case jsoniter.NilValue:
+			if err := pp.formatNil(); err != nil {
+				return err
+			}
+
+		case jsoniter.BoolValue:
+			if err := pp.formatBool(); err != nil {
+				return err
+			}
+
+		case jsoniter.ArrayValue:
+			if err := pp.formatArray(depth + 1); err != nil {
+				return err
+			}
 
 		default:
-			if v == nil {
-				b.WriteString("null")
-			} else {
-				fmt.Fprintf(b, "%v", v)
-			}
-			if dec.More() {
-				b.WriteString(",")
-			}
-			b.WriteString("\n")
-			isKey = !isKey
+			return fmt.Errorf("unexpected value: %v", whatIsNext)
 		}
+
+		i++
 	}
+
+	pp.buffer.WriteString("\n")
+	pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	pp.buffer.WriteString("}")
+
+	return nil
+}
+
+func (pp *prettyPrinter) formatArray(depth int) error {
+	if pp.iter.WhatIsNext() != jsoniter.ArrayValue {
+		return errors.New("next value is not an array")
+	}
+
+	pp.buffer.WriteString("[")
+	pp.buffer.WriteString("\n")
+
+	i := 0
+	for {
+		ok := pp.iter.ReadArray()
+		if !ok {
+			break
+		}
+
+		if i > 0 {
+			pp.buffer.WriteString(",\n")
+		}
+
+		pp.buffer.WriteString(strings.Repeat("  ", depth))
+
+		switch whatIsNext := pp.iter.WhatIsNext(); whatIsNext {
+		case jsoniter.ObjectValue:
+			if err := pp.formatObject(depth + 1); err != nil {
+				return err
+			}
+
+		case jsoniter.StringValue:
+			if err := pp.formatString(); err != nil {
+				return err
+			}
+
+		case jsoniter.NumberValue:
+			if err := pp.formatNumber(); err != nil {
+				return err
+			}
+
+		case jsoniter.NilValue:
+			if err := pp.formatNil(); err != nil {
+				return err
+			}
+
+		case jsoniter.BoolValue:
+			if err := pp.formatBool(); err != nil {
+				return err
+			}
+
+		case jsoniter.ArrayValue:
+			if err := pp.formatArray(depth); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("unexpected value: %v", whatIsNext)
+		}
+
+		i++
+	}
+
+	pp.buffer.WriteString("\n")
+	pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	pp.buffer.WriteString("]")
+
+	return nil
+}
+
+func (pp *prettyPrinter) formatString() error {
+	if pp.iter.WhatIsNext() != jsoniter.StringValue {
+		return errors.New("next value is not a string")
+	}
+
+	v := pp.iter.ReadString()
+
+	pp.writeString(v)
+	return nil
+}
+
+func (pp *prettyPrinter) formatNumber() error {
+	if pp.iter.WhatIsNext() != jsoniter.NumberValue {
+		return errors.New("next value is not a number")
+	}
+
+	v := pp.iter.ReadNumber()
+
+	pp.buffer.WriteString(v.String())
+	return nil
+}
+
+func (pp *prettyPrinter) formatNil() error {
+	if pp.iter.WhatIsNext() != jsoniter.NilValue {
+		return errors.New("next value is not a nil")
+	}
+
+	pp.iter.Skip()
+
+	pp.buffer.WriteString("null")
+	return nil
+}
+
+func (pp *prettyPrinter) formatBool() error {
+	if pp.iter.WhatIsNext() != jsoniter.BoolValue {
+		return errors.New("next value is not a bool")
+	}
+
+	v := pp.iter.ReadBool()
+
+	if v {
+		pp.buffer.WriteString("true")
+	} else {
+		pp.buffer.WriteString("false")
+	}
+	return nil
+}
+
+func (pp *prettyPrinter) writeString(v string) {
+	pp.buffer.WriteByte('"')
+	pp.buffer.WriteString(unicodeEscapeSome(replacer.Replace(v)))
+	pp.buffer.WriteByte('"')
 }
 
 type PrettyPrinterOption func(pp *prettyPrinter)
@@ -257,7 +281,7 @@ func checkFieldOrder(fields []string) error {
 }
 
 type prettyPrinter struct {
-	decoder *json.Decoder
+	iter *jsoniter.Iterator
 
 	buffer *bytes.Buffer
 
@@ -281,12 +305,7 @@ type prettyPrinter struct {
 func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 	var pp prettyPrinter
 
-	pp.decoder = json.NewDecoder(bytes.NewReader(input))
-
-	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
-	// not particular excited to implement all of the above
-	// this keeps the original value as a string
-	pp.decoder.UseNumber()
+	pp.iter = jsoniter.ParseBytes(iteratorConfig, input)
 
 	for _, o := range opts {
 		o(&pp)
@@ -296,15 +315,6 @@ func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 		pp.buffer = new(bytes.Buffer)
 	}
 
-	// start encoding
-	t, err := pp.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("message Encode: expected {: %w", err)
-	}
-	if v, ok := t.(json.Delim); !ok || v != '{' {
-		return nil, fmt.Errorf("message Encode: wanted { got %v: %w", t, err)
-	}
-	pp.buffer.WriteString("{\n")
 	if err := pp.formatObject(1); err != nil {
 		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
 	}
