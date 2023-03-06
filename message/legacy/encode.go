@@ -85,6 +85,8 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 	}
 }
 
+var replacer = strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
+
 func (pp *prettyPrinter) formatObject(depth int) error {
 	var isKey = true // key:value pair toggle
 
@@ -104,18 +106,18 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 		case json.Delim: // [ ] { }
 			switch v {
 			case '}':
-				fmt.Fprint(b, strings.Repeat("  ", depth-1))
-				fmt.Fprint(b, "}")
+				b.WriteString(strings.Repeat("  ", depth-1))
+				b.WriteString("}")
 				if dec.More() {
-					fmt.Fprint(b, ",")
+					b.WriteString(",")
 				}
-				fmt.Fprintf(b, "\n")
+				b.WriteString("\n")
 				return nil
 			case '{':
-				fmt.Fprint(b, "{")
+				b.WriteString("{")
 				var d = depth + 1
 				if dec.More() {
-					fmt.Fprint(b, "\n")
+					b.WriteString("\n")
 				} else {
 					// empty object. no spaces between { and }
 					// hint this to the next recurision by setting d=1
@@ -127,10 +129,10 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 				}
 				isKey = true
 			case '[':
-				fmt.Fprint(b, "[")
+				b.WriteString("[")
 				var d = depth + 1
 				if dec.More() {
-					fmt.Fprint(b, "\n")
+					b.WriteString("\n")
 				} else {
 					// empty array. no spaces between [ and ]
 					// hint this to the next recurision by setting d=1
@@ -150,35 +152,37 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 				if depth == 1 {
 					pp.topLevelFields = append(pp.topLevelFields, v)
 				}
-				fmt.Fprintf(b, "%s%q: ", strings.Repeat("  ", depth), v)
+				b.WriteString(strings.Repeat("  ", depth))
+				fmt.Fprintf(b, "%q: ", v)
 			} else {
-				r := strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
-				fmt.Fprintf(b, `"%s"`, unicodeEscapeSome(r.Replace(v)))
+				b.WriteByte('"')
+				b.WriteString(unicodeEscapeSome(replacer.Replace(v)))
+				b.WriteByte('"')
 				if dec.More() {
-					fmt.Fprint(b, ",")
+					b.WriteString(",")
 				}
-				fmt.Fprintf(b, "\n")
+				b.WriteString("\n")
 			}
 			isKey = !isKey
 
 		case float64:
 			b.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
 			if dec.More() {
-				fmt.Fprintf(b, ",")
+				b.WriteString(",")
 			}
-			fmt.Fprintf(b, "\n")
+			b.WriteString("\n")
 			isKey = !isKey
 
 		default:
 			if v == nil {
-				fmt.Fprint(b, "null")
+				b.WriteString("null")
 			} else {
 				fmt.Fprintf(b, "%v", v)
 			}
 			if dec.More() {
-				fmt.Fprintf(b, ",")
+				b.WriteString(",")
 			}
-			fmt.Fprintf(b, "\n")
+			b.WriteString("\n")
 			isKey = !isKey
 		}
 	}
@@ -263,14 +267,15 @@ type prettyPrinter struct {
 
 // PrettyPrinter formats and indents byte slice b using json.Token izer
 // using two spaces like this to mimics JSON.stringify(....)
-// {
-//   "field": "val",
-//   "arr": [
-// 	"foo",
-// 	"bar"
-//   ],
-//   "obj": {}
-// }
+//
+//	{
+//	  "field": "val",
+//	  "arr": [
+//		"foo",
+//		"bar"
+//	  ],
+//	  "obj": {}
+//	}
 //
 // while preserving the order in which the keys appear
 func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
@@ -299,7 +304,7 @@ func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 	if v, ok := t.(json.Delim); !ok || v != '{' {
 		return nil, fmt.Errorf("message Encode: wanted { got %v: %w", t, err)
 	}
-	fmt.Fprint(pp.buffer, "{\n")
+	pp.buffer.WriteString("{\n")
 	if err := pp.formatObject(1); err != nil {
 		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
 	}
