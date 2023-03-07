@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
-	"strings"
 )
 
 var iteratorConfig = jsoniter.Config{
@@ -36,7 +35,7 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 			pp.buffer.WriteString(",\n")
 		}
 
-		pp.buffer.WriteString(strings.Repeat("  ", depth))
+		pp.writeIndent(depth)
 		pp.writeString(s)
 		pp.buffer.WriteString(": ")
 
@@ -89,7 +88,7 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 	}
 
 	pp.buffer.WriteString("\n")
-	pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	pp.writeIndent(depth - 1)
 	pp.buffer.WriteString("}")
 
 	return nil
@@ -116,7 +115,7 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 			pp.buffer.WriteString(",\n")
 		}
 
-		pp.buffer.WriteString(strings.Repeat("  ", depth))
+		pp.writeIndent(depth)
 
 		switch whatIsNext := pp.iter.WhatIsNext(); whatIsNext {
 		case jsoniter.ObjectValue:
@@ -158,7 +157,7 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 
 	if i > 0 {
 		pp.buffer.WriteString("\n")
-		pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+		pp.writeIndent(depth - 1)
 	}
 	pp.buffer.WriteString("]")
 
@@ -217,6 +216,36 @@ func (pp *prettyPrinter) writeString(v string) {
 	pp.buffer.WriteByte('"')
 	quoteString(pp.buffer, v)
 	pp.buffer.WriteByte('"')
+}
+
+var (
+	indentBytes      = []byte("  ")
+	indentBytesOne   = bytes.Repeat(indentBytes, 1)
+	indentBytesTwo   = bytes.Repeat(indentBytes, 2)
+	indentBytesThree = bytes.Repeat(indentBytes, 3)
+	indentBytesFour  = bytes.Repeat(indentBytes, 4)
+	indentBytesFive  = bytes.Repeat(indentBytes, 5)
+)
+
+func (pp *prettyPrinter) writeIndent(depth int) {
+	if depth == 0 {
+		return
+	}
+
+	switch depth {
+	case 1:
+		pp.buffer.Write(indentBytesOne)
+	case 2:
+		pp.buffer.Write(indentBytesTwo)
+	case 3:
+		pp.buffer.Write(indentBytesThree)
+	case 4:
+		pp.buffer.Write(indentBytesFour)
+	case 5:
+		pp.buffer.Write(indentBytesFive)
+	default:
+		pp.buffer.Write(bytes.Repeat(indentBytes, depth))
+	}
 }
 
 type PrettyPrinterOption func(pp *prettyPrinter)
