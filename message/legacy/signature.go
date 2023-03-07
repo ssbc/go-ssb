@@ -31,7 +31,7 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	// NOTE(boreq): this seems like expected behaviour to me.
 
 	lines := bytes.Split(b, jsonLineSeparator)
-	for i := range lines {
+	for i := len(lines) - 1; i >= 0; i-- {
 		if bytes.HasSuffix(lines[i], jsonSignatureSuffix) {
 			signature, err := extractSignature(lines[i])
 			if err != nil {
