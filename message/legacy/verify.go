@@ -17,6 +17,7 @@ import (
 	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
 	"io"
+	"unicode/utf8"
 )
 
 var (
@@ -41,11 +42,6 @@ type DeserializedMessage struct {
 func Verify(raw []byte, hmacSecret *[32]byte) (refs.MessageRef, DeserializedMessage, error) {
 	var buf bytes.Buffer
 	return VerifyWithBuffer(raw, hmacSecret, &buf)
-}
-
-func runeLength(s string) int {
-	runes := []rune(s)
-	return len(runes)
 }
 
 var (
@@ -77,10 +73,14 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 	}
 
 	// check length
-	if n := len(dmsg.Content); n < 1 {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", n)
-	} else if runeLength(string(dmsg.Content)) > 8192 {
-		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", n)
+	contentLengthInRunes := utf8.RuneCount(dmsg.Content)
+
+	if contentLengthInRunes < 1 {
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: has no content (%d)", contentLengthInRunes)
+	}
+
+	if contentLengthInRunes > 8192 {
+		return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: message too large (%d)", contentLengthInRunes)
 	}
 
 	// some type consistency checks
