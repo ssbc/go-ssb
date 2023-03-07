@@ -98,13 +98,15 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 	}
 
 	pp.buffer.WriteString("[")
-	pp.buffer.WriteString("\n")
-
 	i := 0
 	for {
 		ok := pp.iter.ReadArray()
 		if !ok {
 			break
+		}
+
+		if i == 0 {
+			pp.buffer.WriteString("\n")
 		}
 
 		if i > 0 {
@@ -140,7 +142,7 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 			}
 
 		case jsoniter.ArrayValue:
-			if err := pp.formatArray(depth); err != nil {
+			if err := pp.formatArray(depth + 1); err != nil {
 				return err
 			}
 
@@ -151,8 +153,10 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 		i++
 	}
 
-	pp.buffer.WriteString("\n")
-	pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	if i > 0 {
+		pp.buffer.WriteString("\n")
+		pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	}
 	pp.buffer.WriteString("]")
 
 	return nil
