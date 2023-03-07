@@ -12,8 +12,6 @@ import (
 	"strings"
 )
 
-var replacer = strings.NewReplacer("\\", `\\`, "\t", `\t`, "\n", `\n`, "\r", `\r`, `"`, `\"`)
-
 var iteratorConfig = jsoniter.Config{
 	// re float encoding: https://spec.scuttlebutt.nz/datamodel.html#signing-encoding-floats
 	// not particular excited to implement all of the above
@@ -212,7 +210,7 @@ func (pp *prettyPrinter) formatBool() error {
 
 func (pp *prettyPrinter) writeString(v string) {
 	pp.buffer.WriteByte('"')
-	unicodeEscapeSome(pp.buffer, replacer.Replace(v))
+	unicodeEscapeSome(pp.buffer, v)
 	pp.buffer.WriteByte('"')
 }
 

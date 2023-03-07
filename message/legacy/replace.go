@@ -32,6 +32,14 @@ func unicodeEscapeSome(buf *bytes.Buffer, s string) {
 			buf.WriteByte('\\')
 
 			switch b {
+			case '\\', '"':
+				buf.WriteByte(b)
+			case '\n':
+				buf.WriteByte('n')
+			case '\r':
+				buf.WriteByte('r')
+			case '\t':
+				buf.WriteByte('t')
 			case '\b':
 				buf.WriteByte('b')
 			case '\f':
@@ -91,7 +99,7 @@ func InternalV8Binary(in []byte) ([]byte, error) {
 var safeSet = [utf8.RuneSelf]bool{
 	' ':      true,
 	'!':      true,
-	'"':      true,
+	'"':      false,
 	'#':      true,
 	'$':      true,
 	'%':      true,
@@ -149,7 +157,7 @@ var safeSet = [utf8.RuneSelf]bool{
 	'Y':      true,
 	'Z':      true,
 	'[':      true,
-	'\\':     true,
+	'\\':     false,
 	']':      true,
 	'^':      true,
 	'_':      true,
