@@ -50,7 +50,7 @@ func runeLength(s string) int {
 
 var (
 	boxSuffix  = []byte(`.box"`)
-	box2Suffix = []byte(`.box2""`)
+	box2Suffix = []byte(`.box2"`)
 )
 
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
