@@ -18,10 +18,8 @@ import (
 )
 
 var (
-	jsonLineSeparator   = []byte("\n")
-	jsonSignatureSuffix = []byte(`.sig.ed25519"`)
-	jsonQuote           = []byte(`"`)
-	jsonComma           = []byte(`,`)
+	jsonQuote = []byte(`"`)
+	jsonComma = []byte(`,`)
 )
 
 // ExtractSignature expects a pretty printed message and uses a regexp to strip it from the msg for signature verification
@@ -30,52 +28,34 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	// some functions (like createHistoryStream with keys:true) nest the message on level deeper and this fails
 	// NOTE(boreq): this seems like expected behaviour to me.
 
-	lines := bytes.Split(b, jsonLineSeparator)
-	for i := len(lines) - 1; i >= 0; i-- {
-		if bytes.HasSuffix(lines[i], jsonSignatureSuffix) {
-			signature, err := extractSignature(lines[i])
-			if err != nil {
-				return nil, nil, fmt.Errorf("error extracting signature: %w", err)
-			}
-
-			lines = append(lines[:i], lines[i+1:]...)
-			if i == 0 {
-				return nil, nil, errors.New("this message seems malformed, signature should be at the end of it")
-			}
-
-			if !bytes.HasSuffix(lines[i-1], jsonComma) {
-				return nil, nil, errors.New("this message seems malformed, previous line should have a comma at the end")
-			}
-
-			lines[i-1] = bytes.TrimSuffix(lines[i-1], jsonComma)
-			msg := bytes.Join(lines, jsonLineSeparator)
-			return msg, signature, nil
-		}
+	endOfSignatureIndex := bytes.LastIndex(b, jsonQuote)
+	if endOfSignatureIndex < 0 {
+		return nil, nil, errors.New("end of signature not found")
 	}
 
-	return nil, nil, errors.New("signature not found")
-}
-
-func extractSignature(line []byte) (Signature, error) {
-	closingQuoteIndex := bytes.LastIndex(line, jsonQuote)
-	if closingQuoteIndex < 0 {
-		return nil, errors.New("closing quote not found")
-	}
-	line = line[:closingQuoteIndex]
-
-	openingQuoteIndex := bytes.LastIndex(line, jsonQuote)
-	if openingQuoteIndex < 0 {
-		return nil, errors.New("opening quote not found")
+	startOfSignatureIndex := bytes.LastIndex(b[:endOfSignatureIndex], jsonQuote)
+	if startOfSignatureIndex < 0 {
+		return nil, nil, errors.New("start of signature not found")
 	}
 
-	line = line[openingQuoteIndex+1:]
+	commaPrecedingSignatureIndex := bytes.LastIndex(b[:startOfSignatureIndex], jsonComma)
+	if commaPrecedingSignatureIndex < 0 {
+		return nil, nil, errors.New("comma preceding signature not found")
+	}
 
-	sig, err := NewSignatureFromBase64(line)
+	signature, err := NewSignatureFromBase64(b[startOfSignatureIndex+1 : endOfSignatureIndex])
 	if err != nil {
-		return nil, fmt.Errorf("error creating signature from base64 data: %w", err)
+		return nil, nil, fmt.Errorf("error creating signature from base64 data: %w", err)
 	}
 
-	return sig, nil
+	beforeSignature := b[:commaPrecedingSignatureIndex]
+	afterSignature := b[endOfSignatureIndex+1:]
+
+	msg := make([]byte, len(beforeSignature)+len(afterSignature))
+	copy(msg, beforeSignature)
+	copy(msg[len(beforeSignature):], afterSignature)
+
+	return msg, signature, nil
 }
 
 type Signature []byte
