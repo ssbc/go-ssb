@@ -51,8 +51,9 @@ func TestStripSignature(t *testing.T) {
 func TestUnicodeFind(t *testing.T) {
 	in := "Hello\x01World"
 	want := `Hello\u0001World`
-	out := unicodeEscapeSome(in)
-	assert.Equal(t, want, out)
+	buf := &bytes.Buffer{}
+	unicodeEscapeSome(buf, in)
+	assert.Equal(t, want, buf.String())
 }
 
 func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {

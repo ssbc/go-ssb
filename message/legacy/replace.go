@@ -16,9 +16,7 @@ import (
 
 var hex = "0123456789abcdef"
 
-func unicodeEscapeSome(s string) string {
-	buf := bytes.NewBuffer(make([]byte, 0, len(s)))
-
+func unicodeEscapeSome(buf *bytes.Buffer, s string) {
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -65,9 +63,6 @@ func unicodeEscapeSome(s string) string {
 	if start < len(s) {
 		buf.WriteString(s[start:])
 	}
-
-	return buf.String()
-
 }
 
 // InternalV8Binary does some funky v8 magic

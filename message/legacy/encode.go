@@ -212,7 +212,7 @@ func (pp *prettyPrinter) formatBool() error {
 
 func (pp *prettyPrinter) writeString(v string) {
 	pp.buffer.WriteByte('"')
-	pp.buffer.WriteString(unicodeEscapeSome(replacer.Replace(v)))
+	unicodeEscapeSome(pp.buffer, replacer.Replace(v))
 	pp.buffer.WriteByte('"')
 }
 
