@@ -234,19 +234,11 @@ func WithStrictOrderChecking(yes bool) PrettyPrinterOption {
 	}
 }
 
-// some constants for field order checking
-const acceptedFieldOrderDelimiter = ":"
-
-// (slices can't be const, though)
 var (
 	acceptedFieldOrderList = [][]string{
 		{"previous", "author", "sequence", "timestamp", "hash", "content", "signature"},
 		{"previous", "sequence", "author", "timestamp", "hash", "content", "signature"},
 	}
-
-	acceptedFieldOrderLength int
-
-	acceptedFieldOrders = make([]string, len(acceptedFieldOrderList))
 )
 
 // init the strings.Joined version of acceptedFieldOrderList for checkFieldOrder()
@@ -254,34 +246,31 @@ var (
 func init() {
 	fieldListLen := -1
 	for i, order := range acceptedFieldOrderList {
-
 		// length assertion
 		sliceLen := len(order)
 		if i == 0 {
 			fieldListLen = sliceLen
-			acceptedFieldOrderLength = sliceLen
 		} else {
 			if fieldListLen != sliceLen {
 				panic("inconsistent length of acceptedFieldOrderList")
-				// TODO: change checkFieldOrder length check
 			}
 		}
-
-		acceptedFieldOrders[i] = strings.Join(order, acceptedFieldOrderDelimiter)
 	}
 }
 
 func checkFieldOrder(fields []string) error {
-	if n := len(fields); n != acceptedFieldOrderLength {
-		return fmt.Errorf("ssb/verify: invalid field order length (%d)", n)
-	}
-
-	gotFields := strings.Join(fields, acceptedFieldOrderDelimiter)
-
-	for _, accepted := range acceptedFieldOrders {
-		if accepted == gotFields {
-			return nil
+	for _, acceptedFieldOrder := range acceptedFieldOrderList {
+		if len(fields) != len(acceptedFieldOrder) {
+			continue
 		}
+
+		for i := range acceptedFieldOrder {
+			if acceptedFieldOrder[i] != fields[i] {
+				continue
+			}
+		}
+
+		return nil
 	}
 
 	return fmt.Errorf("ssb/verify: invalid field order: %v", fields)
