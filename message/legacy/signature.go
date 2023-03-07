@@ -48,7 +48,7 @@ func ExtractSignature(b []byte) ([]byte, Signature, error) {
 			}
 
 			lines[i-1] = bytes.TrimSuffix(lines[i-1], jsonComma)
-			msg := bytes.Join(lines, []byte("\n"))
+			msg := bytes.Join(lines, jsonLineSeparator)
 			return msg, signature, nil
 		}
 	}
