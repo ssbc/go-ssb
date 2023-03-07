@@ -308,7 +308,8 @@ func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 	}
 
 	if pp.buffer == nil {
-		pp.buffer = new(bytes.Buffer)
+		guessedSize := len(input)
+		pp.buffer = bytes.NewBuffer(make([]byte, 0, guessedSize))
 	}
 
 	if err := pp.formatObject(1); err != nil {
