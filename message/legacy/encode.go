@@ -27,12 +27,7 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 	pp.buffer.WriteString("{\n")
 
 	i := 0
-	for {
-		s := pp.iter.ReadObject()
-		if s == "" {
-			break
-		}
-
+	if cb := pp.iter.ReadObjectCB(func(iter *jsoniter.Iterator, s string) bool {
 		if depth == 1 {
 			pp.topLevelFields = append(pp.topLevelFields, s)
 		}
@@ -48,39 +43,49 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 		switch whatIsNext := pp.iter.WhatIsNext(); whatIsNext {
 		case jsoniter.ObjectValue:
 			if err := pp.formatObject(depth + 1); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		case jsoniter.StringValue:
 			if err := pp.formatString(); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		case jsoniter.NumberValue:
 			if err := pp.formatNumber(); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		case jsoniter.NilValue:
 			if err := pp.formatNil(); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		case jsoniter.BoolValue:
 			if err := pp.formatBool(); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		case jsoniter.ArrayValue:
 			if err := pp.formatArray(depth + 1); err != nil {
-				return err
+				iter.Error = err
+				return false
 			}
 
 		default:
-			return fmt.Errorf("unexpected value: %v", whatIsNext)
+			iter.Error = fmt.Errorf("unexpected value: %v", whatIsNext)
+			return false
 		}
 
 		i++
+		return true
+	}); !cb {
+		return pp.iter.Error
 	}
 
 	pp.buffer.WriteString("\n")
@@ -210,7 +215,7 @@ func (pp *prettyPrinter) formatBool() error {
 
 func (pp *prettyPrinter) writeString(v string) {
 	pp.buffer.WriteByte('"')
-	unicodeEscapeSome(pp.buffer, v)
+	quoteString(pp.buffer, v)
 	pp.buffer.WriteByte('"')
 }
 
@@ -319,6 +324,10 @@ func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 
 	if err := pp.formatObject(1); err != nil {
 		return nil, fmt.Errorf("message Encode: failed to format message as object: %w", err)
+	}
+
+	if err := pp.iter.Error; err != nil {
+		return nil, fmt.Errorf("message Encode: iterator error: %w", err)
 	}
 
 	if pp.checkFieldOrder {

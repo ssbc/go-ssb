@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,12 +47,32 @@ func TestStripSignature(t *testing.T) {
 	require.Equal(t, wantSig, sig)
 }
 
-func TestUnicodeFind(t *testing.T) {
-	in := "Hello\x01World"
-	want := `Hello\u0001World`
-	buf := &bytes.Buffer{}
-	unicodeEscapeSome(buf, in)
-	assert.Equal(t, want, buf.String())
+func TestPrettyPrint_EscapesCharactersDefinedByECMA262(t *testing.T) {
+	specialCharsIn := []byte{'\\', '\\', '\\', '"', '\n', '\r', '\t', '\b', '\f', '\x01'}
+	specialCharsWant := []byte{'\\', '\\', '\\', '"', '\\', 'n', '\\', 'r', '\\', 't', '\\', 'b', '\\', 'f', '\\', 'u', '0', '0', '0', '1'}
+
+	var in bytes.Buffer
+	in.WriteString(`{"`)
+	in.WriteString(string(specialCharsIn))
+	in.WriteString(`":"`)
+	in.WriteString(string(specialCharsIn))
+	in.WriteString(`"}`)
+
+	var want bytes.Buffer
+	want.WriteString("{\n  \"")
+	want.WriteString(string(specialCharsWant))
+	want.WriteString(`": "`)
+	want.WriteString(string(specialCharsWant))
+	want.WriteString("\"\n}")
+
+	out, err := PrettyPrint(in.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, string(want.Bytes()), string(out))
+}
+
+func TestPrettyPrint_ReturnsErrorOnInvalidInput(t *testing.T) {
+	_, err := PrettyPrint([]byte(`{"":"}`))
+	require.EqualError(t, err, "message Encode: failed to format message as object: readStringSlowPath: unexpected end of input, error found in #6 byte of ...|{\"\":\"}|..., bigger context ...|{\"\":\"}|...")
 }
 
 func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {

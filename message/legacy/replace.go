@@ -16,7 +16,8 @@ import (
 
 var hex = "0123456789abcdef"
 
-func unicodeEscapeSome(buf *bytes.Buffer, s string) {
+// https://262.ecma-international.org/6.0/#sec-quotejsonstring
+func quoteString(buf *bytes.Buffer, s string) {
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
