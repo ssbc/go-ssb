@@ -6,12 +6,11 @@ package legacy
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"io"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding/unicode"
-	"golang.org/x/text/transform"
 )
 
 var hex = "0123456789abcdef"
@@ -74,27 +73,33 @@ func quoteString(buf *bytes.Buffer, s string) {
 	}
 }
 
+var utf16enc = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+
 // InternalV8Binary does some funky v8 magic
 // new Buffer(in, "binary") returns soemthing like (u16 && 0xff)
 func InternalV8Binary(in []byte) ([]byte, error) {
-	var u16 bytes.Buffer
-	enc := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
-	trans := transform.NewWriter(&u16, enc)
-	if _, err := io.Copy(trans, bytes.NewReader(in)); err != nil {
-		return nil, fmt.Errorf("internalV8bin: failed to transform input to u16: %w", err)
+	guessedLength := len(in) * 2
+	u16b := make([]byte, guessedLength)
+
+	nDst, nSrc, err := utf16enc.Transform(u16b, in, false)
+	if err != nil {
+		return nil, fmt.Errorf("internalV8bin: error transforming: %w", err)
 	}
+	if nSrc != len(in) {
+		return nil, errors.New("internalV8bin: processed a different number of bytes than were given")
+	}
+	u16b = u16b[:nDst]
+
 	// now drop every 2nd byte
-	u16b := u16.Bytes()
 	if len(u16b)%2 != 0 {
-		return nil, fmt.Errorf("internalV8bin: assumed even number of bytes in u16")
+		return nil, errors.New("internalV8bin: assumed even number of bytes in u16")
 	}
-	j := 0
-	z := make([]byte, len(u16b)/2)
-	for k := 0; k < len(u16b); k += 2 {
-		z[j] = u16b[k]
-		j++
+	for i := 0; i < len(u16b)/2; i++ {
+		u16b[i] = u16b[i*2]
 	}
-	return z, nil
+	u16b = u16b[:len(u16b)/2]
+
+	return u16b, nil
 }
 
 var safeSet = [utf8.RuneSelf]bool{
