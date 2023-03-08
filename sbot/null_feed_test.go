@@ -29,11 +29,6 @@ import (
 )
 
 func TestNullFeed(t *testing.T) {
-	if testutils.SkipOnCI(t) {
-		// https://github.com/ssbc/go-ssb/pull/170
-		return
-	}
-
 	defer leakcheck.Check(t)
 	ctx, cancel := context.WithCancel(context.TODO())
 	botgroup, ctx := errgroup.WithContext(ctx)
@@ -78,7 +73,7 @@ func TestNullFeed(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(mainbot))
 
-	// create some messages
+	// create some messages under mainbot
 	intros := []struct {
 		as string      // nick name
 		c  interface{} // content
@@ -121,19 +116,30 @@ func TestNullFeed(t *testing.T) {
 		checkLogSeq(l, seq)
 	}
 
+	// make sure mainbot logged all of our initial test messages
 	checkLogSeq(mainbot.ReceiveLog, len(intros)-1) // got all the messages
 
 	// check before drop
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", 2)
 
+	// fsck mainbot before NullFeed so if it fails afterward we know it happened within NullFeed
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+
+	// delete bert's feed from mainbot
 	err = mainbot.NullFeed(kpBert.ID())
 	r.NoError(err, "null feed bert failed")
 
+	// fsck mainbot to make sure NullFeed didn't mess something up
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+
+	// make sure we now have two messages for arny (follow and "hello") and none for bert
 	checkUserLogSeq(mainbot, "arny", 1)
 	checkUserLogSeq(mainbot, "bert", -1)
 
-	// start bert and publish some messages
+	// start an sbot for bert and publish some messages
 	bertBot, err := New(
 		WithKeyPair(kpBert),
 		WithInfo(kitlog.With(logger, "bot", "bert")),
@@ -145,25 +151,46 @@ func TestNullFeed(t *testing.T) {
 	r.NoError(err)
 	botgroup.Go(bs.Serve(bertBot))
 
-	// make main want it
+	// make main bot follow bert bot so it wants bert's messages
 	_, err = mainbot.PublishLog.Publish(refs.NewContactFollow(kpBert.ID()))
 	r.NoError(err)
 
+	// make bert bot follow main bot (this does not appear to be strictly necessary)
 	_, err = bertBot.PublishLog.Publish(refs.NewContactFollow(mainbot.KeyPair.ID()))
 	r.NoError(err)
 
+	// fsck both bots before we try to replicate
+	err = mainbot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+	err = bertBot.FSCK(FSCKWithMode(FSCKModeSequences))
+	r.NoError(err)
+
+	// start the replication processes
+	t.Log("starting replication")
 	mainbot.Replicate(bertBot.KeyPair.ID())
 	bertBot.Replicate(mainbot.KeyPair.ID())
 
+	// publish a bunch more test messages to bertbot so we can make sure they replicate correctly
 	const testMsgCount = 1000
 	for i := testMsgCount; i > 0; i-- {
 		_, err = bertBot.PublishLog.Publish(i)
 		r.NoError(err)
 	}
+	t.Log("done publishing messages")
 
+	// make sure bertbot's log actually reflects all of the messages + the follow message
+	checkUserLogSeq(bertBot, "bert", testMsgCount)
+
+	// make sure mainbot still doesn't have any bert messages
+	checkUserLogSeq(mainbot, "bert", -1)
+
+	// tell mainbot to connect to bertbot so it will replicate
+	t.Log("connecting")
 	err = mainbot.Network.Connect(context.TODO(), bertBot.Network.GetListenAddr())
 	r.NoError(err)
 
+	// register to be notified any time that mainbot receives a message about bert
+	// once we receive all of the messages, continue
 	gotMessage := make(chan struct{})
 	updateSink := luigi.FuncSink(func(ctx context.Context, v interface{}, err error) error {
 		seq, ok := v.(int64)
@@ -188,6 +215,7 @@ func TestNullFeed(t *testing.T) {
 	}
 	done()
 
+	// close things down
 	bertBot.Shutdown()
 	mainbot.Shutdown()
 
