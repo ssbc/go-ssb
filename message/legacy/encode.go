@@ -289,20 +289,25 @@ func init() {
 
 func checkFieldOrder(fields []string) error {
 	for _, acceptedFieldOrder := range acceptedFieldOrderList {
-		if len(fields) != len(acceptedFieldOrder) {
-			continue
+		if err := fieldOrderIsValid(fields, acceptedFieldOrder); err == nil {
+			return nil
 		}
+	}
+	return fmt.Errorf("ssb/verify: invalid field order: %v", fields)
+}
 
-		for i := range acceptedFieldOrder {
-			if acceptedFieldOrder[i] != fields[i] {
-				continue
-			}
-		}
-
-		return nil
+func fieldOrderIsValid(fields []string, acceptedFieldOrder []string) error {
+	if len(fields) != len(acceptedFieldOrder) {
+		return errors.New("invalid length")
 	}
 
-	return fmt.Errorf("ssb/verify: invalid field order: %v", fields)
+	for i := range acceptedFieldOrder {
+		if acceptedFieldOrder[i] != fields[i] {
+			return errors.New("different fields")
+		}
+	}
+
+	return nil
 }
 
 type prettyPrinter struct {
