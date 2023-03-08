@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
-	"strings"
 )
 
 var iteratorConfig = jsoniter.Config{
@@ -36,7 +35,7 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 			pp.buffer.WriteString(",\n")
 		}
 
-		pp.buffer.WriteString(strings.Repeat("  ", depth))
+		pp.writeIndent(depth)
 		pp.writeString(s)
 		pp.buffer.WriteString(": ")
 
@@ -89,7 +88,7 @@ func (pp *prettyPrinter) formatObject(depth int) error {
 	}
 
 	pp.buffer.WriteString("\n")
-	pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+	pp.writeIndent(depth - 1)
 	pp.buffer.WriteString("}")
 
 	return nil
@@ -116,7 +115,7 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 			pp.buffer.WriteString(",\n")
 		}
 
-		pp.buffer.WriteString(strings.Repeat("  ", depth))
+		pp.writeIndent(depth)
 
 		switch whatIsNext := pp.iter.WhatIsNext(); whatIsNext {
 		case jsoniter.ObjectValue:
@@ -158,7 +157,7 @@ func (pp *prettyPrinter) formatArray(depth int) error {
 
 	if i > 0 {
 		pp.buffer.WriteString("\n")
-		pp.buffer.WriteString(strings.Repeat("  ", depth-1))
+		pp.writeIndent(depth - 1)
 	}
 	pp.buffer.WriteString("]")
 
@@ -219,6 +218,36 @@ func (pp *prettyPrinter) writeString(v string) {
 	pp.buffer.WriteByte('"')
 }
 
+var (
+	indentBytes      = []byte("  ")
+	indentBytesOne   = bytes.Repeat(indentBytes, 1)
+	indentBytesTwo   = bytes.Repeat(indentBytes, 2)
+	indentBytesThree = bytes.Repeat(indentBytes, 3)
+	indentBytesFour  = bytes.Repeat(indentBytes, 4)
+	indentBytesFive  = bytes.Repeat(indentBytes, 5)
+)
+
+func (pp *prettyPrinter) writeIndent(depth int) {
+	if depth == 0 {
+		return
+	}
+
+	switch depth {
+	case 1:
+		pp.buffer.Write(indentBytesOne)
+	case 2:
+		pp.buffer.Write(indentBytesTwo)
+	case 3:
+		pp.buffer.Write(indentBytesThree)
+	case 4:
+		pp.buffer.Write(indentBytesFour)
+	case 5:
+		pp.buffer.Write(indentBytesFive)
+	default:
+		pp.buffer.Write(bytes.Repeat(indentBytes, depth))
+	}
+}
+
 type PrettyPrinterOption func(pp *prettyPrinter)
 
 func WithBuffer(buf *bytes.Buffer) PrettyPrinterOption {
@@ -234,19 +263,11 @@ func WithStrictOrderChecking(yes bool) PrettyPrinterOption {
 	}
 }
 
-// some constants for field order checking
-const acceptedFieldOrderDelimiter = ":"
-
-// (slices can't be const, though)
 var (
 	acceptedFieldOrderList = [][]string{
 		{"previous", "author", "sequence", "timestamp", "hash", "content", "signature"},
 		{"previous", "sequence", "author", "timestamp", "hash", "content", "signature"},
 	}
-
-	acceptedFieldOrderLength int
-
-	acceptedFieldOrders = make([]string, len(acceptedFieldOrderList))
 )
 
 // init the strings.Joined version of acceptedFieldOrderList for checkFieldOrder()
@@ -254,37 +275,39 @@ var (
 func init() {
 	fieldListLen := -1
 	for i, order := range acceptedFieldOrderList {
-
 		// length assertion
 		sliceLen := len(order)
 		if i == 0 {
 			fieldListLen = sliceLen
-			acceptedFieldOrderLength = sliceLen
 		} else {
 			if fieldListLen != sliceLen {
 				panic("inconsistent length of acceptedFieldOrderList")
-				// TODO: change checkFieldOrder length check
 			}
 		}
-
-		acceptedFieldOrders[i] = strings.Join(order, acceptedFieldOrderDelimiter)
 	}
 }
 
 func checkFieldOrder(fields []string) error {
-	if n := len(fields); n != acceptedFieldOrderLength {
-		return fmt.Errorf("ssb/verify: invalid field order length (%d)", n)
-	}
-
-	gotFields := strings.Join(fields, acceptedFieldOrderDelimiter)
-
-	for _, accepted := range acceptedFieldOrders {
-		if accepted == gotFields {
+	for _, acceptedFieldOrder := range acceptedFieldOrderList {
+		if err := fieldOrderIsValid(fields, acceptedFieldOrder); err == nil {
 			return nil
 		}
 	}
-
 	return fmt.Errorf("ssb/verify: invalid field order: %v", fields)
+}
+
+func fieldOrderIsValid(fields []string, acceptedFieldOrder []string) error {
+	if len(fields) != len(acceptedFieldOrder) {
+		return errors.New("invalid length")
+	}
+
+	for i := range acceptedFieldOrder {
+		if acceptedFieldOrder[i] != fields[i] {
+			return errors.New("different fields")
+		}
+	}
+
+	return nil
 }
 
 type prettyPrinter struct {
@@ -319,7 +342,8 @@ func PrettyPrint(input []byte, opts ...PrettyPrinterOption) ([]byte, error) {
 	}
 
 	if pp.buffer == nil {
-		pp.buffer = new(bytes.Buffer)
+		guessedSize := len(input)
+		pp.buffer = bytes.NewBuffer(make([]byte, 0, guessedSize))
 	}
 
 	if err := pp.formatObject(1); err != nil {
