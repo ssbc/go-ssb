@@ -13,29 +13,69 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 
 	refs "github.com/ssbc/go-ssb-refs"
 )
 
-var signatureRegexp = regexp.MustCompile(",\n  \"signature\": \"([A-Za-z0-9/+=.]+)\"")
+var (
+	jsonLineSeparator   = []byte("\n")
+	jsonSignatureSuffix = []byte(`.sig.ed25519"`)
+	jsonQuote           = []byte(`"`)
+	jsonComma           = []byte(`,`)
+)
 
 // ExtractSignature expects a pretty printed message and uses a regexp to strip it from the msg for signature verification
 func ExtractSignature(b []byte) ([]byte, Signature, error) {
 	// BUG(cryptix): this expects signature on the root of the object.
 	// some functions (like createHistoryStream with keys:true) nest the message on level deeper and this fails
-	matches := signatureRegexp.FindSubmatch(b)
-	if n := len(matches); n != 2 {
-		return nil, nil, fmt.Errorf("ssb/ExtractSignature: expected signature in formatted bytes. Only %d matches", n)
-	}
-	msg := signatureRegexp.ReplaceAll(b, []byte{})
+	// NOTE(boreq): this seems like expected behaviour to me.
 
-	sig, err := NewSignatureFromBase64(matches[1])
-	if err != nil {
-		fmt.Printf("\t\tbase64? %s\n", matches[1])
-		return nil, nil, fmt.Errorf("ssb/ExtractSignature: invalid base64 data: %w", err)
+	lines := bytes.Split(b, jsonLineSeparator)
+	for i := len(lines) - 1; i >= 0; i-- {
+		if bytes.HasSuffix(lines[i], jsonSignatureSuffix) {
+			signature, err := extractSignature(lines[i])
+			if err != nil {
+				return nil, nil, fmt.Errorf("error extracting signature: %w", err)
+			}
+
+			lines = append(lines[:i], lines[i+1:]...)
+			if i == 0 {
+				return nil, nil, errors.New("this message seems malformed, signature should be at the end of it")
+			}
+
+			if !bytes.HasSuffix(lines[i-1], jsonComma) {
+				return nil, nil, errors.New("this message seems malformed, previous line should have a comma at the end")
+			}
+
+			lines[i-1] = bytes.TrimSuffix(lines[i-1], jsonComma)
+			msg := bytes.Join(lines, jsonLineSeparator)
+			return msg, signature, nil
+		}
 	}
-	return msg, sig, nil
+
+	return nil, nil, errors.New("signature not found")
+}
+
+func extractSignature(line []byte) (Signature, error) {
+	closingQuoteIndex := bytes.LastIndex(line, jsonQuote)
+	if closingQuoteIndex < 0 {
+		return nil, errors.New("closing quote not found")
+	}
+	line = line[:closingQuoteIndex]
+
+	openingQuoteIndex := bytes.LastIndex(line, jsonQuote)
+	if openingQuoteIndex < 0 {
+		return nil, errors.New("opening quote not found")
+	}
+
+	line = line[openingQuoteIndex+1:]
+
+	sig, err := NewSignatureFromBase64(line)
+	if err != nil {
+		return nil, fmt.Errorf("error creating signature from base64 data: %w", err)
+	}
+
+	return sig, nil
 }
 
 type Signature []byte
@@ -58,16 +98,19 @@ func NewSignatureFromBase64(input []byte) (Signature, error) {
 	}
 
 	// decode and check lengths
-	decoded, err := base64.StdEncoding.DecodeString(string(b64))
+	decoded := make([]byte, gotLen)
+	n, err := base64.StdEncoding.Decode(decoded, b64)
 	if err != nil {
 		return nil, fmt.Errorf("ssb/signature: invalid base64 data: %w", err)
 	}
+	decoded = decoded[:n]
+
 	decodedLen := len(decoded)
 	if decodedLen != ed25519.SignatureSize {
 		return nil, fmt.Errorf("ssb/signature: decoded data is %d bytes long and should be %d", decodedLen, ed25519.SignatureSize)
 	}
 
-	return Signature(decoded), err
+	return decoded, err
 }
 
 var signatureSuffix = []byte(".sig.ed25519")

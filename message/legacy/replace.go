@@ -14,26 +14,64 @@ import (
 	"golang.org/x/text/transform"
 )
 
-func unicodeEscapeSome(s string) string {
-	var b bytes.Buffer
-	for i, r := range s {
-		// https://spec.scuttlebutt.nz/feed/datamodel.html#signing-encoding-strings
-		// the rest is already handled by %q in encode.go
-		if r == 0x000008 {
-			// (backspace) \b
-			b.Write([]byte{0x5C, 0x62})
-		} else if r == 0x00000C {
-			// (form feed) \f
-			b.Write([]byte{0x5C, 0x66})
-		} else if r < 0x20 {
-			// TODO: width for multibyte chars
-			runeValue, _ := utf8.DecodeRuneInString(s[i:])
-			fmt.Fprintf(&b, "\\u%04x", runeValue)
-		} else {
-			fmt.Fprintf(&b, "%c", r)
+var hex = "0123456789abcdef"
+
+// https://262.ecma-international.org/6.0/#sec-quotejsonstring
+func quoteString(buf *bytes.Buffer, s string) {
+	start := 0
+	for i := 0; i < len(s); {
+		if b := s[i]; b < utf8.RuneSelf {
+			if safeSet[b] {
+				i++
+				continue
+			}
+
+			if start < i {
+				buf.WriteString(s[start:i])
+			}
+
+			buf.WriteByte('\\')
+
+			switch b {
+			case '\\', '"':
+				buf.WriteByte(b)
+			case '\n':
+				buf.WriteByte('n')
+			case '\r':
+				buf.WriteByte('r')
+			case '\t':
+				buf.WriteByte('t')
+			case '\b':
+				buf.WriteByte('b')
+			case '\f':
+				buf.WriteByte('f')
+			default:
+				buf.WriteString(`u00`)
+				buf.WriteByte(hex[b>>4])
+				buf.WriteByte(hex[b&0xF])
+			}
+
+			i++
+			start = i
+			continue
 		}
+
+		c, size := utf8.DecodeRuneInString(s[i:])
+		if c == utf8.RuneError && size == 1 {
+			if start < i {
+				buf.WriteString(s[start:i])
+			}
+			buf.WriteString(`\ufffd`)
+			i += size
+			start = i
+			continue
+		}
+
+		i += size
 	}
-	return b.String()
+	if start < len(s) {
+		buf.WriteString(s[start:])
+	}
 }
 
 // InternalV8Binary does some funky v8 magic
@@ -57,4 +95,103 @@ func InternalV8Binary(in []byte) ([]byte, error) {
 		j++
 	}
 	return z, nil
+}
+
+var safeSet = [utf8.RuneSelf]bool{
+	' ':      true,
+	'!':      true,
+	'"':      false,
+	'#':      true,
+	'$':      true,
+	'%':      true,
+	'&':      true,
+	'\'':     true,
+	'(':      true,
+	')':      true,
+	'*':      true,
+	'+':      true,
+	',':      true,
+	'-':      true,
+	'.':      true,
+	'/':      true,
+	'0':      true,
+	'1':      true,
+	'2':      true,
+	'3':      true,
+	'4':      true,
+	'5':      true,
+	'6':      true,
+	'7':      true,
+	'8':      true,
+	'9':      true,
+	':':      true,
+	';':      true,
+	'<':      true,
+	'=':      true,
+	'>':      true,
+	'?':      true,
+	'@':      true,
+	'A':      true,
+	'B':      true,
+	'C':      true,
+	'D':      true,
+	'E':      true,
+	'F':      true,
+	'G':      true,
+	'H':      true,
+	'I':      true,
+	'J':      true,
+	'K':      true,
+	'L':      true,
+	'M':      true,
+	'N':      true,
+	'O':      true,
+	'P':      true,
+	'Q':      true,
+	'R':      true,
+	'S':      true,
+	'T':      true,
+	'U':      true,
+	'V':      true,
+	'W':      true,
+	'X':      true,
+	'Y':      true,
+	'Z':      true,
+	'[':      true,
+	'\\':     false,
+	']':      true,
+	'^':      true,
+	'_':      true,
+	'`':      true,
+	'a':      true,
+	'b':      true,
+	'c':      true,
+	'd':      true,
+	'e':      true,
+	'f':      true,
+	'g':      true,
+	'h':      true,
+	'i':      true,
+	'j':      true,
+	'k':      true,
+	'l':      true,
+	'm':      true,
+	'n':      true,
+	'o':      true,
+	'p':      true,
+	'q':      true,
+	'r':      true,
+	's':      true,
+	't':      true,
+	'u':      true,
+	'v':      true,
+	'w':      true,
+	'x':      true,
+	'y':      true,
+	'z':      true,
+	'{':      true,
+	'|':      true,
+	'}':      true,
+	'~':      true,
+	'\u007f': true,
 }

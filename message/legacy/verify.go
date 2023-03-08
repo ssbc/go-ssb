@@ -13,11 +13,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
-	"strings"
-
+	jsoniter "github.com/json-iterator/go"
 	refs "github.com/ssbc/go-ssb-refs"
 	"golang.org/x/crypto/nacl/auth"
+	"io"
 )
 
 var (
@@ -49,6 +48,11 @@ func runeLength(s string) int {
 	return len(runes)
 }
 
+var (
+	boxSuffix  = []byte(`.box"`)
+	box2Suffix = []byte(`.box2"`)
+)
+
 func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs.MessageRef, DeserializedMessage, error) {
 	enc, err := PrettyPrint(raw, WithBuffer(buf), WithStrictOrderChecking(true))
 	if err != nil {
@@ -60,7 +64,7 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 
 	// this unmarshal destroys it for the network layer but makes it easier to access its values
 	var dmsg DeserializedMessage
-	if err := json.Unmarshal(raw, &dmsg); err != nil {
+	if err := jsoniter.Unmarshal(raw, &dmsg); err != nil {
 		if len(raw) > 32 {
 			raw = append(raw[:32], '.', '.', '.')
 		}
@@ -85,7 +89,7 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		var typedContent struct {
 			Type string
 		}
-		err = json.Unmarshal(dmsg.Content, &typedContent)
+		err = jsoniter.Unmarshal(dmsg.Content, &typedContent)
 		if err != nil {
 			return emptyMsgRef, emptyDMsg, err
 		}
@@ -96,14 +100,8 @@ func VerifyWithBuffer(raw []byte, hmacSecret *[32]byte, buf *bytes.Buffer) (refs
 		}
 
 	case '"': // if it's a JSON string
-		var justString string
-		err = json.Unmarshal(dmsg.Content, &justString)
-		if err != nil {
-			return emptyMsgRef, emptyDMsg, err
-		}
-
 		// only allow known suffixes
-		if !strings.HasSuffix(justString, ".box") && !strings.HasSuffix(justString, ".box2") {
+		if !bytes.HasSuffix(dmsg.Content, boxSuffix) && !bytes.HasSuffix(dmsg.Content, box2Suffix) {
 			return emptyMsgRef, emptyDMsg, fmt.Errorf("ssb Verify: scuttlebutt v1 private messages need to have the right suffix")
 		}
 

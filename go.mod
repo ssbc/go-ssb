@@ -17,6 +17,7 @@ require (
 	github.com/go-kit/kit v0.12.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/json-iterator/go v1.1.12
 	github.com/keks/persist v0.0.0-20210520094901-9bdd97c1fad2
 	github.com/keks/testops v0.1.0
 	github.com/komkom/toml v0.1.2
@@ -72,6 +73,8 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/matryer/is v1.3.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

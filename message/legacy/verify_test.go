@@ -50,3 +50,16 @@ func TestVerifyBugs(t *testing.T) {
 		a.Equal(tc.seq, dmsg.Sequence)
 	}
 }
+
+func BenchmarkVerify(b *testing.B) {
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for j := 1; j < len(testMessages); j++ {
+			_, _, err := Verify(testMessages[j].Input, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}

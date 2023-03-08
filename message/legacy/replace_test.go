@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,31 +30,49 @@ func TestStripSignature(t *testing.T) {
 	var (
 		input = []byte(`{
   "foo": "hello",
-  "signature": "aBISzGroszUndKlein01234567890/+="
+  "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==.sig.ed25519"
 }`)
 		want = []byte(`{
   "foo": "hello"
 }`)
-		wantSig = []byte("aBISzGroszUndKlein01234567890/+=")
 	)
-	matches := signatureRegexp.FindSubmatch(input)
-	if n := len(matches); n != 2 {
-		t.Fatalf("expected 2 results, got %d", n)
-	}
-	if s := matches[1]; bytes.Compare(s, wantSig) != 0 {
-		t.Errorf("unexpected submatch: %s", s)
-	}
-	out := signatureRegexp.ReplaceAll(input, []byte{})
-	if bytes.Compare(out, want) != 0 {
-		t.Errorf("got unexpected replace:\n%s", out)
-	}
+
+	wantSig, err := NewSignatureFromBase64([]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==.sig.ed25519"))
+	require.NoError(t, err)
+
+	msg, sig, err := ExtractSignature(input)
+	require.NoError(t, err)
+
+	require.Equal(t, want, msg)
+	require.Equal(t, wantSig, sig)
 }
 
-func TestUnicodeFind(t *testing.T) {
-	in := "Hello\x01World"
-	want := `Hello\u0001World`
-	out := unicodeEscapeSome(in)
-	assert.Equal(t, want, out)
+func TestPrettyPrint_EscapesCharactersDefinedByECMA262(t *testing.T) {
+	specialCharsIn := []byte{'\\', '\\', '\\', '"', '\n', '\r', '\t', '\b', '\f', '\x01'}
+	specialCharsWant := []byte{'\\', '\\', '\\', '"', '\\', 'n', '\\', 'r', '\\', 't', '\\', 'b', '\\', 'f', '\\', 'u', '0', '0', '0', '1'}
+
+	var in bytes.Buffer
+	in.WriteString(`{"`)
+	in.WriteString(string(specialCharsIn))
+	in.WriteString(`":"`)
+	in.WriteString(string(specialCharsIn))
+	in.WriteString(`"}`)
+
+	var want bytes.Buffer
+	want.WriteString("{\n  \"")
+	want.WriteString(string(specialCharsWant))
+	want.WriteString(`": "`)
+	want.WriteString(string(specialCharsWant))
+	want.WriteString("\"\n}")
+
+	out, err := PrettyPrint(in.Bytes())
+	require.NoError(t, err)
+	require.Equal(t, string(want.Bytes()), string(out))
+}
+
+func TestPrettyPrint_ReturnsErrorOnInvalidInput(t *testing.T) {
+	_, err := PrettyPrint([]byte(`{"":"}`))
+	require.EqualError(t, err, "message Encode: failed to format message as object: readStringSlowPath: unexpected end of input, error found in #6 byte of ...|{\"\":\"}|..., bigger context ...|{\"\":\"}|...")
 }
 
 func getHexBytesFromNode(t *testing.T, input, encoding string) []byte {
