@@ -24,7 +24,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/libp2p/go-reuseport v0.2.0
 	github.com/machinebox/progress v0.2.0
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/cors v1.8.3
 	github.com/shurcooL/go-goon v1.0.0
@@ -45,7 +45,7 @@ require (
 	go.mindeco.de v1.12.0
 	golang.org/x/crypto v0.4.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/text v0.5.0
+	golang.org/x/text v0.6.0
 	gonum.org/v1/gonum v0.12.0
 	modernc.org/kv v1.0.5
 )
@@ -87,10 +87,10 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20221025133541-111beb427cde // indirect
-	golang.org/x/mod v0.6.0 // indirect
-	golang.org/x/net v0.3.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/tools v0.2.0 // indirect
+	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/tools v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/fileutil v1.1.1 // indirect
