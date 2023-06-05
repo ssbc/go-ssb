@@ -37,7 +37,7 @@ require (
 	github.com/ssbc/go-ssb-multiserver v0.1.5-0.20221019203850-917ae0e23d57
 	github.com/ssbc/go-ssb-refs v0.5.2
 	github.com/ssbc/margaret v0.4.4-0.20221101112304-4f5815095ef3
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 	github.com/ugorji/go/codec v1.2.8
 	github.com/urfave/cli/v2 v2.23.7
 	github.com/zeebo/bencode v1.0.0
